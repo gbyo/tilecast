@@ -283,6 +283,7 @@ A plugin implements only the interfaces it needs. Forms does not implement
 | `DataSources`          | The plugin's own Data Source rows, bound to its contributed provider. See below.                                               |
 | `Users`                | Read-only user directory facts the plugin needs for attribution.                                                               |
 | `PluginAssets`         | The plugin's own private uploads, bound to its identity. See below.                                                            |
+| `Fonts`                | `UseInTx` and `ReleaseInTx` record which organization font library families an instance uses. See [Fonts](fonts.md#plugins).   |
 
 `Host` is a struct, not an interface. The core can add a service without a
 break in existing plugins. A plugin that needs a core fact that no service

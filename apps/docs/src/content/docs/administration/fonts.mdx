@@ -1,0 +1,62 @@
+---
+title: Add fonts for Layout text and plugins
+description: Add Google Fonts families or upload your own TTF and OTF files so Layout text and plugins such as Countdown Bar can use your organization's typefaces.
+---
+
+Open **Settings** > **Fonts** to manage the typefaces your organization can choose for Layout text and for plugins that offer a font setting, such as [Countdown Bar](../../operations/plugins/countdown-bar/). Anyone whose role can see screens or change settings can see the list. You need permission to change settings (Owners and Administrators have it) to add or remove a font.
+
+Tilecast keeps every font on your server. A screen downloads a font together with the published content that uses it and keeps it for offline playback. Neither the screens nor Studio contact Google.
+
+## Add a family from Google Fonts
+
+1. Select **Add from Google Fonts**.
+2. Search by name or pick a category. Each family name is shown in its own typeface.
+3. Select a family.
+4. Choose the **Character sets** your text needs, such as `latin` for English and most Western European languages, or `cyrillic` for Russian.
+5. Choose the **Styles** (Regular, Italic) and, for families that list them, the **Weights**.
+6. Select **Add to organization**.
+
+Your server copies the files once. After that, nothing depends on Google.
+
+Each character set and style you add is another file that every screen showing the font downloads. Add only what your content uses. Variable families store every weight in one file, so you don't choose weights for them.
+
+Families for Japanese, Korean, and Chinese are large. Tilecast splits them into many small files so a screen only draws the characters it needs, but adding one can still take a minute.
+
+If your server can't reach the internet, or your organization doesn't want the server to contact the catalog, upload font files instead. An administrator can turn the catalog off completely with `TILECAST_FONT_CATALOG_ENABLED=false`.
+
+## Upload your own fonts
+
+1. Select **Upload font files**.
+2. Choose one TrueType (`.ttf`) or OpenType (`.otf`) file for each style, for example Regular, Bold, and Italic. Each file can be up to 15 MB.
+3. Confirm that your organization has the right to show these fonts on its displays.
+4. Select **Upload N files**, where N is the number of files you chose.
+
+Tilecast reads the family name, weight, and style from each file. Files that share a family name join one family, so Regular and Bold appear as one choice.
+
+Font collections (`.ttc`) and web fonts (`.woff`, `.woff2`) aren't accepted. Ask your font vendor for the TTF or OTF files.
+
+If a font's own license flags say it may not be embedded, Studio warns you after the upload. Check that your license allows use on displays before you publish content with it.
+
+## Use a font in a Layout
+
+1. Open the Layout and select a text layer.
+2. In **Font**, choose a family under **Organization fonts**. If the family you want isn't there yet, select **Add fonts** below the list to add it from Google Fonts without leaving the editor. The new family is applied to the text layer.
+3. Publish the Layout.
+
+The text layer also keeps a built-in font as a fallback. Screens show the fallback while the font file downloads, and screens running an older Player version keep using it.
+
+## Use a font in a plugin
+
+Open the plugin's page and choose the family in **Font**. Countdown Bar offers it today. The list and the **Add fonts** shortcut work the same as in the Layout editor. Screens that can't load the font, including screens on an older Player, use the plugin's default font.
+
+## Remove a font
+
+Select the trash icon next to the family and confirm. If a Layout draft or published Layout, or a plugin item such as a countdown bar, still uses the font, Tilecast lists them. Choose another font in each one first.
+
+Screens that already downloaded the font keep their copy until their next content update.
+
+## Related pages
+
+- [Layouts](../../layouts/)
+- [Branding](../branding/)
+- [Organization font library specification](https://github.com/gbyo/tilecast/blob/main/docs/fonts.md) for the exact contract

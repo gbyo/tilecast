@@ -177,7 +177,7 @@ export function LayoutPlacementView({
         <div
           className="layout-text-primitive"
           style={{
-            fontFamily: layoutFontStack(primitive.fontFamily),
+            fontFamily: layoutFontStack(primitive.fontFamily, primitive.fontId),
             fontSize:
               String(((primitive.fontSize ?? 48) / canvas.width) * 100) + "cqw",
             fontWeight: primitive.fontWeight,

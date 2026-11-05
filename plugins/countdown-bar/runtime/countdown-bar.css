@@ -19,6 +19,7 @@
   overflow: hidden;
   background: var(--tc-bar-bg);
   color: #fff;
+  font-family: var(--tc-countdown-bar-font-family, inherit);
   font-size: var(--tc-countdown-bar-font-size, 30px);
   font-weight: 500;
   letter-spacing: 0.005em;

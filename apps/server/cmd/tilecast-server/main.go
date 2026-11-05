@@ -37,6 +37,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
+	"github.com/tilecast/tilecast/apps/server/internal/fonts"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
@@ -136,6 +137,7 @@ func serve() {
 		SourceFetch:       media.SourceFetchPolicy{AllowPrivateNetworks: cfg.Sources.AllowPrivateNetworks, Timeout: time.Duration(cfg.Sources.TimeoutSeconds) * time.Second, MaximumBytes: cfg.Sources.MaximumResponseBytes, MaximumRedirects: cfg.Sources.MaximumRedirects, MinimumRefresh: time.Duration(cfg.Sources.MinimumRefreshSeconds) * time.Second, MaximumRefresh: time.Duration(cfg.Sources.MaximumRefreshSeconds) * time.Second},
 		AirQualityBaseURL: cfg.Sources.AirQualityBaseURL,
 	})
+	fontService := fonts.NewService(db, mediaStorage, fonts.NewCatalog(!cfg.FontCatalogEnabled))
 	playlistService := playlists.NewService(db, deviceService)
 	spanService := span.NewService(db, mediaStorage, span.Config{FFmpegPath: cfg.Media.FFmpegPath, FFprobePath: cfg.Media.FFprobePath}, deviceService)
 	playlistService.SetSpanProjector(spanService)
@@ -426,6 +428,7 @@ func serve() {
 		PublicURL:            cfg.PublicURL,
 		Devices:              deviceService,
 		Media:                mediaService,
+		Fonts:                fontService,
 		Playlists:            playlistService,
 		Campaigns:            campaignService,
 		Presentations:        presentationService,

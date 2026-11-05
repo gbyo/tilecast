@@ -29,6 +29,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 
+	"github.com/tilecast/tilecast/apps/server/internal/fonts"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
@@ -52,6 +53,7 @@ type Dependencies struct {
 	Auth                 *auth.Service
 	Devices              *devices.Service
 	Media                *media.Service
+	Fonts                *fonts.Service
 	Playlists            *playlists.Service
 	Campaigns            *campaigns.Service
 	Presentations        *presentations.Service
@@ -103,6 +105,7 @@ type server struct {
 	registeredObjectRules         map[string]bool
 	devices                       *devices.Service
 	media                         *media.Service
+	fonts                         *fonts.Service
 	playlists                     *playlists.Service
 	playbackPlan                  *playbackplan.Inspector
 	playbackAgenda                *playbackplan.SnapshotCurrent
@@ -174,6 +177,7 @@ func New(deps Dependencies) *API {
 		registeredObjectRules: map[string]bool{},
 		devices:               deps.Devices,
 		media:                 deps.Media,
+		fonts:                 deps.Fonts,
 		playlists:             deps.Playlists,
 		campaigns:             deps.Campaigns,
 		presentations:         deps.Presentations,

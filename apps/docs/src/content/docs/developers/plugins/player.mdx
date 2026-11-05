@@ -62,14 +62,15 @@ If your code throws, the host disposes your plugin and keeps everything else run
 
 ## Pick services
 
-| Service                         | Use it for                                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------- |
-| `player.clock@1`                | Corrected server time and timers.                                            |
-| `player.events@1`               | Events between your native part and your Shared Runtime part.                |
-| `player.media@1`                | Addresses for media your state declares. Anything else returns `null`.       |
-| `player.presentation.observe@1` | What's on screen: the current item, its kind, and whether it may play sound. |
-| `player.presentation.provide@1` | A provider that supplies presentation behavior when the host asks for it.    |
-| `player.surface@1`              | Strips, corners, and overlays, with push or overlay geometry.                |
+| Service                         | Use it for                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| `player.clock@1`                | Corrected server time and timers.                                             |
+| `player.events@1`               | Events between your native part and your Shared Runtime part.                 |
+| `player.fonts@1`                | Organization font families your state declares. Anything else returns `null`. |
+| `player.media@1`                | Addresses for media your state declares. Anything else returns `null`.        |
+| `player.presentation.observe@1` | What's on screen: the current item, its kind, and whether it may play sound.  |
+| `player.presentation.provide@1` | A provider that supplies presentation behavior when the host asks for it.     |
+| `player.surface@1`              | Strips, corners, and overlays, with push or overlay geometry.                 |
 
 Ask only for what you use. A missing **required** service means the Player won't run your plugin; a missing **optional** service is `null`, and `servicesChanged` tells you if it appears later.
 

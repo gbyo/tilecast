@@ -313,19 +313,24 @@ fn serve_grant(
     match crate::ranges::parse_range(range.as_deref(), grant.size_bytes) {
         crate::ranges::RangeOutcome::Entire => {
             let stream = crate::streams::FileRangeStream::new(file, 0, grant.size_bytes);
+            // Font faces load in CORS mode; only the Runtime document may read
+            // media cross-origin. Images and video stay no-cors.
             let headers = format!(
-                "Content-Type: {}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\n",
-                grant.mime_type, grant.size_bytes
+                "Content-Type: {}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: {}\r\n",
+                grant.mime_type,
+                grant.size_bytes,
+                crate::schemes::RUNTIME_ORIGIN
             );
             if head_only { (200, "OK", headers, empty()) } else { (200, "OK", headers, stream) }
         }
         crate::ranges::RangeOutcome::Partial(interval) => {
             let stream = crate::streams::FileRangeStream::new(file, interval.start, interval.len());
             let headers = format!(
-                "Content-Type: {}\r\nContent-Length: {}\r\nContent-Range: {}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\n",
+                "Content-Type: {}\r\nContent-Length: {}\r\nContent-Range: {}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: {}\r\n",
                 grant.mime_type,
                 interval.len(),
-                interval.content_range(grant.size_bytes)
+                interval.content_range(grant.size_bytes),
+                crate::schemes::RUNTIME_ORIGIN
             );
             if head_only {
                 (206, "Partial Content", headers, empty())

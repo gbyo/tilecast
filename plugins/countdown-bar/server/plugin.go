@@ -76,7 +76,12 @@ func (p *Plugin) ProjectPlayerState(ctx context.Context, screenID uuid.UUID) ([]
 	}
 	out := make([]plugin.PlayerState, 0, len(instances))
 	for _, instance := range instances {
-		out = append(out, plugin.PlayerState{ID: instance.id, Type: ManifestType, Version: 1, State: instance.config})
+		state := plugin.PlayerState{ID: instance.id, Type: ManifestType, Version: 1,
+			State: StateConfig{ManifestConfig: instance.config, FontID: instance.fontID}}
+		if instance.fontID != nil {
+			state.Fonts = []uuid.UUID{*instance.fontID}
+		}
+		out = append(out, state)
 	}
 	return out, nil
 }
@@ -98,6 +103,8 @@ func (p *Plugin) ProjectManifest(ctx context.Context, screenID uuid.UUID) ([]plu
 type screenInstance struct {
 	id     uuid.UUID
 	config ManifestConfig
+	// fontID is Plugin API v2 only: a Player without it keeps its own face.
+	fontID *uuid.UUID
 }
 
 // screenInstances reads every enabled instance that applies to the screen,
@@ -105,7 +112,7 @@ type screenInstance struct {
 func (p *Plugin) screenInstances(ctx context.Context, screenID uuid.UUID) ([]screenInstance, error) {
 	rows, err := p.host.DB.Query(ctx, `SELECT DISTINCT i.id,i.name,i.message,i.schedule_type,i.target_time::text,i.days_of_week,
 		i.one_time_at,i.timezone,i.lead_time_seconds,i.completion_text,i.show_confetti,i.display_mode,i.height_px,i.progress_fill,i.content_padding,i.text_scale,
-		i.urgency_enabled,i.starting_soon_seconds,i.urgent_seconds,i.pulse_seconds,i.priority
+		i.urgency_enabled,i.starting_soon_seconds,i.urgent_seconds,i.pulse_seconds,i.priority,i.font_id
 		`+plugin.ScreenTargetFilter("countdown_bar_instances", "countdown_bar_targets")+`
 		ORDER BY i.priority DESC,i.id`, screenID)
 	if err != nil {
@@ -119,7 +126,7 @@ func (p *Plugin) screenInstances(ctx context.Context, screenID uuid.UUID) ([]scr
 		if err = rows.Scan(&instance.id, &config.Name, &config.Message, &config.ScheduleType, &config.TargetTime,
 			&config.DaysOfWeek, &config.OneTimeAt, &config.Timezone, &config.LeadTimeSeconds,
 			&config.CompletionText, &config.ShowConfetti, &config.DisplayMode, &config.HeightPX, &config.ProgressFill, &config.ContentPadding, &config.TextScale,
-			&config.UrgencyEnabled, &config.StartingSoonSeconds, &config.UrgentSeconds, &config.PulseSeconds, &config.Priority); err != nil {
+			&config.UrgencyEnabled, &config.StartingSoonSeconds, &config.UrgentSeconds, &config.PulseSeconds, &config.Priority, &instance.fontID); err != nil {
 			return nil, err
 		}
 		config.TargetTime = trimTargetTime(config.TargetTime)

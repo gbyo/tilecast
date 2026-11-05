@@ -177,6 +177,7 @@ ProjectPlayerState(ctx context.Context, screenID uuid.UUID) ([]plugin.PlayerStat
 | Entries          | 64 for each plugin. The whole `plugins` array has at most 64. |
 | State            | JSON object, 16 KiB, 16 levels, 2048 values                   |
 | Media references | 16 for each entry                                             |
+| Font families    | 4 for each entry, 400 faces for each family                   |
 | `validUntil`     | Optional. At most 366 days ahead.                             |
 
 The wire entry is in the Player manifest `plugins` array:
@@ -196,6 +197,12 @@ The wire entry is in the Player manifest `plugins` array:
 }
 ```
 
+An entry can also carry an additive `fonts` array of organization font
+library families, in the shape of the Layout `fonts` entry
+([fonts.md](fonts.md#plugins)). A plugin sets `PlayerState.Fonts` to family
+IDs. The Server fills in the family name and the faces, and adds each face file
+to `assets`. A Player without `player.fonts@1` ignores the key.
+
 `packages/manifest-schema/plugin-state-entry-fixture.json` is this entry. The
 Server, Player Core, Edge, Windows, Android, and the Shared Runtime tests read
 it.
@@ -212,6 +219,9 @@ it.
   support.
 - The Server keeps only media references that resolve to an available,
   Player-compatible library variant. It adds each variant to `assets`.
+- The Server keeps only font families that exist and have a ready face. A
+  removed family is dropped from the entry, so `player.fonts@1` answers `null`
+  for it and the plugin keeps its own face.
 - A plugin revises manifests through `Host.Manifests`, as in v1.
 
 ### Players without Plugin API v2
@@ -251,6 +261,7 @@ Player Plugin Host
 ├── service registry
 │   ├── player.clock@1                 corrected time, plugin timers
 │   ├── player.events@1                bounded native and Runtime events
+│   ├── player.fonts@1                 declared organization font families
 │   ├── player.media@1                 declared, host-granted media
 │   ├── player.presentation.observe@1  read-only screen observation
 │   ├── player.presentation.provide@1  declared presentation providers
@@ -306,15 +317,16 @@ A service is one narrow contract that the Player offers to a contribution.
 TypeScript SDK, the Go SDK, and Player Core mirror it. Each mirror has a test
 that reads the file.
 
-| Service                         | Execution | Contract                                                                                |
-| ------------------------------- | --------- | --------------------------------------------------------------------------------------- |
-| `player.clock@1`                | runtime   | `now`, `localNow`, `monotonicNow`, `after`, `every`. Timers end with the plugin.        |
-| `player.events@1`               | runtime   | `emit(name, version, payload)` and `on(name, version, listener)`. Declared events only. |
-| `player.media@1`                | runtime   | `url(ref)`. Only variants that the plugin's current entries declare. Otherwise `null`.  |
-| `player.presentation.observe@1` | runtime   | `current()` and `subscribe()`: mode, item ID, kind, occurrence, and `audible`.          |
-| `player.presentation.provide@1` | runtime   | `provide(providerId, provider)`: a declared provider that the host starts and stops.    |
-| `player.surface@1`              | runtime   | `open(contributionId, render)`: persistent containers, claims, grants.                  |
-| `player.reference.signal@1`     | native    | `read()`. A reference service for tests. No product Player provides it.                 |
+| Service                         | Execution | Contract                                                                                  |
+| ------------------------------- | --------- | ----------------------------------------------------------------------------------------- |
+| `player.clock@1`                | runtime   | `now`, `localNow`, `monotonicNow`, `after`, `every`. Timers end with the plugin.          |
+| `player.events@1`               | runtime   | `emit(name, version, payload)` and `on(name, version, listener)`. Declared events only.   |
+| `player.fonts@1`                | runtime   | `use(fontId)`. Only families that the plugin's current entries declare. Otherwise `null`. |
+| `player.media@1`                | runtime   | `url(ref)`. Only variants that the plugin's current entries declare. Otherwise `null`.    |
+| `player.presentation.observe@1` | runtime   | `current()` and `subscribe()`: mode, item ID, kind, occurrence, and `audible`.            |
+| `player.presentation.provide@1` | runtime   | `provide(providerId, provider)`: a declared provider that the host starts and stops.      |
+| `player.surface@1`              | runtime   | `open(contributionId, render)`: persistent containers, claims, grants.                    |
+| `player.reference.signal@1`     | native    | `read()`. A reference service for tests. No product Player provides it.                   |
 
 ### Versions
 
@@ -617,6 +629,13 @@ current state declares. Where the address comes from depends on the host:
   (Edge, Windows, Android), and the Runtime builds that address. The host
   authorizes each load against the current plugin state or activation grants. An
   undeclared variant is refused by the Runtime and again by the host.
+
+The face files of a declared font family are granted the same way as media:
+Player Core reads them from the validated entry (`plugin_state_media`), and the
+Browser Player reads them from the entry `fonts` array. Native contributions
+receive the entry media only, not font faces. Fonts load in CORS mode, so each
+host also answers a media request with `Access-Control-Allow-Origin`
+([fonts.md](fonts.md#player-hosts)).
 
 A plugin-only update that adds media cannot reuse the active media grants. The
 host then activates the presentation again, because grants follow content.
