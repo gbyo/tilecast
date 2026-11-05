@@ -28,8 +28,12 @@ import type {
 
 const log = logger("self-update");
 
-/** Longest we will hold a maintenance-window install pending before giving up. */
-const MAX_WINDOW_DELAY_MS = 24 * 60 * 60 * 1_000;
+/**
+ * Longest single sleep while waiting for a maintenance window. The wait is
+ * repeated until the window start has actually passed, so this only bounds how
+ * long the updater goes without rechecking the clock.
+ */
+const MAX_WINDOW_WAIT_STEP_MS = 60 * 60 * 1_000;
 
 /**
  * Least time between two download-progress reports. Without one of these the
@@ -99,6 +103,8 @@ export interface SelfUpdateDeps {
   /** End the process so systemd starts the new AppImage. */
   restart(): void;
   now(): number;
+  /** Resolve after the given delay. Defaults to a timer. */
+  sleep?(ms: number): Promise<void>;
   /**
    * Durable record of an update that is staged and waiting for its maintenance
    * window. Without it a process restart loses the in-memory wait: the command
@@ -479,18 +485,6 @@ export class SelfUpdater {
     this.deps.restart();
   }
 
-  private async waitForWindow(
-    maintenanceWindowStart: string | undefined,
-  ): Promise<void> {
-    const delay = this.installDelayMs(
-      "maintenance_window",
-      maintenanceWindowStart,
-    );
-    if (delay !== null && delay > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, delay));
-    }
-  }
-
   private async saveStagedJob(job: StagedUpdateJob): Promise<void> {
     try {
       await this.deps.stagedJob?.save(job);
@@ -517,7 +511,7 @@ export class SelfUpdater {
   /**
    * Milliseconds to wait before installing, or null when the mode does not
    * install now (download_only). install_now installs immediately (0);
-   * maintenance_window installs when the window arrives (clamped).
+   * maintenance_window installs when the window arrives.
    */
   private installDelayMs(
     installationMode: string,
@@ -537,10 +531,33 @@ export class SelfUpdater {
       if (delta <= 0) {
         return 0;
       }
-      return Math.min(delta, MAX_WINDOW_DELAY_MS);
+      return delta;
     }
     // download_only (and any unknown mode): stage only, do not restart.
     return null;
+  }
+
+  /**
+   * Sleep in bounded steps until the maintenance window has started. The
+   * start is re-read from the clock after every step, so a window further away
+   * than one step is never promoted early.
+   */
+  private async waitForWindow(
+    maintenanceWindowStart: string | undefined,
+  ): Promise<void> {
+    const sleep =
+      this.deps.sleep ??
+      ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    for (;;) {
+      const remaining = this.installDelayMs(
+        "maintenance_window",
+        maintenanceWindowStart,
+      );
+      if (remaining === null || remaining <= 0) {
+        return;
+      }
+      await sleep(Math.min(remaining, MAX_WINDOW_WAIT_STEP_MS));
+    }
   }
 
   private async report(

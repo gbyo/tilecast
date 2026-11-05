@@ -20,11 +20,13 @@ function fakeScripting(): BridgeScripting & {
     registered,
     getRegisteredContentScripts: async (options) =>
       [...registered.values()].filter(
-        (script) => options?.ids === undefined || options.ids.includes(script.id),
+        (script) =>
+          options?.ids === undefined || options.ids.includes(script.id),
       ),
     updateContentScripts: async (scripts) => {
       for (const script of scripts) {
-        if (!registered.has(script.id)) throw new Error("nonexistent script id");
+        if (!registered.has(script.id))
+          throw new Error("nonexistent script id");
         registered.set(script.id, script);
       }
     },
@@ -94,7 +96,9 @@ describe("bridge registration", () => {
 
   it("does not unregister a script that was not registered", async () => {
     const scripting = fakeScripting();
-    await expect(syncBridgeRegistration(scripting, [])).resolves.toBeUndefined();
+    await expect(
+      syncBridgeRegistration(scripting, []),
+    ).resolves.toBeUndefined();
     expect(scripting.registered.size).toBe(0);
   });
 });

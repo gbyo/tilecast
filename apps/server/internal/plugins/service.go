@@ -354,7 +354,23 @@ func (s *Service) bumpPlugin(ctx context.Context, tx pgx.Tx, pluginType string, 
 // different plugins travel in one array and carry their own priority, so the
 // player decides what occupies the bar from the manifest alone rather than from
 // the order the server happened to query in.
+//
+// This is the projection for a Player that does not host Plugin API v2: it
+// includes the v1 compatibility entries of v2 plugins that declare
+// player.v1ManifestTypes. A Player that reports the v2 host receives
+// ManifestForPluginHost and PlayerStateForScreen instead.
 func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]ManifestPlugin, error) {
+	return s.manifestForScreen(ctx, screenID, false)
+}
+
+// ManifestForPluginHost projects v1 entries for a Player that reports the
+// Plugin API v2 host. A v2 plugin's v1 compatibility entries are left out:
+// that Player receives the same data as plugin_state.
+func (s *Service) ManifestForPluginHost(ctx context.Context, screenID uuid.UUID) ([]ManifestPlugin, error) {
+	return s.manifestForScreen(ctx, screenID, true)
+}
+
+func (s *Service) manifestForScreen(ctx context.Context, screenID uuid.UUID, pluginHost bool) ([]ManifestPlugin, error) {
 	installed, _, err := s.installations(ctx)
 	if err != nil {
 		return nil, err
@@ -362,7 +378,7 @@ func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]
 	out := []ManifestPlugin{}
 	for _, hosted := range s.hosted {
 		id := hosted.manifest.ID
-		if !installed[id] {
+		if !installed[id] || (pluginHost && hosted.manifest.APIVersion >= 2) {
 			continue
 		}
 		var items []ManifestPlugin

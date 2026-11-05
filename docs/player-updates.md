@@ -316,6 +316,11 @@ Owners and Administrators can retry failed targets.
 Permission and TV-approval states do not offer retry.
 **Cancel deployment** requires confirmation.
 Cancellation does not revert an installed release.
+An Android Player that waits for a maintenance window or for Takeover to end
+reports its status to the server before it starts the installer.
+When the server answers that the deployment is cancelled or complete,
+the Player discards the staged APK and does not install.
+When the Player cannot reach the server, it installs as scheduled.
 Initial loading uses skeleton rows.
 Background refresh retains the current rows.
 

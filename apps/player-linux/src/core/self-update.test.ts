@@ -73,6 +73,9 @@ function deps(overrides: Partial<SelfUpdateDeps> = {}): {
   const restart = vi.fn();
   const promote = vi.fn(async () => {});
   const download = vi.fn(async () => {});
+  // The updater re-reads the clock after every wait step, so the default clock
+  // advances by the time actually slept.
+  let clock = Date.parse("2026-07-20T12:00:00Z");
   const d: SelfUpdateDeps = {
     appImagePath: "/home/tilecast/tilecast-player.AppImage",
     stagePath: path.join(
@@ -93,7 +96,11 @@ function deps(overrides: Partial<SelfUpdateDeps> = {}): {
     authHeaders: () => ({ Authorization: "Bearer device" }),
     promote,
     restart,
-    now: () => Date.parse("2026-07-20T12:00:00Z"),
+    now: () => clock,
+    sleep: async (ms) => {
+      await new Promise<void>((resolve) => setTimeout(resolve, ms));
+      clock += ms;
+    },
     ...overrides,
   };
   return { d, states, reports, restart, promote, download };
@@ -499,5 +506,35 @@ describe("SelfUpdater", () => {
       await new SelfUpdater(d).resume();
       expect(states).toEqual([]);
     });
+  });
+
+  it("keeps waiting until a window more than a day away has started", async () => {
+    let now = Date.parse("2026-07-20T12:00:00Z");
+    const sleeps: number[] = [];
+    const { d, states, restart, promote } = deps({
+      now: () => now,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+        now += ms;
+        if (sleeps.length === 1) {
+          // Still waiting after the first step: nothing may be promoted yet.
+          expect(promote).not.toHaveBeenCalled();
+          expect(states).not.toContain("installing");
+        }
+      },
+    });
+    await new SelfUpdater(d).run(
+      command({
+        installationMode: "maintenance_window",
+        maintenanceWindowStart: "2026-07-22T12:00:00Z",
+      }),
+    );
+
+    expect(sleeps.length).toBeGreaterThan(1);
+    expect(sleeps.reduce((sum, ms) => sum + ms, 0)).toBe(48 * 60 * 60 * 1_000);
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(60 * 60 * 1_000);
+    expect(now).toBeGreaterThanOrEqual(Date.parse("2026-07-22T12:00:00Z"));
+    expect(promote).toHaveBeenCalledOnce();
+    expect(restart).toHaveBeenCalledOnce();
   });
 });

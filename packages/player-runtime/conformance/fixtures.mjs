@@ -754,7 +754,7 @@ export const fixtures = [
     description:
       "A real image → component Widget → decoded video → compatibility Widget rotation, with a neighboring Widget held independently.",
     legacy: false,
-    requiresVideo: true,
+    video: true,
     steps: [
       {
         present: {

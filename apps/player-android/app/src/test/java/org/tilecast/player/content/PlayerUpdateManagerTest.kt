@@ -5,6 +5,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
+import org.tilecast.player.network.ApiException
 import org.tilecast.player.network.PlayerUpdateMetadata
 import java.io.File
 import java.nio.file.Files
@@ -26,5 +28,17 @@ class PlayerUpdateManagerTest {
         assertEquals(requested.canonicalFile,selectExactStagedArtifact(directory,"release-new","android-tv")?.canonicalFile)
         assertEquals(null,selectExactStagedArtifact(directory,"missing","android-tv"))
         directory.deleteRecursively()
+    }
+    @Test fun scheduledInstallProceedsWhenTheServerAcceptsTheReport()=runBlocking{
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{})
+    }
+    @Test fun scheduledInstallStopsWhenTheServerReportsTheDeploymentCancelled()=runBlocking{
+        val gate=gateScheduledInstall{throw ApiException(409,"update_deployment_cancelled","Deployment is cancelled or complete.")}
+        assertEquals(ScheduledInstallGate.Cancelled,gate)
+    }
+    @Test fun scheduledInstallProceedsWhenTheServerCannotBeReachedOrFailsOtherwise()=runBlocking{
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{throw java.io.IOException("offline")})
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{throw ApiException(500,"internal_error","failed")})
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{throw ApiException(409,"other_conflict","conflict")})
     }
 }

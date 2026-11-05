@@ -27,7 +27,7 @@ Tilecast Player has two reliability modes. **Standard Reliability** works with a
 
 An Android Player starts playback immediately after enrollment. No local step blocks playback.
 
-The Player applies launch after boot, immersive presentation, and keep-awake by itself. Accessibility Control and unknown-app installation are optional local Android permissions. The Player does not request them during setup. The local maintenance menu opens the related Android settings.
+The Player applies launch after boot, immersive presentation, and keep-awake by itself. Accessibility Control and unknown-app installation are optional local Android permissions. The Player does not request them during setup. The local maintenance menu opens the related Android settings. When the `managed_kiosk.allow_settings_during_admin` policy is false, the menu does not show these actions and the Player refuses the Settings launch.
 
 The Player reports its readiness facts in each heartbeat. The Reliability view in Studio shows them:
 
