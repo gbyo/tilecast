@@ -21,6 +21,11 @@ import Testing
         )
     }
 
+    func waitForExchange(count: Int = 1) async throws {
+        let deadline = Date().addingTimeInterval(5)
+        while server.exchangeCalls < count, Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    }
+
     func signedIn() async throws -> NativeAuthSession {
         let session = makeSession()
         let result = try await session.completeSignIn(code: "code", verifier: "verifier")
@@ -128,6 +133,47 @@ import Testing
         gate.open()
         await #expect(throws: NativeAuthError.unauthenticated) { try await pending.value }
         #expect(try store.storedKeys().isEmpty, "the rotated token was not written back")
+    }
+
+    @Test func aSignInPendingDuringSignOutStoresNothingAndRevokesItsGrant() async throws {
+        let session = makeSession()
+        let gate = Gate()
+        server.exchangeGate = gate
+        let pending = Task { try await session.completeSignIn(code: "code", verifier: "verifier") }
+        try await waitForExchange()
+        await session.signOut()
+        gate.open()
+        await #expect(throws: IOSSessionError.cancelled) { try await pending.value }
+        #expect(try store.storedKeys().isEmpty, "the exchanged token was not written back")
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(server.revokedTokens == ["tcr_refresh1"])
+        await #expect(throws: NativeAuthError.unauthenticated) { try await session.accessToken() }
+    }
+
+    @Test func aSignInPendingWhenItsPageClosesStoresNothing() async throws {
+        let session = makeSession()
+        let gate = Gate()
+        server.exchangeGate = gate
+        let pending = Task { try await session.completeSignIn(code: "code", verifier: "verifier") }
+        try await waitForExchange()
+        session.cancelPendingSignIn()
+        gate.open()
+        await #expect(throws: IOSSessionError.cancelled) { try await pending.value }
+        #expect(try store.storedKeys().isEmpty)
+    }
+
+    @Test func aRefusedRotationDoesNotCancelASignInInFlight() async throws {
+        _ = try await signedIn()
+        let session = makeSession()
+        server.failNextRefresh(with: .rejected)
+        _ = try? await session.accessToken()
+        let gate = Gate()
+        server.exchangeGate = gate
+        let pending = Task { try await session.completeSignIn(code: "code", verifier: "verifier") }
+        try await waitForExchange(count: 2)
+        gate.open()
+        let result = try await pending.value
+        #expect(result.nativeAPIAvailable)
     }
 
     @Test func anOlderServerLeavesNativeAccessUnavailable() async throws {
