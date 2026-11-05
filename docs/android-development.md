@@ -131,6 +131,11 @@ toolchain flags first.
 
 ## Production cutover
 
+Power wake requests use `NEW_TASK`, `CLEAR_TOP`, and `SINGLE_TOP` together.
+An existing top `MainActivity` receives the request without a new instance.
+This preserves its ViewModel when configuration applies active-hours policy.
+An explicit Activity restart retains its separate restart behavior.
+
 Core owns pairing, configuration, manifest preparation, the server link,
 presence, commands, activity, renderer recovery, and capture policy.
 Kotlin owns server discovery, manual address entry, window, kiosk, and
