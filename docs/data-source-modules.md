@@ -44,8 +44,11 @@ manifest contains these fields:
 - `fetch`: the bounded fetch input. It is required for `http_records`
   and forbidden for other adapters.
 - `refreshBehavior`: `manual` or `interval`.
-- `requiresManifestV13`: compatibility metadata. Migrated definitions
-  keep the flag they already carry.
+- `requiresManifestV13`: compatibility metadata. It must be `true` for
+  every declarative adapter. Player manifest v11 and v12 accept only
+  the built-in provider ids, so the Server uses this flag to block
+  assignment to a Player that has not reported v13 support. `datactl new`
+  sets it and `datactl check` rejects a module that omits it.
 - `setup`: flat Studio guidance copy. It contains no references and no
   executable content.
 - `attribution`: the on-screen credit when the source requires one.
