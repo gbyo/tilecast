@@ -297,6 +297,42 @@ import WebKit
         host.page?.close()
     }
 
+    @Test func removingAServerDuringSignInLeavesNoCredential() async throws {
+        let a = try addServer("a.example.org")
+        let host = makeHost()
+        await host.activate(a.id)
+        let page = try #require(host.page)
+        let gate = Gate()
+        servers["a.example.org"].exchangeGate = gate
+        let pending = Task { try await host.completeSignIn(code: "code", verifier: "verifier", for: page) }
+        try await eventually("the exchange starts") { servers["a.example.org"].exchangeCalls == 1 }
+
+        await host.remove(a.id)
+        #expect(try credentials.storedKeys().isEmpty)
+        gate.open()
+        await #expect(throws: IOSSignInError.invalidCallback) { try await pending.value }
+        #expect(try credentials.storedKeys().isEmpty, "the pending sign-in did not restore the credential")
+        try await eventually("the issued grant is revoked") { !servers["a.example.org"].revokedTokens.isEmpty }
+        #expect(servers["a.example.org"].revokedTokens == ["tcr_refresh1"])
+    }
+
+    @Test func switchingServersDuringSignInStoresNoCredential() async throws {
+        let a = try addServer("a.example.org")
+        let b = try addServer("b.example.org")
+        let host = makeHost()
+        await host.activate(a.id)
+        let old = try #require(host.page)
+        let gate = Gate()
+        servers["a.example.org"].exchangeGate = gate
+        let pending = Task { try await host.completeSignIn(code: "code", verifier: "verifier", for: old) }
+        try await eventually("the exchange starts") { servers["a.example.org"].exchangeCalls == 1 }
+        await host.activate(b.id)
+        gate.open()
+        await #expect(throws: IOSSignInError.invalidCallback) { try await pending.value }
+        #expect(try credentials.storedKeys().isEmpty)
+        host.page?.close()
+    }
+
     @Test func matchesOnlyThisServersCookies() {
         let server = address("a.example.org")
         #expect(StudioHost.cookie(studioCookie(host: "a.example.org"), belongsTo: server))
