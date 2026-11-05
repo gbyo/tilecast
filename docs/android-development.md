@@ -523,7 +523,7 @@ is not changed, so HTTPS is never downgraded. The shared fixture in
 heartbeat sends `commissioningState` `complete` after the first enrollment
 of the screen, `commissioningStep` `automatic`, and a `selfTestResult` that
 the current facts give. Accessibility Control and the install permission
-are optional. The maintenance menu opens their Android settings. See
+are optional. The maintenance menu opens their Android settings unless the `managed_kiosk.allow_settings_during_admin` policy is false. See
 [Reliability and power](reliability-and-power.md#unattended-setup-and-readiness).
 
 ### Emulator verification
