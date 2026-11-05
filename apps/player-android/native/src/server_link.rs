@@ -142,6 +142,7 @@ pub struct AndroidServerLinkHost {
     manifest_facts: crate::manifest_host::SharedManifestFacts,
     clock: player_types::time::SharedClock,
     manifest_wake: Arc<Notify>,
+    pairing_wake: Arc<Notify>,
     state_dir: PathBuf,
     started_at: std::time::Instant,
 }
@@ -234,6 +235,7 @@ impl AndroidServerLinkHost {
         manifest_facts: crate::manifest_host::SharedManifestFacts,
         clock: player_types::time::SharedClock,
         manifest_wake: Arc<Notify>,
+        pairing_wake: Arc<Notify>,
         state_dir: PathBuf,
     ) -> Self {
         Self {
@@ -253,6 +255,7 @@ impl AndroidServerLinkHost {
             manifest_facts,
             clock,
             manifest_wake,
+            pairing_wake,
             state_dir,
             started_at: std::time::Instant::now(),
         }
@@ -504,6 +507,10 @@ impl player_core::ServerLinkHost for AndroidServerLinkHost {
         self.activity.record(event);
     }
 
+    fn credential_rejected(&self) {
+        self.pairing_wake.notify_one();
+    }
+
     async fn heartbeat(&self) -> serde_json::Value {
         self.build_heartbeat().await
     }
@@ -619,6 +626,7 @@ mod tests {
             signals.manifest_facts.clone(),
             clock,
             signals.manifest_wake.clone(),
+            Arc::new(Notify::new()),
             dir.to_path_buf(),
         );
         (host, signals, commands, renderer, engine, store)
