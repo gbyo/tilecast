@@ -235,6 +235,8 @@ impl Default for Website {
 pub struct PowerDisplay {
     pub outside_display: String,
     pub outside_text: String,
+    /// Play the startup animation when active hours begin. Only `false` turns it off.
+    pub wake_animation: bool,
 }
 
 /// Values used by the Runtime projection. Core does not interpret these fields.
@@ -252,7 +254,11 @@ impl Default for RuntimeProjection {
         Self {
             branding: Branding::default(),
             playback: Playback::default(),
-            power: PowerDisplay { outside_display: "black".to_owned(), outside_text: "Powered by Tilecast".to_owned() },
+            power: PowerDisplay {
+                outside_display: "black".to_owned(),
+                outside_text: "Powered by Tilecast".to_owned(),
+                wake_animation: true,
+            },
             website: Website::default(),
         }
     }
@@ -462,6 +468,7 @@ impl AndroidPlayerConfig {
         let outside_text = text(power_values, "outsideActiveHoursText", 240)
             .or_else(|| branding.footer_text.clone())
             .unwrap_or_else(|| "Powered by Tilecast".to_owned());
+        let wake_animation = flag_on(power_values, "outsideActiveHoursWakeAnimation");
 
         let website_values = section(object, "website");
         let website_defaults = Website::default();
@@ -580,7 +587,7 @@ impl AndroidPlayerConfig {
             runtime: RuntimeProjection {
                 branding,
                 playback,
-                power: PowerDisplay { outside_display, outside_text },
+                power: PowerDisplay { outside_display, outside_text, wake_animation },
                 website,
             },
             platform: AndroidPlatform { reliability, power, managed_kiosk, accessibility, updates, downloads },
@@ -1048,12 +1055,28 @@ mod tests {
     }
 
     #[test]
+    fn wake_animation_defaults_true_and_only_false_disables() {
+        let wake = |power: serde_json::Value| {
+            AndroidPlayerConfig::parse(&document(json!({"power": power}))).expect("parse").runtime.power.wake_animation
+        };
+        assert!(wake(json!({})));
+        assert!(!wake(json!({"outsideActiveHoursWakeAnimation": false})));
+        assert!(wake(json!({"outsideActiveHoursWakeAnimation": true})));
+        assert!(wake(json!({"outsideActiveHoursWakeAnimation": "no"})));
+        assert!(RuntimeProjection::default().power.wake_animation);
+        let off = AndroidPlayerConfig::parse(&document(json!({"power": {"outsideActiveHoursWakeAnimation": false}})))
+            .expect("parse");
+        assert_eq!(off.installed_json()["runtime"]["power"]["wakeAnimation"], false);
+    }
+
+    #[test]
     fn installed_json_carries_no_secrets() {
         let config = AndroidPlayerConfig::parse(&document(json!({"configRevision": 9}))).expect("parse");
         let installed = config.installed_json();
         assert_eq!(installed["configRevision"], 9);
         assert_eq!(installed["platform"]["updates"]["channel"], "stable");
         assert_eq!(installed["runtime"]["power"]["outsideDisplay"], "black");
+        assert_eq!(installed["runtime"]["power"]["wakeAnimation"], true);
         let raw = serde_json::to_string(&installed).expect("installed json");
         assert!(!raw.contains("credential"));
         assert!(!raw.contains("secret"));

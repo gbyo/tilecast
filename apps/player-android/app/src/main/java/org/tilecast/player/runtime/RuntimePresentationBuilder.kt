@@ -32,7 +32,12 @@ sealed interface RuntimeScreenState {
     data class Disabled(val branding: PlayerBranding, val logoSrc: String? = null) : RuntimeScreenState
     data object Unavailable : RuntimeScreenState
     data class SafeMode(val reason: String) : RuntimeScreenState
-    data class Sleep(val display: String, val text: String?, val textColor: String?) : RuntimeScreenState
+    data class Sleep(
+        val display: String,
+        val text: String?,
+        val textColor: String?,
+        val wakeAnimation: Boolean = true,
+    ) : RuntimeScreenState
     data class Playing(
         val content: PreparedContent,
         val items: List<ManifestItem>,
@@ -82,6 +87,7 @@ object RuntimePresentationBuilder {
             put("display", state.display.takeIf { it in setOf("bouncing_logo", "custom_text", "black") } ?: "black")
             state.text?.take(240)?.let { put("text", it) }
             state.textColor?.take(32)?.let { put("textColor", it) }
+            put("wakeAnimation", state.wakeAnimation)
         }
         is RuntimeScreenState.Playing -> buildPlaying(state)
     }

@@ -577,6 +577,14 @@ tc-outside-hours {
   height: 100%;
   overflow: visible;
 }
+/* The logo that was on screen before a wake animation, fading out as the pulse fades in. */
+#tc-startup .tc-startup__ghost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 #tc-startup .tc-startup__card {
   position: absolute;
   left: calc(var(--tc-startup-width) * 99.36 / 1207.43);

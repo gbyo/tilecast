@@ -154,7 +154,8 @@
         "outsideActiveHoursDisplay": {
           "enum": ["bouncing_logo", "custom_text", "black"]
         },
-        "outsideActiveHoursText": { "type": "string", "maxLength": 2000 }
+        "outsideActiveHoursText": { "type": "string", "maxLength": 2000 },
+        "outsideActiveHoursWakeAnimation": { "type": "boolean" }
       },
       "additionalProperties": true
     },

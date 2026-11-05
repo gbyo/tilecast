@@ -1058,6 +1058,7 @@ impl PresentationEngine {
             "display": power.outside_display,
             "text": power.outside_text,
             "textColor": config.runtime.branding.text(),
+            "wakeAnimation": power.wake_animation,
         });
         if self.showing(ActivationSource::Policy, &document) {
             return;
