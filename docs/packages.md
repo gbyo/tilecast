@@ -488,6 +488,16 @@ delete the content, then remove the package. Update answers the same
 error when the new version drops a contribution that content still
 uses; rollback answers it when the restored version would.
 
+Creation of a package Widget or Data Source takes part in the same
+serialization. The create transaction takes a share lock on the
+installation row, then checks again that the package is installed at the
+activation digest of the definition it resolved and that it still
+contributes that Widget or Data Source. Removal, update, and rollback
+take the same row `FOR UPDATE` before they count content. If the
+lifecycle change commits first, creation answers `409 plugin_not_installed`
+and inserts nothing. If creation commits first, the lifecycle change
+counts the new row and answers `package_in_use`.
+
 Reads (`GET /api/v1/packages`, `GET /api/v1/packages/{packageId}`)
 answer any signed-in role. Resolution, install, update, rollback, and
 removal require Owner or Administrator with a CSRF token. The store

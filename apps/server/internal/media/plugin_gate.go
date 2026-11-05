@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -24,6 +25,21 @@ type PluginSourceGate interface {
 	LockPluginSource(ctx context.Context, tx pgx.Tx, pluginID string) error
 }
 
+// PackageSourceGate confirms a package-contributed Widget or Data Source
+// may be created. The installer implements it; media holds it as an
+// injected boundary because the installer depends on media.
+type PackageSourceGate interface {
+	// LockPackageContribution revalidates, inside the caller's
+	// transaction, that the package is installed at digest (when digest
+	// is not empty) and still contributes the named contribution of
+	// kind. It holds a share lock on the installation row until commit,
+	// so a concurrent removal, update, or rollback, which lock the row
+	// for update before they count content, cannot commit between the
+	// check and the insert. It reports false when the package or the
+	// contribution is gone or was replaced; an error is a real failure.
+	LockPackageContribution(ctx context.Context, tx pgx.Tx, packageID, kind, contributionID, digest string) (bool, error)
+}
+
 // PluginUnavailableError reports that a plugin-owned provider cannot be
 // used because its plugin is not installed. Persisted rows are preserved;
 // only new creation (and projection elsewhere) is refused.
@@ -31,9 +47,15 @@ type PluginUnavailableError struct {
 	Kind     string
 	Provider string
 	PluginID string
+	// Package marks PluginID as an external package identity whose
+	// installation, or whose contribution, is gone.
+	Package bool
 }
 
 func (e *PluginUnavailableError) Error() string {
+	if e.Package {
+		return fmt.Sprintf("%s %q requires package %q to be installed and still contribute it", e.Kind, e.Provider, e.PluginID)
+	}
 	return fmt.Sprintf("%s %q requires plugin %q, which is not installed", e.Kind, e.Provider, e.PluginID)
 }
 
@@ -41,6 +63,28 @@ func (e *PluginUnavailableError) Error() string {
 // creating plugin-owned content. Nil fails closed: plugin-owned creation
 // is refused when no gate is wired.
 func (s *Service) SetPluginSourceGate(gate PluginSourceGate) { s.pluginGate = gate }
+
+// SetPackageSourceGate installs the installation gate used when creating
+// package-contributed content. Nil fails closed: package-owned creation is
+// refused when no gate is wired.
+func (s *Service) SetPackageSourceGate(gate PackageSourceGate) { s.packageGate = gate }
+
+// lockPackageContribution turns the package gate's answer into the creation
+// result. A package that is gone, or no longer contributes the definition
+// the caller resolved, reports the provider as unavailable.
+func (s *Service) lockPackageContribution(ctx context.Context, tx pgx.Tx, kind, label, provider string, source contentdefs.ExtensionSource) error {
+	if s.packageGate == nil {
+		return &PluginUnavailableError{Kind: label, Provider: provider, PluginID: source.PackageID, Package: true}
+	}
+	available, err := s.packageGate.LockPackageContribution(ctx, tx, source.PackageID, kind, provider, source.Digest)
+	if err != nil {
+		return fmt.Errorf("lock package %q for %s %q: %w", source.PackageID, label, provider, err)
+	}
+	if !available {
+		return &PluginUnavailableError{Kind: label, Provider: provider, PluginID: source.PackageID, Package: true}
+	}
+	return nil
+}
 
 // lockedSource turns the gate's answer into the creation result: only a
 // plugin that is not installed becomes PluginUnavailableError. Database
@@ -88,8 +132,9 @@ func (s *Service) pluginSourceInert(ctx context.Context, tx pgx.Tx, provider str
 	}
 }
 
-// lockDataSourceProvider locks the owning plugin's installation row when
-// the provider is a plugin-owned Data Source definition. It must run
+// lockDataSourceProvider locks the owning plugin's or package's installation
+// row when the provider is a plugin- or package-owned Data Source
+// definition. It must run
 // inside the creation transaction before the insert.
 func (s *Service) lockDataSourceProvider(ctx context.Context, tx pgx.Tx, provider string) error {
 	definition, ok := s.definitions.DataSource(provider)
@@ -97,6 +142,9 @@ func (s *Service) lockDataSourceProvider(ctx context.Context, tx pgx.Tx, provide
 		return nil
 	}
 	source := definition.Source.Normalized()
+	if source.Kind == contentdefs.SourceKindPackage {
+		return s.lockPackageContribution(ctx, tx, packagemanifest.ContributionDataSource, "data source provider", provider, source)
+	}
 	if source.Kind != contentdefs.SourceKindPlugin {
 		return nil
 	}
@@ -106,8 +154,8 @@ func (s *Service) lockDataSourceProvider(ctx context.Context, tx pgx.Tx, provide
 	return lockedSource(s.pluginGate.LockPluginSource(ctx, tx, source.PluginID), "data source provider", provider, source.PluginID)
 }
 
-// lockWidgetSource locks the owning plugin's installation row when the
-// provider is a plugin-owned Widget definition. It must run inside the
+// lockWidgetSource locks the owning plugin's or package's installation row
+// when the provider is a plugin- or package-owned Widget definition. It must run inside the
 // creation transaction before the insert.
 func (s *Service) lockWidgetSource(ctx context.Context, tx pgx.Tx, provider string) error {
 	definition, ok := s.definitions.Widget(provider)
@@ -115,6 +163,9 @@ func (s *Service) lockWidgetSource(ctx context.Context, tx pgx.Tx, provider stri
 		return nil
 	}
 	source := definition.Source.Normalized()
+	if source.Kind == contentdefs.SourceKindPackage {
+		return s.lockPackageContribution(ctx, tx, packagemanifest.ContributionWidget, "widget provider", provider, source)
+	}
 	if source.Kind != contentdefs.SourceKindPlugin {
 		return nil
 	}
