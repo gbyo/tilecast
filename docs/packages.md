@@ -262,8 +262,10 @@ server processes never run the same job twice. A claim holds a
 five-minute lease. Execution is at-least-once: a crash mid-run
 re-runs the job after the lease expires. A guest failure records
 `last_status = error` with the message and reschedules on the same
-interval. The first overdue pass runs at startup, then the scheduler
-polls every minute.
+interval. The scheduler reads the interval from the stored job row when
+a run ends. A package update that changes the interval while the job runs
+therefore sets the next run time. The first overdue pass runs at startup,
+then the scheduler polls every minute.
 
 The realtime scheduler uses a separate one-second due scan.
 It claims at most four jobs per pass and runs at most four guests at once.
