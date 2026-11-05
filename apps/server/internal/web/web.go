@@ -38,7 +38,10 @@ func staticHandler(static fs.FS) http.Handler {
 			http.ServeFileFS(w, r, static, name)
 			return
 		}
-		if strings.HasPrefix(name, "assets/") || name == "assets" {
+		// The build directory never falls back to Studio, so a missing hashed
+		// file is a 404 and not an HTML document. The bare path /assets is the
+		// Studio media library route; only /assets/ names the directory.
+		if strings.HasPrefix(name, "assets/") || r.URL.Path == "/assets/" {
 			http.NotFound(w, r)
 			return
 		}
