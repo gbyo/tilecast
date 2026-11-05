@@ -1,9 +1,9 @@
 ---
 title: Edge requirements
-description: Check the Linux, display, and network requirements for Tilecast Edge, and what the release notes must confirm before you use it on a real screen.
+description: Check the Linux, display, and network requirements for Tilecast Edge before you install it on a screen.
 ---
 
-These are the minimums the Edge software needs. A computer that meets them isn't automatically supported: a Tilecast release must list its hardware class as qualified before you use Edge on a production screen.
+These are the minimums Edge needs. A computer that meets them can still differ in graphics, codecs, and display hardware, so run a pilot screen before you roll Edge out. See [Plan your rollout](../../edge/#plan-your-rollout).
 
 ## Linux computer
 
@@ -29,11 +29,11 @@ Edge also needs the kernel to allow unprivileged user namespaces, which is the D
 
 Edge draws with WPE WebKit instead of Electron. The installer and the migration run Edge directly on the display (DRM/KMS) on the first console, without a desktop session. A computer that must keep its desktop session can't use this release of Edge.
 
-Automated tests aren't the same as a real display. Output on real graphics hardware, rotation, connectors, hardware decoding, CEC and DDC/CI, and long unattended playback are still being qualified.
+Output depends on the real graphics hardware, rotation, connectors, hardware decoding, CEC and DDC/CI, so check a pilot screen with the display you plan to use.
 
 ## Before you use a real screen
 
-Check the release notes for the supported architecture, Linux distribution, display output, codecs, and Display Control hardware. If your computer isn't listed, keep using the [stable Linux Player](../../players/install-linux/).
+Check the release notes for the supported architecture, Linux distribution, display output, codecs, and Display Control hardware. If your computer doesn't fit, keep using the [AppImage Player](../../players/install-linux/).
 
 ## Network
 
