@@ -27,4 +27,19 @@ class PlayerUpdateManagerTest {
         assertEquals(null,selectExactStagedArtifact(directory,"missing","android-tv"))
         directory.deleteRecursively()
     }
+    private val interrupted=UpdateUiState("deployment","0.8.0","0.9.0","installing",100,100,"Installing verified player update",releaseId="release",artifactId="artifact",expectedSha256="a".repeat(64),expectedVersionCode=9,exactPath="/updates/release-artifact.apk")
+    @Test fun interruptedStagingOffersARetryWhenTheStagedFileIsStillThere(){
+        val recovered=interruptedStagingState(interrupted,true)
+        assertEquals("waiting_for_user",recovered.state)
+        assertTrue(recovered.installReady)
+        assertEquals(null,recovered.errorCode)
+        assertEquals(interrupted.exactPath,recovered.exactPath)
+        assertEquals(interrupted.expectedSha256,recovered.expectedSha256)
+    }
+    @Test fun interruptedStagingFailsExplicitlyWhenTheStagedFileIsGone(){
+        val recovered=interruptedStagingState(interrupted,false)
+        assertEquals("failed",recovered.state)
+        assertFalse(recovered.installReady)
+        assertEquals("staged_update_missing",recovered.errorCode)
+    }
 }
