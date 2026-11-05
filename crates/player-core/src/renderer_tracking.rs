@@ -51,6 +51,8 @@ impl RendererTracker {
         self.content_items.clear();
         self.logged.clear();
         self.accepted = None;
+        self.last_progress = None;
+        self.current_item = None;
         self.last_error = None;
         self.refused = false;
     }
@@ -247,6 +249,25 @@ mod tests {
         assert!(!tracker.accepted_current());
         tracker.disconnected(one);
         assert!(tracker.progress(two, &report(2, ProgressEvidence::ImageShown), Expectation::Still, now).meaningful);
+    }
+
+    #[test]
+    fn a_new_activation_does_not_inherit_progress_or_the_current_item() {
+        let one = uuid::Uuid::from_u128(1);
+        let now = Timestamp::from_unix_millis(1_000).unwrap();
+        let mut tracker = RendererTracker::default();
+        tracker.activate(reference(1));
+        tracker.connected(one);
+        tracker.accept(one, reference(1));
+        assert!(tracker.progress(one, &report(1, ProgressEvidence::ItemStarted), Expectation::Still, now).meaningful);
+        assert_eq!(tracker.last_progress(), Some(now));
+        assert_eq!(tracker.current_item().unwrap().0, "image");
+        tracker.activate(reference(2));
+        assert_eq!(tracker.last_progress(), None);
+        assert_eq!(tracker.current_item(), None);
+        let later = Timestamp::from_unix_millis(2_000).unwrap();
+        assert!(tracker.progress(one, &report(2, ProgressEvidence::ItemStarted), Expectation::Still, later).meaningful);
+        assert_eq!(tracker.last_progress(), Some(later));
     }
 
     #[test]
