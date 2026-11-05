@@ -38,7 +38,9 @@ func staticHandler(static fs.FS) http.Handler {
 			http.ServeFileFS(w, r, static, name)
 			return
 		}
-		if strings.HasPrefix(name, "assets/") || name == "assets" {
+		// A missing hashed build file must 404 instead of returning HTML, but
+		// the bare /assets path is the Studio Media route and needs the SPA.
+		if strings.HasPrefix(name, "assets/") {
 			http.NotFound(w, r)
 			return
 		}
