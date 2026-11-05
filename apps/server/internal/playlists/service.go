@@ -51,6 +51,7 @@ type SourceProjector interface {
 
 type PluginProjector interface {
 	ManifestForScreen(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error)
+	ManifestForPluginHost(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error)
 	PlayerStateForScreen(context.Context, uuid.UUID, map[string]int) ([]plugins.PlayerStateEntry, error)
 }
 
@@ -1713,7 +1714,17 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	if s.plugins != nil {
 		var builtin []plugins.ManifestPlugin
-		builtin, err = s.plugins.ManifestForScreen(ctx, screenID)
+		// A Player that hosts Plugin API v2 receives v2 plugins as
+		// plugin_state below, never also as their v1 compatibility entries.
+		reported, capabilityErr := readPlayerPresentationCapabilities(ctx, s.db, screenID)
+		if capabilityErr != nil {
+			return Manifest{}, "", capabilityErr
+		}
+		if reportsPlayerPluginHost(reported) {
+			builtin, err = s.plugins.ManifestForPluginHost(ctx, screenID)
+		} else {
+			builtin, err = s.plugins.ManifestForScreen(ctx, screenID)
+		}
 		if err != nil {
 			return Manifest{}, "", err
 		}

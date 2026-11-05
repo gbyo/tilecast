@@ -11,6 +11,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.tilecast.player.network.ApiException
 import org.tilecast.player.network.PlayerUpdateMetadata
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -58,5 +59,17 @@ class PlayerUpdateManagerTest {
         finish.complete(Unit)
         assertEquals("first",first.await())
         assertEquals("third",gate.runExclusive{"third"})
+    }
+    @Test fun scheduledInstallProceedsWhenTheServerAcceptsTheReport()=runBlocking{
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{})
+    }
+    @Test fun scheduledInstallStopsWhenTheServerReportsTheDeploymentCancelled()=runBlocking{
+        val gate=gateScheduledInstall{throw ApiException(409,"update_deployment_cancelled","Deployment is cancelled or complete.")}
+        assertEquals(ScheduledInstallGate.Cancelled,gate)
+    }
+    @Test fun scheduledInstallProceedsWhenTheServerCannotBeReachedOrFailsOtherwise()=runBlocking{
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{throw java.io.IOException("offline")})
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{throw ApiException(500,"internal_error","failed")})
+        assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{throw ApiException(409,"other_conflict","conflict")})
     }
 }

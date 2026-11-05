@@ -20,7 +20,7 @@ import {
   runtimeDiscovery,
   type RuntimeModules,
 } from "./discovery";
-import { RuntimeSurfaceHost } from "./host";
+import { RuntimeSurfaceHost, SURFACE_EXIT_MS } from "./host";
 import { PlayerPluginHost } from "./player-host";
 import { discoverPlayerPlugins } from "./player-discovery";
 import {
@@ -146,7 +146,9 @@ function player(
   expect(discovery.problems).toEqual([]);
   const host = new PlayerPluginHost({
     clock,
-    plugins: discovery.plugins,
+    pluginState: true,
+    // The bundled v2 plugins run beside the fixtures, as on a Player.
+    plugins: [...playerDiscovery.plugins, ...discovery.plugins],
     services,
     diagnostic: (id, message) => diagnostics.push(`${id}: ${message}`),
   });
@@ -172,10 +174,15 @@ const status = (host: PlayerPluginHost, id: string) =>
   host.describe().plugins.find((plugin) => plugin.id === id);
 
 describe("Plugin API v2 discovery", () => {
-  it("finds no bundled v2 plugins yet and leaves v1 discovery unchanged", () => {
+  it("discovers the bundled plugins of both generations without problems", () => {
     expect(playerDiscovery.problems).toEqual([]);
-    expect(playerDiscovery.plugins).toEqual([]);
     expect(runtimeDiscovery.problems).toEqual([]);
+    expect(playerDiscovery.plugins.map((p) => p.declaration.id)).toEqual([
+      "countdown_bar",
+    ]);
+    expect(runtimeDiscovery.plugins.map((p) => p.definition.id)).toEqual([
+      "emergency_alerts",
+    ]);
   });
 
   it("pairs a v2 manifest with definePlayerPlugin and refuses mismatches", () => {
@@ -330,7 +337,8 @@ describe("Player Plugin Host", () => {
   });
 
   // Case: the surface service, with push geometry and arbitration shared
-  // with unchanged Plugin API v1 plugins.
+  // with the v1 Emergency Alerts and with Countdown Bar, which receives its
+  // v1 entry as state.
   it("arbitrates v2 surface contributions with v1 plugins by declared tier", () => {
     let grant = null as PlayerSurfaceGrant | null;
     let container = null as HTMLElement | null;
@@ -424,18 +432,22 @@ describe("Player Plugin Host", () => {
     expect(grant?.shown.has("strip.bottom")).toBe(false);
     expect(p.stage.style.getPropertyValue("--tc-stage-bottom")).toBe("96px");
 
-    // Lower priority within the tier: the v1 countdown holds the strip,
+    // Lower priority within the tier: Countdown Bar holds the strip,
     // overlaying rather than pushing. The v2 container stays mounted.
     p.send([countdown, stateEntry("service_notices", "n", { priority: 10 })]);
-    expect(holder()).toBe("countdown_bar");
+    expect(holder()).toBe("countdown_bar/bar");
     expect(p.stage.style.getPropertyValue("--tc-stage-bottom")).toBe("0px");
     expect(container).toBe(element);
     expect(element?.isConnected).toBe(true);
 
-    // Removing the v2 state disposes the plugin and removes its containers.
+    // Removing the v2 state disposes the plugin. Its containers leave
+    // arbitration at once and leave the document after their exit.
     p.send([countdown]);
+    expect(holder()).toBe("countdown_bar/bar");
+    expect(element?.isConnected).toBe(true);
+    expect(element?.classList.contains("tc-surface--granted")).toBe(false);
+    p.clock.advance(SURFACE_EXIT_MS);
     expect(element?.isConnected).toBe(false);
-    expect(holder()).toBe("countdown_bar");
   });
 
   it("refuses a claim for an undeclared slot or a tier the claim tries to set", () => {
@@ -608,7 +620,8 @@ describe("Player Plugin Host", () => {
     p.clock.advance(30);
     const states = p.host
       .describe()
-      .plugins.map((plugin) => [plugin.id, plugin.status]);
+      .plugins.filter((plugin) => plugin.id !== "countdown_bar")
+      .map((plugin) => [plugin.id, plugin.status]);
     expect(states).toEqual([
       ["broken_activate", "failed"],
       ["broken_state", "failed"],
