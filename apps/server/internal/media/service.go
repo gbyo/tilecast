@@ -709,7 +709,8 @@ func (s *Service) retryCancelledCleanup(ctx context.Context) error {
 // It backs the guards that keep form-submission attachments out of every generic Media surface.
 func (s *Service) assetOrigin(ctx context.Context, id uuid.UUID) (string, error) {
 	var origin string
-	err := s.db.QueryRow(ctx, `SELECT origin FROM assets WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&origin)
+	// Font files belong to the font library; generic Media surfaces treat them as absent.
+	err := s.db.QueryRow(ctx, `SELECT origin FROM assets WHERE id=$1 AND deleted_at IS NULL AND type<>'font'`, id).Scan(&origin)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
 	}
@@ -1235,8 +1236,9 @@ func (s *Service) DeleteAsset(ctx context.Context, id, userID uuid.UUID) error {
 	} else if err != nil {
 		return err
 	}
-	// Form attachments are removed only through the record-scoped Form attachment endpoint.
-	if assetOrigin == "form_attachment" {
+	// Form attachments are removed only through the record-scoped Form attachment
+	// endpoint, and font files only through the font library.
+	if assetOrigin == "form_attachment" || assetType == "font" {
 		return ErrNotFound
 	}
 	tag, err := tx.Exec(ctx, `UPDATE assets SET processing_status='deleting',deleted_at=COALESCE(deleted_at,now()),updated_at=now() WHERE id=$1 AND processing_status NOT IN ('deleting','deleted')`, id)

@@ -23,7 +23,7 @@ Use this section when you need exact API details, limits, or implementation-faci
 - [Screen status](../operations/screen-status/) explains Fleet connection labels.
 - [Activity reports](../operations/activity/) explains playback history, incidents, and health information.
 - [Install built-in plugins](../operations/plugins/) lists the current optional plugins and their requirements.
-- [Player capability matrix](../players/capabilities/) compares Android, Linux, Tilecast Edge, and Windows feature by feature. The [Edge capability matrix](../edge/capabilities/) compares Edge with the stable Linux Player.
+- [Player capability matrix](../players/capabilities/) compares Android, Linux, Tilecast Edge, and Windows feature by feature. The [Edge capability matrix](../edge/capabilities/) compares Edge with the AppImage Player.
 - [Manage Tilecast](../manage/) links to account, backup, security, networking, and Player-policy guides.
 
 ## Repository reference

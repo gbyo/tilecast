@@ -14,7 +14,11 @@ import type {
   RuntimePresentation,
 } from "../host/contract";
 import { resolveRegionalFormatting } from "./projection/format";
-import { renderLayout, spanViewport } from "./projection/layout-render";
+import {
+  layoutFonts,
+  renderLayout,
+  spanViewport,
+} from "./projection/layout-render";
 import { renderWidget } from "./projection/widget-render";
 import { isRemoteWebWidget, remoteWebForWidget } from "./projection/web-widget";
 import {
@@ -23,6 +27,7 @@ import {
 } from "../widgets/projection";
 import type {
   LayoutDocument,
+  ManifestLayoutFont,
   ManifestDataSource,
   ManifestWidget,
 } from "./projection/content-types";
@@ -36,6 +41,7 @@ const VARIANT_PREFIX = "tcmedia://variant/";
 interface ManifestLayoutEntry {
   id: string;
   document: LayoutDocument;
+  fonts?: ManifestLayoutFont[];
 }
 
 export interface Projector {
@@ -296,6 +302,7 @@ export function createProjector(
                   at,
                   playback,
                   regionalFormat,
+                  fonts: layoutFonts(layout.fonts),
                 },
                 spanViewport(manifest),
               )

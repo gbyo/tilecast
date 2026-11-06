@@ -28,6 +28,15 @@
     "content_access_delegation": "You can only give folders and tags that your own account can reach.",
     "cannot_change_own_role": "You can't change your own role.",
     "cannot_scope_self": "You can't change your own content or screen access.",
-    "last_owner_required": "Tilecast needs at least one active Owner."
+    "last_owner_required": "Tilecast needs at least one active Owner.",
+    "font_not_found": "The font was not found.",
+    "font_exists": "A font family with this name is already in the library.",
+    "font_in_use": "Choose another font in the Layouts that use this one first.",
+    "font_rights_required": "Confirm that your organization may use this font on its displays.",
+    "font_too_large": "The font files exceed the size limit.",
+    "font_unsupported": "The file is not a supported font. Upload a TTF or OTF file.",
+    "font_invalid": "That selection is not available for this font family.",
+    "font_catalog_disabled": "The Google Fonts catalog is turned off on this server. Upload font files instead.",
+    "font_catalog_unavailable": "Tilecast could not reach the Google Fonts catalog. Check the server's internet access, or upload font files instead."
   }
 }

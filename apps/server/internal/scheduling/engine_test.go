@@ -142,3 +142,25 @@ func TestNextTransitionDoesNotSkipSpringForwardDay(t *testing.T) {
 		t.Fatalf("next=%v, want %v", got.NextTransition, want)
 	}
 }
+
+func TestCanActivateRejectsOneTimeWindowsOutsideTheirDateBounds(t *testing.T) {
+	start := time.Date(2026, 12, 2, 15, 0, 0, 0, time.UTC)
+	end := start.Add(time.Hour)
+	last := "2026-11-30"
+	outside := Schedule{Type: OneTime, Timezone: "UTC", OneTimeStart: &start, OneTimeEnd: &end, EndDate: &last}
+	if CanActivate(outside) {
+		t.Fatal("a one-time window after its end date can activate")
+	}
+	if _, ok := ActiveAt(outside, start.Add(time.Minute)); ok {
+		t.Fatal("Resolve and CanActivate disagree")
+	}
+	within := outside
+	within.EndDate = nil
+	if !CanActivate(within) {
+		t.Fatal("an unbounded one-time window cannot activate")
+	}
+	daily, days := "09:00", []int{1}
+	if !CanActivate(Schedule{Type: Weekly, Timezone: "UTC", DailyStart: &daily, DailyEnd: &daily, DaysOfWeek: days}) {
+		t.Fatal("weekly schedules are always eligible")
+	}
+}

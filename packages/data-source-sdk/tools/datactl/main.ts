@@ -108,6 +108,11 @@ function checkAdapter(
     );
     return;
   }
+  if (manifest.requiresManifestV13 !== true) {
+    add(
+      `adapter ${manifest.adapterId} projects custom provider ids that only manifest v13 accepts; set "requiresManifestV13": true`,
+    );
+  }
   if (
     manifest.adapterId === "http_records" &&
     manifest.outputSchema.kind !== "records"
@@ -217,6 +222,7 @@ export function scaffold(root: string, target: ScaffoldTarget): string[] {
     outputSchema,
     adapterId: adapter,
     refreshBehavior: "manual",
+    requiresManifestV13: true,
   };
   if (adapter === "http_records") {
     manifest.fetch = {

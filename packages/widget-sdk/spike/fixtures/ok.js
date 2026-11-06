@@ -8,7 +8,26 @@
   Object.setPrototypeOf(WidgetElement.prototype, HTMLElement.prototype);
   Object.setPrototypeOf(WidgetElement, HTMLElement);
 
+  // The frame assigns `empty` last on every input revision, so an
+  // assignment after the first render is the signal to render again
+  // and announce for the new revision, like a real asynchronous Widget.
+  Object.defineProperty(WidgetElement.prototype, "empty", {
+    configurable: true,
+    get: function () {
+      return this._empty === undefined ? null : this._empty;
+    },
+    set: function (value) {
+      this._empty = value;
+      if (this.isConnected) this.render();
+    },
+  });
+
   WidgetElement.prototype.connectedCallback = function () {
+    this.render();
+  };
+
+  WidgetElement.prototype.render = function () {
+    this.replaceChildren();
     var label = this.config && this.config.label ? this.config.label : "?";
     var sets = this.data && this.data.sets ? this.data.sets : -1;
     var clockDelta =

@@ -24,8 +24,14 @@ import type {
   LayoutPlacement,
   LayoutPrimitive,
   ManifestDataSource,
+  ManifestLayoutFont,
   ManifestWidget,
 } from "./content-types";
+import {
+  libraryFamilyName,
+  LIBRARY_FAMILY_PATTERN,
+  type ProjectedFontFace,
+} from "../font-faces";
 import type {
   Manifest,
   ManifestAsset,
@@ -58,6 +64,55 @@ export interface LayoutRenderContext {
   at: Date;
   playback?: Record<string, unknown>;
   regionalFormat?: RegionalFormatting;
+  /** The Layout's library families by ID (`ManifestLayout.fonts`). */
+  fonts?: ReadonlyMap<string, ManifestLayoutFont>;
+}
+
+/** Index a manifest Layout's library families for `renderLayout`. */
+export function layoutFonts(
+  fonts: readonly ManifestLayoutFont[] | undefined,
+): Map<string, ManifestLayoutFont> {
+  const result = new Map<string, ManifestLayoutFont>();
+  for (const font of fonts ?? []) {
+    if (font && typeof font.id === "string" && Array.isArray(font.faces)) {
+      result.set(font.id.toLowerCase(), font);
+    }
+  }
+  return result;
+}
+
+/**
+ * The faces a text primitive needs, as media aliases the projector
+ * authorizes. Only faces whose file is in the manifest are listed, so a
+ * missing grant never rejects the Layout; the text then keeps its bundled
+ * fallback family.
+ */
+function libraryFontFaces(
+  fontId: string | null | undefined,
+  ctx: LayoutRenderContext,
+): { family: string; faces: ProjectedFontFace[] } | null {
+  if (!fontId) return null;
+  const font = ctx.fonts?.get(fontId.toLowerCase());
+  const family = libraryFamilyName(fontId);
+  if (!font || !LIBRARY_FAMILY_PATTERN.test(family)) return null;
+  const faces: ProjectedFontFace[] = [];
+  for (const face of font.faces) {
+    const asset = ctx.manifest.assets.find(
+      (a) => a.assetId === face.assetId && a.variantId === face.variantId,
+    );
+    if (!asset) continue;
+    const low = Math.round(face.weightMin);
+    const high = Math.round(face.weightMax);
+    if (!(low >= 1 && high <= 1000 && low <= high)) continue;
+    faces.push({
+      family,
+      src: mediaSrc(asset),
+      weight: low === high ? String(low) : `${low} ${high}`,
+      style: face.style === "italic" ? "italic" : "normal",
+      ...(face.unicodeRange ? { unicodeRange: face.unicodeRange } : {}),
+    });
+  }
+  return faces.length > 0 ? { family, faces } : null;
 }
 
 function assetVariant(
@@ -444,9 +499,10 @@ function renderPrimitive(
       if (value === null) {
         return null; // hideWhenEmpty with no data
       }
-      const family = FONT_WHITELIST.has(primitive.fontFamily ?? "")
+      const fallback = FONT_WHITELIST.has(primitive.fontFamily ?? "")
         ? primitive.fontFamily
         : "Inter";
+      const library = libraryFontFaces(primitive.fontId, ctx);
       return {
         t: "text",
         value,
@@ -455,7 +511,8 @@ function renderPrimitive(
           background: safeColor(primitive.backgroundColor, "#00000000"),
           fontSize: primitive.fontSize ?? 48,
           fontWeight: primitive.fontWeight ?? 400,
-          fontFamily: family,
+          fontFamily: library ? `${library.family}, ${fallback}` : fallback,
+          ...(library ? { fontFaces: library.faces } : {}),
           align: (primitive.textAlign as "left" | "center" | "right") ?? "left",
           verticalAlign:
             (primitive.verticalAlign as "top" | "center" | "bottom") ??
