@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { Switch } from "../../components/ui/switch";
+import { Textarea } from "../../components/ui/textarea";
 import type {
   DataSourceDetail,
   SavedDataSource,
@@ -54,6 +55,18 @@ const manualDateModeOptions = [
   { value: "next_available", labelKey: "dataSources.options.nextAvailable" },
   { value: "current_week", labelKey: "dataSources.options.currentWeek" },
 ] as const;
+
+// Simple list is only an editor for a single text column. The stored format stays
+// the standard Manual Table configuration that every existing Widget understands.
+const maximumManualRows = 200;
+const maximumManualTextLength = 500;
+
+function textListItems(value: string): string[] {
+  return value
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
 
 export function ManualDataSourceEditor({
   dataSource,
@@ -95,6 +108,39 @@ export function ManualDataSourceEditor({
       },
     },
   );
+  const [entryMode, setEntryMode] = useState<"table" | "list">("table");
+  const [textListDraft, setTextListDraft] = useState("");
+  const textColumn = configuration.columns[0];
+  // Switching a multi-column table to a list would silently discard data.
+  const canUseSimpleList =
+    configuration.columns.length === 1 &&
+    textColumn?.type === "text" &&
+    configuration.rows.every(
+      (row) => !/[\r\n]/.test(row.values[textColumn.key] ?? ""),
+    );
+  const listItems = textListItems(textListDraft);
+  const listTooMany = listItems.length > maximumManualRows;
+  const listTooLong = listItems.some(
+    (line) => Array.from(line).length > maximumManualTextLength,
+  );
+  const listInvalid = entryMode === "list" && (listTooMany || listTooLong);
+
+  const changeTextList = (draft: string) => {
+    setTextListDraft(draft);
+    const items = textListItems(draft);
+    if (
+      items.length > maximumManualRows ||
+      items.some((line) => Array.from(line).length > maximumManualTextLength)
+    ) return;
+    setConfiguration((current) => ({
+      ...current,
+      rows: items.map((value, index) => ({
+        id: current.rows[index]?.id ?? crypto.randomUUID(),
+        values: { [current.columns[0].key]: value },
+      })),
+    }));
+  };
+
   useEffect(() => {
     if (dataSource || !regional.ready || touchedTimezone.current) return;
     setConfiguration((current) => ({
@@ -192,6 +238,7 @@ export function ManualDataSourceEditor({
             type="button"
             disabled={
               save.isPending ||
+              listInvalid ||
               !name.trim() ||
               configuration.columns.some(
                 (column) =>
@@ -233,292 +280,368 @@ export function ManualDataSourceEditor({
           />
         </Field>
       </div>
-      <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium">
-          {t("dataSources.manual.columnsLegend")}
-        </legend>
-        {configuration.columns.map((column, index) => (
-          <div
-            className="grid gap-4 sm:grid-cols-3"
-            key={`${column.key}-${index}`}
+      <div className="grid gap-2">
+        <div
+          role="group"
+          aria-label={t("dataSources.manual.entryMode")}
+          className="flex flex-wrap gap-2"
+        >
+          <Button
+            type="button"
+            variant={entryMode === "table" ? "default" : "outline"}
+            aria-pressed={entryMode === "table"}
+            disabled={listInvalid}
+            onClick={() => setEntryMode("table")}
           >
-            <Field>
-              <FieldLabel htmlFor={`manual-column-key-${index}`}>
-                {t("dataSources.manual.columnKey")}
-              </FieldLabel>
-              <Input
-                id={`manual-column-key-${index}`}
-                value={column.key}
-                disabled={readOnly}
-                onChange={(event) => renameColumnKey(index, event.target.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`manual-column-label-${index}`}>
-                {t("dataSources.manual.columnLabel")}
-              </FieldLabel>
-              <Input
-                id={`manual-column-label-${index}`}
-                value={column.label}
-                disabled={readOnly}
-                onChange={(event) =>
-                  updateColumn(index, { label: event.target.value })
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`manual-column-type-${index}`}>
-                {t("dataSources.manual.columnType")}
-              </FieldLabel>
-              <Select
-                items={manualColumnTypes.map((type) => ({
-                  value: type,
-                  label: columnTypeLabels[type],
-                }))}
-                value={column.type}
-                disabled={readOnly}
-                onValueChange={(next) =>
-                  updateColumn(index, {
-                    type: next as ManualColumn["type"],
-                  })
-                }
+            {t("dataSources.manual.tableMode")}
+          </Button>
+          <Button
+            type="button"
+            variant={entryMode === "list" ? "default" : "outline"}
+            aria-pressed={entryMode === "list"}
+            disabled={!canUseSimpleList}
+            onClick={() => {
+              if (!canUseSimpleList) return;
+              setTextListDraft(
+                configuration.rows
+                  .map((row) => row.values[textColumn.key] ?? "")
+                  .join("\n"),
+              );
+              setEntryMode("list");
+            }}
+          >
+            {t("dataSources.manual.simpleList")}
+          </Button>
+        </div>
+        {!canUseSimpleList && (
+          <p className="text-sm text-muted-foreground">
+            {t("dataSources.manual.simpleListUnavailable")}
+          </p>
+        )}
+      </div>
+      {entryMode === "table" ? (
+        <>
+          <fieldset className="grid gap-3">
+            <legend className="text-sm font-medium">
+              {t("dataSources.manual.columnsLegend")}
+            </legend>
+            {configuration.columns.map((column, index) => (
+              <div
+                className="grid gap-4 sm:grid-cols-3"
+                key={`${column.key}-${index}`}
               >
-                <SelectTrigger
-                  id={`manual-column-type-${index}`}
-                  aria-label={t("dataSources.manual.typeForColumn", {
-                    label:
-                      column.label ||
-                      t("dataSources.manual.columnFallback", {
-                        index: index + 1,
-                      }),
-                  })}
-                >
-                  <SelectValue>{columnTypeLabels[column.type]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {manualColumnTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {columnTypeLabels[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            {column.type === "currency" && (
-              <Field>
-                <FieldLabel htmlFor={`manual-column-currency-${index}`}>
-                  {t("dataSources.manual.currency")}
-                </FieldLabel>
-                <Input
-                  id={`manual-column-currency-${index}`}
-                  value={column.currency ?? ""}
-                  required={!isUnspecifiedLegacyCurrency(column)}
-                  maxLength={3}
-                  disabled={readOnly}
-                  onChange={(event) =>
-                    updateColumn(index, {
-                      currency: event.target.value.toUpperCase(),
-                    })
-                  }
-                />
-                <FieldDescription>
-                  {t("dataSources.manual.currencyHint")}
-                </FieldDescription>
-              </Field>
-            )}
-            {!readOnly && configuration.columns.length > 1 && (
+                <Field>
+                  <FieldLabel htmlFor={`manual-column-key-${index}`}>
+                    {t("dataSources.manual.columnKey")}
+                  </FieldLabel>
+                  <Input
+                    id={`manual-column-key-${index}`}
+                    value={column.key}
+                    disabled={readOnly}
+                    onChange={(event) => renameColumnKey(index, event.target.value)}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`manual-column-label-${index}`}>
+                    {t("dataSources.manual.columnLabel")}
+                  </FieldLabel>
+                  <Input
+                    id={`manual-column-label-${index}`}
+                    value={column.label}
+                    disabled={readOnly}
+                    onChange={(event) =>
+                      updateColumn(index, { label: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`manual-column-type-${index}`}>
+                    {t("dataSources.manual.columnType")}
+                  </FieldLabel>
+                  <Select
+                    items={manualColumnTypes.map((type) => ({
+                      value: type,
+                      label: columnTypeLabels[type],
+                    }))}
+                    value={column.type}
+                    disabled={readOnly}
+                    onValueChange={(next) =>
+                      updateColumn(index, {
+                        type: next as ManualColumn["type"],
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      id={`manual-column-type-${index}`}
+                      aria-label={t("dataSources.manual.typeForColumn", {
+                        label:
+                          column.label ||
+                          t("dataSources.manual.columnFallback", {
+                            index: index + 1,
+                          }),
+                      })}
+                    >
+                      <SelectValue>{columnTypeLabels[column.type]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {manualColumnTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {columnTypeLabels[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {column.type === "currency" && (
+                  <Field>
+                    <FieldLabel htmlFor={`manual-column-currency-${index}`}>
+                      {t("dataSources.manual.currency")}
+                    </FieldLabel>
+                    <Input
+                      id={`manual-column-currency-${index}`}
+                      value={column.currency ?? ""}
+                      required={!isUnspecifiedLegacyCurrency(column)}
+                      maxLength={3}
+                      disabled={readOnly}
+                      onChange={(event) =>
+                        updateColumn(index, {
+                          currency: event.target.value.toUpperCase(),
+                        })
+                      }
+                    />
+                    <FieldDescription>
+                      {t("dataSources.manual.currencyHint")}
+                    </FieldDescription>
+                  </Field>
+                )}
+                {!readOnly && configuration.columns.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() =>
+                      setConfiguration((current) => ({
+                        ...current,
+                        columns: current.columns.filter((_, i) => i !== index),
+                        rows: current.rows.map((row) => {
+                          const values = { ...row.values };
+                          delete values[column.key];
+                          return { ...row, values };
+                        }),
+                      }))
+                    }
+                  >
+                    <Trash2 size={15} aria-hidden="true" />{" "}
+                    {t("dataSources.manual.removeColumn")}
+                  </Button>
+                )}
+              </div>
+            ))}
+            {!readOnly && configuration.columns.length < 12 && (
               <Button
                 type="button"
-                variant="destructive"
+                variant="outline"
                 onClick={() =>
                   setConfiguration((current) => ({
                     ...current,
-                    columns: current.columns.filter((_, i) => i !== index),
-                    rows: current.rows.map((row) => {
-                      const values = { ...row.values };
-                      delete values[column.key];
-                      return { ...row, values };
-                    }),
+                    columns: [
+                      ...current.columns,
+                      {
+                        key: `field_${current.columns.length + 1}`,
+                        // i18n-ignore: generated default label the author renames
+                        label: `Field ${current.columns.length + 1}`,
+                        type: "text",
+                      },
+                    ],
                   }))
                 }
               >
-                <Trash2 size={15} aria-hidden="true" />{" "}
-                {t("dataSources.manual.removeColumn")}
+                <Plus size={15} aria-hidden="true" />{" "}
+                {t("dataSources.manual.addColumn")}
               </Button>
             )}
-          </div>
-        ))}
-        {!readOnly && configuration.columns.length < 12 && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              setConfiguration((current) => ({
-                ...current,
-                columns: [
-                  ...current.columns,
-                  {
-                    key: `field_${current.columns.length + 1}`,
-                    // i18n-ignore: generated default label the author renames
-                    label: `Field ${current.columns.length + 1}`,
-                    type: "text",
-                  },
-                ],
-              }))
-            }
-          >
-            <Plus size={15} aria-hidden="true" />{" "}
-            {t("dataSources.manual.addColumn")}
-          </Button>
-        )}
-      </fieldset>
-      <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium">
-          {t("dataSources.manual.rowsLegend", {
-            rows: configuration.rows.length,
-          })}
-        </legend>
-        <div className="grid gap-3">
-          {configuration.rows.map((row, rowIndex) => (
-            <div
-              className="grid gap-4 rounded-lg border p-3 sm:grid-cols-2"
-              key={row.id}
-            >
-              {configuration.columns.map((column) => (
-                <Field key={column.key}>
-                  <FieldLabel htmlFor={`manual-cell-${rowIndex}-${column.key}`}>
-                    {column.label}
-                  </FieldLabel>
-                  {column.type === "boolean" ? (
-                    <Select
-                      value={row.values[column.key] ?? ""}
-                      disabled={readOnly}
-                      onValueChange={(next) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          rows: current.rows.map((item, index) =>
-                            index === rowIndex
-                              ? {
-                                  ...item,
-                                  values: {
-                                    ...item.values,
-                                    [column.key]: next as string,
-                                  },
-                                }
-                              : item,
-                          ),
-                        }))
-                      }
-                      items={booleanCellOptions.map((option) => ({
-                        value: option.value,
-                        label: t(option.labelKey),
-                      }))}
-                    >
-                      <SelectTrigger
-                        id={`manual-cell-${rowIndex}-${column.key}`}
-                        aria-label={t("dataSources.manual.cellValue", {
-                          label: column.label,
-                        })}
-                      >
-                        <SelectValue>
-                          {optionLabel(
-                            booleanCellOptions.map((option) => ({
-                              value: option.value,
-                              label: t(option.labelKey),
-                            })),
-                            row.values[column.key] ?? "",
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {booleanCellOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {t(option.labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      id={`manual-cell-${rowIndex}-${column.key}`}
-                      type={
-                        column.type === "date"
-                          ? "date"
-                          : column.type === "datetime"
-                            ? "text"
-                            : [
-                                  "number",
-                                  "integer",
-                                  "percent",
-                                  "currency",
-                                ].includes(column.type)
-                              ? "number"
-                              : "text"
-                      }
-                      value={row.values[column.key] ?? ""}
-                      disabled={readOnly}
-                      onChange={(event) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          rows: current.rows.map((item, index) =>
-                            index === rowIndex
-                              ? {
-                                  ...item,
-                                  values: {
-                                    ...item.values,
-                                    [column.key]: event.target.value,
-                                  },
-                                }
-                              : item,
-                          ),
-                        }))
-                      }
-                    />
-                  )}
-                </Field>
-              ))}
-              {!readOnly && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("dataSources.manual.removeRow", {
-                    index: rowIndex + 1,
-                  })}
-                  onClick={() =>
-                    setConfiguration((current) => ({
-                      ...current,
-                      rows: current.rows.filter(
-                        (_, index) => index !== rowIndex,
-                      ),
-                    }))
-                  }
+          </fieldset>
+          <fieldset className="grid gap-3">
+            <legend className="text-sm font-medium">
+              {t("dataSources.manual.rowsLegend", {
+                rows: configuration.rows.length,
+              })}
+            </legend>
+            <div className="grid gap-3">
+              {configuration.rows.map((row, rowIndex) => (
+                <div
+                  className="grid gap-4 rounded-lg border p-3 sm:grid-cols-2"
+                  key={row.id}
                 >
-                  <Trash2 size={15} aria-hidden="true" />
-                </Button>
-              )}
+                  {configuration.columns.map((column) => (
+                    <Field key={column.key}>
+                      <FieldLabel htmlFor={`manual-cell-${rowIndex}-${column.key}`}>
+                        {column.label}
+                      </FieldLabel>
+                      {column.type === "boolean" ? (
+                        <Select
+                          value={row.values[column.key] ?? ""}
+                          disabled={readOnly}
+                          onValueChange={(next) =>
+                            setConfiguration((current) => ({
+                              ...current,
+                              rows: current.rows.map((item, index) =>
+                                index === rowIndex
+                                  ? {
+                                      ...item,
+                                      values: {
+                                        ...item.values,
+                                        [column.key]: next as string,
+                                      },
+                                    }
+                                  : item,
+                              ),
+                            }))
+                          }
+                          items={booleanCellOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          }))}
+                        >
+                          <SelectTrigger
+                            id={`manual-cell-${rowIndex}-${column.key}`}
+                            aria-label={t("dataSources.manual.cellValue", {
+                              label: column.label,
+                            })}
+                          >
+                            <SelectValue>
+                              {optionLabel(
+                                booleanCellOptions.map((option) => ({
+                                  value: option.value,
+                                  label: t(option.labelKey),
+                                })),
+                                row.values[column.key] ?? "",
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {booleanCellOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {t(option.labelKey)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          id={`manual-cell-${rowIndex}-${column.key}`}
+                          type={
+                            column.type === "date"
+                              ? "date"
+                              : column.type === "datetime"
+                                ? "text"
+                                : [
+                                      "number",
+                                      "integer",
+                                      "percent",
+                                      "currency",
+                                    ].includes(column.type)
+                                  ? "number"
+                                  : "text"
+                          }
+                          value={row.values[column.key] ?? ""}
+                          disabled={readOnly}
+                          onChange={(event) =>
+                            setConfiguration((current) => ({
+                              ...current,
+                              rows: current.rows.map((item, index) =>
+                                index === rowIndex
+                                  ? {
+                                      ...item,
+                                      values: {
+                                        ...item.values,
+                                        [column.key]: event.target.value,
+                                      },
+                                    }
+                                  : item,
+                              ),
+                            }))
+                          }
+                        />
+                      )}
+                    </Field>
+                  ))}
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("dataSources.manual.removeRow", {
+                        index: rowIndex + 1,
+                      })}
+                      onClick={() =>
+                        setConfiguration((current) => ({
+                          ...current,
+                          rows: current.rows.filter(
+                            (_, index) => index !== rowIndex,
+                          ),
+                        }))
+                      }
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {!readOnly && configuration.rows.length < 200 && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              setConfiguration((current) => ({
-                ...current,
-                rows: [
-                  ...current.rows,
-                  { id: crypto.randomUUID(), values: {} },
-                ],
-              }))
-            }
-          >
-            <Plus size={15} aria-hidden="true" />{" "}
-            {t("dataSources.manual.addRow")}
-          </Button>
-        )}
-      </fieldset>
+            {!readOnly && configuration.rows.length < 200 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setConfiguration((current) => ({
+                    ...current,
+                    rows: [
+                      ...current.rows,
+                      { id: crypto.randomUUID(), values: {} },
+                    ],
+                  }))
+                }
+              >
+                <Plus size={15} aria-hidden="true" />{" "}
+                {t("dataSources.manual.addRow")}
+              </Button>
+            )}
+          </fieldset>
+        </>
+      ) : (
+        <Field>
+          <FieldLabel htmlFor="manual-text-list">
+            {t("dataSources.manual.textListLabel")}
+          </FieldLabel>
+          <Textarea
+            id="manual-text-list"
+            value={textListDraft}
+            rows={10}
+            disabled={readOnly}
+            aria-invalid={listInvalid}
+            aria-describedby="manual-text-list-hint"
+            onChange={(event) => changeTextList(event.target.value)}
+          />
+          <FieldDescription id="manual-text-list-hint">
+            {t("dataSources.manual.textListHint")}
+          </FieldDescription>
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {t("dataSources.manual.textListCount", {
+              count: listItems.length,
+            })}
+          </p>
+          {listTooMany && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("dataSources.manual.textListTooMany")}
+            </p>
+          )}
+          {listTooLong && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("dataSources.manual.textListTooLong")}
+            </p>
+          )}
+        </Field>
+      )}
       <fieldset className="grid gap-3">
         <legend className="text-sm font-medium">
           {t("dataSources.manual.dateAware")}
