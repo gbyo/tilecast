@@ -1347,6 +1347,21 @@
             }
           ]
         },
+        "fonts": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 4,
+              "items": {
+                "$ref": "schema-v11.json#/$defs/layoutFont"
+              }
+            }
+          ],
+          "description": "Organization font library families the state uses. Additive: a Player without player.fonts@1 ignores it. Each face file is also in assets."
+        },
         "validUntil": {
           "type": "string",
           "format": "date-time"

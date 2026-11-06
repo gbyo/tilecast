@@ -1,4 +1,5 @@
 import type { LayoutPrimitive } from "./api/types";
+import { libraryFontStack } from "./fonts/libraryFonts";
 
 export type LayoutFontFamily = NonNullable<LayoutPrimitive["fontFamily"]>;
 
@@ -9,8 +10,16 @@ const layoutFontStacks: Record<LayoutFontFamily, string> = {
   "Noto Sans": '"Noto Sans", ui-sans-serif, system-ui, sans-serif',
 };
 
-export function layoutFontStack(fontFamily?: string): string {
-  return (
-    layoutFontStacks[fontFamily as LayoutFontFamily] ?? layoutFontStacks.Inter
+/**
+ * A library family (`fontId`) draws first; the bundled family stays the
+ * fallback while the face loads and on Players that predate the library.
+ */
+export function layoutFontStack(
+  fontFamily?: string,
+  fontId?: string | null,
+): string {
+  return libraryFontStack(
+    fontId,
+    layoutFontStacks[fontFamily as LayoutFontFamily] ?? layoutFontStacks.Inter,
   );
 }

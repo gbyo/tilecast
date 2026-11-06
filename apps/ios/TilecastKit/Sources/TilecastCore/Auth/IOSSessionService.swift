@@ -37,6 +37,9 @@ public enum IOSSessionError: Error, Equatable, Sendable {
     case unavailable
     /// A sign-in response without the Studio session cookie.
     case missingCookie
+    /// The sign-in ended before its code exchange finished, so the result
+    /// was dropped and nothing was stored.
+    case cancelled
 }
 
 /// Calls the Tilecast for iOS bootstrap endpoint. It never sends cookies

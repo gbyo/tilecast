@@ -15,6 +15,7 @@ import { PlayerPluginHost } from "./player-host";
 import { PresentationProviders } from "./presentation-providers";
 import {
   clockService,
+  fontsService,
   mediaService,
   PresentationObserver,
   surfaceService,
@@ -75,6 +76,7 @@ export class PlayerPlugins {
         clock: options.clock,
         clockOffsetMs: () => this.clockOffsetMs,
       }),
+      fontsService({ resolve: options.mediaUrl }),
       mediaService({ resolve: options.mediaUrl }),
       this.presentation.provider(),
       this.providers.provider(),

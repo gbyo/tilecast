@@ -73,6 +73,10 @@ internal class InstallHandoffGate {
         try{return block()}finally{busy.set(false)}
     }
 }
+/** The state of a verified update whose installation waits for Takeover playback to end. */
+internal fun takeoverDelayedState(state:UpdateUiState,now:Instant):UpdateUiState =
+    state.copy(state="ready",message="Installation delayed by takeover playback",permissionRequired=false,installReady=true,maintenanceAt=now.toString())
+
 
 internal enum class ScheduledInstallGate { Proceed, Cancelled }
 
@@ -169,23 +173,37 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
 
     fun openPermissionSettings(){app.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}
     /** Folds installer results and permission grants into the persisted state and reports the outcome. */
-    suspend fun refreshPermission(server:String?,credential:String?,state:UpdateUiState):UpdateUiState{
-        val changed=installerFailure(state)?:permissionGranted(state)?:return state
+    suspend fun refreshPermission(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState{
+        val changed=installerFailure(state)?:permissionGranted(server,credential,state,takeoverActive)?:return state
         if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,changed.deploymentId,changed.state,changed.downloadedBytes,if(changed.permissionRequired)"required" else "granted",error=if(changed.state=="failed")changed.errorCode?:"installer_failed" else "")}
         return changed
     }
-    /** Starts the system installer for a ready update and reports the handoff. Null when the installer refused to start. */
-    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState):UpdateUiState?=handoff.runExclusive{
-        // Hashing and copying the APK take a while; show progress instead of a stale Install button.
+    /** Starts the system installer after checking for active Takeover playback. */
+    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState?=handoff.runExclusive{
+        if(takeoverActive()){
+            val delayed=delayForTakeover(server,credential,state,takeoverActive)
+            if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"ready",state.downloadedBytes,"granted","delayed_by_takeover")}
+            return@runExclusive delayed
+        }
         announce(state.copy(state="installing",message="Preparing the update for Android",installReady=false))
         if(!install(state)){announce(state);return@runExclusive null}
+
         val installing=state.copy(state="installing",message="Complete installation in the Android prompt")
         persist(installing)
         if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"installing",state.downloadedBytes,"granted","system_installer_started")}
         installing
     }
-    suspend fun permissionGranted(state:UpdateUiState):UpdateUiState? {
+    private fun delayForTakeover(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState{
+        val delayed=takeoverDelayedState(state,Instant.now())
+        app.getSharedPreferences("tilecast-reliability",Application.MODE_PRIVATE).edit().putBoolean("update-active",false).apply()
+        persist(delayed)
+        if(server!=null&&credential!=null)scheduleMaintenance(server,credential,delayed,takeoverActive){}
+        return delayed
+    }
+    suspend fun permissionGranted(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState? {
+
         if((Build.VERSION.SDK_INT>=26&&!app.packageManager.canRequestPackageInstalls())||!state.permissionRequired)return null
+        if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT)&&takeoverActive())return delayForTakeover(server,credential,state,takeoverActive)
         val next=if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT))state.copy(state="installing",message="Installing verified player update",permissionRequired=false,installReady=false) else state.copy(state="waiting_for_user",message="This Android version requires local installer approval",permissionRequired=false,installReady=true)
         persist(next)
         return if(next.state=="installing"&&!install(next))next.copy(state="failed",message="Android could not start the installer",errorCode="installer_session_failed").also(::persist) else next

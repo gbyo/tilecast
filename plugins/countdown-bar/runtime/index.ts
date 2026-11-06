@@ -40,11 +40,23 @@ export default definePlayerPlugin({
   id: "countdown_bar",
   services: {
     required: ["player.clock@1", "player.surface@1"],
-    optional: [],
+    optional: ["player.fonts@1"],
   },
   activate(context) {
     const clock = context.services["player.clock@1"];
     const surface = context.services["player.surface@1"];
+    const fonts = context.services["player.fonts@1"];
+
+    // The bar asks the Player for its library family once per state. A
+    // family the Player cannot deliver answers null and the bar keeps the
+    // Player's own face, so a missing font never hides the countdown.
+    let familyById = new Map<string, string | null>();
+    const familyFor = (fontId: string | null): string | null => {
+      if (!fontId || !fonts) return null;
+      if (!familyById.has(fontId))
+        familyById.set(fontId, fonts.use(fontId)?.family ?? null);
+      return familyById.get(fontId) ?? null;
+    };
 
     let entries: RuntimeManifestEntry[] = [];
     let selected: TilecastActiveCountdownBar | null = null;
@@ -60,10 +72,9 @@ export default definePlayerPlugin({
     bar.dataset["urgency"] = "normal";
     const fill = element("span", "tc-countdown-bar__fill");
     fill.setAttribute("aria-hidden", "true");
-    const urgency = element("span", "tc-countdown-bar__urgency");
     const message = element("span", "tc-countdown-bar__message");
     const value = element("span", "tc-countdown-bar__value");
-    bar.append(fill, urgency, message, value);
+    bar.append(fill, message, value);
     const confetti = element("div", "tc-countdown-bar__confetti");
     confetti.setAttribute("aria-hidden", "true");
 
@@ -79,15 +90,18 @@ export default definePlayerPlugin({
             ? `${countdown.remainingFraction * 100}%`
             : "0",
       });
-      urgency.textContent = countdown?.urgencyLabel ?? "";
       message.textContent = countdown?.message ?? "";
       value.textContent = countdown?.value ?? "";
       if (countdown) {
         // Padding and type size are resolved centrally so every player
         // agrees on what a contentPadding and textScale mean.
+        const family = familyFor(countdown.fontId);
         setStyles(bar, {
           "--tc-countdown-bar-padding": `${countdown.contentPadding}%`,
           "--tc-countdown-bar-font-size": `${countdown.fontSizePx}px`,
+          "--tc-countdown-bar-font-family": family
+            ? `${family}, var(--tc-font-ui, sans-serif)`
+            : "",
         });
       }
     };
@@ -116,7 +130,7 @@ export default definePlayerPlugin({
     };
 
     const barSurface = surface.open("bar", drawBar, (slot) =>
-      slot === "strip.bottom" && barShown ? words(urgency, message, value) : "",
+      slot === "strip.bottom" && barShown ? words(message, value) : "",
     );
     const confettiSurface = surface.open("confetti", drawConfetti);
     barSurface?.container("strip.bottom").appendChild(bar);
@@ -161,6 +175,7 @@ export default definePlayerPlugin({
 
     return {
       stateChanged(next) {
+        familyById = new Map();
         entries = next.map((entry) => ({
           id: entry.id,
           type: entry.type,
@@ -169,7 +184,7 @@ export default definePlayerPlugin({
         }));
         evaluate();
       },
-      describe: () => words(urgency, message, value),
+      describe: () => words(message, value),
       dispose() {
         confetti.replaceChildren();
       },

@@ -316,7 +316,7 @@ impl NativePluginHost {
             .filter(|plugin| is_plugin_state_entry(plugin))
             .take(MAX_STATE_ENTRIES)
             .filter_map(|plugin| {
-                let media = validate_plugin_state(plugin).ok()?;
+                let media = validate_plugin_state(plugin).ok()?.media;
                 let expired = plugin
                     .get("validUntil")
                     .and_then(Value::as_str)

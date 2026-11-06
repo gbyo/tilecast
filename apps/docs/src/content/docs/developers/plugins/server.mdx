@@ -19,7 +19,7 @@ func (p *Plugin) Init(_ context.Context, host plugin.Host) error {
 
 `Host.DB` is for the plugin's own tables. Use the other Host services for core state.
 
-Common services include `Installation`, `Audit`, `Manifests`, `Targets`, `Takeovers`, `ManagedPresentations`, `BackgroundJobs`, `Screens`, `Organization`, `Clock`, `Logger`, `DataSources`, `Users`, and `PluginAssets`.
+Common services include `Installation`, `Audit`, `Manifests`, `Targets`, `Takeovers`, `ManagedPresentations`, `BackgroundJobs`, `Screens`, `Organization`, `Clock`, `Logger`, `DataSources`, `Users`, `PluginAssets`, and `Fonts`.
 
 If a plugin needs a core table that is not represented by a Host service, don't query that table directly. Extend the API deliberately.
 

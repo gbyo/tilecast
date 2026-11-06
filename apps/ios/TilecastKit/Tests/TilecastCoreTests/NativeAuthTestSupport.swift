@@ -51,6 +51,7 @@ final class FakeSessionServer: IOSSessionExchanging, @unchecked Sendable {
     private var _revoked = false
     private var _refreshCalls: [RefreshCall] = []
     private var _revokedTokens: [String] = []
+    private var _exchangeCalls = 0
     private var _inFlight = 0
     private var _maximumInFlight = 0
     private var _nextFailure: IOSSessionError?
@@ -62,6 +63,9 @@ final class FakeSessionServer: IOSSessionExchanging, @unchecked Sendable {
     var omitsStudioCookie = false
     /// Holds each refresh until opened.
     var refreshGate: Gate?
+    /// Holds each sign-in code exchange until opened. The server issues the
+    /// grant first, as a server does before its response reaches the app.
+    var exchangeGate: Gate?
     /// The access-token lifetime this server grants.
     var lifetime: TimeInterval = 900
     var now: @Sendable () -> Date = { .now }
@@ -72,6 +76,7 @@ final class FakeSessionServer: IOSSessionExchanging, @unchecked Sendable {
 
     var refreshCalls: [RefreshCall] { lock.withLock { _refreshCalls } }
     var revokedTokens: [String] { lock.withLock { _revokedTokens } }
+    var exchangeCalls: Int { lock.withLock { _exchangeCalls } }
     var maximumInFlight: Int { lock.withLock { _maximumInFlight } }
     var grantRevoked: Bool { lock.withLock { _revoked } }
     var currentRefreshToken: String? { lock.withLock { current } }
@@ -97,10 +102,13 @@ final class FakeSessionServer: IOSSessionExchanging, @unchecked Sendable {
     }
 
     func exchange(code: String, verifier: String) async throws(IOSSessionError) -> IOSSessionGrant {
-        lock.withLock {
+        let grant = lock.withLock {
+            _exchangeCalls += 1
             let credential = issuesCredentials ? issue() : nil
             return IOSSessionGrant(cookie: studioCookie(host: host), credential: credential)
         }
+        if let exchangeGate { await exchangeGate.wait() }
+        return grant
     }
 
     func refresh(refreshToken: String, studioSession: Bool) async throws(IOSSessionError) -> IOSSessionGrant {

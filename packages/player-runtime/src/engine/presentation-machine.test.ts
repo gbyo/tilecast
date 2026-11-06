@@ -136,6 +136,47 @@ describe("presentation machine", () => {
     expect(h.stage()!.restarts).toBe(2);
   });
 
+  it("keeps looping a single video whose duration passed before its first frame", () => {
+    const h = harness([item("v", { kind: "video", durationMs: 2_000 })]);
+    const mount = h.mount();
+    // A slow load: the mount-time deadline fires while the video prepares.
+    h.clock.advance(3_000);
+    h.ready();
+    expect(h.state()).toBe("showing");
+    h.actor.send({ type: "SURFACE_ENDED", mount, source: "ended" });
+    expect(h.stage()!.restarts).toBe(1);
+    expect(h.log.filter((e) => e.startsWith("item-transition"))).toHaveLength(
+      1,
+    );
+  });
+
+  it("holds every lap of a single video for the dwell floor", () => {
+    const h = harness([item("v", { kind: "video", durationMs: 100 })]);
+    const mount = h.mount();
+    h.ready();
+    h.clock.advance(1_000);
+    expect(h.stage()!.restarts).toBe(1);
+    h.actor.send({ type: "SURFACE_RESUMED", mount });
+    // A 100 ms duration must not restart the lap at timer speed.
+    h.clock.advance(999);
+    expect(h.stage()!.restarts).toBe(1);
+    h.clock.advance(1);
+    expect(h.stage()!.restarts).toBe(2);
+  });
+
+  it("bounds every lap of a single looping video by its duration", () => {
+    const h = harness([item("v", { kind: "video", durationMs: 2_000 })]);
+    const mount = h.mount();
+    h.ready();
+    h.clock.advance(2_000);
+    expect(h.stage()!.restarts).toBe(1);
+    h.actor.send({ type: "SURFACE_RESUMED", mount });
+    h.clock.advance(1_999);
+    expect(h.stage()!.restarts).toBe(1);
+    h.clock.advance(1);
+    expect(h.stage()!.restarts).toBe(2);
+  });
+
   it("advances a video in a playlist on whichever completion comes first", () => {
     const h = harness([
       item("v", { kind: "video", durationMs: 20_000 }),

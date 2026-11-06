@@ -72,11 +72,9 @@ func (s *Service) CreateForm(ctx context.Context, user uuid.UUID, in FormInput) 
 	if _, err := s.publishRevisionTx(ctx, tx, id, user, in.DraftSchema); err != nil {
 		return Form{}, err
 	}
-	// Seed a default "Approved" view exposing every published output field.
-	outputKeys := make([]string, 0)
-	for _, spec := range outputFieldSpecs(in.DraftSchema) {
-		outputKeys = append(outputKeys, spec.Key)
-	}
+	// Seed a default "Approved" view exposing the published output fields, up to the most one
+	// dataset can carry. Authors can pick a different selection on the view.
+	outputKeys := defaultViewFieldKeys(in.DraftSchema)
 	if _, err := tx.Exec(ctx, `INSERT INTO form_views(id,data_source_id,key,name,included_states,field_filters,time_filter,sort,output_fields,record_limit,position)
 		VALUES($1,$2,'approved','Approved',$3,'[]'::jsonb,'{}'::jsonb,'[]'::jsonb,$4,100,0)`,
 		uuid.New(), id, []string{"approved"}, outputKeys); err != nil {
@@ -273,6 +271,19 @@ func canonicalSchemaJSON(schema FormSchema) string {
 }
 
 // publishRevisionTx inserts the next revision inside an open transaction.
+// defaultViewFieldKeys lists the output fields the seeded default view exposes: the form's own
+// fields first, then the synthetic record fields, cut off at the per-view limit.
+func defaultViewFieldKeys(schema FormSchema) []string {
+	keys := make([]string, 0, maxViewOutputFields)
+	for _, spec := range outputFieldSpecs(schema) {
+		if len(keys) == maxViewOutputFields {
+			break
+		}
+		keys = append(keys, spec.Key)
+	}
+	return keys
+}
+
 func (s *Service) publishRevisionTx(ctx context.Context, tx pgx.Tx, id, user uuid.UUID, schema FormSchema) (Revision, error) {
 	var next int
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(revision_number),0)+1 FROM form_revisions WHERE data_source_id=$1`, id).Scan(&next); err != nil {

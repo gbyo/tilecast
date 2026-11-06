@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
 
     fun openSystemSettings(action: String) { if (!isMaintenanceSettingsLaunchAllowed(action, model.playerConfig.value?.managedKiosk?.allowSettingsDuringAdmin ?: true)) return; val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); if (action == Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) intent.data = Uri.parse("package:$packageName"); runCatching { startActivity(intent) } }
     fun restartPlayer() { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)); finish() }
-    fun installPlayerUpdate() { runCatching { stopLockTask() }; getSharedPreferences("tilecast-reliability", MODE_PRIVATE).edit().putBoolean("update-active", true).apply(); model.installUpdate() }
+    fun installPlayerUpdate() { if (!model.takeoverActive.value) { runCatching { stopLockTask() }; getSharedPreferences("tilecast-reliability", MODE_PRIVATE).edit().putBoolean("update-active", true).apply() }; model.installUpdate() }
     fun applyReliability(config: org.tilecast.player.core.CorePlatformConfig, activeHours: Boolean) { reliability.applyWindow(this, config, activeHours); restoreKiosk?.let(reliabilityHandler::removeCallbacks); reliability.maintenanceUntil()?.let { until -> Runnable { reliability.applyWindow(this, config, activeHours) }.also { restoreKiosk = it; reliabilityHandler.postDelayed(it, Duration.between(Instant.now(), until).toMillis().coerceAtLeast(0) + 100) } } }
     fun maintenanceChanged() { model.playerConfig.value?.let { applyReliability(it, model.activeHours.value) } }
 
