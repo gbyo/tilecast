@@ -11,7 +11,17 @@ import type {
 } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { toast } from "../../components/ui/toast";
-import { artifactIdentity, deployable } from "./model";
+import {
+  artifactIdentity,
+  deployable,
+  groupReleases,
+  releaseGroupKey,
+} from "./model";
+import {
+  releaseUpdateTab,
+  screenUpdateTab,
+  type UpdateFamilyTab,
+} from "../../playerPlatform";
 import type { TargetChoice } from "./DeployUpdateStages";
 
 export type DeployStageKey = "release" | "targets" | "rollout";
@@ -70,10 +80,57 @@ function rolloutReady(
   );
 }
 
+function automaticBuildForScreens(
+  group: PlayerRelease[] | undefined,
+  screens: Screen[],
+) {
+  if (!group?.length) return undefined;
+  if (group.length === 1) return group[0];
+  const matching = group.filter(
+    (release) =>
+      !release.architecture ||
+      screens.some(
+        (screen) => screen.playerArchitecture === release.architecture,
+      ),
+  );
+  return matching.length === 1 ? matching[0] : undefined;
+}
+
+function initialDeployChoice(
+  releases: PlayerRelease[],
+  screens: Screen[],
+  initialFamily: UpdateFamilyTab,
+  preselected?: string,
+) {
+  const release = releases.find((item) => item.id === preselected);
+  const family = release ? releaseUpdateTab(release) : initialFamily;
+  const groups = groupReleases(
+    releases.filter((item) => releaseUpdateTab(item) === family),
+  );
+  const group =
+    (release
+      ? groups.find((items) => items.some((item) => item.id === release.id))
+      : undefined) ?? (groups.length === 1 ? groups[0] : undefined);
+  const familyScreens = screens.filter(
+    (screen) => screenUpdateTab(screen) === family,
+  );
+  const build = release ?? automaticBuildForScreens(group, familyScreens);
+  return {
+    family,
+    groupId: group ? releaseGroupKey(group) : "",
+    releaseId: build?.id ?? "",
+  };
+}
+
+function buildForGroup(group: PlayerRelease[] | undefined, screens: Screen[]) {
+  return automaticBuildForScreens(group, screens)?.id ?? "";
+}
+
 export function useDeployUpdateModel({
   releases,
   screens,
   groups,
+  initialFamily,
   preselected,
   onClose,
   onCreated,
@@ -81,14 +138,23 @@ export function useDeployUpdateModel({
   releases: PlayerRelease[];
   screens: Screen[];
   groups: ScreenGroup[];
+  initialFamily: UpdateFamilyTab;
   preselected?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const csrf = useAuth().status?.csrfToken ?? "";
+  const initialChoice = initialDeployChoice(
+    releases,
+    screens,
+    initialFamily,
+    preselected,
+  );
   const [stage, setStage] = useState(1);
-  const [releaseId, setReleaseId] = useState(preselected ?? "");
+  const [family, setFamily] = useState(initialChoice.family);
+  const [groupId, setGroupId] = useState(initialChoice.groupId);
+  const [releaseId, setReleaseId] = useState(initialChoice.releaseId);
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -96,6 +162,16 @@ export function useDeployUpdateModel({
   const [canary, setCanary] = useState(false);
   const [canarySize, setCanarySize] = useState(1);
 
+  const familyReleases = releases.filter(
+    (item) => releaseUpdateTab(item) === family,
+  );
+  const releaseGroups = groupReleases(familyReleases);
+  const releaseGroup = releaseGroups.find(
+    (items) => releaseGroupKey(items) === groupId,
+  );
+  const familyScreens = screens.filter(
+    (screen) => screenUpdateTab(screen) === family,
+  );
   const release = releases.find((item) => item.id === releaseId);
   const screenIds = useMemo(
     () => screens.map((screen) => screen.id),
@@ -210,6 +286,31 @@ export function useDeployUpdateModel({
     setSelected([]);
   }
 
+  function chooseFamily(value: UpdateFamilyTab) {
+    if (value === family) return;
+    const nextGroups = groupReleases(
+      releases.filter((item) => releaseUpdateTab(item) === value),
+    );
+    const nextGroup = nextGroups.length === 1 ? nextGroups[0] : undefined;
+    const nextScreens = screens.filter(
+      (screen) => screenUpdateTab(screen) === value,
+    );
+    setFamily(value);
+    setGroupId(nextGroup ? releaseGroupKey(nextGroup) : "");
+    setReleaseId(buildForGroup(nextGroup, nextScreens));
+    setSelected([]);
+  }
+
+  function chooseVersion(value: string) {
+    if (value === groupId) return;
+    const nextGroup = releaseGroups.find(
+      (items) => releaseGroupKey(items) === value,
+    );
+    setGroupId(value);
+    setReleaseId(buildForGroup(nextGroup, familyScreens));
+    setSelected([]);
+  }
+
   function goBack() {
     if (stage === 1) onClose();
     else setStage((current) => current - 1);
@@ -218,6 +319,11 @@ export function useDeployUpdateModel({
   return {
     stage,
     stageKey: stageKey(stage),
+    family,
+    familyScreens,
+    releaseGroups,
+    groupId,
+    releaseGroup,
     releaseId,
     release,
     choices,
@@ -245,6 +351,8 @@ export function useDeployUpdateModel({
     rolloutReady: rolloutIsReady,
     deploy,
     chooseRelease,
+    chooseFamily,
+    chooseVersion,
     goBack,
     continue: () => setStage((current) => current + 1),
   };

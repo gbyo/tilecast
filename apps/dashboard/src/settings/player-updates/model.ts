@@ -90,6 +90,17 @@ export function deploymentStatus(
     `updates.console.status.${status === "paused" || status === "completed" || status === "cancelled" ? status : "active"}`,
   );
 }
+export function architectureLabel(
+  architecture: string | undefined,
+  t: TFunction<["settings", "common"]>,
+) {
+  if (architecture === "x86_64")
+    return t("updates.console.architectures.x86_64");
+  if (architecture === "aarch64")
+    return t("updates.console.architectures.aarch64");
+  return architecture || t("updates.console.architectures.standard");
+}
+
 export function artifactIdentity(
   release: { platform: string; playerFamily?: string; architecture?: string },
   t: TFunction<["settings", "common"]>,
@@ -136,6 +147,12 @@ export function groupReleases(releases: PlayerRelease[]) {
   return [...groups.values()].sort(
     (a, b) => Date.parse(b[0]!.publishedAt) - Date.parse(a[0]!.publishedAt),
   );
+}
+export function releaseGroupKey(releases: PlayerRelease[]) {
+  return releases
+    .map((release) => release.id)
+    .sort()
+    .join(":");
 }
 export function deploymentNeedsAttention(item: UpdateDeployment) {
   if (item.status !== "active" && item.status !== "paused") return false;

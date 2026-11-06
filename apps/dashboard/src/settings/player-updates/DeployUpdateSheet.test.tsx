@@ -21,6 +21,7 @@ function mount(preselected?: string) {
         releases={[release, { ...release, id: "r2", architecture: "aarch64" }]}
         screens={fleet}
         groups={groups}
+        initialFamily="edge"
         preselected={preselected}
         onClose={() => {}}
         onCreated={created}
@@ -67,6 +68,12 @@ async function selectEligible() {
 describe("guided deployment", () => {
   it("requires a concrete artifact, distinguishes architectures, and preserves valid Back state", async () => {
     mount();
+    expect(
+      screen.getByRole("combobox", { name: "Player type" }),
+    ).toHaveTextContent("Tilecast Edge");
+    expect(screen.getByRole("combobox", { name: "Version" })).toHaveTextContent(
+      "0.26.0-beta.6",
+    );
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     await userEvent.click(screen.getByRole("radio", { name: /x86_64/ }));
     await goTargets();

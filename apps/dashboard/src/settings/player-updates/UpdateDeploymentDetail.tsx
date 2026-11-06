@@ -63,15 +63,17 @@ export function useUpdateDeployment({
   deploymentId,
   screens,
   manageable,
+  initialFilter = "all",
 }: {
   deploymentId: string;
   screens: Screen[];
   manageable: boolean;
+  initialFilter?: ScreenFilter;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
-  const [filter, setFilter] = useState<ScreenFilter>("all");
+  const [filter, setFilter] = useState<ScreenFilter>(initialFilter);
   const [search, setSearch] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const detail = useQuery({
@@ -459,12 +461,14 @@ export function UpdateDeploymentDetail({
   deploymentId,
   screens,
   manageable,
+  initialFilter = "all",
   open,
   onOpenChange,
 }: {
   deploymentId: string;
   screens: Screen[];
   manageable: boolean;
+  initialFilter?: ScreenFilter;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -473,6 +477,7 @@ export function UpdateDeploymentDetail({
     deploymentId,
     screens,
     manageable,
+    initialFilter,
   });
   return (
     <UpdateSurface

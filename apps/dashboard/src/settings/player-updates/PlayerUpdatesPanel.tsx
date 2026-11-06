@@ -2,7 +2,13 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, RefreshCw, Rocket, Upload } from "lucide-react";
+import {
+  CircleAlert,
+  MoreHorizontal,
+  RefreshCw,
+  Rocket,
+  Upload,
+} from "lucide-react";
 import { api } from "../../api/client";
 import type {
   PlayerRelease,
@@ -25,6 +31,7 @@ import {
   useOpenNativePresentation,
 } from "../../native-presentation/openNativePresentation";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
@@ -53,7 +60,7 @@ import { ReleaseLibrary } from "./ReleaseLibrary";
 import { ReleaseSourceDialog } from "./ReleaseSourceDialog";
 import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
-import { families, familyLabel } from "./model";
+import { deploymentNeedsAttention, families, familyLabel } from "./model";
 import { screenUpdateMeaning } from "../playerUpdateStates";
 import { hasCapability } from "../../auth/capabilities";
 
@@ -137,9 +144,33 @@ function PlayerUpdatesWorkspace({
   const deploymentItems = (deployments.data?.items ?? []).filter(
     (d) => releaseUpdateTab(d) === family,
   );
-  const familyScreens = (screens.data?.items ?? []).filter(
-    (s) => screenUpdateTab(s) === family,
+  const allDeployments = deployments.data?.items ?? [];
+  const attentionByFamily = families.map((value) => ({
+    family: value,
+    count: allDeployments.filter(
+      (item) =>
+        releaseUpdateTab(item) === value && deploymentNeedsAttention(item),
+    ).length,
+  }));
+  const attentionCount = attentionByFamily.reduce(
+    (total, item) => total + item.count,
+    0,
   );
+  const otherAttention = attentionByFamily.filter(
+    (item) => item.family !== family && item.count > 0,
+  );
+  const otherAttentionCount = otherAttention.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
+  const familyCounts = Object.fromEntries(
+    families.map((value) => [
+      value,
+      (screens.data?.items ?? []).filter(
+        (screen) => screenUpdateTab(screen) === value,
+      ).length,
+    ]),
+  ) as Record<UpdateFamilyTab, number>;
   async function showDeployment(id: string, name: string) {
     if (
       await openNative({
@@ -187,10 +218,14 @@ function PlayerUpdatesWorkspace({
         familySwitch={
           <PlayerFamilySwitch
             family={family}
-            fleetCount={familyScreens.length}
+            familyCounts={familyCounts}
             onChange={changeFamily}
           />
         }
+        attentionCount={attentionCount}
+        otherAttention={otherAttention}
+        otherAttentionCount={otherAttentionCount}
+        onAttentionFamilyChange={changeFamily}
         deploymentsPending={deployments.isPending}
         deploymentsError={deployments.error}
         deploymentsReady={!!deployments.data}
@@ -219,7 +254,7 @@ function PlayerUpdatesWorkspace({
         family={family}
         owner={owner}
         manageable={manageable}
-        releaseItems={releaseItems}
+        allReleases={releases.data?.items ?? []}
         catalog={releases.data}
         screens={screens.data?.items ?? []}
         groups={groups.data?.items ?? []}
@@ -326,23 +361,23 @@ function InventoryAlert({
 
 function PlayerFamilySwitch({
   family,
-  fleetCount,
+  familyCounts,
   onChange,
 }: {
   family: UpdateFamilyTab;
-  fleetCount: number;
+  familyCounts: Record<UpdateFamilyTab, number>;
   onChange: (value: string) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
       <p className="text-sm text-muted-foreground">
-        {t("updates.console.fleetCount", { count: fleetCount })}
+        {t("updates.console.fleetCount", { count: familyCounts[family] })}
       </p>
       <Select
         items={families.map((value) => ({
           value,
-          label: familyLabel(value, t),
+          label: `${familyLabel(value, t)} · ${t("updates.console.fleetCount", { count: familyCounts[value] })}`,
         }))}
         value={family}
         onValueChange={(value) => onChange(value ?? "")}
@@ -356,7 +391,8 @@ function PlayerFamilySwitch({
         <SelectContent align="end">
           {families.map((value) => (
             <SelectItem key={value} value={value}>
-              {familyLabel(value, t)}
+              {familyLabel(value, t)} ·{" "}
+              {t("updates.console.fleetCount", { count: familyCounts[value] })}
             </SelectItem>
           ))}
         </SelectContent>
@@ -369,6 +405,10 @@ function PlayerUpdatesTabs({
   view,
   actions,
   familySwitch,
+  attentionCount,
+  otherAttention,
+  otherAttentionCount,
+  onAttentionFamilyChange,
   deploymentsPending,
   deploymentsError,
   deploymentsReady,
@@ -390,6 +430,10 @@ function PlayerUpdatesTabs({
   view: "deployments" | "releases";
   actions: ReactNode;
   familySwitch: ReactNode;
+  attentionCount: number;
+  otherAttention: { family: UpdateFamilyTab; count: number }[];
+  otherAttentionCount: number;
+  onAttentionFamilyChange: (family: string) => void;
   deploymentsPending: boolean;
   deploymentsError: unknown;
   deploymentsReady: boolean;
@@ -422,6 +466,14 @@ function PlayerUpdatesTabs({
         >
           <TabsTrigger value="deployments">
             {t("updates.console.deployments")}
+            {attentionCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+              >
+                {attentionCount}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="releases">
             {t("updates.console.releases")}
@@ -430,6 +482,40 @@ function PlayerUpdatesTabs({
         {actions}
       </div>
       {familySwitch}
+      {view === "deployments" && otherAttention.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+          role="status"
+        >
+          <CircleAlert
+            className="size-4 shrink-0 text-destructive"
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground">
+            {t("updates.console.attentionElsewhere", {
+              count: otherAttentionCount,
+            })}
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {otherAttention.map((item) => (
+              <Button
+                key={item.family}
+                variant="ghost"
+                size="sm"
+                onClick={() => onAttentionFamilyChange(item.family)}
+              >
+                {familyLabel(item.family, t)}
+                <Badge
+                  variant="destructive"
+                  className="h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                >
+                  {item.count}
+                </Badge>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
       <TabsContent value="deployments">
         {deploymentsPending ? (
           <LoadingRows />
@@ -500,7 +586,7 @@ function PlayerUpdateOverlays({
   family,
   owner,
   manageable,
-  releaseItems,
+  allReleases,
   catalog,
   screens,
   groups,
@@ -518,7 +604,7 @@ function PlayerUpdateOverlays({
   family: UpdateFamilyTab;
   owner: boolean;
   manageable: boolean;
-  releaseItems: PlayerRelease[];
+  allReleases: PlayerRelease[];
   catalog?: PlayerReleaseList;
   screens: Screen[];
   groups: ScreenGroup[];
@@ -533,10 +619,11 @@ function PlayerUpdateOverlays({
     <>
       {draft && manageable && (
         <DeployUpdateSheet
-          releases={releaseItems}
+          releases={allReleases}
           screens={screens}
           groups={groups}
           preselected={draft.releaseId}
+          initialFamily={family}
           onClose={onCloseDraft}
           onCreated={onCreated}
         />

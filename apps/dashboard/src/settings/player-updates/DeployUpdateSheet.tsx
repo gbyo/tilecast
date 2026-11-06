@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { PlayerRelease, Screen, ScreenGroup } from "../../api/types";
+import type { UpdateFamilyTab } from "../../playerPlatform";
 import { UpdateSurface } from "./UpdateSurface";
 import {
   DeployAlerts,
@@ -15,6 +16,7 @@ export function DeployUpdateSheet({
   releases,
   screens,
   groups,
+  initialFamily,
   preselected,
   onClose,
   onCreated,
@@ -22,6 +24,7 @@ export function DeployUpdateSheet({
   releases: PlayerRelease[];
   screens: Screen[];
   groups: ScreenGroup[];
+  initialFamily: UpdateFamilyTab;
   preselected?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
@@ -31,6 +34,7 @@ export function DeployUpdateSheet({
     releases,
     screens,
     groups,
+    initialFamily,
     preselected,
     onClose,
     onCreated,
@@ -63,8 +67,14 @@ export function DeployUpdateSheet({
       <DeployStageIntro stage={model.stage} stageKey={model.stageKey} />
       {model.stage === 1 && (
         <DeployReleaseStage
-          releases={releases}
+          family={model.family}
+          familyScreens={model.familyScreens}
+          releaseGroups={model.releaseGroups}
+          releaseGroup={model.releaseGroup}
+          groupId={model.groupId}
           releaseId={model.releaseId}
+          onFamilyChange={model.chooseFamily}
+          onVersionChange={model.chooseVersion}
           onReleaseChange={model.chooseRelease}
         />
       )}

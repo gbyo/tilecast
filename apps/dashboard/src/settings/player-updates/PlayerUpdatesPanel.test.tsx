@@ -126,7 +126,7 @@ describe("Player Updates workspace", () => {
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
-    expect(screen.getByRole("tab", { name: "Deployments" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /Deployments/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -166,22 +166,48 @@ describe("Player Updates workspace", () => {
   it("uses URL-backed view and family with back/forward, preserving unrelated parameters", async () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Releases" }));
+    await user.click(screen.getByRole("tab", { name: "Release catalog" }));
     expect(await screen.findByText("Release library")).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
-    const family = screen.getByRole("combobox", { name: "Player family" });
+    const family = screen.getByRole("combobox", { name: "Player type" });
     await user.click(family);
-    await user.click(await screen.findByRole("option", { name: "Windows" }));
+    await user.click(await screen.findByRole("option", { name: /Windows/ }));
     expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
     await user.click(screen.getByRole("button", { name: "History back" }));
     expect(
-      screen.getByRole("combobox", { name: "Player family" }),
+      screen.getByRole("combobox", { name: "Player type" }),
     ).toHaveTextContent("Tilecast Edge");
     await user.click(screen.getByRole("button", { name: "History forward" }));
     expect(
-      screen.getByRole("combobox", { name: "Player family" }),
+      screen.getByRole("combobox", { name: "Player type" }),
     ).toHaveTextContent("Windows");
+  });
+  it("surfaces active rollouts that need attention across Player families", async () => {
+    vi.mocked(api.updateDeployments).mockResolvedValue({
+      items: [
+        deployment,
+        {
+          ...deployment,
+          id: "windows-rollout",
+          platform: "windows",
+          playerFamily: "windows",
+          failedCount: 2,
+        },
+      ],
+    });
+    mount("/settings/player/updates?platform=edge");
+    expect(
+      await screen.findByRole("tab", { name: /Deployments/ }),
+    ).toBeInTheDocument();
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent(
+      "1 rollout needs attention in another Player type.",
+    );
+    await userEvent.click(
+      within(notice).getByRole("button", { name: /Windows/ }),
+    );
+    expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
   });
   it("discards a draft when navigating to another family and back", async () => {
     mount();
@@ -215,7 +241,7 @@ describe("Player Updates workspace", () => {
       screen.getByRole("button", { name: "Deploy aarch64" }),
     );
     const radio = await screen.findByRole("radio", {
-      name: /0.26.0-beta.6.*Beta.*aarch64/,
+      name: /0.26.0-beta.6.*aarch64/,
     });
     // A concrete artifact is selected, even though the version is shared.
     expect(
