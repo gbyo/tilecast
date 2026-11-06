@@ -2525,8 +2525,12 @@ async fn a_zone_that_never_renders_still_reaches_safe_mode_and_previews_stay_pro
     let (player, renderer, activation, item) = layout_player(&harness).await;
     start_layout(&renderer, &activation, &item, &["clock"]).await;
     let binding = harness.binding();
-    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
-        .await;
+
+    // Promotion needs a first render from every declared zone, so the pending
+    // manifest is not promoted while the banner is silent. Playback health is
+    // a separate judgment and still sees the stalled zone.
+    settle().await;
+    assert!(player.stage(&binding, Stage::Active).await.is_none(), "a silent zone must not promote the layout");
 
     // The Runtime keeps reporting `layout_alive`, so only the zone that owes
     // its first render is wrong. A reactivation restarts the Runtime's item,
