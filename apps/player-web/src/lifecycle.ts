@@ -3,6 +3,20 @@ export interface ClockSample {
   monotonicMs: number;
 }
 
+/**
+ * The Host stops and releases its database when the page is hidden, which
+ * includes entering the back-forward cache. Nothing of it survives to resume,
+ * so a restored page starts a new Host rather than present a dead one.
+ */
+export function reloadWhenRestored(
+  target: Pick<EventTarget, "addEventListener">,
+  reload: () => void,
+): void {
+  target.addEventListener("pageshow", (event) => {
+    if ((event as PageTransitionEvent).persisted) reload();
+  });
+}
+
 /** Timer lateness alone is not sleep. A clock discontinuity needs a new anchor. */
 export function clockDiscontinuity(
   previous: ClockSample,

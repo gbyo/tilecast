@@ -212,6 +212,18 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireCapability(auth.CapScheduleRead), s.requireScope("read")).Get("/schedules", s.listSchedules)
 			dashboard.With(s.requireCapability(auth.CapScheduleRead), s.requireScope("read")).Get("/schedules/{id}", s.getSchedule)
 			dashboard.With(s.requireScope("read")).Get("/settings", s.getSettings)
+			if s.fonts != nil {
+				// Every signed-in person reads the font library so font pickers work;
+				// changing it is organization branding.
+				dashboard.With(s.requireScope("read")).Get("/fonts", s.listFonts)
+				dashboard.With(s.requireScope("read")).Get("/fonts/{id}/faces/{faceId}/file", s.fontFaceFile)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireScope("read")).Get("/fonts/catalog", s.searchFontCatalog)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireScope("read")).Get("/fonts/catalog/{sourceId}", s.getFontCatalogFamily)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireScope("read")).Get("/fonts/catalog/{sourceId}/preview", s.fontCatalogPreview)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Post("/fonts/google", s.importGoogleFont)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Post("/fonts/uploads", s.uploadFont)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Delete("/fonts/{id}", s.deleteFont)
+			}
 			dashboard.With(s.requireCapability(auth.CapUsersManage), s.requireScope("admin")).Get("/users", s.listUsers)
 			dashboard.With(s.requireCapability(auth.CapUsersManage), s.requireCSRF, s.requireScope("admin")).Post("/users", s.createUser)
 			dashboard.With(s.requireCapability(auth.CapUsersManage), s.requireCSRF, s.requireScope("admin")).Patch("/users/{id}", s.updateUser)
@@ -411,6 +423,7 @@ func (s *server) routes() chi.Router {
 			}
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/playlist-assignment", s.getPlaylistAssignment)
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/playback-plan", s.getPlaybackPlan)
+			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/playback-agenda", s.getPlaybackAgenda)
 			dashboard.With(s.requireCapability(auth.CapScreenAssign), s.requireCSRF, s.requireScope("write")).Put("/screens/{id}/playlist-assignment", s.assignPlaylist)
 			dashboard.With(s.requireCapability(auth.CapScreenAssign), s.requireCSRF, s.requireScope("write")).Delete("/screens/{id}/playlist-assignment", s.unassignPlaylist)
 			dashboard.With(s.requireAnyCapability(auth.CapMediaEdit, auth.CapWidgetEdit), s.requireCSRF, s.requireScope("write")).Patch("/assets/{id}", s.updateAsset)

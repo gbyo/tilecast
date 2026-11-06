@@ -1,13 +1,9 @@
 ---
 title: Install Tilecast Player on Windows
-description: Prepare Windows 10 or 11 for the Tilecast Player preview, install a signed MSIX, and pair the display.
+description: Prepare Windows 10 or 11 for Tilecast Player, install a signed MSIX, and pair the display.
 ---
 
-:::note[Windows preview: release and qualification pending]
-The native Windows Player targets Windows 10 and 11 on x64 and ARM64. Its release packaging is implemented, but no Windows Player package has been published yet. Physical qualification on both architectures is still in progress. Do not use Windows for unattended production screens until a Tilecast release explicitly supports your setup.
-:::
-
-When a Windows release is available, install the signed MSIX package that matches the PC and pair it with your Tilecast Server. Windows uses the same Studio, playlists, Layouts, and pairing flow as other Players.
+The native Windows Player runs on Windows 10 and 11, on x64 and ARM64. Install the signed MSIX package that matches the PC and pair it with your Tilecast Server. Windows uses the same Studio, playlists, Layouts, and pairing flow as other Players.
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -23,7 +19,7 @@ import { Steps } from "@astrojs/starlight/components";
 <Steps>
 
 1. Open [Tilecast releases on GitHub](https://github.com/gbyo/tilecast/releases).
-2. Open a release whose notes list a **Windows** section with download links. Stable releases always include Windows. A Beta may leave it out, and its notes say so. If no release lists a Windows package, the Windows preview is not available for installation yet.
+2. Open a release whose notes list a **Windows** section with download links. Stable releases always include Windows. A Beta may leave it out, and its notes say so.
 3. Download the signed `.msix` package for your PC: `x86_64` for Windows x64, or `aarch64` for Windows ARM64. Do not substitute an Edge/Linux or Android asset.
 
 </Steps>
@@ -69,6 +65,6 @@ A Windows Player verifies both the Tilecast-signed update metadata and the Windo
 
 The Player presents fullscreen on the **primary monitor** and keeps the system and display awake while it runs. It does **not** control screen power, HDMI-CEC, or DDC/CI; it does not offer an AirPlay receiver or join Presentation Networks.
 
-Website and YouTube content use WebView2. Remote pages cannot open file-selection dialogs, so avoid assigning sites that require file uploads. Physical testing is still required for video codecs, multi-zone websites, captures, and long-running unattended playback.
+Website and YouTube content use WebView2. Remote pages cannot open file-selection dialogs, so avoid assigning sites that require file uploads. Test video codecs, multi-zone websites, captures, and long-running unattended playback on your own PCs.
 
 Before using the Player for a real installation, verify pairing, offline recovery, restart at user logon, preview and Watch Live, and signed updates on the exact PC architecture you intend to use.

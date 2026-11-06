@@ -1,6 +1,9 @@
 /* Countdown Bar. The host places the strip container and sets its height;
    the bar fills it and slides in from below. */
 .tc-countdown-bar {
+  --tc-bar-bg: rgba(11, 18, 28, 0.97);
+  --tc-bar-accent: #5eead4;
+  --tc-bar-fill: rgba(94, 234, 212, 0.14);
   position: absolute;
   display: flex;
   visibility: hidden;
@@ -11,13 +14,15 @@
   box-sizing: border-box;
   align-items: center;
   justify-content: center;
-  gap: 0.35em;
+  gap: 0.6em;
   padding: 0 var(--tc-countdown-bar-padding, 4%);
-  background: rgba(13, 20, 27, 0.96);
+  overflow: hidden;
+  background: var(--tc-bar-bg);
   color: #fff;
-  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  font-family: var(--tc-countdown-bar-font-family, inherit);
   font-size: var(--tc-countdown-bar-font-size, 30px);
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: 0.005em;
   line-height: 1;
   transform: translateY(100%);
   transition:
@@ -26,39 +31,44 @@
     font-size 240ms ease,
     background-color 240ms ease;
 }
+/* A thin track along the top edge carries the stage color. The draining
+   fill's own top edge is brighter, so progress reads even when the bar is
+   a single line of text. */
+.tc-countdown-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--tc-bar-accent);
+  opacity: 0.28;
+  transition: background-color 240ms ease;
+}
 .tc-countdown-bar--visible {
   visibility: visible;
   transform: translateY(0);
 }
 .tc-countdown-bar[data-urgency="starting_soon"] {
-  background: rgba(180, 83, 9, 0.97);
+  --tc-bar-bg: rgba(38, 24, 8, 0.97);
+  --tc-bar-accent: #fbbf24;
+  --tc-bar-fill: rgba(251, 191, 36, 0.15);
 }
 .tc-countdown-bar[data-urgency="urgent"],
 .tc-countdown-bar[data-urgency="final"] {
-  background: rgba(185, 28, 28, 0.97);
-}
-.tc-countdown-bar__urgency {
-  position: relative;
-  z-index: 1;
-  padding: 0.24em 0.45em;
-  border: 1px solid rgba(255, 255, 255, 0.56);
-  font-size: 0.64em;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.tc-countdown-bar__urgency:empty {
-  display: none;
+  --tc-bar-bg: rgba(42, 12, 16, 0.97);
+  --tc-bar-accent: #fb7185;
+  --tc-bar-fill: rgba(251, 113, 133, 0.17);
 }
 .tc-countdown-bar--pulse {
   animation: tc-countdown-bar-pulse 900ms ease-in-out infinite alternate;
 }
 @keyframes tc-countdown-bar-pulse {
   from {
-    filter: brightness(0.86);
+    filter: brightness(0.9);
   }
   to {
-    filter: brightness(1.16);
+    filter: brightness(1.18);
   }
 }
 .tc-countdown-bar__message,
@@ -66,12 +76,18 @@
   position: relative;
   z-index: 1;
 }
+.tc-countdown-bar__message {
+  color: rgba(255, 255, 255, 0.78);
+}
 .tc-countdown-bar__message:empty {
   display: none;
 }
 .tc-countdown-bar__value {
+  color: #fff;
   font-variant-numeric: tabular-nums;
-  font-weight: 750;
+  font-weight: 800;
+  font-size: 1.12em;
+  letter-spacing: -0.01em;
 }
 /* The draining fill sits behind the text and shrinks toward the left, so
    at zero only the bar background is left. Width is set from the resolved
@@ -86,9 +102,20 @@
   bottom: 0;
   width: 0;
   z-index: 0;
-  background: rgba(255, 255, 255, 0.16);
-  border-right: 2px solid rgba(255, 255, 255, 0.42);
-  transition: width 960ms linear;
+  background: var(--tc-bar-fill);
+  transition:
+    width 960ms linear,
+    background-color 240ms ease;
+}
+.tc-countdown-bar__fill::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--tc-bar-accent);
+  transition: background-color 240ms ease;
 }
 .tc-countdown-bar__confetti {
   position: absolute;

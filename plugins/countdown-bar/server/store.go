@@ -12,7 +12,7 @@ import (
 )
 
 const columns = `id,name,message,schedule_type,target_time::text,days_of_week,one_time_at,timezone,
-	lead_time_seconds,completion_text,show_confetti,display_mode,height_px,progress_fill,content_padding,text_scale,
+	lead_time_seconds,completion_text,show_confetti,display_mode,height_px,progress_fill,content_padding,text_scale,font_id,
 	urgency_enabled,starting_soon_seconds,urgent_seconds,pulse_seconds,enabled,priority,target_scope,created_at,updated_at`
 
 type scanner interface{ Scan(...any) error }
@@ -23,7 +23,7 @@ func scan(row scanner) (CountdownBar, error) {
 	var contentPadding int
 	err := row.Scan(&item.ID, &item.Name, &item.Message, &item.ScheduleType, &targetTime, &item.DaysOfWeek,
 		&item.OneTimeAt, &item.Timezone, &item.LeadTimeSeconds, &item.CompletionText, &item.ShowConfetti,
-		&item.DisplayMode, &item.HeightPX, &item.ProgressFill, &contentPadding, &item.TextScale,
+		&item.DisplayMode, &item.HeightPX, &item.ProgressFill, &contentPadding, &item.TextScale, &item.FontID,
 		&item.UrgencyEnabled, &item.StartingSoonSeconds, &item.UrgentSeconds, &item.PulseSeconds,
 		&item.Enabled, &item.Priority, &item.TargetScope, &item.CreatedAt, &item.UpdatedAt)
 	item.ContentPadding = &contentPadding
@@ -135,21 +135,21 @@ func (p *Plugin) write(ctx context.Context, id, userID uuid.UUID, input Input, c
 	if create {
 		_, err = tx.Exec(ctx, `INSERT INTO countdown_bar_instances
 			(id,organization_id,name,message,schedule_type,target_time,days_of_week,one_time_at,timezone,lead_time_seconds,
-			 completion_text,show_confetti,display_mode,height_px,progress_fill,content_padding,text_scale,
+			 completion_text,show_confetti,display_mode,height_px,progress_fill,content_padding,text_scale,font_id,
 			 urgency_enabled,starting_soon_seconds,urgent_seconds,pulse_seconds,enabled,priority,target_scope,created_by)
-			VALUES($1,$2,$3,$4,$5,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+			VALUES($1,$2,$3,$4,$5,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
 			id, organizationID, strings.TrimSpace(input.Name), strings.TrimSpace(input.Message), input.ScheduleType,
 			targetTime, input.DaysOfWeek, input.OneTimeAt, input.Timezone, input.LeadTimeSeconds,
-			strings.TrimSpace(input.CompletionText), input.ShowConfetti, input.DisplayMode, input.HeightPX, input.ProgressFill, *input.ContentPadding, input.TextScale,
+			strings.TrimSpace(input.CompletionText), input.ShowConfetti, input.DisplayMode, input.HeightPX, input.ProgressFill, *input.ContentPadding, input.TextScale, input.FontID,
 			input.UrgencyEnabled, input.StartingSoonSeconds, input.UrgentSeconds, input.PulseSeconds, input.Enabled, input.Priority, input.TargetScope, userID)
 	} else {
 		tag, updateErr := tx.Exec(ctx, `UPDATE countdown_bar_instances SET name=$2,message=$3,schedule_type=$4,target_time=$5::time,
 			days_of_week=$6,one_time_at=$7,timezone=$8,lead_time_seconds=$9,completion_text=$10,show_confetti=$11,display_mode=$12,height_px=$13,
-			progress_fill=$14,content_padding=$15,text_scale=$16,urgency_enabled=$17,starting_soon_seconds=$18,
-			urgent_seconds=$19,pulse_seconds=$20,enabled=$21,priority=$22,target_scope=$23,updated_at=now() WHERE id=$1`,
+			progress_fill=$14,content_padding=$15,text_scale=$16,font_id=$17,urgency_enabled=$18,starting_soon_seconds=$19,
+			urgent_seconds=$20,pulse_seconds=$21,enabled=$22,priority=$23,target_scope=$24,updated_at=now() WHERE id=$1`,
 			id, strings.TrimSpace(input.Name), strings.TrimSpace(input.Message), input.ScheduleType, targetTime,
 			input.DaysOfWeek, input.OneTimeAt, input.Timezone, input.LeadTimeSeconds, strings.TrimSpace(input.CompletionText),
-			input.ShowConfetti, input.DisplayMode, input.HeightPX, input.ProgressFill, *input.ContentPadding, input.TextScale,
+			input.ShowConfetti, input.DisplayMode, input.HeightPX, input.ProgressFill, *input.ContentPadding, input.TextScale, input.FontID,
 			input.UrgencyEnabled, input.StartingSoonSeconds, input.UrgentSeconds, input.PulseSeconds, input.Enabled, input.Priority, input.TargetScope)
 		err = updateErr
 		if err == nil && tag.RowsAffected() == 0 {
@@ -166,6 +166,15 @@ func (p *Plugin) write(ctx context.Context, id, userID uuid.UUID, input Input, c
 		if _, err = tx.Exec(ctx, `INSERT INTO countdown_bar_targets(instance_id,target_type,target_id) VALUES($1,$2,$3)`, id, input.TargetScope, targetID); err != nil {
 			return err
 		}
+	}
+	// The library refuses to remove a family while an instance uses it.
+	// Disabled instances count: enabling one must not find the font gone.
+	var fontIDs []uuid.UUID
+	if input.FontID != nil {
+		fontIDs = append(fontIDs, *input.FontID)
+	}
+	if err = p.host.Fonts.UseInTx(ctx, tx, id, strings.TrimSpace(input.Name), fontIDs...); err != nil {
+		return err
 	}
 	action := "plugin.countdown_bar.updated"
 	if create {
@@ -202,6 +211,9 @@ func (p *Plugin) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	}
 	if tag.RowsAffected() == 0 {
 		return plugin.ErrNotFound
+	}
+	if err = p.host.Fonts.ReleaseInTx(ctx, tx, id); err != nil {
+		return err
 	}
 	if err = p.host.Audit.RecordInTx(ctx, tx, plugin.AuditEvent{UserID: userID, Action: "plugin.countdown_bar.deleted", ResourceType: "plugin", ResourceID: id.String()}); err != nil {
 		return err

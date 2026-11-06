@@ -27,6 +27,7 @@ import { PlayerPluginHost } from "./plugins/player-host";
 import { PresentationProviders } from "./plugins/presentation-providers";
 import {
   clockService,
+  fontsService,
   mediaService,
   PresentationObserver,
   surfaceService,
@@ -173,16 +174,17 @@ function run(
           diagnostic: pluginDiagnostic,
         })
       : null;
+  // `player.media@1` and `player.fonts@1` address variants the same way.
+  const playerMediaUrl = (assetId: string, variantId: string) =>
+    host.media
+      ? host.media.resolve(assetId, variantId)
+      : capabilities.variantMedia === true
+        ? `tcmedia://variant/${assetId}/${variantId}`
+        : pluginMedia.resolve(assetId, variantId);
   const playerServices = new PlayerServiceRegistry([
     clockService({ clock, clockOffsetMs: () => pluginClockOffset.value }),
-    mediaService({
-      resolve: (assetId, variantId) =>
-        host.media
-          ? host.media.resolve(assetId, variantId)
-          : capabilities.variantMedia === true
-            ? `tcmedia://variant/${assetId}/${variantId}`
-            : pluginMedia.resolve(assetId, variantId),
-    }),
+    fontsService({ resolve: playerMediaUrl }),
+    mediaService({ resolve: playerMediaUrl }),
     presentationObserver.provider(),
     providers.provider(),
     surfaceService({ surfaces, reducedMotion, animationScale }),
@@ -190,6 +192,7 @@ function run(
   ]);
   const playerPlugins = new PlayerPluginHost({
     clock,
+    pluginState: capabilities.pluginState === true,
     plugins: playerDiscovery.plugins,
     services: playerServices,
     diagnostic: pluginDiagnostic,

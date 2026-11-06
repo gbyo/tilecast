@@ -167,6 +167,14 @@ package whose contribution fails to decode is skipped and logged; the
 remaining packages still compose. Boot warns on skips and fails fast on a
 rebuild that is not skip-only.
 
+A rebuild after a lifecycle mutation runs after the activation commits, so a
+failure cannot undo the mutation. If that rebuild fails and is not skip-only
+(for example, the Server cannot read the installed packages), the Server logs
+the error and retries the rebuild in the background. The first retry runs
+after one second. The delay doubles up to one minute. The retry stops after
+the first rebuild that is skip-only, or after a later lifecycle rebuild
+succeeds. Until then, the previous snapshot stays active.
+
 Each nested definition ID is qualified under its package ID, so a Data
 Source provider reads `<package-id>.<nested-id>` (migration `00121` widens
 the provider checks to accept dots). Qualification keeps provenance inside
@@ -262,8 +270,10 @@ server processes never run the same job twice. A claim holds a
 five-minute lease. Execution is at-least-once: a crash mid-run
 re-runs the job after the lease expires. A guest failure records
 `last_status = error` with the message and reschedules on the same
-interval. The first overdue pass runs at startup, then the scheduler
-polls every minute.
+interval. The scheduler reads the interval from the stored job row when
+a run ends. A package update that changes the interval while the job runs
+therefore sets the next run time. The first overdue pass runs at startup,
+then the scheduler polls every minute.
 
 The realtime scheduler uses a separate one-second due scan.
 It claims at most four jobs per pass and runs at most four guests at once.
@@ -497,6 +507,12 @@ take the same row `FOR UPDATE` before they count content. If the
 lifecycle change commits first, creation answers `409 plugin_not_installed`
 and inserts nothing. If creation commits first, the lifecycle change
 counts the new row and answers `package_in_use`.
+
+An update activates only the installation that its check observed.
+`Activate` receives that installation digest and compares it again after
+it locks the installation row. If a removal or another update ran while
+the update prepared its artifact, the update answers `update_check_expired`
+and changes nothing. A removed package stays removed.
 
 Reads (`GET /api/v1/packages`, `GET /api/v1/packages/{packageId}`)
 answer any signed-in role. Resolution, install, update, rollback, and

@@ -60,3 +60,47 @@ func (s *server) getPlaybackPlan(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"data": inspection.Response()})
 	}
 }
+
+func playbackAgendaRange(rawQuery string) (time.Time, time.Time, error) {
+	query, err := url.ParseQuery(rawQuery)
+	if err != nil || len(query) != 2 {
+		return time.Time{}, time.Time{}, playbackplan.ErrInvalidAgendaRange
+	}
+	parse := func(values []string) (time.Time, error) {
+		if len(values) != 1 || !playbackPlanTimeFormat.MatchString(values[0]) {
+			return time.Time{}, playbackplan.ErrInvalidAgendaRange
+		}
+		return time.Parse(time.RFC3339Nano, values[0])
+	}
+	from, err := parse(query["from"])
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	to, err := parse(query["to"])
+	return from, to, err
+}
+
+func (s *server) getPlaybackAgenda(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlUUID(w, r, "id")
+	if !ok {
+		return
+	}
+	from, to, err := playbackAgendaRange(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_playback_agenda_range", "Use one RFC 3339 instant each for from and to, with time zones.")
+		return
+	}
+	agenda, err := s.playbackAgenda.Agenda(r.Context(), id, from, to)
+	switch {
+	case errors.Is(err, playbackplan.ErrNotFound):
+		writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
+	case errors.Is(err, playbackplan.ErrInvalidAgendaRange):
+		writeError(w, http.StatusBadRequest, "invalid_playback_agenda_range", "Use a positive range of at most eight days.")
+	case errors.Is(err, playbackplan.ErrAgendaTooManyChanges):
+		writeError(w, http.StatusUnprocessableEntity, "playback_agenda_too_many_changes", "This range contains too many schedule boundaries.")
+	case err != nil:
+		s.internalError(w, r, err)
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"data": agenda})
+	}
+}

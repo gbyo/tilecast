@@ -113,3 +113,51 @@ func TestSchedulerRunOnce(t *testing.T) {
 		t.Fatalf("second RunOnce = %d, %v; want 0, nil", ran, err)
 	}
 }
+
+func TestRecordJobOutcomeUsesIntervalUpdatedDuringRun(t *testing.T) {
+	pool := kvPool(t)
+	ctx := context.Background()
+	kvSeedOrg(t, pool)
+	const packageID = "acme.scheduler-interval-update"
+	t.Cleanup(func() {
+		_ = SyncJobs(ctx, pool, packageID, nil) //nolint:errcheck
+	})
+
+	if err := SyncJobs(ctx, pool, packageID, []packagemanifest.BackgroundJob{{ID: "refresh", IntervalMinutes: 60}}); err != nil {
+		t.Fatalf("SyncJobs returned error: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE external_plugin_jobs SET next_run_at = now() - make_interval(mins => 1) WHERE package_id = $1`, packageID); err != nil {
+		t.Fatalf("force job due: %v", err)
+	}
+	claimed, err := claimDueJobs(ctx, pool, 4)
+	if err != nil {
+		t.Fatalf("claimDueJobs: %v", err)
+	}
+	var job claimedJob
+	for _, candidate := range claimed {
+		if candidate.packageID == packageID {
+			job = candidate
+		}
+	}
+	if job.jobID != "refresh" {
+		t.Fatalf("claimed = %+v, want the refresh job", claimed)
+	}
+
+	// The package update lands while the old invocation is still running.
+	if err := SyncJobs(ctx, pool, packageID, []packagemanifest.BackgroundJob{{ID: "refresh", IntervalMinutes: 10}}); err != nil {
+		t.Fatalf("update sync: %v", err)
+	}
+	finished := time.Now()
+	if err := recordJobOutcome(ctx, pool, job, jobOutcome{}); err != nil {
+		t.Fatalf("recordJobOutcome: %v", err)
+	}
+	rows, err := ListJobs(ctx, pool, packageID)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("ListJobs = %+v, %v", rows, err)
+	}
+	wait := rows[0].NextRunAt.Sub(finished)
+	if rows[0].LastStatus != "ok" || wait < 9*time.Minute || wait > 11*time.Minute {
+		t.Fatalf("status = %q next run in %s, want ok and about 10 minutes", rows[0].LastStatus, wait)
+	}
+}

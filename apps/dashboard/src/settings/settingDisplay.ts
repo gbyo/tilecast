@@ -428,6 +428,7 @@ export const subsectionOrder: Record<
       ],
     },
   ],
+  fonts: [],
   users: [],
   roles: [],
   security: [
