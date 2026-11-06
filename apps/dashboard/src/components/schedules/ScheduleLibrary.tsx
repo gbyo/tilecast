@@ -1,4 +1,10 @@
 import { useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { useAuth } from "../../auth/AuthProvider";
+import { rememberSavedSchedule } from "../../data/schedules";
+import { apiErrorMessage } from "../../i18n";
+import { toast } from "../ui/toast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import type { Schedule } from "../../api/types";
@@ -37,6 +43,27 @@ export function ScheduleLibrary({
   const { t } = useTranslation("schedules");
   const locale = useFormatLocale();
   const navigate = useNavigate();
+  const csrf = useAuth().status?.csrfToken ?? "";
+  const client = useQueryClient();
+  const toggle = useMutation({
+    mutationFn: (schedule: Schedule) =>
+      api.setScheduleEnabled(schedule.id, !schedule.enabled, csrf),
+    onSuccess: (saved) => {
+      rememberSavedSchedule(client, saved);
+      toast.add({
+        title: saved.enabled
+          ? t("page.actions.enabled")
+          : t("page.actions.disabled"),
+        type: "success",
+      });
+    },
+    onError: (error) =>
+      toast.add({
+        title: t("page.actions.toggleFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      }),
+  });
   const compact = useCompactLayout();
   const rows = useMemo(
     () => scheduleRows(items, t, locale, now),
@@ -53,6 +80,19 @@ export function ScheduleLibrary({
           icon: canManage ? "edit" : "open",
           onSelect: () => void navigate(schedulePath(schedule)),
         },
+        ...(canManage
+          ? [
+              {
+                id: "toggle-enabled",
+                label: schedule.enabled
+                  ? t("page.actions.disable")
+                  : t("page.actions.enable"),
+                icon: schedule.enabled ? "disable" : "enable",
+                disabled: toggle.isPending,
+                onSelect: () => toggle.mutate(schedule),
+              },
+            ]
+          : []),
       ],
     },
     {

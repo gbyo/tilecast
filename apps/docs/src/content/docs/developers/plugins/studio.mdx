@@ -62,6 +62,12 @@ If a reusable primitive is missing, expose it through that boundary instead of i
 
 Studio uses the official shadcn Base Nova components with Base UI, Neutral, Geist, and Lucide. Import primitives through `@tilecast/studio/ui/<component>` so your plugin follows the host's appearance, density, and touch rules.
 
-Define object actions once as `StudioActionGroup[]`. Pass that model to both `ActionMenuButton` and `ActionContextMenu` from `@tilecast/studio`. For a resource context menu, pass the resource name as `title` so the shared menu renders the standard labeled header; keep `label` as the localized accessible action label. Keep the visible menu button; a context menu is an extra shortcut.
+Define the semantic command set once as `StudioActionGroup[]`. Pass it to both `ActionMenuButton` and `ActionContextMenu` from `@tilecast/studio`. Dropdown and context menus may present that set differently according to the interaction surface. Keep a visible menu for important object actions; the context menu is supplemental.
+
+Context menus hide disabled and unavailable commands. The visible dropdown can keep meaningful disabled commands for discoverability and show existing keyboard shortcuts through `shortcut`. Context menus never show shortcut labels. Use `surface: "dropdown"` or `surface: "context"` to omit a redundant command from the other surface; permission checks still belong in your action factory.
+
+Use stable IDs and localized labels. `StudioAction` stays compatible with ordinary existing actions. Add a `StudioSubmenu` with `items: StudioAction[]` for one submenu level only. Empty groups and submenus collapse after filtering. Keep menus short, target-specific, and put destructive commands in the final group with `role: "destructive"`. Unknown icon tokens render text only.
+
+Keep `label` as the localized accessible action label. The optional `title` identifies the resource when that context is useful; headers are not required everywhere. Base UI handles menu and submenu keyboard navigation, Escape, focus, touch, and dismissal.
 
 Shared tables follow Compact spacing automatically. For a resource list built with `ItemGroup`, add `data-density-surface="collection"` to the group. Keep form and dialog spacing unchanged. See the [Studio design system](https://github.com/gbyo/tilecast/blob/main/docs/design-system.md) for the exact contract.

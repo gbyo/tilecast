@@ -66,7 +66,8 @@
       "moveDown": "Bajar",
       "moveTop": "Subir al principio",
       "moveBottom": "Bajar al final",
-      "deleteField": "Eliminar campo"
+      "deleteField": "Eliminar campo",
+      "move": "Mover"
     },
     "row": {
       "editField": "Editar {{name}}",
@@ -366,12 +367,24 @@
   },
   "workflow": {
     "capabilities": {
-      "submit": { "label": "Enviar" },
-      "review": { "label": "Revisar" },
-      "approve": { "label": "Aprobar" },
-      "manage": { "label": "Gestionar" },
-      "viewAll": { "label": "Ver todas" },
-      "viewOwn": { "label": "Ver propias" }
+      "submit": {
+        "label": "Enviar"
+      },
+      "review": {
+        "label": "Revisar"
+      },
+      "approve": {
+        "label": "Aprobar"
+      },
+      "manage": {
+        "label": "Gestionar"
+      },
+      "viewAll": {
+        "label": "Ver todas"
+      },
+      "viewOwn": {
+        "label": "Ver propias"
+      }
     },
     "leaveTitle": "¿Salir sin guardar?",
     "leaveBody": "El flujo de trabajo tiene cambios sin guardar.",

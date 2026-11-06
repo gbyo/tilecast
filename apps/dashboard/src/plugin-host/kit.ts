@@ -200,4 +200,6 @@ export {
   ActionMenuButton,
   type StudioAction,
   type StudioActionGroup,
+  type StudioMenuEntry,
+  type StudioSubmenu,
 } from "../components/studio/ActionMenu";

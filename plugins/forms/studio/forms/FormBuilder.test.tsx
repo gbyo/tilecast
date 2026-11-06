@@ -140,6 +140,7 @@ describe("FormBuilder field list", () => {
   it("moves a field to the top from the row menu", async () => {
     renderBuilder();
     fireEvent.click(screen.getByRole("button", { name: "Actions for Gamma" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move" }));
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Move to top/ }),
     );

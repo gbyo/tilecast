@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "Eliminar de forma permanente"
+      "deletePermanently": "Eliminar de forma permanente",
+      "editDetails": "Editar detalles",
+      "organize": "Organizar…"
     },
     "archiveDialog": {
       "description": "Los elementos archivados permanecen disponibles hasta que los restaures o los elimines de forma permanente.",

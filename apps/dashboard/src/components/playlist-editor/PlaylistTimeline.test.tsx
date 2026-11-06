@@ -69,10 +69,13 @@ const row = (name: string) =>
     .getByRole("button", { name: `Inspect ${name}` })
     .closest("[data-playlist-item]") as HTMLElement;
 
-const menuLabels = () =>
+const menuLabels = (): [string, boolean][] =>
   screen
     .getAllByRole("menuitem")
-    .map((entry) => [entry.textContent, entry.hasAttribute("data-disabled")]);
+    .map((entry) => [
+      entry.textContent ?? "",
+      entry.hasAttribute("data-disabled"),
+    ]);
 
 describe("PlaylistTimeline rows", () => {
   it("renders each entry as a list item with quiet one-line metadata", () => {
@@ -127,8 +130,14 @@ describe("PlaylistTimeline row actions", () => {
     const handlers = renderTimeline();
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for Alpha" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move" }));
     await screen.findByRole("menuitem", { name: /Move to bottom/ });
-    const dropdown = menuLabels();
+    const dropdown = menuLabels()
+      .filter(([, disabled]) => !disabled)
+      .map(([label]) => label.replace(/Alt\+.*$/, ""));
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",
     });
@@ -137,12 +146,15 @@ describe("PlaylistTimeline row actions", () => {
     );
 
     fireEvent.contextMenu(row("Alpha"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move" }));
     await screen.findByRole("menuitem", { name: /Move to bottom/ });
-    expect(menuLabels()).toEqual(dropdown);
-    // The first row cannot move further up.
-    expect(screen.getByRole("menuitem", { name: /Move up/ })).toHaveAttribute(
-      "data-disabled",
-    );
+    expect(
+      menuLabels().map(([label]) => label.replace(/Alt\+.*$/, "")),
+    ).toEqual(dropdown);
+    // The context menu omits commands that cannot run on the first row.
+    expect(
+      screen.queryByRole("menuitem", { name: /Move up/ }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitem", { name: /Move to bottom/ }));
     expect(handlers.onMoveToEdge).toHaveBeenCalledWith("a", "bottom");
@@ -151,14 +163,19 @@ describe("PlaylistTimeline row actions", () => {
   it("moves and removes from the visible overflow menu", async () => {
     const handlers = renderTimeline();
     fireEvent.click(screen.getByRole("button", { name: "Actions for Beta" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: /Move up/ }));
     expect(handlers.onMove).toHaveBeenCalledWith("b", -1);
+    // Reopening while the first menu is still closing can hit a stale item.
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("menuitem")).not.toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for Beta" }));
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Remove from playlist/ }),
     );
-    expect(handlers.onRemove).toHaveBeenCalledWith("b");
+    await vi.waitFor(() => expect(handlers.onRemove).toHaveBeenCalledWith("b"));
   });
 
   it("only offers Inspect when the timeline cannot be edited", async () => {

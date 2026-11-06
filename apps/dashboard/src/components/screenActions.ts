@@ -9,10 +9,7 @@ type ScreensT = TFunction<"screens", undefined>;
 
 /**
  * The row actions shared by the screen grid cards and the fleet table:
- * open, restart, edit details, assign content, show now, sync group, and
- * archive. Both surfaces render the same list through ActionMenu so
- * the browser dropdown and the native menu stay identical; the grid
- * keeps its own trigger label and hides management actions from viewers.
+ * Prioritize presenting content, then maintenance, then consequential archive.
  */
 export function screenRowActionGroups({
   screen,
@@ -37,40 +34,28 @@ export function screenRowActionGroups({
       onSelect: () => void navigate(`/screens/${screen.id}`),
     },
   ];
+  const maintenance: StudioActionGroup["actions"] = [];
   if (canManage) {
-    // A Player that cannot restart itself is not offered a restart.
-    if (screenSupportsCommand(screen, "restart_player_process"))
-      primary.push({
-        id: "restart",
-        label: t("grid.restartPlayer"),
-        icon: "refresh",
-        onSelect: () =>
-          void api.createScreenCommand(
-            screen.id,
-            "restart_player_process",
-            {},
-            csrfToken,
-          ),
-      });
     primary.push(
-      {
-        id: "edit-details",
-        label: t("grid.editDetails"),
-        icon: "details",
-        onSelect: () => void navigate(`/screens/${screen.id}?edit=details`),
-      },
-      {
-        id: "assign-content",
-        label: t("grid.assignContent"),
-        onSelect: () => void navigate(`/screens/${screen.id}?focus=content`),
-      },
       {
         id: "show-now",
         label: t("grid.showNow"),
         icon: "play",
         onSelect: () => void navigate(`/screens/${screen.id}?present=1`),
       },
+      {
+        id: "assign-content",
+        label: t("grid.assignContent"),
+        icon: "playlists",
+        onSelect: () => void navigate(`/screens/${screen.id}?focus=content`),
+      },
     );
+    maintenance.push({
+      id: "edit-details",
+      label: t("grid.editDetails"),
+      icon: "details",
+      onSelect: () => void navigate(`/screens/${screen.id}?edit=details`),
+    });
   }
   const group: StudioActionGroup["actions"] = canManage
     ? [
@@ -79,6 +64,7 @@ export function screenRowActionGroups({
           label: screen.syncGroupId
             ? t("grid.openGroup")
             : t("grid.addToGroup"),
+          icon: "group",
           onSelect: () =>
             void navigate(
               screen.syncGroupId ? `/groups/${screen.syncGroupId}` : "/groups",
@@ -86,6 +72,20 @@ export function screenRowActionGroups({
         },
       ]
     : [];
+  maintenance.push(...group);
+  if (canManage && screenSupportsCommand(screen, "restart_player_process"))
+    maintenance.push({
+      id: "restart",
+      label: t("grid.restartPlayer"),
+      icon: "restart",
+      onSelect: () =>
+        void api.createScreenCommand(
+          screen.id,
+          "restart_player_process",
+          {},
+          csrfToken,
+        ),
+    });
   const destructive: StudioActionGroup["actions"] =
     canManage && onArchive
       ? [
@@ -98,5 +98,9 @@ export function screenRowActionGroups({
           },
         ]
       : [];
-  return [{ actions: primary }, { actions: group }, { actions: destructive }];
+  return [
+    { actions: primary },
+    { actions: maintenance },
+    { actions: destructive },
+  ];
 }

@@ -64,7 +64,13 @@
       "daysAgo_many": "Обновлено {{count}} дней назад",
       "daysAgo_other": "Обновлено {{count}} дня назад",
       "onDate": "Обновлено {{date}}"
-    }
+    },
+    "actions": {
+      "edit": "Изменить плейлист",
+      "open": "Открыть плейлист",
+      "duplicate": "Дублировать"
+    },
+    "actionsFor": "Действия для {{name}}"
   },
   "preview": {
     "preparingWidget": "Подготовка виджета…",
@@ -378,7 +384,8 @@
     "emptyPlaylistTitle": "Плейлист пуст",
     "actions": {
       "inspect": "Проверить",
-      "remove": "Убрать из плейлиста"
+      "remove": "Убрать из плейлиста",
+      "move": "Переместить"
     }
   },
   "history": {
