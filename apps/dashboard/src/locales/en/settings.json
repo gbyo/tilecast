@@ -1283,12 +1283,12 @@
   "updates": {
     "console": {
       "incompatibleTargets": "Incompatible screens: {{count}}.",
-      "playerFamily": "Player type",
+      "playerFamily": "Player family",
       "playerFamilyHint": "Choose which Tilecast Player you are updating. You can change this without leaving the deployment flow.",
       "chooseVersion": "Choose a version",
       "versionLabel": "Version",
-      "buildLabel": "Architecture",
-      "buildHint": "Choose the CPU architecture that matches the screens you want to update.",
+      "buildLabel": "Build",
+      "buildHint": "Choose the CPU build that matches the screens you want to update.",
       "singleBuildHint": "This version has one build for this Player type, so Tilecast selected it for you.",
       "architectures": {
         "x86_64": "Intel / AMD 64-bit",
@@ -1321,7 +1321,7 @@
         "cancelled": "Cancelled"
       },
       "deployments": "Deployments",
-      "releases": "Release catalog",
+      "releases": "Releases",
       "workspaceViews": "Player update views",
       "fleetCount": "{{count}} screens",
       "fleetCount_one": "{{count}} screen",
@@ -1349,12 +1349,12 @@
       "continue": "Continue",
       "step": "{{stage}} of 3 — {{title}}",
       "steps": {
-        "release": "Update",
+        "release": "Version & build",
         "targets": "Targets",
         "rollout": "Rollout"
       },
       "stepHints": {
-        "release": "Choose the Player type and version. Pick an architecture only when more than one build applies.",
+        "release": "Choose the player type, version, and build. Tilecast downloads and verifies the build here if needed.",
         "targets": "Search screens or Display Groups. Tilecast checks every resolved screen.",
         "rollout": "Choose when to install and review the deployment before starting."
       },
@@ -1417,7 +1417,8 @@
       "certificate": "Signing certificate SHA-256",
       "releaseNotes": "Release notes",
       "noNotes": "No release notes provided.",
-      "trustedKeyMissing": "Configure the trusted update manifest public key on the server before importing releases."
+      "trustedKeyMissing": "Configure the trusted update manifest public key on the server before importing releases.",
+      "prepareAndContinue": "Prepare & continue"
     },
     "states": {
       "held": {

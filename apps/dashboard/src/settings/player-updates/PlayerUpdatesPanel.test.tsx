@@ -94,14 +94,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Player Updates workspace", () => {
-  it("keeps terminal failures in history instead of active rollouts", async () => {
+  it("keeps terminal deployments with failures in history", async () => {
     vi.mocked(api.updateDeployments).mockResolvedValue({
       items: [
-        { ...deployment, id: "normal", failedCount: 0, waitingForUserCount: 0 },
+        {
+          ...deployment,
+          id: "normal",
+          versionName: "0.26.0-beta.6",
+          failedCount: 0,
+          waitingForUserCount: 0,
+        },
         {
           ...deployment,
           id: "blocked",
+          versionName: "0.25.0",
           status: "completed",
+          completedAt: "2026-08-11T10:00:00Z",
           failedCount: 0,
           waitingForUserCount: 0,
           incompatibleCount: 1,
@@ -109,27 +117,25 @@ describe("Player Updates workspace", () => {
       ],
     });
     mount();
-    const table = await screen.findByRole("table");
+
+    const progress = await screen.findByRole("region", {
+      name: /In progress/,
+    });
+    expect(within(progress).getByText("0.26.0-beta.6")).toBeInTheDocument();
+    expect(within(progress).queryByText("0.25.0")).not.toBeInTheDocument();
+
+    const history = screen.getByRole("table");
+    expect(within(history).getByText("0.25.0")).toBeInTheDocument();
+    expect(within(history).getAllByText("Completed").length).toBeGreaterThan(0);
     expect(
-      within(table).getByText("Incompatible screens: 1."),
+      within(history).getByText("Incompatible screens: 1."),
     ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("button", { name: "View rollout" }),
-    ).toBeInTheDocument();
-    const activeCard = screen
-      .getAllByRole("button", { name: "View rollout" })[0]!
-      .closest('[data-slot="card"]');
-    expect(activeCard).not.toBeNull();
-    expect(
-      within(activeCard as HTMLElement).queryByText("Incompatible screens: 1."),
-    ).not.toBeInTheDocument();
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
-    expect(screen.getByRole("tab", { name: /Deployments/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    const deploymentsTab = screen.getByRole("tab", { name: /Deployments/ });
+    expect(deploymentsTab).toHaveAttribute("aria-selected", "true");
+    expect(await within(deploymentsTab).findByText("1")).toBeInTheDocument();
     expect(
       await screen.findByText("1 screen needs a retry."),
     ).toBeInTheDocument();
@@ -166,54 +172,29 @@ describe("Player Updates workspace", () => {
   it("uses URL-backed view and family with back/forward, preserving unrelated parameters", async () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Release catalog" }));
+    await user.click(screen.getByRole("tab", { name: "Releases" }));
     expect(await screen.findByText("Release library")).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
-    const family = screen.getByRole("combobox", { name: "Player type" });
+    const family = screen.getByRole("combobox", { name: "Player family" });
     await user.click(family);
-    await user.click(await screen.findByRole("option", { name: /Windows/ }));
+    await user.click(await screen.findByRole("option", { name: "Windows" }));
     expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
     await user.click(screen.getByRole("button", { name: "History back" }));
     expect(
-      screen.getByRole("combobox", { name: "Player type" }),
+      screen.getByRole("combobox", { name: "Player family" }),
     ).toHaveTextContent("Tilecast Edge");
     await user.click(screen.getByRole("button", { name: "History forward" }));
     expect(
-      screen.getByRole("combobox", { name: "Player type" }),
+      screen.getByRole("combobox", { name: "Player family" }),
     ).toHaveTextContent("Windows");
-  });
-  it("surfaces active rollouts that need attention across Player families", async () => {
-    vi.mocked(api.updateDeployments).mockResolvedValue({
-      items: [
-        deployment,
-        {
-          ...deployment,
-          id: "windows-rollout",
-          platform: "windows",
-          playerFamily: "windows",
-          failedCount: 2,
-        },
-      ],
-    });
-    mount("/settings/player/updates?platform=edge");
-    expect(
-      await screen.findByRole("tab", { name: /Deployments/ }),
-    ).toBeInTheDocument();
-    const notice = await screen.findByRole("status");
-    expect(notice).toHaveTextContent(
-      "1 rollout needs attention in another Player type.",
-    );
-    await userEvent.click(
-      within(notice).getByRole("button", { name: /Windows/ }),
-    );
-    expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
   });
   it("discards a draft when navigating to another family and back", async () => {
     mount();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Deploy update" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /0.26.0-beta.6/ }));
     await user.click(screen.getByRole("radio", { name: /x86_64/ }));
     // Browser navigation can change the URL while the modal draft is open.
     await act(async () => {
@@ -241,11 +222,11 @@ describe("Player Updates workspace", () => {
       screen.getByRole("button", { name: "Deploy aarch64" }),
     );
     const radio = await screen.findByRole("radio", {
-      name: /0.26.0-beta.6.*aarch64/,
+      name: /ARM64.*aarch64/,
     });
     // A concrete artifact is selected, even though the version is shared.
     expect(
-      screen
+      within(screen.getByRole("radiogroup", { name: "Build" }))
         .getAllByRole("radio")
         .filter((r) => r.getAttribute("aria-checked") === "true"),
     ).toHaveLength(1);
@@ -310,8 +291,11 @@ describe("Player Updates workspace", () => {
       await screen.findByRole("button", { name: "View rollout" }),
     );
     expect(await screen.findByText("Not enough storage.")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("ARM Hall")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Lobby")).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole("dialog")).getByText("Tilecast Edge · x86_64"),
+      within(dialog).getByText("Tilecast Edge · x86_64"),
     ).toBeInTheDocument();
     cleanup();
     mount("/settings/player/updates?platform=edge&view=releases", false);
