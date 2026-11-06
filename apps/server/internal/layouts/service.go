@@ -501,8 +501,13 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Lock the row first so the use check and the delete see one state; Quick
+	// Present takes a share lock on the same row before it inserts.
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM layouts WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id); err != nil {
+		return err
+	}
 	var inUse bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM screen_group_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM schedules WHERE layout_id=$1 AND deleted_at IS NULL) OR EXISTS(SELECT 1 FROM playlist_items WHERE layout_id=$1)`, id).Scan(&inUse); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM screen_group_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM schedules WHERE layout_id=$1 AND deleted_at IS NULL) OR EXISTS(SELECT 1 FROM playlist_items WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM presentation_overrides WHERE content_type='layout' AND content_id=$1 AND stopped_at IS NULL AND (expires_at IS NULL OR expires_at>now()))`, id).Scan(&inUse); err != nil {
 		return err
 	}
 	if inUse {
@@ -815,6 +820,13 @@ func (s *Service) validateDependencyQuery(ctx context.Context, q queryer, deps [
 			}
 		case "playlist":
 			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlists WHERE id=$1 AND deleted_at IS NULL)`, dep.ID).Scan(&valid)
+			if err != nil {
+				return err
+			}
+		case "font":
+			// FOR SHARE serializes with a font library deletion, which locks
+			// the family row FOR UPDATE before it checks Layout references.
+			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM font_families WHERE id=$1 AND deleted_at IS NULL FOR SHARE)`, dep.ID).Scan(&valid)
 			if err != nil {
 				return err
 			}

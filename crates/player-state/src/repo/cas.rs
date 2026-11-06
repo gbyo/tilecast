@@ -173,6 +173,22 @@ pub fn delete_object(connection: &Connection, digest: &Sha256Digest) -> Result<(
     Ok(())
 }
 
+/// Deletes the object row only while no pin holds it, in one statement, so a
+/// pin committed after an earlier check still protects the object. Returns
+/// `false` when a pin kept the row.
+pub fn delete_unpinned_object(connection: &Connection, digest: &Sha256Digest) -> Result<bool> {
+    let hex = digest.to_hex();
+    let deleted = connection.execute(
+        "DELETE FROM cas_objects WHERE sha256 = ?1
+         AND NOT EXISTS (SELECT 1 FROM cas_pins p WHERE p.sha256 = ?1)",
+        params![hex],
+    )?;
+    if deleted > 0 {
+        return Ok(true);
+    }
+    Ok(!is_pinned(connection, digest)?)
+}
+
 pub fn mark_verified(connection: &Connection, digest: &Sha256Digest, now: Timestamp) -> Result<()> {
     connection.execute(
         "UPDATE cas_objects SET verify_state = 'verified', verified_at_ms = ?2 WHERE sha256 = ?1",

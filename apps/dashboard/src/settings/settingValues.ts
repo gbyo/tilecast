@@ -79,7 +79,7 @@ const commonLocaleTags = [
   "zh-CN",
   "zh-TW",
 ];
-const weekdays = [
+export const weekdays = [
   "sunday",
   "monday",
   "tuesday",

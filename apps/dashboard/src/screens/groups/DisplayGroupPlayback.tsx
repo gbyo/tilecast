@@ -28,6 +28,7 @@ import {
 import { toast } from "../../components/ui/toast";
 import { layoutQueries } from "../../data/layouts";
 import { playlistQueries } from "../../data/playlists";
+import { screenKeys } from "../../data/screens";
 import { groupFallback, savedPresentationValue } from "./displayGroupModel";
 
 type PresentationOption = {
@@ -110,8 +111,13 @@ export function DisplayGroupPlayback({
   }, [optionGroups, query]);
   const current = allOptions.find((option) => option.value === selected);
 
+  // A group assignment replaces every member's playback, so the members'
+  // assignment, playback plan and fleet rows are stale too.
   const refresh = () =>
-    client.invalidateQueries({ queryKey: ["screen-groups"] });
+    Promise.all([
+      client.invalidateQueries({ queryKey: ["screen-groups"] }),
+      client.invalidateQueries({ queryKey: screenKeys.all }),
+    ]);
   const assign = useMutation({
     mutationFn: (value: string) => {
       const [type, presentationId] = value.split(":");

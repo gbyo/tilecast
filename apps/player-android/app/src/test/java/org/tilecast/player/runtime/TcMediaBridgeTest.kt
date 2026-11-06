@@ -41,6 +41,8 @@ class TcMediaBridgeTest {
         assertEquals("video/mp4", headers["Content-Type"])
         assertEquals("bytes", headers["Accept-Ranges"])
         assertEquals("100", headers["Content-Length"])
+        // Library font faces load in CORS mode from the trusted runtime origin only.
+        assertEquals(TrustedRuntimeOrigin.origin, headers["Access-Control-Allow-Origin"])
         // The body itself is bounded: draining it reaches EOF at the Content-Range end.
         val body = TcMediaBridge.openStream(resolved)!!.readBytes()
         assertEquals(100, body.size)

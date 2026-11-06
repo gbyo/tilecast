@@ -16,7 +16,8 @@ const (
 	MaxPlayerStateDepth   = 16
 	MaxPlayerStateValues  = 2048
 	MaxPlayerStateMedia   = 16
-	MaxPlayerStateEntries = 32
+	MaxPlayerStateFonts   = 4
+	MaxPlayerStateEntries = 64
 	// MaxPlayerStateLifetime bounds ValidUntil so a cached manifest cannot
 	// keep stale state for long; plugins that need longer state omit it.
 	MaxPlayerStateLifetime = 366 * 24 * time.Hour
@@ -34,7 +35,9 @@ type PlayerStateEntry struct {
 	StateVersion      int             `json:"stateVersion"`
 	State             json.RawMessage `json:"state"`
 	Media             []MediaRef      `json:"media"`
-	ValidUntil        *time.Time      `json:"validUntil,omitempty"`
+	// Fonts is additive: a Player that predates player.fonts@1 ignores it.
+	Fonts      []FontRef  `json:"fonts,omitempty"`
+	ValidUntil *time.Time `json:"validUntil,omitempty"`
 }
 
 // PlayerStateEntryType and PlayerStateEntryVersion discriminate a v2 entry
@@ -86,6 +89,20 @@ func EncodePlayerState(m Manifest, states []PlayerState, now time.Time) ([]Playe
 				return nil, fail("Player state %s declares an empty media reference", state.ID)
 			}
 		}
+		if len(state.Fonts) > MaxPlayerStateFonts {
+			return nil, fail("Player state %s declares more than %d font families", state.ID, MaxPlayerStateFonts)
+		}
+		var fonts []FontRef
+		seenFonts := map[uuid.UUID]bool{}
+		for _, id := range state.Fonts {
+			if id == uuid.Nil {
+				return nil, fail("Player state %s declares an empty font reference", state.ID)
+			}
+			if !seenFonts[id] {
+				seenFonts[id] = true
+				fonts = append(fonts, FontRef{ID: id})
+			}
+		}
 		var validUntil *time.Time
 		if state.ValidUntil != nil {
 			at := state.ValidUntil.UTC().Truncate(time.Second)
@@ -99,7 +116,7 @@ func EncodePlayerState(m Manifest, states []PlayerState, now time.Time) ([]Playe
 			ID: state.ID, Type: PlayerStateEntryType, Version: PlayerStateEntryVersion,
 			Plugin: m.ID, DefinitionVersion: m.DefinitionVersion,
 			StateType: state.Type, StateVersion: state.Version,
-			State: raw, Media: media, ValidUntil: validUntil,
+			State: raw, Media: media, Fonts: fonts, ValidUntil: validUntil,
 		})
 	}
 	return entries, nil

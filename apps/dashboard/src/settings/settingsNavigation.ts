@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Siren,
   SlidersHorizontal,
+  Type,
   UserCog,
   Users,
   Wifi,
@@ -31,6 +32,7 @@ import {
 export type SettingsSectionId =
   | "general"
   | "branding"
+  | "fonts"
   | "users"
   | "roles"
   | "locations"
@@ -108,6 +110,7 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
   group("organization", "Organization", [
     item("general", "General", "general"),
     item("branding", "Branding", "branding"),
+    item("fonts", "Fonts", "fonts"),
     item("users", "Users", "users", ["users.manage"]),
     item("roles", "Roles", "roles", ["users.manage", "roles.manage"]),
     item("security", "Sign-in security", "security"),
@@ -179,6 +182,11 @@ export const sectionDetails: Record<
     icon: Palette,
     titleKey: "nav.sections.branding.title",
     descriptionKey: "nav.sections.branding.description",
+  },
+  fonts: {
+    icon: Type,
+    titleKey: "nav.sections.fonts.title",
+    descriptionKey: "nav.sections.fonts.description",
   },
   users: {
     icon: Users,

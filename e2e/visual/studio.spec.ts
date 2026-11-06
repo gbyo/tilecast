@@ -216,7 +216,9 @@ test("screen-scope-editor", async ({ page }) => {
     .filter({ hasText: "Priya Natarajan" });
   await row.getByRole("button", { name: "Edit" }).click();
   await page.getByRole("tab", { name: "Screen access" }).click();
-  await page.getByRole("radio", { name: "Limit access" }).click();
+  await page
+    .getByRole("radio", { name: "Only selected locations and Display Groups" })
+    .click();
   await expect(
     page.getByRole("checkbox", { name: "High School" }),
   ).toBeVisible();

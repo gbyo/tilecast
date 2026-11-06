@@ -29,6 +29,22 @@ export interface PlayerMediaRef {
   readonly variantId: string;
 }
 
+/** One verified font file of an organization library family. */
+export interface PlayerFontFace extends PlayerMediaRef {
+  readonly style: "normal" | "italic";
+  readonly weightMin: number;
+  readonly weightMax: number;
+  /** CSS `unicode-range` of a character subset; absent for a whole file. */
+  readonly unicodeRange?: string;
+}
+
+/** An organization font library family a state entry declares. */
+export interface PlayerFontRef {
+  readonly id: string;
+  readonly family: string;
+  readonly faces: readonly PlayerFontFace[];
+}
+
 /**
  * One current `plugin_state` entry for the plugin, already validated and
  * filtered to the state types and versions its manifest declares.
@@ -41,6 +57,8 @@ export interface PlayerStateEntry<State = Record<string, unknown>> {
   readonly version: number;
   readonly state: State;
   readonly media: readonly PlayerMediaRef[];
+  /** Library font families the Server resolved for this state. */
+  readonly fonts: readonly PlayerFontRef[];
   /** Corrected-clock expiry; the host removes the entry when it passes. */
   readonly validUntil: string | null;
 }
@@ -58,6 +76,31 @@ export interface PlayerMediaService {
    * only show media that the Server delivered and the Player verified.
    */
   url(ref: PlayerMediaRef): string | null;
+}
+
+/** A library family the Player registered for CSS. */
+export interface PlayerFont {
+  /**
+   * A generated CSS `font-family` name, safe to use unquoted. Put your own
+   * fallback after it: `${font.family}, sans-serif`.
+   */
+  readonly family: string;
+  /**
+   * Settles when every face has loaded or failed; it never rejects. Text
+   * drawn before then uses the fallback family, so measure again after it.
+   */
+  readonly ready: Promise<void>;
+}
+
+/** `player.fonts@1`. */
+export interface PlayerFontsService {
+  /**
+   * Register an organization library family that one of the plugin's
+   * current state entries declares. Returns null for any other family, and
+   * for a declared family whose files the Server could not deliver, so the
+   * plugin keeps its own fallback face.
+   */
+  use(fontId: string): PlayerFont | null;
 }
 
 /** What owns the screen, as `player.presentation.observe@1` reports it. */
@@ -111,7 +154,11 @@ export interface PlayerSurfaceHandle {
   claim(claims: readonly PlayerSurfaceClaim[]): void;
   /** Release every claim. The containers stay mounted. */
   release(): void;
-  /** Remove the containers. The host also closes handles at disposal. */
+  /**
+   * Leave arbitration and remove the containers after a short exit, so a
+   * strip that loses its slot can still slide away. The host also closes
+   * handles at disposal.
+   */
   close(): void;
 }
 
@@ -120,11 +167,14 @@ export interface PlayerSurfaceService {
   /**
    * Open a visual contribution declared in the manifest's
    * `player.runtime.surfaces`. `render` receives every grant decision.
-   * Returns null for an undeclared or already open contribution.
+   * `describe`, when given, is the text a diagnostics or conformance probe
+   * reports for a slot the contribution holds. Returns null for an
+   * undeclared or already open contribution.
    */
   open(
     contributionId: string,
     render: (grant: PlayerSurfaceGrant) => void,
+    describe?: (slot: SurfaceSlot) => string,
   ): PlayerSurfaceHandle | null;
   /** True when motion should be avoided. */
   reducedMotion(): boolean;
@@ -232,6 +282,7 @@ export interface PresentationProvideService {
 export interface PlayerServiceMap {
   "player.clock@1": PlayerClockService;
   "player.events@1": PlayerEventsService;
+  "player.fonts@1": PlayerFontsService;
   "player.media@1": PlayerMediaService;
   "player.presentation.observe@1": PresentationObserveService;
   "player.presentation.provide@1": PresentationProvideService;

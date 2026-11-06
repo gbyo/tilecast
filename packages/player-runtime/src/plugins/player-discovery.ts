@@ -23,6 +23,11 @@ export interface PlayerPluginDeclaration {
   definitionVersion: number;
   /** Accepted `type@version` state keys. */
   state: ReadonlySet<string>;
+  /**
+   * Plugin API v1 entry types the plugin still receives on Players that do
+   * not host Plugin API v2. The host routes them to the plugin as state.
+   */
+  v1Types: ReadonlySet<string>;
   required: readonly PlayerServiceId[];
   optional: readonly PlayerServiceId[];
   surfaces: readonly SurfaceContribution[];
@@ -70,6 +75,7 @@ export function playerDeclaration(
     state: new Set(
       manifest.player.state.map((state) => `${state.type}@${state.version}`),
     ),
+    v1Types: new Set(manifest.player.v1ManifestTypes ?? []),
     required: [...(runtime.services?.required ?? [])] as PlayerServiceId[],
     optional: [...(runtime.services?.optional ?? [])] as PlayerServiceId[],
     surfaces: (runtime.surfaces ?? []).map((surface) => ({
@@ -136,7 +142,12 @@ export function discoverPlayerPlugins(
       problem(`definition does not match its manifest: ${mismatch.join("; ")}`);
       continue;
     }
-    const types = [...declaration.state].map((key) => key.split("@")[0]!);
+    const types = [
+      ...new Set([
+        ...[...declaration.state].map((key) => key.split("@")[0]!),
+        ...declaration.v1Types,
+      ]),
+    ];
     const taken = types.find(
       (type) => owners.has(type) && owners.get(type) !== declaration.id,
     );

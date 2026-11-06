@@ -110,7 +110,7 @@ func (s *Service) RunDue(ctx context.Context) error {
 // actual previous state and writing a history event and an audit event in the same transaction.
 func (s *Service) expireOverdueRecords(ctx context.Context, tx pgx.Tx, formID uuid.UUID) error {
 	var expiredEligible bool
-	err := tx.QueryRow(ctx, `SELECT eligible_for_output FROM form_workflow_states WHERE data_source_id=$1 AND state_key='expired'`, formID).Scan(&expiredEligible)
+	err := tx.QueryRow(ctx, `SELECT eligible_for_output FROM form_workflow_states WHERE data_source_id=$1 AND state_key='expired' FOR SHARE`, formID).Scan(&expiredEligible)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil // No expired state configured; nothing to do.

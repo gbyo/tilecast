@@ -484,7 +484,8 @@ func (s *Service) PublishSnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUID
 			block.ID = uuid.New()
 		}
 		scheduleID := uuid.New()
-		if _, err = tx.Exec(ctx, `INSERT INTO schedules(id,organization_id,name,description,playlist_id,layout_id,type,timezone,priority,enabled,start_date,end_date,one_time_start,one_time_end,daily_start,daily_end,days_of_week,created_by,campaign_id,campaign_release_id,campaign_block_id) SELECT $1,organization_id,$2,$3,NULLIF($4,'00000000-0000-0000-0000-000000000000'::uuid),$5,$6,$7,$8,$9,COALESCE($10::date,campaign_start::date),COALESCE($11::date,campaign_end::date),$12,$13,$14::time,$15::time,COALESCE($16::smallint[],'{}'::smallint[]),$17,$18,$19,$20 FROM campaigns WHERE id=$18`, scheduleID, block.Name, snapshot.Description, playlistID(block), layoutID(block), block.Type, block.Timezone, block.Priority, block.Enabled, block.StartDate, block.EndDate, block.OneTimeStart, block.OneTimeEnd, block.DailyStart, block.DailyEnd, block.DaysOfWeek, userID, id, releaseID, block.ID); err != nil {
+		startDate, endDate := campaignDateBounds(block, snapshot)
+		if _, err = tx.Exec(ctx, `INSERT INTO schedules(id,organization_id,name,description,playlist_id,layout_id,type,timezone,priority,enabled,start_date,end_date,one_time_start,one_time_end,daily_start,daily_end,days_of_week,created_by,campaign_id,campaign_release_id,campaign_block_id) SELECT $1,organization_id,$2,$3,NULLIF($4,'00000000-0000-0000-0000-000000000000'::uuid),$5,$6,$7,$8,$9,$10::date,$11::date,$12,$13,$14::time,$15::time,COALESCE($16::smallint[],'{}'::smallint[]),$17,$18,$19,$20 FROM campaigns WHERE id=$18`, scheduleID, block.Name, snapshot.Description, playlistID(block), layoutID(block), block.Type, block.Timezone, block.Priority, block.Enabled, startDate, endDate, block.OneTimeStart, block.OneTimeEnd, block.DailyStart, block.DailyEnd, block.DaysOfWeek, userID, id, releaseID, block.ID); err != nil {
 			return editorial.Published{}, err
 		}
 		for _, destination := range snapshot.Destinations {
@@ -770,6 +771,30 @@ func validateCampaignMetadata(snapshot Snapshot) error {
 		return fmt.Errorf("%w: campaign end must be after its start", ErrInvalid)
 	}
 	return nil
+}
+
+// campaignDateBounds returns the date bounds a block's schedule is published
+// with. A block's own dates win. Otherwise the reviewed release's Campaign
+// start and end instants bound it, as calendar dates in the block's time zone,
+// which is the zone the schedule engine evaluates date bounds in. The end is
+// exclusive: a Campaign that ends at local midnight does not run that day.
+// Schedules bound dates, not instants, so a block may still begin earlier on
+// the Campaign's first day than the Campaign start time.
+func campaignDateBounds(block Block, snapshot Snapshot) (start, end *string) {
+	start, end = block.StartDate, block.EndDate
+	location, err := time.LoadLocation(block.Timezone)
+	if err != nil {
+		return start, end
+	}
+	if start == nil && snapshot.CampaignStart != nil {
+		value := snapshot.CampaignStart.In(location).Format("2006-01-02")
+		start = &value
+	}
+	if end == nil && snapshot.CampaignEnd != nil {
+		value := snapshot.CampaignEnd.Add(-time.Nanosecond).In(location).Format("2006-01-02")
+		end = &value
+	}
+	return start, end
 }
 
 func normalizeSnapshot(snapshot *Snapshot) {

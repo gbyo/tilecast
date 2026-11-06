@@ -82,6 +82,7 @@
         "fontFamily": {
           "enum": ["Inter", "Roboto", "Source Sans 3", "Noto Sans"]
         },
+        "fontId": { "type": "string", "format": "uuid" },
         "fontSize": { "type": "number", "minimum": 8, "maximum": 600 },
         "fontWeight": { "enum": [400, 500, 600, 700, 800] },
         "textAlign": { "enum": ["left", "center", "right"] },
