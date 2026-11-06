@@ -5,11 +5,13 @@ package org.tilecast.player.runtime
  * Remote Website/YouTube content renders in host-owned WebViews that never
  * receive the trusted-runtime bridge. The shared runtime owns policy and
  * lifecycle orchestration; this manager tracks surface state, validates
- * specs, maps viewports into pixels, and rejects stale generations. Actual
- * WebView creation lives in the Compose layer ([RuntimeStage]).
+ * specs, maps viewports into pixels, and rejects stale generations. The
+ * WebViews themselves live in the Compose layer ([RemoteWebLayer]).
  */
 object RemoteWebHostManager {
     const val SURFACE_ID_PATTERN = "[a-z0-9-]{1,48}"
+    private val YOUTUBE_ID = Regex("[A-Za-z0-9_-]{6,128}")
+    private val CAPTION_LANGUAGE = Regex("[A-Za-z]{2,3}(?:-[A-Za-z]{2})?")
 
     data class Viewport(val x: Double, val y: Double, val width: Double, val height: Double, val deviceScale: Double)
 
@@ -48,6 +50,8 @@ object RemoteWebHostManager {
         val visible: Boolean,
         val reloadCount: Int,
         val generation: Long,
+        /** Distinct per create call, so a re-created surface id gets a fresh view. */
+        val serial: Long = 0,
     )
 
     data class ViewportPx(val x: Int, val y: Int, val width: Int, val height: Int)
@@ -73,7 +77,7 @@ object RemoteWebHostManager {
     fun validSurfaceId(surfaceId: String): Boolean =
         surfaceId.matches(Regex(SURFACE_ID_PATTERN))
 
-    private fun normalizeHost(host: String): String? {
+    internal fun normalizeHost(host: String): String? {
         if (host.isBlank()) return null
         val ascii = runCatching {
             java.net.IDN.toASCII(host.trimEnd('.'), java.net.IDN.USE_STD3_ASCII_RULES)
@@ -104,15 +108,19 @@ object RemoteWebHostManager {
         val hasVideo = !content.videoId.isNullOrBlank()
         val hasPlaylist = !content.playlistId.isNullOrBlank()
         if (hasVideo == hasPlaylist) return false
+        // The ids are interpolated into the wrapper document, so they are tokens only.
+        if (!(content.videoId ?: content.playlistId)!!.matches(YOUTUBE_ID)) return false
         if (content.startSeconds < 0) return false
         if (content.endSeconds != null && content.endSeconds < 0) return false
         if (content.volume !in 0..100) return false
+        if (content.captionLanguage.isNotEmpty() && !content.captionLanguage.matches(CAPTION_LANGUAGE)) return false
         return true
     }
 
     /** Tracks live surfaces across one runtime generation; stale generations are dropped. */
     class Tracker(private var generation: Long) {
         private val surfaces = LinkedHashMap<String, Surface>()
+        private var serial = 0L
 
         fun create(surface: Surface): Boolean {
             if (surface.generation != generation) return false
@@ -120,7 +128,7 @@ object RemoteWebHostManager {
             if ((surface.page == null) == (surface.youTube == null)) return false
             surface.page?.let { if (!validPage(it)) return false }
             surface.youTube?.let { if (!validYouTube(it)) return false }
-            surfaces[surface.surfaceId] = surface
+            surfaces[surface.surfaceId] = surface.copy(serial = ++serial)
             return true
         }
 
