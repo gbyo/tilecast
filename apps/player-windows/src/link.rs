@@ -54,6 +54,9 @@ impl player_core::ServerLinkHost for Host {
     fn record_activity(&self, event: ActivityEvent) {
         self.0.activity.record(event);
     }
+    fn credential_rejected(&self) {
+        self.0.pairing_wake.notify_one();
+    }
     async fn heartbeat(&self) -> serde_json::Value {
         build_heartbeat(&self.0).await
     }

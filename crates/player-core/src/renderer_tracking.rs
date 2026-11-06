@@ -1,5 +1,5 @@
 //! Activation-bound renderer observations, independent of host transport.
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use player_types::{
     Timestamp,
@@ -40,7 +40,28 @@ pub struct RendererTracker {
     meaningful: bool,
     content_progress: bool,
     content_items: BTreeSet<String>,
+    layouts: BTreeMap<String, LayoutEvidence>,
     logged: HashSet<(String, String, ProgressEvidence)>,
+}
+
+const MAX_LAYOUT_ITEMS: usize = 64;
+const MAX_LAYOUT_ZONES: usize = 64;
+
+/// First-render evidence for one Layout item. The Runtime declares each zone
+/// it mounted before the canvas is shown, so a Layout proves its content only
+/// once every declared zone rendered. A Layout that declares nothing (for
+/// example, background only) is proven by its canvas.
+#[derive(Debug, Default)]
+struct LayoutEvidence {
+    shown: bool,
+    owed: BTreeSet<String>,
+    rendered: BTreeSet<String>,
+}
+
+impl LayoutEvidence {
+    fn proven(&self) -> bool {
+        (self.shown || !self.rendered.is_empty()) && self.owed.is_subset(&self.rendered)
+    }
 }
 
 impl RendererTracker {
@@ -49,8 +70,11 @@ impl RendererTracker {
         self.meaningful = false;
         self.content_progress = false;
         self.content_items.clear();
+        self.layouts.clear();
         self.logged.clear();
         self.accepted = None;
+        self.last_progress = None;
+        self.current_item = None;
         self.last_error = None;
         self.refused = false;
     }
@@ -72,6 +96,7 @@ impl RendererTracker {
         // Fixture checks count items per renderer connection, so proof from
         // the previous connection does not carry over.
         self.content_items.clear();
+        self.layouts.clear();
         // A replacement renderer must prove the activation again, so its
         // first evidence is logged even when the previous one logged it.
         self.logged.clear();
@@ -148,10 +173,25 @@ impl RendererTracker {
         };
         let mut decision =
             RendererProgressDecision { current: true, activity_signal, ..RendererProgressDecision::default() };
+        if expectation == Expectation::Layout
+            && matches!(report.kind, ProgressEvidence::LayoutZoneDeclared | ProgressEvidence::LayoutZoneRotating)
+        {
+            if let Some(layout) = self.layout(report)
+                && let Some(zone) = &report.zone_id
+                && layout.owed.len() < MAX_LAYOUT_ZONES
+            {
+                layout.owed.insert(zone.as_str().to_owned());
+            }
+            return decision;
+        }
         if !is_meaningful(report.kind, expectation) {
             return decision;
         }
-        let content = is_content_evidence(report.kind, expectation) && report.item_id.is_some();
+        let content = if expectation == Expectation::Layout {
+            self.layout_rendered(report)
+        } else {
+            is_content_evidence(report.kind, expectation) && report.item_id.is_some()
+        };
         let key = (
             report.item_id.as_ref().map(|item| item.as_str().to_owned()).unwrap_or_default(),
             report.zone_id.as_ref().map(|zone| zone.as_str().to_owned()).unwrap_or_default(),
@@ -178,6 +218,33 @@ impl RendererTracker {
         }
         decision.meaningful = true;
         decision
+    }
+
+    fn layout(&mut self, report: &SemanticRendererProgress) -> Option<&mut LayoutEvidence> {
+        let item = report.item_id.as_ref()?.as_str();
+        if !self.layouts.contains_key(item) && self.layouts.len() >= MAX_LAYOUT_ITEMS {
+            return None;
+        }
+        Some(self.layouts.entry(item.to_owned()).or_default())
+    }
+
+    fn layout_rendered(&mut self, report: &SemanticRendererProgress) -> bool {
+        if !is_content_evidence(report.kind, Expectation::Layout) {
+            return false;
+        }
+        let Some(layout) = self.layout(report) else { return false };
+        match report.kind {
+            ProgressEvidence::LayoutShown => layout.shown = true,
+            ProgressEvidence::LayoutZoneRendered => {
+                if let Some(zone) = &report.zone_id
+                    && layout.rendered.len() < MAX_LAYOUT_ZONES
+                {
+                    layout.rendered.insert(zone.as_str().to_owned());
+                }
+            }
+            _ => {}
+        }
+        layout.proven()
     }
 
     pub fn accepted_current(&self) -> bool {
@@ -225,6 +292,41 @@ mod tests {
         }
     }
 
+    fn layout_report(kind: ProgressEvidence, zone: Option<&str>) -> SemanticRendererProgress {
+        SemanticRendererProgress {
+            activation: reference(1),
+            kind,
+            item_id: Some(SafeText::new("layout").unwrap()),
+            zone_id: zone.map(|zone| SafeText::new(zone).unwrap()),
+        }
+    }
+
+    #[test]
+    fn layout_content_requires_every_declared_zone() {
+        let one = uuid::Uuid::from_u128(1);
+        let now = Timestamp::from_unix_millis(0).unwrap();
+        let mut tracker = RendererTracker::default();
+        tracker.activate(reference(1));
+        tracker.connected(one);
+        let send = |tracker: &mut RendererTracker, kind, zone| {
+            tracker.progress(one, &layout_report(kind, zone), Expectation::Layout, now);
+        };
+        send(&mut tracker, ProgressEvidence::LayoutZoneDeclared, Some("clock"));
+        send(&mut tracker, ProgressEvidence::LayoutZoneRotating, Some("promo"));
+        send(&mut tracker, ProgressEvidence::LayoutShown, None);
+        assert!(tracker.meaningful() && !tracker.content_progress());
+        send(&mut tracker, ProgressEvidence::LayoutZoneRendered, Some("clock"));
+        assert!(!tracker.content_progress());
+        send(&mut tracker, ProgressEvidence::LayoutZoneRendered, Some("promo"));
+        assert!(tracker.content_progress());
+        assert!(tracker.content_items().contains("layout"));
+
+        // A Layout with no declared zones is proven by its canvas.
+        tracker.activate(reference(1));
+        send(&mut tracker, ProgressEvidence::LayoutShown, None);
+        assert!(tracker.content_progress());
+    }
+
     #[test]
     fn stale_connections_and_activations_cannot_accept_or_prove_content() {
         let one = uuid::Uuid::from_u128(1);
@@ -247,6 +349,25 @@ mod tests {
         assert!(!tracker.accepted_current());
         tracker.disconnected(one);
         assert!(tracker.progress(two, &report(2, ProgressEvidence::ImageShown), Expectation::Still, now).meaningful);
+    }
+
+    #[test]
+    fn a_new_activation_does_not_inherit_progress_or_the_current_item() {
+        let one = uuid::Uuid::from_u128(1);
+        let now = Timestamp::from_unix_millis(1_000).unwrap();
+        let mut tracker = RendererTracker::default();
+        tracker.activate(reference(1));
+        tracker.connected(one);
+        tracker.accept(one, reference(1));
+        assert!(tracker.progress(one, &report(1, ProgressEvidence::ItemStarted), Expectation::Still, now).meaningful);
+        assert_eq!(tracker.last_progress(), Some(now));
+        assert_eq!(tracker.current_item().unwrap().0, "image");
+        tracker.activate(reference(2));
+        assert_eq!(tracker.last_progress(), None);
+        assert_eq!(tracker.current_item(), None);
+        let later = Timestamp::from_unix_millis(2_000).unwrap();
+        assert!(tracker.progress(one, &report(2, ProgressEvidence::ItemStarted), Expectation::Still, later).meaningful);
+        assert_eq!(tracker.last_progress(), Some(later));
     }
 
     #[test]

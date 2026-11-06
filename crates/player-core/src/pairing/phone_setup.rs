@@ -130,9 +130,12 @@ impl PairingCoordinator {
                 }
                 Ended::Paused => {
                     tracing::info!(component = "phone_setup", event = "paused");
+                    // Notify::notify_waiters reaches a Notified created before publication,
+                    // even if the host handles Resume before we first poll it.
+                    let resume = self.control.phone_resume.notified();
                     self.show_phone(host, Some(PhoneSetupView::Paused)).await;
                     tokio::select! {
-                        () = self.control.phone_resume.notified() => {}
+                        () = resume => {}
                         () = self.until_inactive() => {
                             *self.control.phone_view.lock().unwrap_or_else(|error| error.into_inner()) = None;
                         }
@@ -259,7 +262,10 @@ mod tests {
     }
 
     #[derive(Debug, Default)]
-    struct Host(Mutex<Vec<PairingStatus>>);
+    struct Host {
+        statuses: Mutex<Vec<PairingStatus>>,
+        resume_on_pause: Mutex<Option<PairingCoordinator>>,
+    }
     #[async_trait]
     impl PairingMetadataProvider for Host {
         fn new_player_id(&self) -> PlayerId {
@@ -272,12 +278,17 @@ mod tests {
     #[async_trait]
     impl PairingHost for Host {
         async fn show_pairing(&self, status: PairingStatus) {
-            self.0.lock().unwrap().push(status);
+            if matches!(status, PairingStatus::Setup { phone: Some(PhoneSetupView::Paused) })
+                && let Some(core) = self.resume_on_pause.lock().unwrap().take()
+            {
+                core.resume_phone_setup();
+            }
+            self.statuses.lock().unwrap().push(status);
         }
     }
     impl Host {
         fn statuses(&self) -> Vec<PairingStatus> {
-            self.0.lock().unwrap().clone()
+            self.statuses.lock().unwrap().clone()
         }
         fn last_phone(&self) -> Option<PhoneSetupView> {
             self.statuses().into_iter().rev().find_map(|status| match status {
@@ -494,6 +505,15 @@ mod tests {
         tokio::time::sleep(FIRST_BACKOFF).await;
         until(&running.host, ready_url).await;
         assert_eq!(running.relay.codes.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_resume_during_paused_publication_starts_a_new_session() {
+        let running = start();
+        let (first, _) = until(&running.host, ready_url).await;
+        *running.host.resume_on_pause.lock().unwrap() = Some(running.core.clone());
+        tokio::time::sleep(SESSION_LIMIT).await;
+        until(&running.host, |host| ready_url(host).filter(|(next, _)| *next != first)).await;
     }
 
     #[tokio::test(start_paused = true)]

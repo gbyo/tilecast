@@ -73,6 +73,15 @@ internal class InstallHandoffGate {
         try{return block()}finally{busy.set(false)}
     }
 }
+
+/**
+ * Where an update goes when the process died while its APK was being staged into a PackageInstaller
+ * session. No installer result will ever arrive for it, so the person gets a retry, or the server a failure.
+ */
+internal fun interruptedStagingState(state:UpdateUiState,stagedFileExists:Boolean):UpdateUiState =
+    if(stagedFileExists)state.copy(state="waiting_for_user",message="Installation was interrupted. Install the update to continue.",permissionRequired=false,installReady=true,errorCode=null)
+    else state.copy(state="failed",message="The staged update is missing. Deploy the update again.",permissionRequired=false,installReady=false,errorCode="staged_update_missing")
+
 /** The state of a verified update whose installation waits for Takeover playback to end. */
 internal fun takeoverDelayedState(state:UpdateUiState,now:Instant):UpdateUiState =
     state.copy(state="ready",message="Installation delayed by takeover playback",permissionRequired=false,installReady=true,maintenanceAt=now.toString())
@@ -110,7 +119,27 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
     /** Observes every persisted update state. The production ViewModel shows the approval UI from this. */
     fun addListener(listener:(UpdateUiState)->Unit){listeners+=listener}
     fun removeListener(listener:(UpdateUiState)->Unit){listeners-=listener}
-    val restored:UpdateUiState? get()=store.getString("deployment",null)?.let{deployment->val next=store.getString("new-version","")?:"";if(next==BuildConfig.VERSION_NAME){store.edit().clear().apply();null}else UpdateUiState(deployment,BuildConfig.VERSION_NAME,next,store.getString("state","pending")?:"pending",store.getLong("downloaded",0),store.getLong("expected",0),"Player update is ready to continue",store.getBoolean("permission",false),store.getBoolean("ready",false),store.getString("maintenance-at",null),store.getString("error-code",null),store.getString("release-id",null),store.getString("artifact-id",null),store.getString("expected-sha256",null),store.getLong("expected-version-code",0).takeIf{it>0},store.getString("exact-path",null))}
+    val restored:UpdateUiState? get()=restoredFromStore()?.let(::reconcileInterruptedStaging)
+    private fun restoredFromStore():UpdateUiState? = store.getString("deployment",null)?.let{deployment->val next=store.getString("new-version","")?:"";if(next==BuildConfig.VERSION_NAME){store.edit().clear().apply();null}else UpdateUiState(deployment,BuildConfig.VERSION_NAME,next,store.getString("state","pending")?:"pending",store.getLong("downloaded",0),store.getLong("expected",0),"Player update is ready to continue",store.getBoolean("permission",false),store.getBoolean("ready",false),store.getString("maintenance-at",null),store.getString("error-code",null),store.getString("release-id",null),store.getString("artifact-id",null),store.getString("expected-sha256",null),store.getLong("expected-version-code",0).takeIf{it>0},store.getString("exact-path",null))}
+
+    /**
+     * The staging marker is written before the APK is copied into an installer session and removed once
+     * the session is committed. Finding it at startup means the process stopped in between.
+     */
+    private fun reconcileInterruptedStaging(state:UpdateUiState):UpdateUiState{
+        if(!store.getBoolean("staging",false))return state
+        val sessionId=store.getInt("staging-session",-1)
+        store.edit().remove("staging").remove("staging-session").commit()
+        if(sessionId>=0)runCatching{
+            val installer=app.packageManager.packageInstaller
+            val committed=Build.VERSION.SDK_INT>=34&&installer.getSessionInfo(sessionId)?.isCommitted==true
+            if(!committed)installer.abandonSession(sessionId)
+        }
+        if(state.state!="installing")return state
+        val recovered=interruptedStagingState(state,state.exactPath?.let{File(it).isFile}==true)
+        persist(recovered)
+        return recovered
+    }
 
     private fun updateDirectory():File = File(app.filesDir,"updates").apply { mkdirs() }
 
@@ -253,15 +282,23 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
         quarantineStaleArtifacts(apk.absolutePath)
         if(!verifyArtifact(apk,state.expectedSha256,state.expectedBytes))return false
         val reliability=app.getSharedPreferences("tilecast-reliability",Application.MODE_PRIVATE)
+        store.edit().putBoolean("staging",true).remove("staging-session").commit()
+        var sessionId=-1
         val started=runCatching{
             val params=PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply{setAppPackageName(BuildConfig.APPLICATION_ID);setSize(apk.length());if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.S)setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)}
             val installer=app.packageManager.packageInstaller
-            val sessionId=installer.createSession(params)
+            sessionId=installer.createSession(params)
+            store.edit().putInt("staging-session",sessionId).commit()
             reliability.edit().putBoolean("update-active",true).putBoolean("update-relaunch-requested",true).putInt("update-relaunch-attempts",0).apply()
             installer.openSession(sessionId).use{session->apk.inputStream().use{input->session.openWrite("tilecast-player.apk",0,apk.length()).use{output->input.copyTo(output);session.fsync(output)}};val intent=Intent(app,UpdateInstallReceiver::class.java);val pending=PendingIntent.getBroadcast(app,sessionId,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE);session.commit(pending.intentSender)}
+            store.edit().remove("staging").remove("staging-session").apply()
             persist(state.copy(state="installing",message="Android installer is preparing the update"));true
         }.getOrDefault(false)
-        if(!started)reliability.edit().putBoolean("update-active",false).putBoolean("update-relaunch-requested",false).apply()
+        if(!started){
+            store.edit().remove("staging").remove("staging-session").apply()
+            if(sessionId>=0)runCatching{app.packageManager.packageInstaller.abandonSession(sessionId)}
+            reliability.edit().putBoolean("update-active",false).putBoolean("update-relaunch-requested",false).apply()
+        }
         return started
     }
 

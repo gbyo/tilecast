@@ -131,16 +131,28 @@ describe("CommandCoordinator", () => {
     client.queue = [command({})];
     // Simulate the process dying while the handler runs: the handler never
     // returns, so completion is never recorded.
+    let handlerStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      handlerStarted = resolve;
+    });
     const crashing = new CommandCoordinator(
       store,
       client as unknown as ApiClient,
-      new Map([["sync_now", () => new Promise<CommandResultReport>(() => {})]]),
+      new Map([
+        [
+          "sync_now",
+          () => {
+            handlerStarted();
+            return new Promise<CommandResultReport>(() => {});
+          },
+        ],
+      ]),
       new Set(),
       () => {},
       { onCredentialRejected() {}, onPollError() {}, onCommandCompleted() {} },
     );
     void crashing.start();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await started;
     crashing.stop();
 
     client.queue = [command({ state: "acknowledged" })];

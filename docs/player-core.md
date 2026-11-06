@@ -326,6 +326,9 @@ PR #1224 records qualification for the renderer extraction.
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry
 reporting. Redelivery or restart must never execute a command twice.
+A command whose result could not be stored stays `executing`. The next delivery
+settles it as `command_interrupted` and reports that result. The handler is
+never run again, because its effect is unknown.
 Display operations and Player installation use typed platform handlers.
 Do not add arbitrary command execution.
 

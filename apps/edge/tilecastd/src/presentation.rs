@@ -951,6 +951,7 @@ impl PresentationEngine {
             supervisor.ladder_run_window_ms = reliability.ladder_run_window_ms;
             supervisor.max_ladder_runs_before_safe_mode = reliability.max_ladder_runs_before_safe_mode;
             supervisor.safe_mode_enabled = reliability.safe_mode_enabled;
+            supervisor.website_first_render_ms = reliability.website_first_render_ms;
         }
         self.native.set_config(supervisor);
         self.configure.kiosk.prevent_display_sleep =
@@ -1092,8 +1093,15 @@ impl PresentationEngine {
 /// Callers invoke this after a recovery action or command that changes
 /// supervision state. A failed write is logged, never fatal: the next
 /// supervision change persists again.
+///
+/// The whole read, snapshot, and write runs under one lock, and the engine is
+/// snapshotted after taking it. A caller that waits therefore persists the
+/// state as of its own turn, so a stale snapshot from the supervisor loop can
+/// neither overwrite a newer transition nor make that transition's write look
+/// like a no-op.
 pub async fn persist_supervision(context: &crate::daemon::DaemonContext) {
     let Some(db) = context.db() else { return };
+    let _serialized = context.supervision_persist.lock().await;
     let now = context.now();
     let previous = match db.run(|conn| edge_state::repo::renderer::get(conn)).await {
         Ok(record) => record,

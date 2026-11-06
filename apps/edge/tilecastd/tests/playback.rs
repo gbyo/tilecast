@@ -2374,6 +2374,10 @@ async fn commands_run_at_most_once_across_redelivery_and_restart() {
     player.stop().await;
 }
 
+async fn stored_safe_mode(player: &Player) -> bool {
+    player.context.db().unwrap().run(|c| edge_state::repo::renderer::get(c)).await.unwrap().safe_mode
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconciles() {
     let harness = Harness::new().await;
@@ -2403,12 +2407,17 @@ async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconcile
     }
     assert!(matches!(renderer.last().unwrap().presentation, PresentationDocument::SafeMode { .. }));
     assert_eq!(heartbeat(&player.context).await["safeMode"], true);
+    // Several overlapping persists, as the supervisor loop and commands issue,
+    // all store the engine's state at their own turn.
+    futures_util::future::join_all((0..8).map(|_| tilecastd::presentation::persist_supervision(&player.context))).await;
+    assert!(stored_safe_mode(&player).await, "safe mode is durable once entered");
 
     let exit = harness.fake.offer("exit_safe_mode", uuid::Uuid::new_v4(), json!({}));
     player.context.command_wake.notify_one();
     wait_for("content after safe mode", || renderer.last().filter(|a| shows(a, &asset))).await;
     wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
     assert_eq!(harness.fake.results_for(&exit)[0]["code"], "safe_mode_cleared");
+    assert!(!stored_safe_mode(&player).await, "exiting safe mode is durable, so a restart stays out of it");
 
     let before = harness.fake.manifest_requests.load(Ordering::SeqCst);
     let sync = harness.fake.offer("sync_now", uuid::Uuid::new_v4(), json!({}));
@@ -2516,8 +2525,12 @@ async fn a_zone_that_never_renders_still_reaches_safe_mode_and_previews_stay_pro
     let (player, renderer, activation, item) = layout_player(&harness).await;
     start_layout(&renderer, &activation, &item, &["clock"]).await;
     let binding = harness.binding();
-    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
-        .await;
+
+    // Promotion needs a first render from every declared zone, so the pending
+    // manifest is not promoted while the banner is silent. Playback health is
+    // a separate judgment and still sees the stalled zone.
+    settle().await;
+    assert!(player.stage(&binding, Stage::Active).await.is_none(), "a silent zone must not promote the layout");
 
     // The Runtime keeps reporting `layout_alive`, so only the zone that owes
     // its first render is wrong. A reactivation restarts the Runtime's item,

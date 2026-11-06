@@ -91,7 +91,7 @@ data class DeviceFacts(
 class CoreBridgeHandler(
     private val credentials: CredentialStore,
     private val pairingFile: File,
-    private val facts: DeviceFacts,
+    private val facts: () -> DeviceFacts,
     private val pairingSink: (String) -> Unit,
     @Volatile var executor: PlatformCommandExecutor = PlatformCommandExecutor.UNAVAILABLE,
     @Volatile var rendererAdapter: CoreRendererAdapter = CoreRendererAdapterRefusing,
@@ -131,7 +131,7 @@ class CoreBridgeHandler(
             0
         }.getOrDefault(1)
 
-    fun deviceMetadata(): String = facts.toJson()
+    fun deviceMetadata(): String = facts().toJson()
 
     /** Device uptime in whole seconds since boot. A live measurement: the app sandbox cannot read the kernel uptime file. */
     fun deviceUptimeSeconds(): Long = SystemClock.elapsedRealtime() / 1000

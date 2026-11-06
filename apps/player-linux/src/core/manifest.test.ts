@@ -1,5 +1,12 @@
+import { createHash } from "crypto";
+import { mkdtempSync, promises as fs } from "fs";
+import * as http from "http";
+import * as os from "os";
+import * as path from "path";
 import { describe, expect, it } from "vitest";
-import { requiredDownloads } from "./manifest";
+import type { ApiClient } from "./api";
+import { ManifestSync, mediaFileName, requiredDownloads } from "./manifest";
+import { StateStore } from "./storage";
 import type { Manifest, ManifestAsset, ManifestItem } from "./types";
 
 function asset(overrides: Partial<ManifestAsset>): ManifestAsset {
@@ -210,5 +217,130 @@ describe("requiredDownloads", () => {
       assets: [asset({})],
     });
     expect(requiredDownloads(m)).toHaveLength(1);
+  });
+});
+
+describe("ManifestSync cache eviction", () => {
+  const identity = {
+    installationId: "inst",
+    screenId: "scr",
+    normalizedServerUrl: "http://server.test",
+  };
+
+  function playlistManifest(
+    version: number,
+    assets: ManifestAsset[],
+  ): Manifest {
+    return manifest({
+      manifestVersion: version,
+      playlist: {
+        id: "p",
+        revision: version,
+        name: "",
+        items: assets.map((a) =>
+          item({ id: a.assetId, assetId: a.assetId, variantId: a.variantId }),
+        ),
+      },
+      assets,
+    });
+  }
+
+  function mediaAsset(id: string, body: Buffer, baseUrl = ""): ManifestAsset {
+    return asset({
+      assetId: id,
+      variantId: "v",
+      fileSize: body.length,
+      sha256: createHash("sha256").update(body).digest("hex"),
+      downloadPath: `${baseUrl}/${id}`,
+    });
+  }
+
+  async function setup(active: Manifest, candidate: Manifest) {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "tilecast-manifest-"));
+    const store = new StateStore(dir);
+    await store.init();
+    await store.writeJson("manifest-active.json", {
+      manifest: active,
+      etag: '"a"',
+      storedAt: new Date().toISOString(),
+      ...identity,
+    });
+    const client = {
+      manifest: async () => ({ value: candidate, etag: '"b"' }),
+      url: (p: string) => p,
+      authHeaders: () => ({}),
+    };
+    const sync = new ManifestSync(store, client as unknown as ApiClient, {
+      onManifestPrepared() {},
+      onCredentialRejected() {},
+      onSyncError() {},
+    });
+    sync.setIdentity(identity);
+    await sync.loadCached();
+    return { store, sync };
+  }
+
+  async function seed(store: StateStore, name: string, body: Buffer) {
+    await fs.mkdir(store.mediaDir(), { recursive: true });
+    await fs.writeFile(path.join(store.mediaDir(), name), body);
+  }
+
+  const files = async (store: StateStore) =>
+    (await fs.readdir(store.mediaDir())).sort();
+
+  it("keeps the active manifest's media when the candidate exceeds the cache policy", async () => {
+    const aBody = Buffer.alloc(1000, 1);
+    const a = mediaAsset("a", aBody);
+    const b = mediaAsset("b", Buffer.alloc(5000, 2));
+    const { store, sync } = await setup(
+      playlistManifest(1, [a]),
+      playlistManifest(2, [b]),
+    );
+    await seed(store, mediaFileName(a), aBody);
+    sync.applyPolicy(2000, 0, 1e6, 1, 300);
+    await sync.syncNow("test");
+    expect(await files(store)).toEqual([mediaFileName(a)]);
+    expect(await sync.cachedPath(a)).not.toBeNull();
+    expect(sync.lastSyncError).toContain("insufficient cache space");
+  });
+
+  it("still evicts media that neither manifest references", async () => {
+    const aBody = Buffer.alloc(1000, 1);
+    const a = mediaAsset("a", aBody);
+    const b = mediaAsset("b", Buffer.alloc(5000, 2));
+    const { store, sync } = await setup(
+      playlistManifest(1, [a]),
+      playlistManifest(2, [b]),
+    );
+    await seed(store, mediaFileName(a), aBody);
+    await seed(store, "orphan-v", Buffer.alloc(500, 3));
+    sync.applyPolicy(2000, 0, 1e6, 1, 300);
+    await sync.syncNow("test");
+    expect(await files(store)).toEqual([mediaFileName(a)]);
+  });
+
+  it("releases the active media only when the candidate cannot fit otherwise", async () => {
+    const aBody = Buffer.alloc(1000, 1);
+    const bBody = Buffer.alloc(1500, 2);
+    const server = http.createServer((_req, res) => res.end(bBody));
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    try {
+      const { port } = server.address() as { port: number };
+      const a = mediaAsset("a", aBody);
+      const b = mediaAsset("b", bBody, `http://127.0.0.1:${port}`);
+      const { store, sync } = await setup(
+        playlistManifest(1, [a]),
+        playlistManifest(2, [b]),
+      );
+      await seed(store, mediaFileName(a), aBody);
+      sync.applyPolicy(2000, 0, 1e6, 1, 300);
+      await sync.syncNow("test");
+      expect(sync.lastSyncError).toBeNull();
+      expect(await files(store)).toEqual([mediaFileName(b)]);
+    } finally {
+      server.close();
+    }
   });
 });

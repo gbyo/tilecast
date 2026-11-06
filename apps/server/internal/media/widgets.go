@@ -382,7 +382,13 @@ func (s *Service) UpdateWidget(ctx context.Context, id, user uuid.UUID, input Wi
 	return s.GetAsset(ctx, id)
 }
 
-func (s *Service) StoreWidgetPreview(ctx context.Context, id, user uuid.UUID, data []byte) error {
+// StoreWidgetPreview stores a rendered snapshot. A caller that rendered the Widget from an earlier
+// read passes that read's asset updatedAt as renderedUpdatedAt: every configuration change moves
+// that timestamp, so a capture of a superseded configuration is refused with
+// ErrWidgetPreviewStale instead of being stamped as current. The asset row is locked for the
+// comparison, which serializes it with a concurrent UpdateWidget. A nil renderedUpdatedAt stores
+// unconditionally, for the editor, which renders the configuration it has just saved.
+func (s *Service) StoreWidgetPreview(ctx context.Context, id, user uuid.UUID, data []byte, renderedUpdatedAt *time.Time) error {
 	if err := validateWidgetPreview(data); err != nil {
 		return err
 	}
@@ -391,7 +397,17 @@ func (s *Service) StoreWidgetPreview(ctx context.Context, id, user uuid.UUID, da
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	tag, err := tx.Exec(ctx, `UPDATE widgets widget SET preview_image=$2,preview_content_type='image/jpeg',preview_width=960,preview_height=540,preview_updated_at=now(),updated_at=now() FROM assets asset WHERE widget.asset_id=$1 AND asset.id=widget.asset_id AND asset.type='widget' AND asset.deleted_at IS NULL`, id, data)
+	var updatedAt time.Time
+	if err = tx.QueryRow(ctx, `SELECT asset.updated_at FROM assets asset JOIN widgets widget ON widget.asset_id=asset.id WHERE asset.id=$1 AND asset.type='widget' AND asset.deleted_at IS NULL FOR UPDATE OF asset`, id).Scan(&updatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if renderedUpdatedAt != nil && !updatedAt.Equal(*renderedUpdatedAt) {
+		return ErrWidgetPreviewStale
+	}
+	tag, err := tx.Exec(ctx, `UPDATE widgets SET preview_image=$2,preview_content_type='image/jpeg',preview_width=960,preview_height=540,preview_updated_at=now(),updated_at=now() WHERE asset_id=$1`, id, data)
 	if err != nil {
 		return err
 	}

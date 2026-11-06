@@ -32,6 +32,15 @@ pub fn get(connection: &Connection) -> Result<PlaybackState> {
     }
 }
 
+/// Reads only the administrative disable flag. It stays readable when the
+/// clock-synchronization columns cannot be decoded.
+pub fn disabled(connection: &Connection) -> Result<bool> {
+    let disabled: Option<i64> = connection
+        .query_row("SELECT playback_disabled FROM playback_state WHERE id = 1", [], |row| row.get(0))
+        .optional()?;
+    Ok(disabled.is_some_and(|value| value != 0))
+}
+
 pub fn put(connection: &Connection, state: &PlaybackState, now: Timestamp) -> Result<()> {
     connection.execute(
         "INSERT INTO playback_state (id, playback_disabled, server_clock_offset_ms,

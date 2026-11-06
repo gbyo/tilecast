@@ -38,6 +38,7 @@ import org.tilecast.player.runtime.RuntimeBridgeProtocol
 import org.tilecast.player.runtime.RuntimeComponentProbe
 import org.tilecast.player.runtime.RuntimeDocumentEvent
 import org.tilecast.player.runtime.RuntimeCrashPolicy
+import org.tilecast.player.runtime.RemoteWebHostManager
 import org.tilecast.player.runtime.RuntimeHostSession
 import org.tilecast.player.runtime.RuntimePresentationBuilder
 import org.tilecast.player.runtime.RuntimeScreenState
@@ -117,6 +118,14 @@ class WebViewCoreRenderer(
     /** The live WebView as a flow, so every host that shows it follows recreation. */
     val viewFlow: StateFlow<WebView?> = mutableView.asStateFlow()
 
+    private val mutableSurfaces = MutableStateFlow<List<RemoteWebHostManager.Surface>>(emptyList())
+
+    /**
+     * The remote-web surfaces the runtime asked the host to show. The UI
+     * host draws them above [view] (see `RemoteWebLayer`).
+     */
+    val remoteSurfaces: StateFlow<List<RemoteWebHostManager.Surface>> = mutableSurfaces.asStateFlow()
+
     private var owner: TrustedRuntimeWebView? = null
     private var webView: WebView? = null
     private var session: RuntimeHostSession? = null
@@ -183,6 +192,7 @@ class WebViewCoreRenderer(
                         mutableView.value = endpoint.webView
                         liveGeneration = endpoint.generation
                         session = newSession(endpoint.generation)
+                        mutableSurfaces.value = emptyList()
                         started = true
                     }
                     is TrustedRuntimeEndpoint.Unsupported -> {
@@ -230,6 +240,7 @@ class WebViewCoreRenderer(
                 owner = null
                 webView = null
                 mutableView.value = null
+                mutableSurfaces.value = emptyList()
                 session = null
                 grants = null
                 started = false
@@ -344,6 +355,7 @@ class WebViewCoreRenderer(
                 widgetFrames.authorized + pluginFrames.authorized, widgetFrames.files + pluginFrames.files)
             live.offer(parsed)
             pluginsMessage?.let { live.offer(it) }
+            publishSurfaces(live)
             liveView to live.currentStateGeneration()
         }
         owner?.nudge(view, stateGeneration)
@@ -377,6 +389,7 @@ class WebViewCoreRenderer(
             val retainedFiles = previous.frameFiles.filterKeys { token -> retained.any { it.frameToken == token } }
             grants = previous.copy(frames = retained + pluginFrames.authorized, frameFiles = retainedFiles + pluginFrames.files)
             current.offer(parsed)
+            publishSurfaces(current)
             view to current.currentStateGeneration()
         }
         owner?.nudge(view, stateGeneration)
@@ -472,6 +485,7 @@ class WebViewCoreRenderer(
             ?: return CoreRendererRequestCode.INVALID_ACTIVATION
         val stateGeneration = synchronized(lock) {
             session.offer(parsed)
+            publishSurfaces(session)
             session.currentStateGeneration()
         }
         owner?.nudge(view, stateGeneration)
@@ -557,6 +571,7 @@ class WebViewCoreRenderer(
                     started = false
                     webView = null
                     mutableView.value = null
+                    mutableSurfaces.value = emptyList()
                     session = null
                     grants = null
                     notifyRuntimeUnsupported()
@@ -566,6 +581,7 @@ class WebViewCoreRenderer(
                 mutableView.value = endpoint.webView
                 liveGeneration = endpoint.generation
                 session = newSession(endpoint.generation)
+                mutableSurfaces.value = emptyList()
                 swapped = endpoint.webView
                 endpoint.generation
             }
@@ -602,6 +618,23 @@ class WebViewCoreRenderer(
         return offerPageMessage(current, view, unavailable.toString())
     }
 
+    /** Callers hold [lock]: the tracker is only touched under it. */
+    private fun publishSurfaces(live: RuntimeHostSession) {
+        mutableSurfaces.value = live.remoteWeb.snapshot()
+    }
+
+    /**
+     * Reports a remote-web event from a host-view WebView to the runtime.
+     * Events from a replaced renderer generation are dropped.
+     */
+    fun postRemoteEvent(generation: Long, surfaceId: String?, kind: String, code: String?) {
+        val live = synchronized(lock) {
+            if (generation != liveGeneration) return
+            session ?: return
+        }
+        live.postRemoteEvent(surfaceId, kind, code)
+    }
+
     private fun serveMedia(url: String, range: String?): WebResourceResponse? {
         val current = grants ?: return null
         if (url.substringBefore('#').startsWith("tcwidget:")) {
@@ -621,7 +654,9 @@ class WebViewCoreRenderer(
         // pending delivery each responseDelivered consumes below.
         val (current, response) = synchronized(lock) {
             val live = session ?: return
-            live to live.handlePageMessage(payload, generation, reply)
+            val handled = live.handlePageMessage(payload, generation, reply)
+            publishSurfaces(live)
+            live to handled
         }
         if (response != null && reply != null) {
             // The delivery ack pairs with an accepted post, as before;

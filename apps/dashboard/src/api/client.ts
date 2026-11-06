@@ -411,9 +411,15 @@ export const api = {
     image: Blob,
     csrfToken: string,
     signal?: AbortSignal,
+    // The asset updatedAt the image was rendered from. The server refuses the image when the
+    // Widget has been edited since, so a stale capture is never stored as current.
+    options?: { renderedUpdatedAt?: string },
   ) => {
+    const query = options?.renderedUpdatedAt
+      ? `?${new URLSearchParams({ renderedUpdatedAt: options.renderedUpdatedAt })}`
+      : "";
     const response = await fetch(
-      `/api/v1/widgets/${encodeURIComponent(id)}/preview-image`,
+      `/api/v1/widgets/${encodeURIComponent(id)}/preview-image${query}`,
       {
         method: "PUT",
         credentials: "same-origin",
