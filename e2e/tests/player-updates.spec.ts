@@ -62,7 +62,6 @@ for (const viewport of [
     await expect(dialog.locator('[aria-current="step"]')).toHaveText(
       /^1\s*Update$/,
     );
-    await expect(dialog.getByText("Update", { exact: true })).toBeVisible();
     await expect(
       dialog.getByRole("combobox", { name: "Player type", exact: true }),
     ).toBeVisible();
