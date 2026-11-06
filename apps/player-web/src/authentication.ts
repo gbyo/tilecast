@@ -104,24 +104,42 @@ export async function authenticate(
         throw error;
     }
   }
-  if (!session && identity.slotId && identity.bindingId) {
+  let slotId = identity.slotId;
+  let bindingId = identity.bindingId;
+  if (!session && !slotId && !bindingId && identitySlot === "unmanaged") {
+    // Enrollment may have committed while its response was lost, which leaves
+    // this browser with a binding it never saved. The server names that
+    // binding for this device key; a session still needs the key's signature.
+    try {
+      const found = await api.request<{ slotId: string; bindingId: string }>(
+        "/api/v1/player/browser/binding",
+        { registration },
+      );
+      slotId = found.slotId;
+      bindingId = found.bindingId;
+    } catch (error) {
+      if (!(error instanceof PlayerAPIError) || error.status !== 401)
+        throw error;
+    }
+  }
+  if (!session && slotId && bindingId) {
     try {
       const challenge = await api.request<BrowserChallenge>(
         "/api/v1/player/browser/challenge",
-        { slotId: identity.slotId, bindingId: identity.bindingId },
+        { slotId, bindingId },
       );
       // The device key signs only the exact message the server issued, and
       // only when it names this installation's own slot and binding.
       if (
         challenge.message !==
-        challengeMessage(identity.slotId, identity.bindingId, challenge.nonce)
+        challengeMessage(slotId, bindingId, challenge.nonce)
       )
         throw new Error("The server issued an unexpected signing challenge.");
       session = await api.request<BrowserSession>(
         "/api/v1/player/browser/renew",
         {
-          slotId: identity.slotId,
-          bindingId: identity.bindingId,
+          slotId,
+          bindingId,
           nonce: challenge.nonce,
           signature: await signChallenge(identity, challenge.message),
         },

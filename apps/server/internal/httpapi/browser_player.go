@@ -158,6 +158,22 @@ func (s *server) browserEnroll(w http.ResponseWriter, r *http.Request) {
 	writeBrowserSession(w, session, http.StatusCreated)
 }
 
+func (s *server) browserBinding(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Registration devices.BrowserRegistration `json:"registration"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	binding, err := s.devices.LookupBrowserBinding(r.Context(), body.Registration)
+	if err != nil {
+		s.writeDeviceError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": binding})
+}
+
 func (s *server) browserChallenge(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		SlotID    uuid.UUID `json:"slotId"`
@@ -305,6 +321,7 @@ func (s *server) mountBrowserPlayer(api chi.Router) {
 		browser.Use(s.browserBoundary)
 		browser.With(s.pairingRateLimit).Post("/recover", s.browserRecover)
 		browser.With(s.pairingRateLimit).Post("/enroll", s.browserEnroll)
+		browser.With(s.authRateLimit).Post("/binding", s.browserBinding)
 		browser.With(s.authRateLimit).Post("/challenge", s.browserChallenge)
 		browser.With(s.authRateLimit).Post("/renew", s.browserRenew)
 		browser.Get("/session", s.browserSession)

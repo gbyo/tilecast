@@ -5,6 +5,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { getScreenPlaybackAgenda } from "../api/domains/playbackPlan";
 import { hasNextPage } from "../api/pagination";
 import type { Schedule, ScheduleInput, ScheduleListParams } from "../api/types";
 
@@ -20,6 +21,8 @@ export const defaultScheduleListParams: ScheduleListParams = {
 export const scheduleKeys = {
   all: ["schedules"] as const,
   list: (search = "") => [...scheduleKeys.all, "list", { search }] as const,
+  agenda: (screenId: string, from: string, to: string) =>
+    [...scheduleKeys.all, "agenda", screenId, from, to] as const,
   // Search, every facet, and the sort all shape the server result, so all of
   // them are part of the key. View state is presentation only and is not.
   pages: (params: ScheduleListParams = defaultScheduleListParams) =>
@@ -35,6 +38,13 @@ export const scheduleKeys = {
 };
 
 export const scheduleQueries = {
+  agenda: (screenId: string, from: string, to: string) =>
+    queryOptions({
+      queryKey: scheduleKeys.agenda(screenId, from, to),
+      queryFn: ({ signal }) =>
+        getScreenPlaybackAgenda(screenId, from, to, signal),
+      refetchInterval: 60_000,
+    }),
   list: (search = "") =>
     queryOptions({
       queryKey: scheduleKeys.list(search),

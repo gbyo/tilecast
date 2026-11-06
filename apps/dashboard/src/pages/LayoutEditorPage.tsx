@@ -202,6 +202,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useLibraryFonts } from "../fonts/libraryFonts";
 import {
   presentationPath,
   useNativePresentationAvailable,
@@ -218,7 +219,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
 import { hasCapability } from "../auth/capabilities";
 
@@ -290,6 +291,9 @@ export async function flushLatestLayoutDraft(
   while (true) {
     const snapshot = read();
     if (snapshot.savedChangeVersion === snapshot.changeVersion) return;
+    // Each save needs the revision the previous one returned, so they run in
+    // order.
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop
     const saved = await persist(snapshot.revision, clone(snapshot.document));
     applied(snapshot.changeVersion, saved.draftRevision);
   }
@@ -407,8 +411,8 @@ type LayoutMenuEntry = {
 function LayoutEditorMenuEntries({ items }: { items: LayoutMenuEntry[] }) {
   return (
     <>
-      {items.map((entry, index) => (
-        <Fragment key={`${entry.label}-${index}`}>
+      {items.map((entry) => (
+        <Fragment key={entry.label}>
           {entry.separated && <ContextMenuSeparator />}
           {entry.submenu ? (
             <ContextMenuSub>
@@ -637,6 +641,8 @@ export function LayoutEditorPage() {
   const navigate = useNavigate();
   const { t } = useTranslation(["layouts", "common"]);
   const nativePresentations = useNativePresentationAvailable();
+  // Library faces must be registered before Layout text can draw in them.
+  useLibraryFonts();
   const openNativePresentation = useOpenNativePresentation();
   const { t: tContent } = useTranslation("content");
   const formatLocale = useFormatLocale();
@@ -790,7 +796,7 @@ export function LayoutEditorPage() {
   // History opens from a menu item that unmounts, so focus returns to the
   // menu's trigger when the dialog closes.
   const fileMenuTrigger = useRef<HTMLButtonElement>(null);
-  const canvasWidth = document?.canvas.width;
+  const canvasWidth = document ? document.canvas.width : undefined;
   const canvasHeight = document?.canvas.height;
   const getViewport = useCallback(
     () =>
@@ -1097,6 +1103,19 @@ export function LayoutEditorPage() {
   const clipboard = useRef<LayoutPlacement[]>([]);
   const initialized = useRef(false);
   const documentRef = useRef<LayoutDocument | undefined>(undefined);
+  // History lives in refs as well as state so undo, redo, and commit read the
+  // latest stacks without nesting state updates inside an updater function.
+  const pastRef = useRef<LayoutDocument[]>([]);
+  const futureRef = useRef<LayoutDocument[]>([]);
+  const replaceHistory = useCallback(
+    (nextPast: LayoutDocument[], nextFuture: LayoutDocument[]) => {
+      pastRef.current = nextPast;
+      futureRef.current = nextFuture;
+      setPast(nextPast);
+      setFuture(nextFuture);
+    },
+    [],
+  );
   const activeToolRef = useRef<LayoutPrimitive["kind"] | null>(null);
   const revisionRef = useRef(0);
   const savingRef = useRef(false);
@@ -1211,15 +1230,18 @@ export function LayoutEditorPage() {
   }, []);
   const commit = useCallback(
     (next: LayoutDocument) => {
+      const previous = documentRef.current;
       documentRef.current = next;
-      setDocument((current) => {
-        if (current) setPast((items) => [...items.slice(-79), clone(current)]);
-        return next;
-      });
-      setFuture([]);
+      setDocument(next);
+      replaceHistory(
+        previous
+          ? [...pastRef.current.slice(-79), clone(previous)]
+          : pastRef.current,
+        [],
+      );
       markUnsaved();
     },
-    [markUnsaved],
+    [markUnsaved, replaceHistory],
   );
   const update = useCallback(
     (change: (draft: LayoutDocument) => void) => {
@@ -1231,33 +1253,31 @@ export function LayoutEditorPage() {
     [commit],
   );
   const undo = useCallback(() => {
-    setPast((items) => {
-      const prior = items.at(-1);
-      if (!prior) return items;
-      setDocument((current) => {
-        if (current) setFuture((next) => [clone(current), ...next]);
-        const restored = clone(prior);
-        documentRef.current = restored;
-        return restored;
-      });
-      markUnsaved();
-      return items.slice(0, -1);
-    });
-  }, [markUnsaved]);
+    const prior = pastRef.current.at(-1);
+    if (!prior) return;
+    const current = documentRef.current;
+    const restored = clone(prior);
+    documentRef.current = restored;
+    setDocument(restored);
+    replaceHistory(
+      pastRef.current.slice(0, -1),
+      current ? [clone(current), ...futureRef.current] : futureRef.current,
+    );
+    markUnsaved();
+  }, [markUnsaved, replaceHistory]);
   const redo = useCallback(() => {
-    setFuture((items) => {
-      const next = items[0];
-      if (!next) return items;
-      setDocument((current) => {
-        if (current) setPast((previous) => [...previous, clone(current)]);
-        const restored = clone(next);
-        documentRef.current = restored;
-        return restored;
-      });
-      markUnsaved();
-      return items.slice(1);
-    });
-  }, [markUnsaved]);
+    const next = futureRef.current[0];
+    if (!next) return;
+    const current = documentRef.current;
+    const restored = clone(next);
+    documentRef.current = restored;
+    setDocument(restored);
+    replaceHistory(
+      current ? [...pastRef.current, clone(current)] : pastRef.current,
+      futureRef.current.slice(1),
+    );
+    markUnsaved();
+  }, [markUnsaved, replaceHistory]);
   const save = useCallback(async () => {
     if (!documentRef.current) return false;
     if (savingRef.current) return false;
@@ -1371,6 +1391,15 @@ export function LayoutEditorPage() {
         queryKey: ["content-history", "layout", id],
       });
     },
+    onError: (error) => {
+      toast.add({
+        title: canPublish
+          ? t("editor.toastPublishFailed")
+          : t("editor.toastSubmitFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+    },
   });
   const rename = useMutation({
     mutationFn: (name: string) =>
@@ -1382,6 +1411,13 @@ export function LayoutEditorPage() {
     onSuccess: () => {
       toast.add({ title: t("editor.toastRenamed"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
+    },
+    onError: (error) => {
+      toast.add({
+        title: t("editor.toastRenameFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const restore = useMutation({
@@ -1399,10 +1435,21 @@ export function LayoutEditorPage() {
       revisionRef.current = saved.draftRevision;
       changeVersionRef.current = 0;
       savedChangeVersionRef.current = 0;
-      setPast([]);
-      setFuture([]);
+      replaceHistory([], []);
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       setSaveState("saved");
       setHistoryOpen(false);
+      // The cached Layout still holds the pre-restore draft. Replace it
+      // before refetching so a remounted editor cannot initialize from it.
+      queryClient.setQueryData(layoutKeys.detail(id), saved);
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
+    },
+    onError: (error) => {
+      toast.add({
+        title: t("editor.toastRestoreFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const selected = useMemo(
@@ -1445,6 +1492,8 @@ export function LayoutEditorPage() {
   const addPrimitive = (kind: LayoutPrimitive["kind"]) => {
     if (!document) return;
     const item = createPrimitivePlacement(kind, document.canvas);
+    // update() runs this once, outside React; it is not a state updater.
+    // react-doctor-disable-next-line react-doctor/no-impure-state-updater
     update((draft) => {
       item.layer = Math.max(0, ...draft.placements.map((x) => x.layer)) + 1;
       draft.placements.push(item);
@@ -1502,6 +1551,8 @@ export function LayoutEditorPage() {
         0,
         Math.min(current.canvas.height - item.height, item.y),
       );
+      // update() runs this once, outside React; it is not a state updater.
+      // react-doctor-disable-next-line react-doctor/no-impure-state-updater
       update((draft) => {
         item.layer = Math.max(0, ...draft.placements.map((x) => x.layer)) + 1;
         draft.placements.push(item);
@@ -1528,6 +1579,8 @@ export function LayoutEditorPage() {
       ...playlists,
     ]);
   const stack = (item: LayoutPlacement) =>
+    // update() runs this once, outside React; it is not a state updater.
+    // react-doctor-disable-next-line react-doctor/no-impure-state-updater
     update((draft) => {
       item.layer = Math.max(0, ...draft.placements.map((x) => x.layer)) + 1;
       draft.placements.push(item);
@@ -1676,6 +1729,8 @@ export function LayoutEditorPage() {
       selected.filter((i) => i.primitive?.kind === "group").map((i) => i.id),
     );
     if (!groups.size) return;
+    // update() runs this once, outside React; it is not a state updater.
+    // react-doctor-disable-next-line react-doctor/no-impure-state-updater
     update((draft) => {
       draft.placements = draft.placements.filter(
         (item) => !groups.has(item.id),
@@ -1688,6 +1743,8 @@ export function LayoutEditorPage() {
   }, [selected, update]);
   const deleteSelection = useCallback(() => {
     if (!selection.size) return;
+    // update() runs this once, outside React; it is not a state updater.
+    // react-doctor-disable-next-line react-doctor/no-impure-state-updater
     update((draft) => {
       draft.placements = draft.placements.filter(
         (item) => !selection.has(item.id),
@@ -2206,8 +2263,7 @@ export function LayoutEditorPage() {
       window.removeEventListener("blur", cancel);
       setGuides({});
       if (!changed) return;
-      setPast((items) => [...items.slice(-79), beforeDocument]);
-      setFuture([]);
+      replaceHistory([...pastRef.current.slice(-79), beforeDocument], []);
       markUnsaved();
     };
     const cancel = () => {
@@ -2320,6 +2376,8 @@ export function LayoutEditorPage() {
         ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
       ) {
         event.preventDefault();
+        // update() runs this once, outside React; it is not a state updater.
+        // react-doctor-disable-next-line react-doctor/no-impure-state-updater
         mutateSelected((item) => {
           const current = documentRef.current;
           if (!current) return;
@@ -3162,6 +3220,8 @@ export function LayoutEditorPage() {
             aria-label={t("editor.toolbarCenter")}
             title={t("editor.toolbarCenter")}
             onClick={() =>
+              // update() runs this once, outside React; it is not a state updater.
+              // react-doctor-disable-next-line react-doctor/no-impure-state-updater
               mutateSelected((item) => {
                 if (!item.locked)
                   item.x = (document.canvas.width - item.width) / 2;
@@ -3236,9 +3296,9 @@ export function LayoutEditorPage() {
                 <Ellipsis aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-48">
-                {placementMenuItems(primary).map((entry, index) =>
+                {placementMenuItems(primary).map((entry) =>
                   entry.submenu ? null : (
-                    <Fragment key={`${entry.label}-${index}`}>
+                    <Fragment key={entry.label}>
                       {entry.separated && <DropdownMenuSeparator />}
                       <DropdownMenuItem
                         variant={entry.danger ? "destructive" : "default"}
@@ -3301,9 +3361,9 @@ export function LayoutEditorPage() {
                   <Ellipsis aria-hidden="true" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-48">
-                  {placementMenuItems(primary).map((entry, index) =>
+                  {placementMenuItems(primary).map((entry) =>
                     entry.submenu ? null : (
-                      <Fragment key={`${entry.label}-mobile-${index}`}>
+                      <Fragment key={`${entry.label}-mobile`}>
                         {entry.separated && <DropdownMenuSeparator />}
                         <DropdownMenuItem
                           variant={entry.danger ? "destructive" : "default"}
@@ -3651,6 +3711,8 @@ export function LayoutEditorPage() {
         >
           <div
             ref={worldRef}
+            // The stage moves on every pan and zoom step, so its layer is kept.
+            // react-doctor-disable-next-line react-doctor/no-permanent-will-change
             className="absolute top-0 left-0 will-change-transform"
             style={
               {

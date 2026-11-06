@@ -28,8 +28,12 @@ import type {
 
 const log = logger("self-update");
 
-/** Longest we will hold a maintenance-window install pending before giving up. */
-const MAX_WINDOW_DELAY_MS = 24 * 60 * 60 * 1_000;
+/**
+ * Longest single sleep while waiting for a maintenance window. The wait is
+ * repeated until the window start has actually passed, so this only bounds how
+ * long the updater goes without rechecking the clock.
+ */
+const MAX_WINDOW_WAIT_STEP_MS = 60 * 60 * 1_000;
 
 /**
  * Least time between two download-progress reports. Without one of these the
@@ -99,6 +103,56 @@ export interface SelfUpdateDeps {
   /** End the process so systemd starts the new AppImage. */
   restart(): void;
   now(): number;
+  /** Resolve after the given delay. Defaults to a timer. */
+  sleep?(ms: number): Promise<void>;
+  /**
+   * Durable record of an update that is staged and waiting for its maintenance
+   * window. Without it a process restart loses the in-memory wait: the command
+   * already ran, so nothing would ever install the staged file. Optional so
+   * tests and unmanaged hosts can omit it.
+   */
+  stagedJob?: StagedJobStore;
+}
+
+/** What is needed to finish a staged install without the network. */
+export interface StagedUpdateJob {
+  deploymentId: string;
+  maintenanceWindowStart?: string;
+  artifactSha256: string;
+  artifactSizeBytes: number;
+}
+
+export interface StagedJobStore {
+  load(): Promise<unknown>;
+  save(job: StagedUpdateJob): Promise<void>;
+  clear(): Promise<void>;
+}
+
+function readStagedJob(value: unknown): StagedUpdateJob | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const { deploymentId, artifactSha256, artifactSizeBytes } = record;
+  const windowStart = record["maintenanceWindowStart"];
+  if (
+    typeof deploymentId !== "string" ||
+    !deploymentId ||
+    typeof artifactSha256 !== "string" ||
+    !artifactSha256 ||
+    typeof artifactSizeBytes !== "number" ||
+    !Number.isSafeInteger(artifactSizeBytes) ||
+    artifactSizeBytes <= 0 ||
+    (windowStart !== undefined && typeof windowStart !== "string")
+  ) {
+    return null;
+  }
+  return {
+    deploymentId,
+    maintenanceWindowStart: windowStart,
+    artifactSha256,
+    artifactSizeBytes,
+  };
 }
 
 /**
@@ -287,7 +341,10 @@ export class SelfUpdater {
       await this.report(deploymentId, { state: "verifying" });
       await this.report(deploymentId, { state: "ready" });
 
-      const delay = this.installDelayMs(payload);
+      const delay = this.installDelayMs(
+        payload.installationMode,
+        payload.maintenanceWindowStart,
+      );
       if (delay === null) {
         // download_only: staged and verified; a later install completes it.
         log.info("update staged; awaiting a separate install trigger", {
@@ -295,42 +352,21 @@ export class SelfUpdater {
         });
         return;
       }
-      if (delay > 0) {
-        log.info("update staged; installing at maintenance window", {
+      await this.installStaged(
+        {
           deploymentId,
-          delayMs: delay,
-        });
-        await new Promise<void>((resolve) => setTimeout(resolve, delay));
-      }
-
-      // A maintenance window may leave the staged file unattended for hours.
-      // Verify again at the last possible moment; a same-sized replacement
-      // must never become the executable AppImage.
-      if (
-        !(await verifyFileIntegrity(
-          this.deps.stagePath,
-          meta.artifactSha256,
-          meta.artifactSizeBytes,
-        ))
-      ) {
-        throw new Error(
-          "staged AppImage failed pre-promotion integrity verification",
-        );
-      }
-      await this.report(deploymentId, { state: "installing" });
-      await this.deps.promote(this.deps.stagePath, this.deps.appImagePath);
-      // Signal that a supervised restart is imminent; the next heartbeat's
-      // higher version code is what the server settles to "succeeded".
-      await this.report(deploymentId, { state: "reconnecting" });
-      log.info("update installed; exiting for systemd restart", {
-        deploymentId,
-      });
-      this.deps.restart();
+          maintenanceWindowStart: payload.maintenanceWindowStart,
+          artifactSha256: meta.artifactSha256,
+          artifactSizeBytes: meta.artifactSizeBytes,
+        },
+        payload.installationMode,
+      );
     } catch (err) {
       log.warn("self-update failed", { deploymentId, error: String(err) });
       // A failed terminal state must also stay ahead of any callback already
       // queued by the downloader.
       await latestProgressReport;
+      await this.clearStagedJob(deploymentId);
       await this.report(deploymentId, {
         state: "failed",
         error: String(err).slice(0, 240),
@@ -339,17 +375,154 @@ export class SelfUpdater {
   }
 
   /**
+   * Finish an update that was staged before the process restarted. The file
+   * was fully verified before it was recorded, so this needs no network: it
+   * re-verifies the staged file, waits out the rest of the window, and installs.
+   * Never throws.
+   */
+  async resume(): Promise<void> {
+    let job: StagedUpdateJob | null;
+    try {
+      const stored = await this.deps.stagedJob?.load();
+      if (stored === undefined || stored === null) {
+        return;
+      }
+      job = readStagedJob(stored);
+      if (!job) {
+        log.warn("discarding unreadable staged update record");
+        await this.deps.stagedJob?.clear();
+        return;
+      }
+    } catch (err) {
+      log.warn("could not read staged update record", { error: String(err) });
+      return;
+    }
+
+    const staged = job;
+    await withStagePathLock(this.deps.stagePath, async () => {
+      const { deploymentId } = staged;
+      log.info("resuming staged update after restart", { deploymentId });
+      try {
+        if (!this.deps.appImagePath) {
+          throw new Error("player is not running as a managed AppImage");
+        }
+        if (
+          !(await verifyFileIntegrity(
+            this.deps.stagePath,
+            staged.artifactSha256,
+            staged.artifactSizeBytes,
+          ))
+        ) {
+          throw new Error("staged AppImage failed integrity verification");
+        }
+        await this.installStaged(staged, "maintenance_window");
+      } catch (err) {
+        log.warn("resumed self-update failed", {
+          deploymentId,
+          error: String(err),
+        });
+        await this.clearStagedJob(deploymentId);
+        await this.report(deploymentId, {
+          state: "failed",
+          error: String(err).slice(0, 240),
+        });
+      }
+    });
+  }
+
+  /**
+   * Wait for the maintenance window, then promote the staged AppImage and
+   * restart. The caller has already verified the staged file and reported
+   * `ready`. Throws on failure; the caller reports it.
+   */
+  private async installStaged(
+    job: StagedUpdateJob,
+    installationMode: string,
+  ): Promise<void> {
+    const { deploymentId } = job;
+    const appImagePath = this.deps.appImagePath;
+    if (!appImagePath) {
+      throw new Error("player is not running as a managed AppImage");
+    }
+    const delay = this.installDelayMs(
+      installationMode,
+      job.maintenanceWindowStart,
+    );
+    if (delay !== null && delay > 0) {
+      log.info("update staged; installing at maintenance window", {
+        deploymentId,
+        delayMs: delay,
+      });
+      await this.saveStagedJob(job);
+      await this.waitForWindow(job.maintenanceWindowStart);
+    }
+
+    // A maintenance window may leave the staged file unattended for hours.
+    // Verify again at the last possible moment; a same-sized replacement
+    // must never become the executable AppImage.
+    if (
+      !(await verifyFileIntegrity(
+        this.deps.stagePath,
+        job.artifactSha256,
+        job.artifactSizeBytes,
+      ))
+    ) {
+      throw new Error(
+        "staged AppImage failed pre-promotion integrity verification",
+      );
+    }
+    // Forget the job before promoting so a crash between the two steps can
+    // never install the same release again after the restart.
+    await this.clearStagedJob(deploymentId);
+    await this.report(deploymentId, { state: "installing" });
+    await this.deps.promote(this.deps.stagePath, appImagePath);
+    // Signal that a supervised restart is imminent; the next heartbeat's
+    // higher version code is what the server settles to "succeeded".
+    await this.report(deploymentId, { state: "reconnecting" });
+    log.info("update installed; exiting for systemd restart", {
+      deploymentId,
+    });
+    this.deps.restart();
+  }
+
+  private async saveStagedJob(job: StagedUpdateJob): Promise<void> {
+    try {
+      await this.deps.stagedJob?.save(job);
+    } catch (err) {
+      // The wait still proceeds in memory; only a restart would lose it.
+      log.warn("could not record staged update", {
+        deploymentId: job.deploymentId,
+        error: String(err),
+      });
+    }
+  }
+
+  private async clearStagedJob(deploymentId: string): Promise<void> {
+    try {
+      await this.deps.stagedJob?.clear();
+    } catch (err) {
+      log.warn("could not clear staged update record", {
+        deploymentId,
+        error: String(err),
+      });
+    }
+  }
+
+  /**
    * Milliseconds to wait before installing, or null when the mode does not
    * install now (download_only). install_now installs immediately (0);
-   * maintenance_window installs when the window arrives (clamped).
+   * maintenance_window installs when the window arrives.
    */
-  private installDelayMs(payload: UpdatePayload): number | null {
-    if (payload.installationMode === "install_now") {
+  private installDelayMs(
+    installationMode: string,
+    maintenanceWindowStart: string | undefined,
+  ): number | null {
+    if (installationMode === "install_now") {
       return 0;
     }
-    if (payload.installationMode === "maintenance_window") {
-      const start = payload.maintenanceWindowStart
-        ? Date.parse(payload.maintenanceWindowStart)
+    if (installationMode === "maintenance_window") {
+      const start = maintenanceWindowStart
+        ? Date.parse(maintenanceWindowStart)
         : NaN;
       if (!Number.isFinite(start)) {
         return 0;
@@ -358,10 +531,33 @@ export class SelfUpdater {
       if (delta <= 0) {
         return 0;
       }
-      return Math.min(delta, MAX_WINDOW_DELAY_MS);
+      return delta;
     }
     // download_only (and any unknown mode): stage only, do not restart.
     return null;
+  }
+
+  /**
+   * Sleep in bounded steps until the maintenance window has started. The
+   * start is re-read from the clock after every step, so a window further away
+   * than one step is never promoted early.
+   */
+  private async waitForWindow(
+    maintenanceWindowStart: string | undefined,
+  ): Promise<void> {
+    const sleep =
+      this.deps.sleep ??
+      ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    for (;;) {
+      const remaining = this.installDelayMs(
+        "maintenance_window",
+        maintenanceWindowStart,
+      );
+      if (remaining === null || remaining <= 0) {
+        return;
+      }
+      await sleep(Math.min(remaining, MAX_WINDOW_WAIT_STEP_MS));
+    }
   }
 
   private async report(

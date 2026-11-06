@@ -14,15 +14,19 @@ import {
 } from "@tilecast/plugin-sdk/player";
 import { ManualClock } from "../clock/scheduler";
 import type { PluginEventMessageV1 } from "../host/contract";
-import { PlayerEvents, parseEventMessage, validEventPayload } from "./events";
+import {
+  type PlayerEvents,
+  parseEventMessage,
+  validEventPayload,
+} from "./events";
 import { PlayerPluginHost } from "./player-host";
+import { PlayerPlugins } from "./player-plugins";
 import { discoverPlayerPlugins } from "./player-discovery";
 import {
-  PresentationProviders,
+  type PresentationProviders,
   type ProviderHooks,
 } from "./presentation-providers";
-import { clockService } from "./service-providers";
-import { PlayerServiceRegistry, type PlayerServiceProvider } from "./services";
+import { PlayerServiceRegistry } from "./services";
 import type { RuntimeModules } from "./discovery";
 
 const WALL = Date.parse("2026-10-15T12:00:00Z");
@@ -40,6 +44,7 @@ const seamSources = import.meta.glob<string>(
     "./presentation-providers.ts",
     "./services.ts",
     "./player-host.ts",
+    "./player-plugins.ts",
     "./service-providers.ts",
   ],
   { query: "?raw", import: "default", eager: true },
@@ -99,7 +104,7 @@ function state(plugin: string, value: Record<string, unknown> = {}) {
 interface Harness {
   clock: ManualClock;
   host: PlayerPluginHost;
-  events: PlayerEvents;
+  events: PlayerEvents | null;
   providers: PresentationProviders;
   sent: PluginEventMessageV1[];
   diagnostics: string[];
@@ -118,20 +123,6 @@ function harness(
   const refuse = { value: false };
   const diagnostic = (id: string, message: string) =>
     diagnostics.push(`${id}: ${message}`);
-  const events = new PlayerEvents({
-    send: (message) => {
-      if (refuse.value) return false;
-      sent.push(message);
-      return true;
-    },
-    diagnostic,
-  });
-  const providers = new PresentationProviders({ diagnostic });
-  const registry: PlayerServiceProvider[] = [
-    clockService({ clock, clockOffsetMs: () => 0 }),
-    providers.provider(),
-  ];
-  if (options.withEvents !== false) registry.push(events.provider());
   const manifests: Record<string, PluginManifestInput> = {};
   const modules: RuntimeModules = {};
   for (const { manifest, definition } of plugins) {
@@ -144,12 +135,26 @@ function harness(
   }
   const discovery = discoverPlayerPlugins(manifests, modules);
   expect(discovery.problems).toEqual([]);
-  const host = new PlayerPluginHost({
+  const composition = new PlayerPlugins({
     clock,
-    plugins: discovery.plugins,
-    services: new PlayerServiceRegistry(registry),
+    runtimePlugins: [],
+    playerPlugins: discovery.plugins,
+    pluginState: true,
+    pluginEvents:
+      options.withEvents === false
+        ? undefined
+        : (message) => {
+            if (refuse.value) return false;
+            sent.push(message);
+            return true;
+          },
+    animationScale: 0,
+    reducedMotion: () => true,
+    mediaUrl: () => "",
+    stage: () => null,
     diagnostic,
   });
+  const { host, events, providers } = composition;
   return {
     clock,
     host,
@@ -159,7 +164,7 @@ function harness(
     diagnostics,
     refuse,
     send: (entries) => {
-      host.setState(entries, 0);
+      composition.receive({ plugins: entries as never, clockOffsetMs: 0 });
       clock.flush();
     },
     status: (id) =>
@@ -253,7 +258,7 @@ describe("player.events@1", () => {
     h.send([state("input_events")]);
     expect(h.status("input_events")).toBe("active");
     expect(
-      h.events.receive(
+      h.events!.receive(
         message("input_events", "button_pressed", 1, { pin: 4 }),
       ),
     ).toBe(true);
@@ -270,7 +275,7 @@ describe("player.events@1", () => {
       { ...message("input_events", "button_pressed"), target: "other" },
       "button_pressed",
     ]) {
-      expect(h.events.receive(refused)).toBe(false);
+      expect(h.events!.receive(refused)).toBe(false);
     }
     expect(log).toHaveLength(3);
   });
@@ -339,12 +344,12 @@ describe("player.events@1", () => {
       },
     ]);
     h.send([state("input_events")]);
-    expect(h.events.receive(message("input_events", "button_pressed"))).toBe(
+    expect(h.events!.receive(message("input_events", "button_pressed"))).toBe(
       true,
     );
     h.send([]); // no state: the plugin is disposed
     expect(h.status("input_events")).toBe("inactive");
-    expect(h.events.receive(message("input_events", "button_pressed"))).toBe(
+    expect(h.events!.receive(message("input_events", "button_pressed"))).toBe(
       false,
     );
     expect(service!.emit("ring_chime", 1, {})).toBe(false);
@@ -390,8 +395,8 @@ describe("player.events@1", () => {
       },
     ]);
     h.send([state("input_events"), state("second_input")]);
-    h.events.receive(message("input_events", "button_pressed"));
-    h.events.receive(message("second_input", "button_pressed"));
+    h.events!.receive(message("input_events", "button_pressed"));
+    h.events!.receive(message("second_input", "button_pressed"));
     expect(h.status("input_events")).toBe("failed");
     expect(h.status("second_input")).toBe("active");
     expect(healthy).toEqual(["ok"]);
@@ -399,7 +404,7 @@ describe("player.events@1", () => {
       /input_events: callback failed: listener bug/,
     );
     // The failed plugin no longer receives events.
-    expect(h.events.receive(message("input_events", "button_pressed"))).toBe(
+    expect(h.events!.receive(message("input_events", "button_pressed"))).toBe(
       false,
     );
   });
@@ -419,6 +424,7 @@ describe("player.events@1", () => {
       { withEvents: false },
     );
     required.send([state("input_events")]);
+    expect(required.events).toBeNull();
     expect(required.status("input_events")).toBe("unsupported");
     expect(required.host.describe().plugins[0]?.missing).toEqual([
       "player.events@1",
@@ -445,6 +451,7 @@ describe("player.events@1", () => {
       { withEvents: false },
     );
     optional.send([state("soft_input")]);
+    expect(optional.events).toBeNull();
     expect(optional.status("soft_input")).toBe("active");
     expect(seen).toBeNull();
   });
@@ -692,7 +699,7 @@ describe("player.presentation.provide@1", () => {
 describe("no seam decides from a plugin identity or a platform", () => {
   it("keeps plugin ids and platform names out of the shared Runtime seams", () => {
     const sources = Object.values(seamSources);
-    expect(sources).toHaveLength(5);
+    expect(sources).toHaveLength(6);
     const plugins = [
       "countdown_bar",
       "emergency_alerts",

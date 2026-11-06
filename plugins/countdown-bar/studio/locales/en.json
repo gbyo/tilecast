@@ -61,7 +61,11 @@
     "pulseLabel": "Pulse and enlarge, final seconds",
     "pulseHint": "The bar and text grow by 25% during this final stage.",
     "leaveTitle": "Leave without saving?",
-    "leaveBody": "This countdown has unsaved changes."
+    "leaveBody": "This countdown has unsaved changes.",
+    "fontLabel": "Font",
+    "fontPlayer": "Player default",
+    "fontPlayerGroup": "Tilecast",
+    "fontHint": "Add fonts in Settings. Screens that cannot load the font keep the default."
   },
   "validation": {
     "timezone": "Enter an IANA timezone such as America/Chicago.",

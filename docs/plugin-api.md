@@ -11,8 +11,8 @@ This document describes the frozen Plugin API v1 contract.
 
 [Plugin API v2](plugin-api-v2.md) is supported beside v1. It describes a
 plugin by independent Server, Studio, and Player contributions, and Player
-behavior by versioned services. A surface is one of those services. The
-bundled plugins stay on v1. The Server contract, Studio host, migrations,
+behavior by versioned services. A surface is one of those services. Countdown
+Bar uses v2. Emergency Alerts and Forms stay on v1. The Server contract, Studio host, migrations,
 OpenAPI, documentation, and conformance sections below apply to both
 versions. The `runtime` member, `capabilities.playerManifest`, and the
 [Player runtime](#player-runtime) section apply to v1 only.
@@ -283,6 +283,7 @@ A plugin implements only the interfaces it needs. Forms does not implement
 | `DataSources`          | The plugin's own Data Source rows, bound to its contributed provider. See below.                                               |
 | `Users`                | Read-only user directory facts the plugin needs for attribution.                                                               |
 | `PluginAssets`         | The plugin's own private uploads, bound to its identity. See below.                                                            |
+| `Fonts`                | `UseInTx` and `ReleaseInTx` record which organization font library families an instance uses. See [Fonts](fonts.md#plugins).   |
 
 `Host` is a struct, not an interface. The core can add a service without a
 break in existing plugins. A plugin that needs a core fact that no service
@@ -767,6 +768,7 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | 7         | Remove the remaining special cases; freeze the v1 contract       | Done   |
 | 8         | Multi-zone authoring shipped under its Layout contract           | Done   |
 | 9         | Proof of play shipped under its Activity contract                | Done   |
+| 10        | Countdown Bar moves to Plugin API v2                             | Done   |
 
 Countdown Bar has moved completely, including its Player renderer. Brand Bug
 and Noise Meter are retired: their old installation rows and data remain, but

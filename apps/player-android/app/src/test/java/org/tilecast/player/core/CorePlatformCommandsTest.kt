@@ -79,6 +79,33 @@ class CorePlatformCommandsTest {
         assertEquals(listOf("sleep", "wake"), effects.calls)
     }
 
+    @Test fun unperformedPowerOutcomesAreFailures() {
+        val effects = FakeEffects()
+        val executor = CorePlatformCommands(effects, FakeCredentials(), { "http://server" }, { false })
+        listOf(
+            "fire_tv_sleep_blocked",
+            "maintenance_session_deferred",
+            "player_update_deferred",
+            "black_screen_only",
+            "sleep_unsupported",
+            "unrecognized_code",
+        ).forEach { code ->
+            effects.sleepResult = code
+            val sleep = answer(executor.execute("""{"id":"1","type":"power_assist_sleep","payload":{}}"""))
+            assertEquals(code, false, sleep["ok"]?.jsonPrimitive?.booleanOrNull)
+            assertEquals(code, sleep["code"]?.jsonPrimitive?.contentOrNull)
+        }
+        listOf("accessibility_lock_requested", "accessibility_lock_deferred").forEach { code ->
+            effects.sleepResult = code
+            val sleep = answer(executor.execute("""{"id":"1","type":"power_assist_sleep","payload":{}}"""))
+            assertEquals(code, true, sleep["ok"]?.jsonPrimitive?.booleanOrNull)
+        }
+        effects.wakeResult = "wake_launch_blocked"
+        val wake = answer(executor.execute("""{"id":"2","type":"power_assist_wake","payload":{}}"""))
+        assertEquals(false, wake["ok"]?.jsonPrimitive?.booleanOrNull)
+        assertEquals("wake_launch_blocked", wake["code"]?.jsonPrimitive?.contentOrNull)
+    }
+
     @Test fun restartActivityCrosses() {
         val effects = FakeEffects()
         val executor = CorePlatformCommands(effects, FakeCredentials(), { "http://server" }, { false })

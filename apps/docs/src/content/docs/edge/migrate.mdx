@@ -1,17 +1,17 @@
 ---
-title: Migrate from the stable Linux Player
+title: Migrate from the AppImage Player
 description: Move a screen from the Electron/AppImage Linux Player to Tilecast Edge, keep its pairing, and roll back automatically if Edge doesn't settle.
 ---
 
 import { Aside, LinkButton, Steps } from "@astrojs/starlight/components";
 
-A migration moves one screen from the stable Linux AppImage Player to Edge. The screen keeps its identity, pairing, assignments, and history in Studio. Only one of the two Players controls the screen at any time, and a failed migration puts the AppImage Player back.
+A migration moves one screen from the AppImage Player to Edge. The screen keeps its identity, pairing, assignments, and history in Studio. Only one of the two Players controls the screen at any time, and a failed migration puts the AppImage Player back.
 
 Tilecast never migrates a screen on its own. Updating Tilecast Server doesn't move screens to Edge, and you start each migration on the computer.
 
-<Aside type="caution" title="Production screens">
-  Don't migrate a production screen until a Tilecast release lists its hardware
-  as supported. Physical hardware qualification is still in progress.
+<Aside type="tip" title="Migrate one screen first">
+  Migrate one screen of each hardware class and watch it for a few days before
+  you migrate the rest. See [Edge requirements](../requirements/).
 </Aside>
 
 <LinkButton href="../compatibility/" variant="secondary" icon="right-arrow">

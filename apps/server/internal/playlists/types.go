@@ -262,6 +262,25 @@ type ManifestLayout struct {
 	Revision       int64            `json:"revision"`
 	DocumentSHA256 string           `json:"documentSha256"`
 	Document       layouts.Document `json:"document"`
+	// Fonts lists the library families the document's text uses. Each face
+	// file is also in the manifest assets, so it is a verified download.
+	// Players that predate the font library ignore the key.
+	Fonts []ManifestFont `json:"fonts,omitempty"`
+}
+
+type ManifestFont struct {
+	ID     uuid.UUID          `json:"id"`
+	Family string             `json:"family"`
+	Faces  []ManifestFontFace `json:"faces"`
+}
+
+type ManifestFontFace struct {
+	AssetID      uuid.UUID `json:"assetId"`
+	VariantID    uuid.UUID `json:"variantId"`
+	Style        string    `json:"style"`
+	WeightMin    int       `json:"weightMin"`
+	WeightMax    int       `json:"weightMax"`
+	UnicodeRange string    `json:"unicodeRange,omitempty"`
 }
 type ManifestSyncGroup struct {
 	ID            uuid.UUID `json:"id"`

@@ -551,15 +551,25 @@ function reachableAssets(
 /** Walks plugin configuration for `<name>AssetId` / `<name>VariantId` pairs. */
 /**
  * Media a plugin entry needs: a v1 entry's configured asset fields, or the
- * `media` list a Plugin API v2 `plugin_state` entry declares.
+ * `media` list and the library font faces a Plugin API v2 `plugin_state`
+ * entry declares.
  */
 function pluginEntryMedia(
   plugin: unknown,
 ): { assetId: string; variantId: string }[] {
-  const entry = plugin as { type?: unknown; config?: unknown; media?: unknown };
-  return pluginMediaPairs(
-    entry.type === "plugin_state" ? entry.media : entry.config,
-  );
+  const entry = plugin as {
+    type?: unknown;
+    config?: unknown;
+    media?: unknown;
+    fonts?: unknown;
+  };
+  if (entry.type !== "plugin_state") return pluginMediaPairs(entry.config);
+  // A state entry's font files are served like its media, so the host
+  // grants them the same way.
+  const faces = Array.isArray(entry.fonts)
+    ? entry.fonts.map((font) => (font as { faces?: unknown } | null)?.faces)
+    : [];
+  return [...pluginMediaPairs(entry.media), ...pluginMediaPairs(faces)];
 }
 
 function pluginMediaPairs(
