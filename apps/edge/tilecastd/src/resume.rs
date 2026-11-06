@@ -23,7 +23,7 @@ pub use edge_state::repo::playback_checkpoint::PlaybackCheckpoint;
 /// A checkpoint older than this never resumes: the playlist has moved on.
 pub const CHECKPOINT_FRESHNESS_MS: i64 = 24 * 60 * 60 * 1000;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ResumeBinding {
     pub installation_id: String,
     pub screen_id: String,
@@ -78,6 +78,16 @@ impl ResumeState {
         })
     }
 
+    /// Replaces the server binding. A different binding drops the write
+    /// dedupe: the stored checkpoint belongs to the old binding, so the same
+    /// item must write again under the new one.
+    pub fn set_binding(&mut self, binding: Option<ResumeBinding>) {
+        if self.binding != binding {
+            self.last_written = None;
+        }
+        self.binding = binding;
+    }
+
     pub fn mark_written(&mut self, manifest_digest: &str, playlist_id: &str, item_id: &str) {
         self.last_written = Some((manifest_digest.to_owned(), playlist_id.to_owned(), item_id.to_owned()));
     }
@@ -87,15 +97,29 @@ impl ResumeState {
 /// checkpoint, if any. A missing database, binding, or row means no resume;
 /// nothing here fails startup.
 pub async fn load_resume_state(db: &edge_state::StateDb) -> ResumeState {
-    let binding = db.run(|conn| edge_state::repo::binding::get(conn)).await.ok().flatten().and_then(|bound| {
+    let binding = load_binding(db).await;
+    let pending = db.run(|conn| edge_state::repo::playback_checkpoint::get(conn)).await.ok().flatten();
+    ResumeState::loaded(binding, pending)
+}
+
+async fn load_binding(db: &edge_state::StateDb) -> Option<ResumeBinding> {
+    db.run(|conn| edge_state::repo::binding::get(conn)).await.ok().flatten().and_then(|bound| {
         bound.screen_id.map(|screen| ResumeBinding {
             installation_id: bound.installation_id.to_string(),
             screen_id: screen.to_string(),
             server_url: bound.server_url,
         })
-    });
-    let pending = db.run(|conn| edge_state::repo::playback_checkpoint::get(conn)).await.ok().flatten();
-    ResumeState::loaded(binding, pending)
+    })
+}
+
+/// Re-reads the stored server binding after pairing writes it. A daemon that
+/// started unpaired has no binding at load time, and item evidence is not
+/// checkpointed without one.
+pub async fn refresh_binding(context: &crate::daemon::DaemonContext) {
+    let Some(db) = context.db() else { return };
+    let binding = load_binding(db).await;
+    let mut resume = context.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+    resume.set_binding(binding);
 }
 
 /// Records accepted item evidence as the resume checkpoint. Best effort and
@@ -449,6 +473,60 @@ mod tests {
         let mut newer = resolved(&["item-0", "item-1", "item-2"]);
         maybe_rotate(&mut resume, &mut newer, "digest", 4, true, 3_000);
         assert_eq!(order(&newer), ["item-0", "item-1", "item-2"]);
+    }
+
+    fn stored_binding(db: &edge_state::StateDb) {
+        use edge_state::repo::binding::{CredentialState, ServerBinding};
+        let now = Timestamp::from_unix_millis(1_000).unwrap();
+        db.run_blocking(|conn| {
+            edge_state::repo::binding::put(
+                conn,
+                &ServerBinding {
+                    server_url: "https://tilecast.example".into(),
+                    installation_id: edge_protocol::InstallationId::from_uuid(uuid::Uuid::from_u128(1)),
+                    organization_name: None,
+                    screen_id: Some(edge_protocol::ScreenId::from_uuid(uuid::Uuid::from_u128(2))),
+                    screen_name: None,
+                    credential_state: CredentialState::Stored,
+                    identity_verified_at: Some(now),
+                    bound_at: now,
+                },
+                now,
+            )
+        })
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_binding_stored_after_startup_enables_checkpoints() {
+        let root = tempfile::tempdir().unwrap();
+        let db = edge_state::StateDb::open(root.path().join("state.db"), edge_state::OpenOptions::default()).unwrap();
+        // The daemon started unpaired: nothing to bind to yet.
+        let mut resume = load_resume_state(&db).await;
+        assert!(resume.binding.is_none());
+
+        // Pairing then writes the binding; refreshing picks it up.
+        stored_binding(&db);
+        resume.set_binding(load_binding(&db).await);
+        let binding = resume.binding.clone().expect("binding after pairing");
+        assert_eq!(binding.screen_id, uuid::Uuid::from_u128(2).to_string());
+        assert_eq!(binding.server_url, "https://tilecast.example");
+    }
+
+    #[test]
+    fn a_changed_binding_rewrites_the_same_item() {
+        let first = ResumeBinding {
+            installation_id: "installation".into(),
+            screen_id: "screen".into(),
+            server_url: "https://tilecast.example".into(),
+        };
+        let mut resume = ResumeState::default();
+        resume.set_binding(Some(first.clone()));
+        resume.mark_written("digest", "playlist", "item-1");
+        resume.set_binding(Some(first.clone()));
+        assert!(!resume.needs_write("digest", "playlist", "item-1"), "same binding keeps the dedupe");
+        resume.set_binding(Some(ResumeBinding { screen_id: "other".into(), ..first }));
+        assert!(resume.needs_write("digest", "playlist", "item-1"));
     }
 
     #[test]

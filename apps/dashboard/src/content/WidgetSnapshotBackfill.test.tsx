@@ -75,6 +75,8 @@ const definitions: ContentDefinitionCatalog = {
   dataSources: [],
 };
 
+const UPDATED_AT = "2026-11-01T12:00:00.123456Z";
+
 function assetFor(
   manifest: typeof clockManifest | typeof listManifest,
   id: string,
@@ -84,6 +86,7 @@ function assetFor(
     name: manifest.name,
     type: "widget",
     thumbnailUrl: undefined,
+    updatedAt: UPDATED_AT,
     widget: {
       provider: manifest.id,
       configuration: manifest.defaultConfiguration,
@@ -189,12 +192,16 @@ describe("WidgetSnapshotBackfill", () => {
         "valid-list",
         expect.any(Blob),
         "csrf-token",
+        undefined,
+        { renderedUpdatedAt: UPDATED_AT },
       ),
     );
     expect(api.uploadWidgetPreview).not.toHaveBeenCalledWith(
       "invalid-clock",
       expect.any(Blob),
       "csrf-token",
+      undefined,
+      { renderedUpdatedAt: UPDATED_AT },
     );
   });
 
@@ -246,6 +253,8 @@ describe("WidgetSnapshotBackfill", () => {
         "first-clock",
         expect.any(Blob),
         "csrf-token",
+        undefined,
+        { renderedUpdatedAt: UPDATED_AT },
       ),
     );
 
@@ -271,6 +280,8 @@ describe("WidgetSnapshotBackfill", () => {
         "second-list",
         expect.any(Blob),
         "csrf-token",
+        undefined,
+        { renderedUpdatedAt: UPDATED_AT },
       ),
     );
   });
@@ -307,6 +318,8 @@ describe("WidgetSnapshotBackfill", () => {
         "clock-asset",
         expect.any(Blob),
         "csrf-token",
+        undefined,
+        { renderedUpdatedAt: UPDATED_AT },
       ),
     );
   });
@@ -346,6 +359,8 @@ describe("WidgetSnapshotBackfill", () => {
           "list-asset",
           expect.any(Blob),
           "csrf-token",
+          undefined,
+          { renderedUpdatedAt: UPDATED_AT },
         ),
       );
     } finally {
@@ -401,6 +416,8 @@ describe("WidgetSnapshotBackfill", () => {
         staleAsset.id,
         expect.any(Blob),
         "csrf-token",
+        undefined,
+        { renderedUpdatedAt: UPDATED_AT },
       ),
     );
   });

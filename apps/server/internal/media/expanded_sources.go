@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	currencydata "golang.org/x/text/currency"
 )
 
@@ -555,6 +556,66 @@ func weatherPreviewForDate(data TypedRecordData, previewDate, timezone string) T
 	return data
 }
 
+// expiredTypedDatasets keeps the identity and schema of every dataset in a typed source
+// whose cache has expired, and drops the stale values. Without this a Player would receive
+// an empty dataset list, which the manifest projection treats as a legacy record payload
+// and reports as healthy and empty. When no payload was ever cached, the datasets are
+// rebuilt from the provider's declared shape and configuration.
+func expiredTypedDatasets(provider string, raw, payload json.RawMessage, definition contentdefs.DataSourceDefinition, unavailable bool) []TypedDataset {
+	datasets := []TypedDataset{}
+	var cached TypedDatasetPayload
+	if len(payload) > 0 && json.Unmarshal(payload, &cached) == nil {
+		for _, dataset := range cached.Datasets {
+			datasets = append(datasets, TypedDataset{
+				ID: dataset.ID, Kind: dataset.Kind, Fields: dataset.Fields,
+				CachedAt: dataset.CachedAt, StaleAt: dataset.StaleAt,
+				Attribution: dataset.Attribution, Timezone: dataset.Timezone, Units: dataset.Units,
+			})
+		}
+	}
+	if len(datasets) == 0 {
+		datasets = typedDatasetSkeleton(provider, raw, definition)
+	}
+	for index := range datasets {
+		datasets[index].Unavailable = unavailable
+	}
+	return datasets
+}
+
+func typedDatasetSkeleton(provider string, raw json.RawMessage, definition contentdefs.DataSourceDefinition) []TypedDataset {
+	switch provider {
+	case "transit":
+		var config TransitSourceConfig
+		if json.Unmarshal(raw, &config) != nil {
+			return nil
+		}
+		return []TypedDataset{
+			{ID: "departures", Kind: "records", Fields: transitDepartureFields(), Timezone: config.Timezone},
+			{ID: "alerts", Kind: "records", Fields: transitAlertFields()},
+		}
+	case "cap_alerts":
+		return []TypedDataset{{ID: "alerts", Kind: "records", Fields: capAlertFields()}}
+	case "air_quality":
+		var config AirQualitySourceConfig
+		if json.Unmarshal(raw, &config) != nil {
+			return nil
+		}
+		fields := airQualityFields(config)
+		return []TypedDataset{
+			{ID: "current", Kind: "object", Fields: fields, Timezone: config.Timezone},
+			{ID: "hourly", Kind: "time_series", Fields: fields, Timezone: config.Timezone},
+		}
+	}
+	if definition.AdapterID != "http_records" {
+		return nil
+	}
+	var configuration map[string]any
+	if json.Unmarshal(raw, &configuration) != nil {
+		return nil
+	}
+	return []TypedDataset{{ID: "records", Kind: "records", Fields: outputDataSourceFields(definition.OutputSchema, configuration), Attribution: definition.Attribution}}
+}
+
 func (s *Service) PlayerTypedDataSourceConfiguration(ctx context.Context, id uuid.UUID, provider string, raw json.RawMessage) (json.RawMessage, error) {
 	if provider == "manual" {
 		var config ManualSourceConfig
@@ -593,7 +654,7 @@ func (s *Service) PlayerTypedDataSourceConfiguration(ctx context.Context, id uui
 	if err != nil {
 		return nil, err
 	}
-	_, fetchesRecords := s.httpRecordsSpec(provider)
+	recordsDefinition, fetchesRecords := s.httpRecordsSpec(provider)
 	if provider == "transit" || provider == "cap_alerts" || provider == "air_quality" || fetchesRecords {
 		data := TypedDatasetPayload{Datasets: []TypedDataset{}}
 		if expires != nil && expires.After(time.Now()) {
@@ -603,10 +664,8 @@ func (s *Service) PlayerTypedDataSourceConfiguration(ctx context.Context, id uui
 			for index := range data.Datasets {
 				data.Datasets[index].UsingCachedData = usingCache
 			}
-		} else if errorCode != nil {
-			for index := range data.Datasets {
-				data.Datasets[index].Unavailable = true
-			}
+		} else {
+			data.Datasets = expiredTypedDatasets(provider, raw, payload, recordsDefinition, errorCode != nil)
 		}
 		if provider == "air_quality" {
 			for index := range data.Datasets {

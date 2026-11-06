@@ -476,6 +476,8 @@ export type LayoutPrimitive = {
   kind: "text" | "rectangle" | "circle" | "line" | "group";
   text?: string;
   fontFamily?: "Inter" | "Roboto" | "Source Sans 3" | "Noto Sans";
+  /** Organization font library family; fontFamily stays the bundled fallback. */
+  fontId?: string;
   fontSize?: number;
   fontWeight?: 400 | 500 | 600 | 700 | 800;
   textAlign?: "left" | "center" | "right";
@@ -3324,4 +3326,63 @@ export type PlaylistRestoreResult = {
   restoredFrom: number;
   newRevision: number;
   skippedItems: number;
+};
+
+export type FontFace = {
+  id: string;
+  assetId: string;
+  variantId: string;
+  style: "normal" | "italic";
+  weightMin: number;
+  weightMax: number;
+  subset: string;
+  unicodeRange: string;
+  mimeType: string;
+  fileSize: number;
+  fileUrl: string;
+};
+export type FontFamily = {
+  id: string;
+  family: string;
+  source: "google" | "upload";
+  sourceId: string;
+  sourceVersion: string;
+  category: string;
+  license: string;
+  subsets: string[];
+  faces: FontFace[];
+  totalBytes: number;
+  createdAt: string;
+  updatedAt: string;
+};
+export type FontCatalogCategory =
+  "sans-serif" | "serif" | "display" | "handwriting" | "monospace" | "icons";
+export type FontCatalogEntry = {
+  id: string;
+  family: string;
+  category: string;
+  license: string;
+  subsets: string[];
+  weights: number[];
+  styles: string[];
+  defaultSubset: string;
+  variable: boolean;
+};
+export type FontCatalogFamily = FontCatalogEntry & {
+  version: string;
+  weightRange: [number, number] | null;
+};
+export type FontCatalogPage = {
+  families: FontCatalogEntry[];
+  total: number;
+};
+export type GoogleFontImport = {
+  sourceId: string;
+  subsets?: string[];
+  styles?: ("normal" | "italic")[];
+  weights?: number[];
+};
+export type FontUploadResult = {
+  family: FontFamily;
+  embeddingRestricted: boolean;
 };

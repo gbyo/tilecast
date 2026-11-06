@@ -36,11 +36,9 @@ service, and neither can read the device credential:
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.
 
-The [coordinated release process](../../docs/release-process.md) includes signed
-Edge assets for x86_64 and aarch64. Check the
-[qualification ledger](../../docs/tilecast-edge-next.md#3-current-readiness-sources)
-for evidence for the release and hardware class before migrating a production
-screen.
+Milestones M1 to M10 and the M11 remote-web implementation are merged, and
+Edge is included in every Tilecast release. The test status of each feature and
+hardware class is in [`docs/tilecast-edge-readiness.md`](../../docs/tilecast-edge-readiness.md).
 
 The design is [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md). The
 current state and the next work are in

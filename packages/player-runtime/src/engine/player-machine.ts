@@ -113,6 +113,11 @@ export const playerMachine = setup({
     /** Outside active hours: true black or the configured overlay. */
     sleep: {},
     playing: {
+      // Stopping an invoked actor does not run its exit actions, so the
+      // presentation's timers (duration deadlines and liveness heartbeats)
+      // would outlive it and report evidence for an item no longer on screen.
+      // Ask it to stop itself first; it cancels every deadline it scheduled.
+      exit: sendTo(PRESENTATION_ACTOR_ID, { type: "STOP" }),
       invoke: {
         id: PRESENTATION_ACTOR_ID,
         src: "presentation",
@@ -140,6 +145,7 @@ export const playerMachine = setup({
         RETRY: { actions: "forward" },
         SKIP: { actions: "forward" },
         SURFACE_READY: { actions: "forward" },
+        WIDGET_EMPTY: { actions: "forward" },
         SURFACE_ENDED: { actions: "forward" },
         SURFACE_FAILED: { actions: "forward" },
         SURFACE_RESUMED: { actions: "forward" },

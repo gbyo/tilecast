@@ -88,10 +88,22 @@ func RegisteredDataSourceAdapter(id string) bool {
 	return ok
 }
 
+// adapterOutputKinds names the dataset kind each definition-driven adapter
+// always produces. Widget compatibility reads the declared output kind, so a
+// definition must declare the kind its adapter emits.
+var adapterOutputKinds = map[string]string{
+	"manual_object":  "object",
+	"manual_records": "records",
+	"http_records":   "records",
+}
+
 func ValidateContentAdapters(catalog *contentdefs.Catalog) error {
 	for _, definition := range catalog.DataSources {
 		if _, ok := dataSourceAdapterRegistry[definition.AdapterID]; !ok {
 			return fmt.Errorf("Data Source definition %q references unregistered adapter %q", definition.ID, definition.AdapterID)
+		}
+		if kind, ok := adapterOutputKinds[definition.AdapterID]; ok && definition.OutputSchema.Kind != kind {
+			return fmt.Errorf("Data Source definition %q uses the %s adapter, which produces %q output, but declares output kind %q", definition.ID, definition.AdapterID, kind, definition.OutputSchema.Kind)
 		}
 		if definition.AdapterID == "http_records" && definition.Fetch == nil {
 			return fmt.Errorf("Data Source definition %q uses the http_records adapter without a fetch specification", definition.ID)

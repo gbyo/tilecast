@@ -93,6 +93,13 @@ The Server rebuilds this message from the slot, the binding, and the nonce.
 It never accepts signing text from the client.
 The Host also refuses to sign a message that names another slot or binding.
 A signature over the nonce alone is not valid.
+Enrollment can commit while its response is lost.
+The browser then has a key but no saved slot or binding.
+Before it requests a new pairing code, the Host sends its registration to `POST /api/v1/player/browser/binding`.
+The Server returns the `slotId` and `bindingId` of the active binding for that installation ID and public key.
+The response contains no session.
+The Host then does the challenge and renewal above, which needs the device key.
+The endpoint returns `401` when no active binding matches.
 The managed launch fragment contains a recovery capability for one Screen.
 The bootstrap removes the fragment before it parses the secret.
 It must keep the secret in memory only.

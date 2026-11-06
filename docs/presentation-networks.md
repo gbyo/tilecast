@@ -214,3 +214,9 @@ offline, wait for the next configuration sync or use the screen's **Sync now**
 operation. The desired assignment and revision are durable, and the player
 removes obsolete `tilecast-presentation-*` profiles before installing the
 current one. Do not delete unrelated NetworkManager profiles.
+
+On Linux Edge, a provisioning failure that can pass by itself is retried without
+a new configuration. These failures are an unreachable server credential
+endpoint, a helper that refused the profile install, and a helper that was not
+running. Edge retries after 30 seconds, then after twice as long each time, up
+to five minutes, until the profile installs. A failed connection test is not retried, so its status stays visible.

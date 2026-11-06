@@ -73,6 +73,8 @@ var (
 	ErrNotReady           = errors.New("media not ready")
 	ErrVariantUnavailable = errors.New("media variant unavailable")
 	ErrDataSourceChanged  = errors.New("data source changed during the write")
+	// ErrWidgetPreviewStale reports a preview rendered from a Widget that has since been edited.
+	ErrWidgetPreviewStale = errors.New("widget changed after the preview was rendered")
 )
 
 type Asset struct {

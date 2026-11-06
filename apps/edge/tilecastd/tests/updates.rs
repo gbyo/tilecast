@@ -212,6 +212,8 @@ struct Faults {
     wrong_bytes: Mutex<Option<Vec<u8>>>,
     /// Status reports answer 409.
     closed: AtomicBool,
+    /// Status reports fail as if the server were unreachable.
+    unreachable: AtomicBool,
 }
 
 /// A status report as the server received it: state, installer status, error.
@@ -272,6 +274,9 @@ impl UpdateApi for Server {
         }))
     }
     async fn report(&self, _deployment: uuid::Uuid, report: &UpdateReport) -> Result<UpdateReportOutcome, ServerError> {
+        if self.faults.unreachable.load(Ordering::SeqCst) {
+            return Err(ServerError::Network);
+        }
         if self.faults.closed.load(Ordering::SeqCst) {
             return Ok(UpdateReportOutcome::Closed);
         }
@@ -932,6 +937,77 @@ async fn a_deployment_cancelled_before_activation_is_abandoned() {
     assert_eq!((job.state, job.reason_code.as_deref()), (JobState::Cancelled, Some("deployment_closed")));
     assert!(!world.pinned());
     assert_eq!(world.current(), OLD);
+}
+
+/// Waits at the maintenance-window gate with the archive staged, then opens
+/// the gate by moving the clock past the window.
+async fn staged_behind_the_window(world: &World, old: &Coordinator) {
+    world.accept("maintenance_window").await;
+    let pass = world.passes(old, 20, |w| w.observe(true, true), |p| p == Pass::Waiting("maintenance_window")).await;
+    assert_eq!(pass, Pass::Waiting("maintenance_window"), "{:?}", world.job().await);
+    assert_eq!(world.job().await.state, JobState::Staged);
+    world.advance(Duration::from_secs(3_600));
+}
+
+#[tokio::test]
+async fn a_deployment_cancelled_while_staged_is_abandoned_before_activation() {
+    let world = World::new();
+    let old = world.daemon(OLD).await;
+    staged_behind_the_window(&world, &old).await;
+    world.server.faults.closed.store(true, Ordering::SeqCst);
+    world.pass(&old, &healthy(&world)).await;
+    let job = world.job().await;
+    assert_eq!((job.state, job.reason_code.as_deref()), (JobState::Cancelled, Some("deployment_closed")));
+    assert!(job.report_closed);
+    assert_eq!(world.helper_phase(), None, "the helper was never asked to activate");
+    assert_eq!(world.current(), OLD);
+    assert!(!world.pinned());
+    assert_eq!(world.pass(&old, &healthy(&world)).await, Pass::Idle);
+}
+
+#[tokio::test]
+async fn an_unanswered_installing_report_keeps_the_staged_update_from_activating() {
+    let world = World::new();
+    let old = world.daemon(OLD).await;
+    staged_behind_the_window(&world, &old).await;
+    world.server.faults.unreachable.store(true, Ordering::SeqCst);
+    let pass = world.pass(&old, &healthy(&world)).await;
+    assert_eq!(pass, Pass::Waiting("server_not_connected"));
+    assert_eq!(world.job().await.state, JobState::Staged);
+    assert_eq!(world.helper_phase(), None);
+    assert_eq!(world.current(), OLD);
+
+    world.server.faults.unreachable.store(false, Ordering::SeqCst);
+    let pass = world.passes(&old, 5, |w| w.observe(true, true), |p| p == Pass::Waiting("activating")).await;
+    assert_eq!(pass, Pass::Waiting("activating"), "{:?}", world.job().await);
+    assert_eq!(world.current(), NEW);
+}
+
+#[tokio::test]
+async fn activation_is_not_requested_when_the_activating_state_cannot_be_saved() {
+    let world = World::new();
+    world.accept("install_now").await;
+    // The local state store refuses exactly the write that precedes activation.
+    rusqlite::Connection::open(&world.db_path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER refuse_activating BEFORE UPDATE ON update_jobs WHEN NEW.state = 'activating'
+             BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+        )
+        .unwrap();
+    let old = world.daemon(OLD).await;
+    let pass = world.passes(&old, 20, |w| w.observe(true, true), |p| p == Pass::Waiting("state_unavailable")).await;
+    assert_eq!(pass, Pass::Waiting("state_unavailable"), "{:?}", world.job().await);
+    assert_eq!(world.job().await.state, JobState::Staged);
+    assert_eq!(world.helper_phase(), None, "the helper was never asked to activate");
+    assert_eq!(world.current(), OLD);
+    assert!(!world.reports().contains(&"installing".to_owned()));
+
+    // Once the store accepts writes again the same job activates normally.
+    rusqlite::Connection::open(&world.db_path).unwrap().execute_batch("DROP TRIGGER refuse_activating;").unwrap();
+    let pass = world.passes(&old, 5, |w| w.observe(true, true), |p| p == Pass::Waiting("activating")).await;
+    assert_eq!(pass, Pass::Waiting("activating"), "{:?}", world.job().await);
+    assert_eq!(world.current(), NEW);
 }
 
 #[tokio::test]

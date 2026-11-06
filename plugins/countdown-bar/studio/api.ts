@@ -20,6 +20,8 @@ export type CountdownBarInput = {
   progressFill: "none" | "drain";
   contentPadding: number;
   textScale: number;
+  /** Organization font library family; null keeps the Player's own face. */
+  fontId?: string | null;
   urgencyEnabled: boolean;
   startingSoonSeconds: number;
   urgentSeconds: number;

@@ -414,16 +414,11 @@ export function sandboxFrameBootstrap(interpolatedToken = ""): string {
         assignRevision(message.revision);
         resources = toResources(message.snapshot);
         frameContext = toContext(message.snapshot.context);
-        var outcome = applyInputs(message.snapshot.component, message.snapshot.component.version);
-        // The element reports its own boot; on update the frame also
-        // reports the resolution outcome, tagged with the new revision.
-        // A slow element's event for the previous input carries the old
-        // revision and is dropped above.
-        if (outcome === "ready") {
-          post({ state: "ready" });
-        } else if (outcome === "empty") {
-          post({ state: "empty", reason: element.empty });
-        }
+        // A resolved input is not a rendered one: the placement stays
+        // pending until the element announces for this revision, exactly
+        // as WidgetMount waits. A slow element's event for the previous
+        // input carries the old revision and is dropped above.
+        applyInputs(message.snapshot.component, message.snapshot.component.version);
       } catch (err) {
         fail("frame_error");
       }

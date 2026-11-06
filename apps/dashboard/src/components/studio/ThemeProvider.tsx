@@ -26,6 +26,13 @@ export function ThemeProvider({
     const value: Appearance =
       appearance === "light" || appearance === "dark" ? appearance : "system";
     const root = document.documentElement;
+    // Cache the resolved choice so the first-paint script in index.html can
+    // apply it before React loads; otherwise a refresh flashes the system theme.
+    try {
+      window.localStorage.setItem("tilecast.appearance", value);
+    } catch {
+      // The server preference still applies when storage is unavailable.
+    }
     const apply = () => {
       const dark = isDark(value);
       root.classList.toggle("dark", dark);

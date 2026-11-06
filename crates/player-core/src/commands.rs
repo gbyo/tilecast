@@ -287,9 +287,16 @@ impl<H: Handlers> Coordinator<H> {
                 );
                 return self.report(api, &command.idempotency_key, command.id, &result).await;
             }
-            // Only this task executes, and start-up settles every executing
-            // record before the first pass: nothing to do.
-            CommandState::Executing => return Step::Continue,
+            // Only this task executes, and a pass finishes its handler before
+            // the next one starts, so a record still `executing` is one whose
+            // result could not be stored. The handler's effect is unknown:
+            // settle it as interrupted, never run it again, and report that.
+            CommandState::Executing => {
+                if self.recover().await.is_err() {
+                    return Step::Stop(PassOutcome::Interrupted("state_unavailable"));
+                }
+                return self.flush_reports(api).await;
+            }
             CommandState::Received | CommandState::Acknowledged => {}
         }
 
@@ -360,7 +367,7 @@ impl<H: Handlers> Coordinator<H> {
             if let Err(step) = self.complete(&command.idempotency_key, &result, ReportState::Pending).await {
                 // The result could not be stored: the record stays
                 // `executing` and is settled as interrupted by the next
-                // process. Do not disrupt without a durable result.
+                // delivery. Do not disrupt without a durable result.
                 return step;
             }
             let _ = tokio::time::timeout(

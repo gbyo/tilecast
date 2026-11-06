@@ -54,6 +54,42 @@ class RemoteWebCallHandlerTest {
         assertEquals(1, tracker.snapshot().size)
     }
 
+    private fun youTubePayload(videoId: String) = buildJsonObject {
+        put("surfaceId", "y1")
+        putJsonObject("content") {
+            put("kind", "youtube")
+            put("videoId", videoId)
+            put("playlistId", kotlinx.serialization.json.JsonNull)
+            put("startSeconds", 5)
+            put("endSeconds", kotlinx.serialization.json.JsonNull)
+            put("loop", true)
+            put("muted", false)
+            put("volume", 60)
+            put("captions", true)
+            put("captionLanguage", "en-US")
+            put("controls", false)
+        }
+        putJsonObject("viewport") {
+            put("x", 0.0)
+            put("y", 0.0)
+            put("width", 640.0)
+            put("height", 360.0)
+            put("deviceScale", 2.0)
+        }
+        put("muted", true)
+        put("visible", false)
+    }
+
+    @Test fun createsYouTubeSurfaceAndRefusesUnsafeIds() {
+        val tracker = RemoteWebHostManager.Tracker(7)
+        val ok = RemoteWebCallHandler.handle(call("remoteWeb.create", youTubePayload("M7lc1UVf-VE")), tracker, 7)
+        assertTrue(ok is RemoteWebCallHandler.CallOutcome.Created)
+        assertEquals(RemoteWebHostManager.ViewportPx(0, 0, 1280, 720), tracker.snapshot().single().viewportPx)
+        val bad = RemoteWebCallHandler.handle(call("remoteWeb.create", youTubePayload("a\"b<script>")), tracker, 7)
+        assertEquals("bad_content", (bad as RemoteWebCallHandler.CallOutcome.Refused).code)
+        assertEquals(1, tracker.snapshot().size)
+    }
+
     @Test fun refusesDisallowedNavigationTargets() {
         val tracker = RemoteWebHostManager.Tracker(7)
         val outcome = RemoteWebCallHandler.handle(

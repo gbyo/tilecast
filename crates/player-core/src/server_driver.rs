@@ -36,6 +36,10 @@ pub trait ServerLinkHost: ConfigurationHost {
     /// Core never touches host stores. Called every mismatched pass, so the
     /// host must treat it as idempotent. Default: ignore.
     async fn identity_mismatch(&self, _expected: &str, _actual: &str) {}
+    /// The server rejected the stored credential and Core removed it. The
+    /// host wakes its pairing loop so pairing with the bound server starts
+    /// now instead of at the loop's next scheduled pass. Default: ignore.
+    fn credential_rejected(&self) {}
 }
 
 /// Signals shared with commands, activation, status, and Watch Live coordinators.
@@ -300,6 +304,7 @@ fn set_preparation<H: ServerLinkHost>(
 async fn reject_credential<H: ServerLinkHost>(context: &ServerLinkServices<'_, H>) {
     context.relationship.reject_credential().await;
     context.signals.command_server.send_replace(None);
+    context.host.credential_rejected();
 }
 
 async fn sync_manifest<H: ServerLinkHost>(
@@ -498,7 +503,7 @@ mod push_tests {
     }
 
     #[derive(Debug)]
-    struct Host;
+    struct Host(Arc<AtomicUsize>);
     #[async_trait::async_trait]
     impl ConfigurationHost for Host {
         type Projection = ();
@@ -520,7 +525,7 @@ mod push_tests {
     impl ServerLinkHost for Host {
         type Preparation = Host;
         fn preparation_host(&self, _: &AuthenticatedServer) -> Arc<Host> {
-            Arc::new(Host)
+            Arc::new(Host(self.0.clone()))
         }
         fn native_configuration(&self) -> NativeConfiguration {
             NativeConfiguration::default()
@@ -535,11 +540,17 @@ mod push_tests {
         async fn presentation_protected(&self) -> bool {
             false
         }
+        fn credential_rejected(&self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     /// Answers identity, accepts the player socket, and counts manifest GETs.
     /// Every other request is a 404, which the driver tolerates.
-    async fn fake_server(manifest_requests: Arc<AtomicUsize>) -> (String, mpsc::UnboundedSender<&'static str>) {
+    async fn fake_server(
+        manifest_requests: Arc<AtomicUsize>,
+        revoked: bool,
+    ) -> (String, mpsc::UnboundedSender<&'static str>) {
         let (push, pushes) = mpsc::unbounded_channel::<&'static str>();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
         let address = listener.local_addr().expect("address");
@@ -548,7 +559,8 @@ mod push_tests {
             loop {
                 let Ok((stream, _)) = listener.accept().await else { return };
                 let mut head = [0_u8; 32];
-                let upgrade = matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
+                let upgrade = !revoked
+                    && matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
                 if upgrade {
                     // Its own task: the accept loop keeps serving requests.
                     let queue = pushes.take().expect("one socket");
@@ -581,6 +593,10 @@ mod push_tests {
                                     "pairingEnabled": false,
                                 }})
                                 .to_string(),
+                            ),
+                            "/api/v1/player/heartbeat" if revoked => (
+                                401,
+                                r#"{"error":{"code":"device_credential_revoked","message":"revoked"}}"#.to_owned(),
                             ),
                             "/api/v1/player/manifest" => {
                                 counter.fetch_add(1, Ordering::SeqCst);
@@ -624,7 +640,7 @@ mod push_tests {
     #[tokio::test]
     async fn manifest_changed_push_reconciles_immediately() {
         let requests = Arc::new(AtomicUsize::new(0));
-        let (base, push) = fake_server(requests.clone()).await;
+        let (base, push) = fake_server(requests.clone(), false).await;
         let directory = tempfile::tempdir().expect("tempdir");
         let state = StateDb::open(directory.path().join("state.db"), OpenOptions::default()).expect("state");
         let clock = ManualClock::new(Timestamp::from_unix_millis(1_700_000_000_000).expect("clock"));
@@ -654,7 +670,7 @@ mod push_tests {
         let (live_frames, _) = watch::channel(None);
         let status_due = AtomicBool::new(false);
         let shutdown = CancellationToken::new();
-        let host = Host;
+        let host = Host(Arc::new(AtomicUsize::new(0)));
         let services = ServerLinkServices {
             relationship: &relationship,
             host: &host,
@@ -696,5 +712,79 @@ mod push_tests {
         })
         .await;
         outcome.expect("driver and checks finished");
+    }
+
+    /// A rejected credential must wake the host's pairing loop at once. That
+    /// loop otherwise sleeps for an hour while the Player is paired.
+    #[tokio::test]
+    async fn a_rejected_credential_wakes_the_host_pairing_loop() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let (base, _push) = fake_server(requests, true).await;
+        let directory = tempfile::tempdir().expect("tempdir");
+        let state = StateDb::open(directory.path().join("state.db"), OpenOptions::default()).expect("state");
+        let clock = ManualClock::new(Timestamp::from_unix_millis(1_700_000_000_000).expect("clock"));
+        let now = clock.now();
+        let binding = ServerBinding {
+            server_url: base,
+            installation_id: InstallationId::from_uuid(uuid::Uuid::from_u128(INSTALLATION)),
+            organization_name: None,
+            screen_id: Some(ScreenId::from_uuid(uuid::Uuid::from_u128(9))),
+            screen_name: None,
+            credential_state: CredentialState::Stored,
+            identity_verified_at: None,
+            bound_at: now,
+        };
+        state.run(move |connection| binding::put(connection, &binding, now)).await.expect("bind");
+
+        let dependencies = Dependencies { state, clock };
+        let relationship = ServerRelationship::new(dependencies.clone(), Arc::new(Credentials));
+        let (server_wake, manifest_wake, command_wake, preview_wake, live_stream_wake) =
+            (Notify::new(), Notify::new(), Notify::new(), Notify::new(), Notify::new());
+        let preparation = SharedManifestPreparationStatus::default();
+        let link_state = Mutex::new(LinkState::Unbound);
+        let last_contact = Mutex::new(None);
+        let (command_server, _) = watch::channel(None);
+        let sync_request = AtomicU64::new(0);
+        let (sync_done, _) = watch::channel((0, false));
+        let (live_frames, _) = watch::channel(None);
+        let status_due = AtomicBool::new(false);
+        let shutdown = CancellationToken::new();
+        let rejections = Arc::new(AtomicUsize::new(0));
+        let host = Host(rejections.clone());
+        let services = ServerLinkServices {
+            relationship: &relationship,
+            host: &host,
+            signals: ServerLinkSignals {
+                server_wake: &server_wake,
+                manifest_wake: &manifest_wake,
+                preparation: &preparation,
+                link_state: &link_state,
+                last_server_contact: &last_contact,
+                command_wake: &command_wake,
+                preview_wake: &preview_wake,
+                command_server: &command_server,
+                sync_request: &sync_request,
+                sync_done: &sync_done,
+                live_stream_wake: &live_stream_wake,
+                live_frames: &live_frames,
+                status_due: &status_due,
+            },
+            user_agent: "test",
+            player_version: "0.0.0",
+            shutdown: &shutdown,
+        };
+
+        let outcome = tokio::time::timeout(Duration::from_secs(20), async {
+            let driver = drive_server_link(dependencies.clone(), services);
+            let checks = async {
+                assert!(wait_for(&rejections, 1, Duration::from_secs(5)).await, "the host was not told");
+                shutdown.cancel();
+            };
+            tokio::join!(driver, checks);
+        })
+        .await;
+        outcome.expect("driver and checks finished");
+        let stored = dependencies.state.run(|connection| binding::get(connection)).await.expect("binding");
+        assert_eq!(stored.expect("bound").credential_state, CredentialState::Rejected);
     }
 }

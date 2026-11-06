@@ -60,7 +60,7 @@ Enforcement:
   other than the editor session calls `createWidget` or `updateWidget`, or when
   the editor compares a provider identifier.
 
-This is a breaking pre-1.0 authoring change. A native definition without a
+This is a breaking authoring change. A native definition without a
 component, or a web definition without its address field, can no longer be
 edited in Studio. Saved Widgets of these types keep playing; Studio shows them
 as unavailable until the definition is updated.

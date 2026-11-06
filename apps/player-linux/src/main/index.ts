@@ -45,6 +45,7 @@ import { LinuxDisplayControl } from "./display-control";
 import {
   loadRuntimeFiles,
   RUNTIME_ENTRY_URL,
+  RUNTIME_ORIGIN,
   RUNTIME_SCHEME,
   RUNTIME_SCHEME_PRIVILEGES,
   serveRuntimeRequest,
@@ -75,7 +76,14 @@ if (!app.requestSingleInstanceLock()) {
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "tcmedia",
-    privileges: { standard: true, stream: true, supportFetchAPI: true },
+    // corsEnabled lets the runtime document load library font faces, which
+    // browsers always fetch in CORS mode. Images and video stay no-cors.
+    privileges: {
+      standard: true,
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
   },
   RUNTIME_SCHEME_PRIVILEGES,
 ]);
@@ -470,6 +478,8 @@ function setupMediaProtocol(): void {
       );
       const out = new Headers(response.headers);
       out.set("Content-Type", resolved.mimeType);
+      // Only the runtime document may read media cross-origin (font faces).
+      out.set("Access-Control-Allow-Origin", RUNTIME_ORIGIN);
       return new Response(response.body, {
         status: response.status,
         headers: out,

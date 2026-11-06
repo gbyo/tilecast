@@ -118,7 +118,8 @@ test("backfills a real rendered Widget thumbnail for the library", async ({
   const clockId = "de30000a-0000-4000-8000-000000000009";
   const uploaded = page.waitForResponse(
     (response) =>
-      response.url().endsWith(`/api/v1/widgets/${clockId}/preview-image`) &&
+      new URL(response.url()).pathname ===
+        `/api/v1/widgets/${clockId}/preview-image` &&
       response.request().method() === "PUT",
   );
   await page.goto("/widgets");

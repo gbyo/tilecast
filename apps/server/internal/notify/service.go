@@ -30,12 +30,25 @@ type Service struct {
 	logger   *slog.Logger
 	email    EmailSender
 	webhooks WebhookSender
+
+	// batchBudget bounds how long one DeliverDue call keeps sending before it
+	// releases the rest of its claim.
+	batchBudget time.Duration
 }
+
+// deliveryLease is how long a claimed row stays out of other workers' reach.
+// A batch stops sending after deliveryBatchBudget, which leaves room for one
+// in-flight send (bounded by the webhook and SMTP timeouts) to finish before
+// the lease runs out.
+const (
+	deliveryLease       = 5 * time.Minute
+	deliveryBatchBudget = deliveryLease / 2
+)
 
 // NewService builds the notification service. Passing a nil email sender is
 // valid and means this installation cannot send email.
 func NewService(db *pgxpool.Pool, reader SettingsReader, cfg Config, email EmailSender, webhooks WebhookSender, logger *slog.Logger) *Service {
-	return &Service{db: db, settings: reader, cfg: cfg, logger: logger, email: email, webhooks: webhooks}
+	return &Service{db: db, settings: reader, cfg: cfg, logger: logger, email: email, webhooks: webhooks, batchBudget: deliveryBatchBudget}
 }
 
 // EmailConfigured reports whether email delivery is possible at all, which
@@ -232,11 +245,26 @@ func (s *Service) DeliverDue(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
+	// Sends are sequential, so a long batch could outlive its lease and let
+	// another worker send the same rows. Stop starting new sends once the
+	// budget is spent and hand the untouched rows back.
+	started := time.Now()
+	budget := s.batchBudget
+	if budget <= 0 {
+		budget = deliveryBatchBudget
+	}
+	exhausted := func() bool { return ctx.Err() != nil || time.Since(started) >= budget }
+
 	sent := 0
+	var unsent []pendingDelivery
 	byAddress := map[string][]pendingDelivery{}
 	for _, item := range pending {
 		if item.channel == "email" {
 			byAddress[item.target] = append(byAddress[item.target], item)
+			continue
+		}
+		if exhausted() {
+			unsent = append(unsent, item)
 			continue
 		}
 		if s.deliverWebhook(ctx, item) {
@@ -249,10 +277,15 @@ func (s *Service) DeliverDue(ctx context.Context) (int, error) {
 	}
 	sort.Strings(addresses)
 	for _, address := range addresses {
+		if exhausted() {
+			unsent = append(unsent, byAddress[address]...)
+			continue
+		}
 		if s.deliverEmail(ctx, policy, address, byAddress[address]) {
 			sent++
 		}
 	}
+	s.release(unsent)
 	return sent, nil
 }
 
@@ -267,6 +300,9 @@ type pendingDelivery struct {
 	body     string
 	payload  []byte
 	attempts int
+	// lease is the next_attempt_at value this worker wrote when it claimed
+	// the row. Every later update is fenced on it.
+	lease time.Time
 }
 
 func (s *Service) claimDue(ctx context.Context) ([]pendingDelivery, error) {
@@ -274,7 +310,8 @@ func (s *Service) claimDue(ctx context.Context) ([]pendingDelivery, error) {
 	// of reach so a concurrent DeliverDue cannot pick them up and send a second
 	// copy. Delivery has no receiver-side idempotency, so a duplicate read is a
 	// duplicate email. A crash between the lease and the send costs a delay,
-	// not a lost message.
+	// not a lost message. The leased next_attempt_at doubles as the claim
+	// token: results are written only while it is still the row's value.
 	rows, err := s.db.Query(ctx, `
 		WITH due AS (
 			SELECT id FROM notification_deliveries
@@ -284,10 +321,10 @@ func (s *Service) claimDue(ctx context.Context) ([]pendingDelivery, error) {
 			FOR UPDATE SKIP LOCKED
 		)
 		UPDATE notification_deliveries d
-		SET next_attempt_at = now() + interval '5 minutes'
+		SET next_attempt_at = now() + make_interval(secs => $1)
 		FROM due WHERE d.id = due.id
 		RETURNING d.id,d.event_key,d.category,d.severity,d.channel,d.target,
-		          d.subject,d.body,d.payload,d.attempts`)
+		          d.subject,d.body,d.payload,d.attempts,d.next_attempt_at`, deliveryLease.Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +333,7 @@ func (s *Service) claimDue(ctx context.Context) ([]pendingDelivery, error) {
 	for rows.Next() {
 		var d pendingDelivery
 		if err := rows.Scan(&d.id, &d.eventKey, &d.category, &d.severity, &d.channel,
-			&d.target, &d.subject, &d.body, &d.payload, &d.attempts); err != nil {
+			&d.target, &d.subject, &d.body, &d.payload, &d.attempts, &d.lease); err != nil {
 			return nil, err
 		}
 		out = append(out, d)
@@ -373,14 +410,31 @@ func (s *Service) recordWebhookResult(ctx context.Context, id string, err error)
 }
 
 func (s *Service) markSent(ctx context.Context, items []pendingDelivery) {
-	ids := make([]uuid.UUID, 0, len(items))
 	for _, item := range items {
-		ids = append(ids, item.id)
+		if _, err := s.db.Exec(ctx, `
+			UPDATE notification_deliveries SET status='sent',sent_at=now(),attempts=attempts+1,last_error=''
+			WHERE id=$1 AND status='pending' AND next_attempt_at=$2`, item.id, item.lease); err != nil {
+			s.logger.Error("recording notification delivery failed", "error", err)
+		}
 	}
-	if _, err := s.db.Exec(ctx, `
-		UPDATE notification_deliveries SET status='sent',sent_at=now(),attempts=attempts+1,last_error=''
-		WHERE id=ANY($1)`, ids); err != nil {
-		s.logger.Error("recording notification delivery failed", "error", err)
+}
+
+// release returns claimed rows that were never attempted so they are due again
+// at once, instead of waiting out the lease.
+func (s *Service) release(items []pendingDelivery) {
+	if len(items) == 0 {
+		return
+	}
+	// The caller's context may already be cancelled, which is the usual reason
+	// to be here.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, item := range items {
+		if _, err := s.db.Exec(ctx, `
+			UPDATE notification_deliveries SET next_attempt_at=now()
+			WHERE id=$1 AND status='pending' AND next_attempt_at=$2`, item.id, item.lease); err != nil {
+			s.logger.Error("releasing notification delivery failed", "error", err)
+		}
 	}
 }
 
@@ -398,7 +452,8 @@ func (s *Service) failAll(ctx context.Context, items []pendingDelivery, cause er
 		if _, err := s.db.Exec(ctx, `
 			UPDATE notification_deliveries
 			SET status=$2, attempts=$3, last_error=$4, next_attempt_at=$5
-			WHERE id=$1`, item.id, status, attempts, message, time.Now().Add(Backoff(attempts))); err != nil {
+			WHERE id=$1 AND status='pending' AND next_attempt_at=$6`,
+			item.id, status, attempts, message, time.Now().Add(Backoff(attempts)), item.lease); err != nil {
 			s.logger.Error("recording notification failure failed", "error", err)
 		}
 	}
@@ -409,7 +464,7 @@ func (s *Service) failAll(ctx context.Context, items []pendingDelivery, cause er
 }
 
 func (s *Service) cancel(ctx context.Context, item pendingDelivery, reason string) {
-	_, _ = s.db.Exec(ctx, `UPDATE notification_deliveries SET status='cancelled',last_error=$2 WHERE id=$1`, item.id, reason)
+	_, _ = s.db.Exec(ctx, `UPDATE notification_deliveries SET status='cancelled',last_error=$2 WHERE id=$1 AND status='pending' AND next_attempt_at=$3`, item.id, reason, item.lease)
 }
 
 // composeEmail renders one message from one or more due conditions. A single

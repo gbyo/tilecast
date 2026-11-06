@@ -251,19 +251,19 @@ The tests prove the counts of actors, mounts and decoders, the evidence order, t
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.
 - **Layout child readiness**: `layout-shown` reports the visible canvas. A playlist zone prepares media while hidden. Images become ready after successful load. Videos become ready at `canplay`. The zone activates media only when the parent Layout is active. It reports `layout-zone-rendered` after successful activation. Selection, append, and transition start do not prove child readiness. A fade or crossfade keeps outgoing good media until incoming media is ready. Video progress carries the zone ID. Load and play failures report a zone error, apply the configured fallback, and advance or retry the zone. Static image load failures also report a zone error. Other zones continue to play.
 - **Zone video loops**: the zone applies the native loop policy after playback starts. It disables native looping before each play attempt. This sequence prevents a WebKit stall when a prepared, paused video starts with native looping enabled. Trimmed videos still use zone advances to restore their authored start offset.
-- **Player plugins** (Plugin API v2) come from the Player Plugin Host (`src/plugins/player-host.ts`). It activates a plugin while `plugin_state` for it exists, routes each plugin only its own state, and binds the services the plugin requests from the service registry (`src/plugins/services.ts`, `src/plugins/service-providers.ts`): `player.clock@1`, `player.media@1`, `player.presentation.observe@1`, and `player.surface@1`. It has no evaluation loop. A plugin that throws is disposed alone. The host reads only `plugins` messages and a read-only presentation observation, so plugin state never reaches playback. [plugin-api-v2.md](plugin-api-v2.md) is the contract.
+- **Player plugins** (Plugin API v2) come from the Player Plugin Host (`src/plugins/player-host.ts`). It activates a plugin while `plugin_state` for it exists, routes each plugin only its own state, and binds the services the plugin requests from the service registry (`src/plugins/services.ts`, `src/plugins/service-providers.ts`): `player.clock@1`, `player.fonts@1`, `player.media@1`, `player.presentation.observe@1`, and `player.surface@1`. It has no evaluation loop. A plugin that throws is disposed alone. The host reads only `plugins` messages and a read-only presentation observation, so plugin state never reaches playback. [plugin-api-v2.md](plugin-api-v2.md) is the contract.
 - **Plugin surfaces** come from the runtime surface host (`src/plugins`). It also implements `player.surface@1`: a v2 visual contribution joins the same arbitration with its own declared tier and pushes its claims. The host finds each runtime plugin when the runtime is built, gives it one container for each surface that it declares, arbitrates each slot by the declared tier and the claimed priority, and sets the content-stage insets and the corner lift. A plugin draws only inside its containers. [plugin-api.md](plugin-api.md#player-runtime) is the contract.
 
-### 5.1 Layout promotion follow-up
+### 5.1 Layout promotion evidence
 
-Player Core currently accepts both `LayoutShown` and `LayoutZoneRendered` as
-content evidence for `Expectation::Layout`. The tests in
-`crates/player-core/src/supervisor.rs` preserve this rule. A background-only
-Layout needs canvas evidence for promotion. The current expectation does not
-identify Layouts that require child evidence. Thus canvas evidence can still
-promote a Layout whose children all fail. A follow-up must supply explicit
-child expectations to Core and test failed-child and background-only promotion.
-This Runtime correction preserves the existing Core promotion rule.
+The Runtime declares each mounted zone with `layout-zone-declared` or
+`layout-zone-rotating` before it shows the Layout canvas. Player Core records
+these declarations for each Layout item in `RendererTracker`. A Layout item
+gives content evidence only when each declared zone sent
+`layout-zone-rendered`. `LayoutShown` alone does not promote a Layout that
+declared zones. A Layout that declares no zones, for example a background-only
+Layout, gives content evidence with `LayoutShown`. A Layout with a zone that
+fails or does not render cannot promote its pending manifest.
 
 ## 6. Compatibility code and the widget seam
 
@@ -284,9 +284,10 @@ RenderNode is not the Player Runtime's permanent widget API. Widgets V2 ([widget
 
 ## 7. Security and appearance
 
-- The document's CSP is `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' tcmedia: data:; media-src tcmedia: tcweb:; frame-src https: http: tcwidget:`. It has no `unsafe-inline` and no CSP bypass privileges. The `tcwidget:` frame source covers daemon-granted sandbox frames on native hosts; the iframe sandbox attribute and the frame's own policy still confine them.
+- The document's CSP is `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self' tcmedia:; img-src 'self' tcmedia: data:; media-src tcmedia: tcweb:; frame-src https: http: tcwidget:`. It has no `unsafe-inline` and no CSP bypass privileges. The `tcwidget:` frame source covers daemon-granted sandbox frames on native hosts; the iframe sandbox attribute and the frame's own policy still confine them.
 - `tilecast://runtime/` serves only files listed in the artifact's `runtime-manifest.json` (Electron) or allowed by `tc_runtime_path_is_allowed` (WPE). The names are top-level files and `fonts/<name>`, and anything a URL parser would rewrite is refused.
 - The Electron renderer runs with `sandbox: true`, `contextIsolation: true` and `nodeIntegration: false`. The preload is a thin adapter that requires only `electron`. The synchronized-timeline enrichment that forced `sandbox: false` moved to the main process.
+- Layout text may use an organization library font. The projection lists its faces as host-authorized `tcmedia:` URIs, and the runtime registers each face through the CSS Font Loading API under the generated family `tcf-<fontId>`. Each host answers media requests from the runtime origin with `Access-Control-Allow-Origin`, because browsers fetch fonts in CORS mode. See [Organization font library](fonts.md).
 - Tilecast-owned surfaces use the bundled Tilecast UI face (Geist, SIL Open Font License 1.1, `static/fonts/OFL.txt`) rather than the distribution's `system-ui`. The display ignores host dark-mode and forced-colour preferences.
 
 ## 8. Conformance suite
