@@ -133,29 +133,32 @@ type Placement struct {
 }
 
 type Primitive struct {
-	Kind            string   `json:"kind"`
-	Text            string   `json:"text,omitempty"`
-	FontFamily      string   `json:"fontFamily,omitempty"`
-	FontSize        float64  `json:"fontSize,omitempty"`
-	FontWeight      int      `json:"fontWeight,omitempty"`
-	TextAlign       string   `json:"textAlign,omitempty"`
-	VerticalAlign   string   `json:"verticalAlign,omitempty"`
-	Color           string   `json:"color,omitempty"`
-	BackgroundColor string   `json:"backgroundColor,omitempty"`
-	LineHeight      float64  `json:"lineHeight,omitempty"`
-	LetterSpacing   float64  `json:"letterSpacing,omitempty"`
-	Padding         float64  `json:"padding,omitempty"`
-	BorderWidth     float64  `json:"borderWidth,omitempty"`
-	BorderColor     string   `json:"borderColor,omitempty"`
-	CornerRadius    float64  `json:"cornerRadius,omitempty"`
-	MaximumLines    int      `json:"maximumLines,omitempty"`
-	Overflow        string   `json:"overflow,omitempty"`
-	AutoFit         bool     `json:"autoFit,omitempty"`
-	MinimumFontSize float64  `json:"minimumFontSize,omitempty"`
-	FillColor       string   `json:"fillColor,omitempty"`
-	StrokeColor     string   `json:"strokeColor,omitempty"`
-	StrokeWidth     float64  `json:"strokeWidth,omitempty"`
-	Binding         *Binding `json:"binding,omitempty"`
+	Kind       string `json:"kind"`
+	Text       string `json:"text,omitempty"`
+	FontFamily string `json:"fontFamily,omitempty"`
+	// FontID selects a family from the organization font library. FontFamily
+	// stays the bundled fallback for Players that predate the library.
+	FontID          *uuid.UUID `json:"fontId,omitempty"`
+	FontSize        float64    `json:"fontSize,omitempty"`
+	FontWeight      int        `json:"fontWeight,omitempty"`
+	TextAlign       string     `json:"textAlign,omitempty"`
+	VerticalAlign   string     `json:"verticalAlign,omitempty"`
+	Color           string     `json:"color,omitempty"`
+	BackgroundColor string     `json:"backgroundColor,omitempty"`
+	LineHeight      float64    `json:"lineHeight,omitempty"`
+	LetterSpacing   float64    `json:"letterSpacing,omitempty"`
+	Padding         float64    `json:"padding,omitempty"`
+	BorderWidth     float64    `json:"borderWidth,omitempty"`
+	BorderColor     string     `json:"borderColor,omitempty"`
+	CornerRadius    float64    `json:"cornerRadius,omitempty"`
+	MaximumLines    int        `json:"maximumLines,omitempty"`
+	Overflow        string     `json:"overflow,omitempty"`
+	AutoFit         bool       `json:"autoFit,omitempty"`
+	MinimumFontSize float64    `json:"minimumFontSize,omitempty"`
+	FillColor       string     `json:"fillColor,omitempty"`
+	StrokeColor     string     `json:"strokeColor,omitempty"`
+	StrokeWidth     float64    `json:"strokeWidth,omitempty"`
+	Binding         *Binding   `json:"binding,omitempty"`
 }
 
 type Binding struct {

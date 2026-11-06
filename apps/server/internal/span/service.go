@@ -328,32 +328,8 @@ func (s *Service) PrepareVideo(ctx context.Context, screenID, assetID, variantID
 	if err := s.db.QueryRow(ctx, `SELECT a.organization_id FROM assets a JOIN asset_variants v ON v.id=$2 AND v.asset_id=a.id AND v.deleted_at IS NULL AND v.player_compatible=TRUE WHERE a.id=$1 AND a.type='video' AND a.processing_status='ready' AND a.deleted_at IS NULL`, assetID, variantID).Scan(&organization); err != nil {
 		return VideoPanel{}, fmt.Errorf("Span source video is unavailable: %w", err)
 	}
-	var panelID uuid.UUID
-	var status string
-	var width, height *int
-	var duration, frameRate *float64
-	var size *int64
-	var hash []byte
-	if err := s.db.QueryRow(ctx, `SELECT id,status,width,height,duration_seconds,frame_rate,file_size,sha256 FROM span_video_panels WHERE screen_group_id=$1 AND screen_id=$2 AND source_asset_id=$3 AND source_variant_id=$4 AND geometry_hash=$5`, groupID, screenID, assetID, variantID, geometryHash).Scan(&panelID, &status, &width, &height, &duration, &frameRate, &size, &hash); errors.Is(err, pgx.ErrNoRows) {
-		panelID = uuid.New()
-		if _, err := s.db.Exec(ctx, `INSERT INTO span_video_panels(id,organization_id,screen_group_id,screen_id,source_asset_id,source_variant_id,geometry_revision,geometry_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, panelID, organization, groupID, screenID, assetID, variantID, geometryRevision, geometryHash); err != nil {
-			return VideoPanel{}, err
-		}
-		queued, err := json.Marshal(map[string]string{"panelId": panelID.String()})
-		if err != nil {
-			return VideoPanel{}, err
-		}
-		var exists bool
-		if err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM media_jobs WHERE kind='generate_span_video_panel' AND status IN('queued','running') AND payload->>'panelId'=$1)`, panelID.String()).Scan(&exists); err != nil {
-			return VideoPanel{}, err
-		}
-		if !exists {
-			if _, err := s.db.Exec(ctx, `INSERT INTO media_jobs(id,kind,status,payload) VALUES($1,'generate_span_video_panel','queued',$2::jsonb)`, uuid.New(), queued); err != nil {
-				return VideoPanel{}, err
-			}
-		}
-		status = "queued"
-	} else if err != nil {
+	panelID, status, width, height, duration, frameRate, size, hash, err := s.ensureVideoPanel(ctx, organization, groupID, screenID, assetID, variantID, geometryRevision, geometryHash)
+	if err != nil {
 		return VideoPanel{}, err
 	}
 	result := VideoPanel{ID: panelID, Status: status}
@@ -367,6 +343,54 @@ func (s *Service) PrepareVideo(ctx context.Context, screenID, assetID, variantID
 	}
 	result.DownloadPath = "/api/v1/player/span-panels/" + panelID.String()
 	return result, nil
+}
+
+// spanPanelRetryAfter is how long a failed panel stays failed before a manifest
+// build queues it again. A transient failure (storage, a restart during FFmpeg)
+// recovers on its own; a source that always fails costs one retry run per
+// interval instead of one per manifest request.
+const spanPanelRetryAfter = 15 * time.Minute
+
+// ensureVideoPanel finds or creates the panel row and guarantees that a panel
+// which is not ready has a job that will make it ready. Row and job are
+// written in one transaction under the row lock, so concurrent manifest builds
+// for the same screen agree on one row, and a crash cannot leave a queued row
+// without a job. A panel stranded without a job, or failed longer than
+// spanPanelRetryAfter, is queued again.
+func (s *Service) ensureVideoPanel(ctx context.Context, organization, groupID, screenID, assetID, variantID uuid.UUID, geometryRevision int64, geometryHash string) (panelID uuid.UUID, status string, width, height *int, duration, frameRate *float64, size *int64, hash []byte, err error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `INSERT INTO span_video_panels(id,organization_id,screen_group_id,screen_id,source_asset_id,source_variant_id,geometry_revision,geometry_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(screen_group_id,screen_id,source_asset_id,source_variant_id,geometry_hash) DO NOTHING`, uuid.New(), organization, groupID, screenID, assetID, variantID, geometryRevision, geometryHash); err != nil {
+		return
+	}
+	var retryDue bool
+	if err = tx.QueryRow(ctx, `SELECT id,status,width,height,duration_seconds,frame_rate,file_size,sha256,updated_at<now()-make_interval(secs=>$6) FROM span_video_panels WHERE screen_group_id=$1 AND screen_id=$2 AND source_asset_id=$3 AND source_variant_id=$4 AND geometry_hash=$5 FOR UPDATE`, groupID, screenID, assetID, variantID, geometryHash, spanPanelRetryAfter.Seconds()).Scan(&panelID, &status, &width, &height, &duration, &frameRate, &size, &hash, &retryDue); err != nil {
+		return
+	}
+	if status != "ready" {
+		var active bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM media_jobs WHERE kind='generate_span_video_panel' AND status IN('queued','running') AND payload->>'panelId'=$1)`, panelID.String()).Scan(&active); err != nil {
+			return
+		}
+		if !active && (status != "failed" || retryDue) {
+			var queued []byte
+			if queued, err = json.Marshal(map[string]string{"panelId": panelID.String()}); err != nil {
+				return
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO media_jobs(id,kind,status,payload) VALUES($1,'generate_span_video_panel','queued',$2::jsonb)`, uuid.New(), queued); err != nil {
+				return
+			}
+			if _, err = tx.Exec(ctx, `UPDATE span_video_panels SET status='queued',progress=NULL,updated_at=now() WHERE id=$1`, panelID); err != nil {
+				return
+			}
+			status = "queued"
+		}
+	}
+	err = tx.Commit(ctx)
+	return
 }
 
 func valueOrZero[T any](value *T) T {

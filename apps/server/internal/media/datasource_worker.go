@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -110,7 +111,8 @@ func (worker *DataSourceRefreshWorker) runOne(ctx context.Context) (bool, error)
 		}
 		return true, tx.Commit(ctx)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE data_source_refresh_states SET locked_at=now(),locked_by=$2,last_attempt_at=now(),updated_at=now() WHERE data_source_id=$1`, dataSourceID, worker.id); err != nil {
+	claim := refreshClaim{workerID: worker.id}
+	if err = tx.QueryRow(ctx, `UPDATE data_source_refresh_states SET locked_at=now(),locked_by=$2,last_attempt_at=now(),updated_at=now() WHERE data_source_id=$1 RETURNING locked_at`, dataSourceID, worker.id).Scan(&claim.lockedAt); err != nil {
 		return false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -127,12 +129,12 @@ func (worker *DataSourceRefreshWorker) runOne(ctx context.Context) (bool, error)
 	// change when a publish window opens or closes, and it is scheduled to wake exactly at
 	// the next such boundary rather than polled.
 	if definition, ok := worker.service.definitions.DataSource(provider); ok && definition.AdapterID == "manual_records" {
-		return true, worker.reprojectManualRecords(ctx, dataSourceID, definition, raw)
+		return true, worker.reprojectManualRecords(ctx, dataSourceID, claim, definition, raw)
 	}
 	if definition, ok := worker.service.httpRecordsSpec(provider); ok {
 		var configuration map[string]any
 		if err = json.Unmarshal(raw, &configuration); err != nil {
-			return true, worker.fail(ctx, dataSourceID, 300, DataSourceDiagnostics{ParseStatus: "invalid_configuration"}, "invalid_configuration")
+			return true, worker.fail(ctx, dataSourceID, claim, 300, DataSourceDiagnostics{ParseStatus: "invalid_configuration"}, "invalid_configuration")
 		}
 		refreshSeconds = httpRecordsRefreshSeconds(*definition.Fetch)
 		prepared, diagnostics, refreshErr = worker.service.refreshHTTPRecords(ctx, definition, configuration)
@@ -180,19 +182,19 @@ func (worker *DataSourceRefreshWorker) runOne(ctx context.Context) (bool, error)
 		}
 	}
 	if err != nil {
-		return true, worker.fail(ctx, dataSourceID, refreshSeconds, DataSourceDiagnostics{ParseStatus: "invalid_configuration"}, "invalid_configuration")
+		return true, worker.fail(ctx, dataSourceID, claim, refreshSeconds, DataSourceDiagnostics{ParseStatus: "invalid_configuration"}, "invalid_configuration")
 	}
 	if refreshErr != nil {
-		return true, worker.fail(ctx, dataSourceID, refreshSeconds, diagnostics, "source_refresh_failed")
+		return true, worker.fail(ctx, dataSourceID, claim, refreshSeconds, diagnostics, "source_refresh_failed")
 	}
 	if notModified {
 		next := nextDataSourceRefresh(refreshSeconds, upstreamExpiresAt)
-		_, err = worker.service.db.Exec(ctx, `UPDATE data_source_refresh_states SET next_refresh_at=$2,last_success_at=now(),http_result_category=$3,parse_status='success',using_cached_data=FALSE,error_code=NULL,upstream_expires_at=$4,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1`, dataSourceID, next, diagnostics.HTTPResultCategory, upstreamExpiresAt)
+		_, err = worker.service.db.Exec(ctx, `UPDATE data_source_refresh_states SET next_refresh_at=$2,last_success_at=now(),http_result_category=$3,parse_status='success',using_cached_data=FALSE,error_code=NULL,upstream_expires_at=$4,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 AND locked_by=$5 AND locked_at=$6`, dataSourceID, next, diagnostics.HTTPResultCategory, upstreamExpiresAt, claim.workerID, claim.lockedAt)
 		return true, err
 	}
 	payload, err := json.Marshal(prepared)
 	if err != nil {
-		return true, worker.fail(ctx, dataSourceID, refreshSeconds, diagnostics, "cache_encoding_failed")
+		return true, worker.fail(ctx, dataSourceID, claim, refreshSeconds, diagnostics, "cache_encoding_failed")
 	}
 	next := nextDataSourceRefresh(refreshSeconds, upstreamExpiresAt)
 	err = worker.commitProjection(ctx, dataSourceID, "data_source.refreshed", func(tx pgx.Tx) (bool, error) {
@@ -200,9 +202,9 @@ func (worker *DataSourceRefreshWorker) runOne(ctx context.Context) (bool, error)
 		err := tx.QueryRow(ctx, `WITH previous AS MATERIALIZED (
 			SELECT cached_payload,using_cached_data,error_code FROM data_source_refresh_states WHERE data_source_id=$1
 		), updated AS (
-			UPDATE data_source_refresh_states SET next_refresh_at=$2,last_success_at=now(),http_result_category=$3,parse_status=$4,available_event_count=$5,available_item_count=$6,using_cached_data=FALSE,cache_updated_at=$7,cache_expires_at=$8,cached_payload=$9::jsonb,error_code=NULL,upstream_last_modified=NULLIF($10,''),upstream_expires_at=$11,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 RETURNING data_source_id
-		) SELECT previous.cached_payload IS DISTINCT FROM $9::jsonb OR previous.using_cached_data OR previous.error_code IS NOT NULL FROM previous,updated`, dataSourceID, next, diagnostics.HTTPResultCategory, diagnostics.ParseStatus, diagnostics.AvailableEventCount, diagnostics.AvailableItemCount, diagnostics.CacheUpdatedAt, diagnostics.CacheExpiresAt, string(payload), upstreamLastModified, upstreamExpiresAt).Scan(&playerDataChanged)
-		return playerDataChanged, err
+			UPDATE data_source_refresh_states SET next_refresh_at=$2,last_success_at=now(),http_result_category=$3,parse_status=$4,available_event_count=$5,available_item_count=$6,using_cached_data=FALSE,cache_updated_at=$7,cache_expires_at=$8,cached_payload=$9::jsonb,error_code=NULL,upstream_last_modified=NULLIF($10,''),upstream_expires_at=$11,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 AND locked_by=$12 AND locked_at=$13 RETURNING data_source_id
+		) SELECT previous.cached_payload IS DISTINCT FROM $9::jsonb OR previous.using_cached_data OR previous.error_code IS NOT NULL FROM previous,updated`, dataSourceID, next, diagnostics.HTTPResultCategory, diagnostics.ParseStatus, diagnostics.AvailableEventCount, diagnostics.AvailableItemCount, diagnostics.CacheUpdatedAt, diagnostics.CacheExpiresAt, string(payload), upstreamLastModified, upstreamExpiresAt, claim.workerID, claim.lockedAt).Scan(&playerDataChanged)
+		return discardSupersededRefresh(playerDataChanged, err)
 	})
 	return true, err
 }
@@ -211,26 +213,44 @@ func (worker *DataSourceRefreshWorker) runOne(ctx context.Context) (bool, error)
 // configuration, stores it, and schedules the next wake-up for the moment the visible set
 // changes again. It notifies the manifest invalidator only when the payload actually
 // changed, so a boundary that removes nothing does not churn every screen's manifest.
-func (worker *DataSourceRefreshWorker) reprojectManualRecords(ctx context.Context, dataSourceID uuid.UUID, definition contentdefs.DataSourceDefinition, raw json.RawMessage) error {
+func (worker *DataSourceRefreshWorker) reprojectManualRecords(ctx context.Context, dataSourceID uuid.UUID, claim refreshClaim, definition contentdefs.DataSourceDefinition, raw json.RawMessage) error {
 	var configuration map[string]any
 	if err := json.Unmarshal(raw, &configuration); err != nil {
-		return worker.fail(ctx, dataSourceID, 300, DataSourceDiagnostics{ParseStatus: "invalid_configuration"}, "invalid_configuration")
+		return worker.fail(ctx, dataSourceID, claim, 300, DataSourceDiagnostics{ParseStatus: "invalid_configuration"}, "invalid_configuration")
 	}
 	projection := manualRecordsPayload(definition, configuration, time.Now())
 	payload, err := json.Marshal(projection.Payload)
 	if err != nil {
-		return worker.fail(ctx, dataSourceID, 300, DataSourceDiagnostics{ParseStatus: "cache_encoding_failed"}, "cache_encoding_failed")
+		return worker.fail(ctx, dataSourceID, claim, 300, DataSourceDiagnostics{ParseStatus: "cache_encoding_failed"}, "cache_encoding_failed")
 	}
 	return worker.commitProjection(ctx, dataSourceID, "data_source.refreshed", func(tx pgx.Tx) (bool, error) {
 		var playerDataChanged bool
 		err := tx.QueryRow(ctx, `WITH previous AS MATERIALIZED (
 			SELECT cached_payload,using_cached_data,error_code FROM data_source_refresh_states WHERE data_source_id=$1
 		), updated AS (
-			UPDATE data_source_refresh_states SET next_refresh_at=COALESCE($2,now()+interval '100 years'),last_success_at=now(),http_result_category='manual',parse_status='success',available_item_count=$3,using_cached_data=FALSE,cache_updated_at=now(),cache_expires_at=now()+interval '100 years',cached_payload=$4::jsonb,error_code=NULL,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 RETURNING data_source_id
+			UPDATE data_source_refresh_states SET next_refresh_at=COALESCE($2,now()+interval '100 years'),last_success_at=now(),http_result_category='manual',parse_status='success',available_item_count=$3,using_cached_data=FALSE,cache_updated_at=now(),cache_expires_at=now()+interval '100 years',cached_payload=$4::jsonb,error_code=NULL,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 AND locked_by=$5 AND locked_at=$6 RETURNING data_source_id
 		) SELECT previous.cached_payload IS DISTINCT FROM $4::jsonb OR previous.error_code IS NOT NULL FROM previous,updated`,
-			dataSourceID, projection.NextBoundary, projection.Visible, string(payload)).Scan(&playerDataChanged)
-		return playerDataChanged, err
+			dataSourceID, projection.NextBoundary, projection.Visible, string(payload), claim.workerID, claim.lockedAt).Scan(&playerDataChanged)
+		return discardSupersededRefresh(playerDataChanged, err)
 	})
+}
+
+// refreshClaim identifies one claim of a Data Source refresh. Saving a Data Source clears
+// the lock, so a worker holding a claim from before the save no longer matches the row.
+// Every completion write is conditional on the claim, and a superseded result is dropped
+// instead of overwriting the cache or schedule of the new configuration.
+type refreshClaim struct {
+	workerID string
+	lockedAt time.Time
+}
+
+// discardSupersededRefresh turns "the claimed row is gone or was re-claimed" into a
+// successful no-op: the completion statement matched no row.
+func discardSupersededRefresh(changed bool, err error) (bool, error) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return changed, err
 }
 
 func nextDataSourceRefresh(refreshSeconds int, upstreamExpiresAt *time.Time) time.Time {
@@ -241,7 +261,7 @@ func nextDataSourceRefresh(refreshSeconds int, upstreamExpiresAt *time.Time) tim
 	return next
 }
 
-func (worker *DataSourceRefreshWorker) fail(ctx context.Context, dataSourceID uuid.UUID, refreshSeconds int, diagnostics DataSourceDiagnostics, code string) error {
+func (worker *DataSourceRefreshWorker) fail(ctx context.Context, dataSourceID uuid.UUID, claim refreshClaim, refreshSeconds int, diagnostics DataSourceDiagnostics, code string) error {
 	if refreshSeconds < 30 {
 		refreshSeconds = 30
 	}
@@ -251,9 +271,9 @@ func (worker *DataSourceRefreshWorker) fail(ctx context.Context, dataSourceID uu
 		err := tx.QueryRow(ctx, `WITH previous AS MATERIALIZED (
 			SELECT using_cached_data,error_code FROM data_source_refresh_states WHERE data_source_id=$1
 		), updated AS (
-			UPDATE data_source_refresh_states SET next_refresh_at=$2,http_result_category=$3,parse_status=$4,using_cached_data=(cache_updated_at IS NOT NULL AND cache_expires_at>now()),error_code=$5,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 RETURNING using_cached_data,error_code
-		) SELECT previous.using_cached_data IS DISTINCT FROM updated.using_cached_data OR (previous.error_code IS NULL) IS DISTINCT FROM (updated.error_code IS NULL) FROM previous,updated`, dataSourceID, next, diagnostics.HTTPResultCategory, diagnostics.ParseStatus, code).Scan(&playerDataChanged)
-		return playerDataChanged, err
+			UPDATE data_source_refresh_states SET next_refresh_at=$2,http_result_category=$3,parse_status=$4,using_cached_data=(cache_updated_at IS NOT NULL AND cache_expires_at>now()),error_code=$5,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE data_source_id=$1 AND locked_by=$6 AND locked_at=$7 RETURNING using_cached_data,error_code
+		) SELECT previous.using_cached_data IS DISTINCT FROM updated.using_cached_data OR (previous.error_code IS NULL) IS DISTINCT FROM (updated.error_code IS NULL) FROM previous,updated`, dataSourceID, next, diagnostics.HTTPResultCategory, diagnostics.ParseStatus, code, claim.workerID, claim.lockedAt).Scan(&playerDataChanged)
+		return discardSupersededRefresh(playerDataChanged, err)
 	})
 }
 

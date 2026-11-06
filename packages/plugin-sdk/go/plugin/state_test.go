@@ -77,9 +77,36 @@ func TestEncodePlayerStateRefusesUndeclaredOrUnboundedState(t *testing.T) {
 		"duplicate id":       {{ID: id, Type: "sample_notice", Version: 1, State: map[string]any{}}, {ID: id, Type: "sample_notice", Version: 1, State: map[string]any{}}},
 		"too long valid":     {{ID: uuid.New(), Type: "sample_notice", Version: 1, State: map[string]any{}, ValidUntil: &far}},
 		"empty media":        {{ID: uuid.New(), Type: "sample_notice", Version: 1, State: map[string]any{}, Media: []MediaRef{{}}}},
+		"empty font":         {{ID: uuid.New(), Type: "sample_notice", Version: 1, State: map[string]any{}, Fonts: []uuid.UUID{uuid.Nil}}},
+		"too many fonts": {{ID: uuid.New(), Type: "sample_notice", Version: 1, State: map[string]any{},
+			Fonts: []uuid.UUID{uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()}}},
 	} {
 		if _, err := EncodePlayerState(m, states, now); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
+	}
+}
+
+func TestEncodePlayerStateDeclaresFontFamiliesOnce(t *testing.T) {
+	m := v2Manifest(t)
+	font := uuid.New()
+	entries, err := EncodePlayerState(m, []PlayerState{{
+		ID: uuid.New(), Type: "sample_notice", Version: 1, State: map[string]any{},
+		Fonts: []uuid.UUID{font, font},
+	}, {
+		ID: uuid.New(), Type: "sample_notice", Version: 1, State: map[string]any{},
+	}}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries[0].Fonts) != 1 || entries[0].Fonts[0].ID != font {
+		t.Fatalf("a repeated family must be declared once: %+v", entries[0].Fonts)
+	}
+	encoded, err := json.Marshal(entries[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), `"fonts"`) {
+		t.Fatalf("an entry without fonts must not carry the key: %s", encoded)
 	}
 }

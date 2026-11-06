@@ -38,6 +38,7 @@ object RendererProfile {
     const val PLUGIN_HOST_VERSION = 2
     val SHARED_RUNTIME_PLAYER_SERVICES: Map<String, Int> = linkedMapOf(
         "player.clock" to 1,
+        "player.fonts" to 1,
         "player.media" to 1,
         "player.presentation.observe" to 1,
         "player.presentation.provide" to 1,

@@ -282,6 +282,72 @@ func TestActivateReplacesActiveTakeover(t *testing.T) {
 	}
 }
 
+// Overlapping activations in concurrent transactions are serialized: the later
+// one waits for the earlier commit, then replaces it, so only one takeover
+// stays active on the screen even when the older one expires later.
+func TestConcurrentActivationsReplaceEachOther(t *testing.T) {
+	f := newTakeoverFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	targets := plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}}
+	request := func(activatedAt, expiresAt time.Time) plugin.TakeoverRequest {
+		return plugin.TakeoverRequest{
+			Name: "Drill", Description: "Drill", PlaylistID: f.playlist, Targets: targets,
+			ActivatedBy: f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
+			AuditAction: "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
+		}
+	}
+	txOlder, err := f.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer txOlder.Rollback(ctx) //nolint:errcheck
+	older, _, err := f.service.ActivateInTx(ctx, txOlder, request(now, now.Add(3*time.Hour)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	type outcome struct {
+		result plugin.TakeoverResult
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		tx, err := f.pool.Begin(ctx)
+		if err != nil {
+			done <- outcome{err: err}
+			return
+		}
+		defer tx.Rollback(ctx) //nolint:errcheck
+		result, _, err := f.service.ActivateInTx(ctx, tx, request(now.Add(time.Minute), now.Add(time.Hour)))
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
+		done <- outcome{result: result, err: err}
+	}()
+	select {
+	case got := <-done:
+		t.Fatalf("second activation finished before the first committed: %+v", got)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err = txOlder.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got := <-done
+	if got.err != nil {
+		t.Fatal(got.err)
+	}
+	var olderStatus, newerStatus string
+	if err = f.pool.QueryRow(ctx, `SELECT status FROM takeovers WHERE id=$1`, older.ID).Scan(&olderStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.pool.QueryRow(ctx, `SELECT status FROM takeovers WHERE id=$1`, got.result.ID).Scan(&newerStatus); err != nil {
+		t.Fatal(err)
+	}
+	if olderStatus != "cancelled" || newerStatus != "active" {
+		t.Fatalf("older=%q newer=%q, want cancelled and active", olderStatus, newerStatus)
+	}
+}
+
 // A replacement retires the old takeover's states on screens outside the new
 // activation too: those screens return to normal playback, their manifests
 // are revised, and their players are notified.
