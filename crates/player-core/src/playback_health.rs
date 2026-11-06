@@ -38,6 +38,8 @@ pub struct HealthTolerances {
     pub video_progress_ms: i64,
     /// An item must produce its first render within this long.
     pub first_render_ms: i64,
+    /// A Website or Widget must produce its first render within this long.
+    pub website_first_render_ms: i64,
     /// A Layout zone must produce its owed evidence at least this often.
     pub layout_zone_ms: i64,
     /// Indefinite content only has to show the renderer still answers.
@@ -49,6 +51,7 @@ impl Default for HealthTolerances {
         Self {
             video_progress_ms: 20_000,
             first_render_ms: 90_000,
+            website_first_render_ms: 90_000,
             layout_zone_ms: 5 * 60_000,
             renderer_health_ms: 10 * 60_000,
         }
@@ -185,6 +188,16 @@ impl PlaybackHealthTracker {
         self.item.as_ref().map(|item| (item.item_id.as_str(), item.expectation))
     }
 
+    /// Whether the item on screen is a Website or Widget that has not rendered
+    /// yet and is still inside its first-render budget.
+    pub fn awaiting_website_first_render(&self, now_ms: i64, tolerances: &HealthTolerances) -> bool {
+        self.item.as_ref().is_some_and(|item| {
+            item.expectation == Expectation::Website
+                && !item.rendered
+                && now_ms - item.started_at_ms <= tolerances.website_first_render_ms
+        })
+    }
+
     /// Applies one report. Returns whether it concerns the item on screen; a
     /// late report for an item that already left is ignored entirely.
     pub fn record(
@@ -283,8 +296,13 @@ impl PlaybackHealthTracker {
                 }
             }
             // One first render, then the content may legitimately sit still.
-            Expectation::Still | Expectation::Website => {
+            Expectation::Still => {
                 if !item.rendered && since_start > tolerances.first_render_ms {
+                    return item.stall(StallReason::NeverRendered, item.started_at_ms, None);
+                }
+            }
+            Expectation::Website => {
+                if !item.rendered && since_start > tolerances.website_first_render_ms {
                     return item.stall(StallReason::NeverRendered, item.started_at_ms, None);
                 }
             }

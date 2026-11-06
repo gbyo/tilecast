@@ -951,6 +951,7 @@ impl PresentationEngine {
             supervisor.ladder_run_window_ms = reliability.ladder_run_window_ms;
             supervisor.max_ladder_runs_before_safe_mode = reliability.max_ladder_runs_before_safe_mode;
             supervisor.safe_mode_enabled = reliability.safe_mode_enabled;
+            supervisor.website_first_render_ms = reliability.website_first_render_ms;
         }
         self.native.set_config(supervisor);
         self.configure.kiosk.prevent_display_sleep =
