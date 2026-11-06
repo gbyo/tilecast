@@ -1,22 +1,22 @@
 ---
 title: Edge capability matrix
-description: Compare Tilecast Edge with the stable Linux Player, feature by feature, including what still needs hardware qualification.
+description: Compare Tilecast Edge with the AppImage Player, feature by feature, including which features depend on your hardware.
 ---
 
 import { Badge } from "@astrojs/starlight/components";
 
-The Edge column shows what the Edge software does today. Every Edge feature still needs qualification on physical hardware before a Tilecast release supports it on production screens.
+The Edge column shows what Edge does today.
 
 - <Badge text="Implemented" variant="success" /> The Edge software does it, and
   automated tests cover it.
 - <Badge text="Hardware dependent" variant="caution" /> The software is
   implemented, but whether it works depends on the connected display, adapter,
-  or audio device. It isn't tested on real hardware yet.
+  or audio device.
 - <Badge text="Not available" variant="note" /> Edge doesn't do it today.
 
-| Capability                                                 | Stable Linux Player                       | Edge                                                                                                                      |
+| Capability                                                 | AppImage Player                           | Edge                                                                                                                      |
 | ---------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Images and downloaded video                                | Supported                                 | <Badge text="Implemented" variant="success" /> Codecs and hardware decoding still need hardware testing                   |
+| Images and downloaded video                                | Supported                                 | <Badge text="Implemented" variant="success" /> Codecs and hardware decoding depend on your hardware                       |
 | Native Widgets, Layouts, and playlist zones                | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
 | Schedules, Quick Present, and Takeover                     | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
 | Synchronized Display Groups                                | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
@@ -37,7 +37,7 @@ When a newer presentation needs something Edge can't show, Edge keeps playing th
 
 `tilecastctl capabilities` on the Edge computer lists each hardware feature with its current state and a reason, such as a missing adapter or a display that doesn't respond. Use it to confirm the renderer/display capability, Display Control providers, network providers, and other host features that Edge can probe.
 
-A capability report is not a decoder benchmark. Tilecast does not currently report a trustworthy per-video flag that proves a displayed frame used VA-API or another hardware decoder instead of software decoding. If playback smoothness or CPU load matters, qualify the exact device with the target media and watch Player health while it runs. Do not infer hardware decoding only from a GPU model name.
+A capability report is not a decoder benchmark. Tilecast does not currently report a trustworthy per-video flag that proves a displayed frame used VA-API or another hardware decoder instead of software decoding. If playback smoothness or CPU load matters, test the exact device with the target media and watch Player health while it runs. Do not infer hardware decoding only from a GPU model name.
 
 The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) has the full list of states, reasons, and tests.
 

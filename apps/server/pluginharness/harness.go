@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
@@ -199,6 +200,48 @@ func (h *Harness) Manifest(screenID uuid.UUID) []plugin.ManifestEntry {
 		h.t.Fatal(err)
 	}
 	return entries
+}
+
+// PlayerState projects the plugin's Plugin API v2 Player state for one
+// screen through the host, as a Player that hosts Plugin API v2 and every
+// Shared Runtime service receives it.
+func (h *Harness) PlayerState(screenID uuid.UUID) []plugin.PlayerStateEntry {
+	h.t.Helper()
+	reported := map[string]int{plugin.PlayerPluginHostCapability: plugin.PlayerPluginHostVersion}
+	for _, service := range plugin.PlayerServices {
+		if service.Execution == plugin.ServiceRuntime {
+			reported[service.Name] = service.Version
+		}
+	}
+	entries, err := h.service.PlayerStateForScreen(h.Ctx, screenID, reported)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return entries
+}
+
+// Font adds an organization font library family and returns its ID. The
+// family has no faces: it is enough for a plugin to record its use.
+func (h *Harness) Font(name string) uuid.UUID {
+	h.t.Helper()
+	id := uuid.New()
+	h.exec(`INSERT INTO font_families(id,organization_id,family,source,created_by) VALUES($1,$2,$3,'upload',$4)`, id, h.OrgID, name, h.OwnerID)
+	return id
+}
+
+// FontUsers lists the labels of the plugin instances that use a family, as
+// the font library shows them when a person tries to remove it.
+func (h *Harness) FontUsers(fontID uuid.UUID) []string {
+	h.t.Helper()
+	rows, err := h.Pool.Query(h.Ctx, `SELECT label FROM font_references WHERE plugin_id=$1 AND font_id=$2 ORDER BY label`, h.id, fontID)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	labels, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return labels
 }
 
 // ScreenOption adjusts a screen before it is created.

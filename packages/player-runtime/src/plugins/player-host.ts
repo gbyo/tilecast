@@ -32,6 +32,7 @@ import {
   isPluginStateEntry,
   MAX_STATE_ENTRIES,
   parseStateEntry,
+  parseV1Entry,
   type RoutedState,
 } from "./state";
 
@@ -48,6 +49,11 @@ export type PlayerPluginStatus =
 
 export interface PlayerPluginHostOptions {
   clock: RuntimeClock;
+  /**
+   * The host forwards Plugin API v2 `plugin_state` entries. Without it the
+   * Player Plugin Host still runs plugins from their declared v1 entries.
+   */
+  pluginState: boolean;
   plugins: readonly DiscoveredPlayerPlugin[];
   services: PlayerServiceRegistry;
   diagnostic(pluginId: string, message: string): void;
@@ -89,8 +95,21 @@ export class PlayerPluginHost {
   private stopped = false;
   private readonly diagnostics: string[] = [];
   private readonly unsubscribe: () => void;
+  /** v1 entry type to the v2 plugin that consumes it. */
+  private readonly v1Owners = new Map<
+    string,
+    { id: string; definitionVersion: number }
+  >();
 
   constructor(private readonly options: PlayerPluginHostOptions) {
+    for (const { declaration } of options.plugins) {
+      for (const type of declaration.v1Types) {
+        this.v1Owners.set(type, {
+          id: declaration.id,
+          definitionVersion: declaration.definitionVersion,
+        });
+      }
+    }
     this.timers = new TimerGroup(options.clock);
     this.hosted = options.plugins.map((plugin) => ({
       plugin,
@@ -109,8 +128,10 @@ export class PlayerPluginHost {
   }
 
   /**
-   * A complete plugins snapshot arrived. Only `plugin_state` entries are
-   * read; v1 and external entries belong to the surface host.
+   * A complete plugins snapshot arrived. The host reads `plugin_state`
+   * entries when the host forwards them, and the v1 entry types that a v2
+   * plugin declares in `v1ManifestTypes`. Every other entry belongs to the
+   * surface host.
    */
   setState(entries: readonly unknown[], clockOffsetMs: number): void {
     if (this.stopped) return;
@@ -119,8 +140,17 @@ export class PlayerPluginHost {
     const routed: RoutedState[] = [];
     const seen = new Set<string>();
     for (const value of Array.isArray(entries) ? entries : []) {
-      if (!isPluginStateEntry(value)) continue;
-      const parsed = parseStateEntry(value, now);
+      let parsed: RoutedState | string | null = null;
+      if (isPluginStateEntry(value)) {
+        if (!this.options.pluginState) continue;
+        parsed = parseStateEntry(value, now);
+      } else {
+        const type = (value as { type?: unknown } | null)?.type;
+        const owner =
+          typeof type === "string" ? this.v1Owners.get(type) : undefined;
+        if (!owner) continue;
+        parsed = parseV1Entry(value, owner.id, owner.definitionVersion);
+      }
       if (typeof parsed === "string") {
         if (parsed !== "expired") this.report("plugin_state", parsed);
         continue;
@@ -200,9 +230,11 @@ export class PlayerPluginHost {
           (routed) =>
             routed.plugin === declaration.id &&
             (routed.validUntilMs === null || routed.validUntilMs > now) &&
-            declaration.state.has(
-              `${routed.entry.type}@${routed.entry.version}`,
-            ),
+            (routed.v1
+              ? declaration.v1Types.has(routed.entry.type)
+              : declaration.state.has(
+                  `${routed.entry.type}@${routed.entry.version}`,
+                )),
         )
         .map((routed) => routed.entry);
       hosted.entries = entries;

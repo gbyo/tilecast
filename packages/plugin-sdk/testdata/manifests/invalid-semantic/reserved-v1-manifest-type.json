@@ -1,0 +1,33 @@
+{
+  "apiVersion": 2,
+  "id": "legacy_notice",
+  "definitionVersion": 1,
+  "name": "Ambient Audio",
+  "description": "Player behavior without a visual surface.",
+  "category": "Display",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "player": {
+    "state": [
+      {
+        "type": "legacy_notice",
+        "version": 1
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.clock@1", "player.media@1"],
+        "optional": ["player.presentation.observe@1"]
+      }
+    },
+    "v1ManifestTypes": ["plugin_state"]
+  }
+}

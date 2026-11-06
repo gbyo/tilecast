@@ -1655,25 +1655,55 @@ export function ScreenListContent({
   };
   const changeSelectedLocation = async () => {
     const chosen = bulkLocation || undefined;
-    await Promise.all(
-      screens
-        .filter((screen) => selected.has(screen.id))
-        .map((screen) =>
-          api.updateScreen(
-            screen.id,
-            {
-              name: screen.name,
-              description: screen.description,
-              locationId: chosen,
-              roomName: screen.roomName ?? "",
-              roomNumber: screen.roomNumber ?? "",
-            },
-            csrfToken,
-          ),
+    const targets = screens.filter((screen) => selected.has(screen.id));
+    const results = await Promise.allSettled(
+      targets.map((screen) =>
+        api.updateScreen(
+          screen.id,
+          {
+            name: screen.name,
+            description: screen.description,
+            locationId: chosen,
+            roomName: screen.roomName ?? "",
+            roomNumber: screen.roomNumber ?? "",
+          },
+          csrfToken,
         ),
+      ),
     );
-    setSelected(new Set());
-    await onRefresh?.();
+    const failedIds = new Set(
+      targets
+        .filter((_, index) => results[index]?.status === "rejected")
+        .map((screen) => screen.id),
+    );
+    // Screens that moved are already changed on the server, so refresh the
+    // list even when some requests failed and keep only the failures selected.
+    setSelected(failedIds);
+    try {
+      await onRefresh?.();
+    } catch {
+      // The notice below still reports the batch result.
+    }
+    const moved = targets.length - failedIds.size;
+    if (failedIds.size === 0) {
+      toast.add({
+        title: t("list.moveSuccess", { count: moved }),
+        type: "success",
+      });
+    } else if (moved === 0) {
+      toast.add({
+        title: t("list.moveFailed", { count: failedIds.size }),
+        type: "error",
+      });
+    } else {
+      toast.add({
+        title: t("list.movePartial", {
+          moved,
+          total: targets.length,
+        }),
+        type: "warning",
+      });
+    }
   };
   if (loading)
     return (

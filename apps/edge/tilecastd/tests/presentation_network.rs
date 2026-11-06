@@ -146,6 +146,22 @@ impl Provisioner for FakeServer {
     }
 }
 
+/// A server whose credential endpoint can be switched off.
+struct FlakyServer {
+    inner: FakeServer,
+    down: std::sync::atomic::AtomicBool,
+}
+
+#[async_trait]
+impl Provisioner for FlakyServer {
+    async fn provisioning(&self) -> Result<NetworkProvisioning, String> {
+        if self.down.load(Ordering::SeqCst) {
+            return Err("The Tilecast Server is not reachable.".to_owned());
+        }
+        self.inner.provisioning().await
+    }
+}
+
 fn assigned(revision: i64) -> Value {
     json!({"assigned": true, "presentationNetworkId": NETWORK, "name": "Library AV", "ssid": "Library-AV",
         "hidden": false, "security": "wpa_psk", "configRevision": revision, "credentialAvailable": true})
@@ -258,4 +274,62 @@ async fn a_connection_left_by_a_crash_is_taken_down_at_start() {
     let state = nmcli_state(&helper);
     assert_eq!(state["active"], json!([]));
     assert_eq!(state["radio"], "disabled");
+}
+
+#[tokio::test]
+async fn a_transient_credential_failure_is_retried_without_a_new_configuration() {
+    let dir = tempfile::tempdir().unwrap();
+    let helper = start_helper(dir.path()).await;
+    let network = PresentationNetwork::new(HelperClient::new(&helper.socket), None);
+    let server = FlakyServer { inner: FakeServer::default(), down: true.into() };
+    *server.inner.revision.lock().unwrap() = 3;
+
+    // Nothing to retry before an assignment exists.
+    assert!(!network.provisioning_retry_pending().await);
+    network.retry_provisioning(&server, now()).await;
+    assert_eq!(network.status().1.state, "unassigned");
+
+    network.apply_configuration(Some(&assigned(3)), &server, now()).await;
+    let (_, status) = network.status();
+    assert_eq!((status.state, status.failure_code), ("failed", Some("credential_unavailable")), "{status:?}");
+    assert!(network.provisioning_retry_pending().await);
+    assert!(!keyfile(&helper).exists());
+
+    // Still down: the retry stays pending.
+    network.retry_provisioning(&server, now()).await;
+    assert!(network.provisioning_retry_pending().await);
+
+    // The server recovers; the same assignment provisions with no new revision.
+    server.down.store(false, Ordering::SeqCst);
+    network.retry_provisioning(&server, now()).await;
+    let (_, status) = network.status();
+    assert_eq!(status.state, "provisioned", "{status:?}");
+    assert_eq!(status.installed_revision, Some(3));
+    assert!(keyfile(&helper).exists());
+    assert!(!network.provisioning_retry_pending().await);
+
+    // A settled assignment is not reconciled again.
+    let calls = server.inner.calls.load(Ordering::SeqCst);
+    network.retry_provisioning(&server, now()).await;
+    assert_eq!(server.inner.calls.load(Ordering::SeqCst), calls);
+}
+
+#[tokio::test]
+async fn a_helper_that_appears_after_the_assignment_is_provisioned_by_the_retry() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("run/networkd.sock");
+    let network = PresentationNetwork::new(HelperClient::new(&socket), None);
+    let server = FakeServer::default();
+    *server.revision.lock().unwrap() = 2;
+
+    network.apply_configuration(Some(&assigned(2)), &server, now()).await;
+    let (_, status) = network.status();
+    assert_eq!((status.state, status.failure_code), ("unsupported", Some("helper_unavailable")), "{status:?}");
+    assert!(network.provisioning_retry_pending().await);
+
+    let helper = start_helper(dir.path()).await;
+    assert_eq!(helper.socket, socket);
+    network.retry_provisioning(&server, now()).await;
+    assert_eq!(network.status().1.state, "provisioned");
+    assert!(keyfile(&helper).exists());
 }

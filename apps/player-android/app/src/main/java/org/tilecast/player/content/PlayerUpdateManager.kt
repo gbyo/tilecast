@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
@@ -20,6 +21,7 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.tilecast.player.BuildConfig
 import org.tilecast.player.UpdateInstallReceiver
+import org.tilecast.player.network.ApiException
 import org.tilecast.player.network.PlayerCommand
 import org.tilecast.player.network.PlayerUpdateMetadata
 import org.tilecast.player.network.TilecastApi
@@ -55,6 +57,23 @@ object PlayerUpdateVerifier {
 object PlayerUpdateInstallPolicy {
     fun canRequestUnattended(sdk:Int):Boolean=sdk>=Build.VERSION_CODES.S
 }
+
+/** The state of a verified update whose installation waits for Takeover playback to end. */
+internal fun takeoverDelayedState(state:UpdateUiState,now:Instant):UpdateUiState =
+    state.copy(state="ready",message="Installation delayed by takeover playback",permissionRequired=false,installReady=true,maintenanceAt=now.toString())
+
+internal enum class ScheduledInstallGate { Proceed, Cancelled }
+
+/**
+ * Only the server's explicit cancelled-or-complete answer stops a scheduled install.
+ * An unreachable server must not block a maintenance-window install on an offline Player.
+ */
+internal suspend fun gateScheduledInstall(report:suspend()->Unit):ScheduledInstallGate =
+    try{report();ScheduledInstallGate.Proceed}
+    catch(error:CancellationException){throw error}
+    catch(error:Exception){
+        if(error is ApiException&&error.status==409&&error.code=="update_deployment_cancelled")ScheduledInstallGate.Cancelled else ScheduledInstallGate.Proceed
+    }
 
 internal fun stagedArtifactName(releaseId:String,artifactId:String):String {
     val release = releaseId.replace(Regex("[^A-Za-z0-9._-]"), "_")
@@ -137,28 +156,73 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
 
     fun openPermissionSettings(){app.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}
     /** Folds installer results and permission grants into the persisted state and reports the outcome. */
-    suspend fun refreshPermission(server:String?,credential:String?,state:UpdateUiState):UpdateUiState{
-        val changed=installerFailure(state)?:permissionGranted(state)?:return state
+    suspend fun refreshPermission(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState{
+        val changed=installerFailure(state)?:permissionGranted(server,credential,state,takeoverActive)?:return state
         if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,changed.deploymentId,changed.state,changed.downloadedBytes,if(changed.permissionRequired)"required" else "granted",error=if(changed.state=="failed")changed.errorCode?:"installer_failed" else "")}
         return changed
     }
-    /** Starts the system installer for a ready update and reports the handoff. Null when the installer refused to start. */
-    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState):UpdateUiState?{
+    /**
+     * Starts the system installer for a ready update and reports the handoff. Null when the installer refused to start.
+     * Takeover can begin after the update reached its approval screen, so it is checked again here;
+     * the update then waits for Takeover to end and asks for approval again.
+     */
+    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState?{
+        if(takeoverActive()){
+            val delayed=delayForTakeover(server,credential,state,takeoverActive)
+            if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"ready",state.downloadedBytes,"granted","delayed_by_takeover")}
+            return delayed
+        }
         if(!install(state))return null
         val installing=state.copy(state="installing",message="Complete installation in the Android prompt")
         persist(installing)
         if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"installing",state.downloadedBytes,"granted","system_installer_started")}
         return installing
     }
-    fun permissionGranted(state:UpdateUiState):UpdateUiState? {
+    private fun delayForTakeover(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState{
+        val delayed=takeoverDelayedState(state,Instant.now())
+        app.getSharedPreferences("tilecast-reliability",Application.MODE_PRIVATE).edit().putBoolean("update-active",false).apply()
+        persist(delayed)
+        if(server!=null&&credential!=null)scheduleMaintenance(server,credential,delayed,takeoverActive){}
+        return delayed
+    }
+    fun permissionGranted(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState? {
         if((Build.VERSION.SDK_INT>=26&&!app.packageManager.canRequestPackageInstalls())||!state.permissionRequired)return null
+        if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT)&&takeoverActive())return delayForTakeover(server,credential,state,takeoverActive)
         val next=if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT))state.copy(state="installing",message="Installing verified player update",permissionRequired=false,installReady=false) else state.copy(state="waiting_for_user",message="This Android version requires local installer approval",permissionRequired=false,installReady=true)
         persist(next)
         return if(next.state=="installing"&&!install(next))next.copy(state="failed",message="Android could not start the installer",errorCode="installer_session_failed").also(::persist) else next
     }
     fun installerFailure(state:UpdateUiState):UpdateUiState?{val result=store.getString("installer-result",null)?:return null;store.edit().remove("installer-result").apply();return when(result){"success"->null;"installer_confirmation_required"->state.copy(state="waiting_for_user",message="Android requires local installer approval on this device",permissionRequired=false,installReady=true,errorCode=null).also(::persist);else->state.copy(state="failed",message="Android did not install the update: ${result.replace('_',' ')}",permissionRequired=false,installReady=true,errorCode=result).also(::persist)}}
     fun resumeMaintenance(server:String,credential:String,state:UpdateUiState,takeoverActive:()->Boolean,onState:(UpdateUiState)->Unit){if(state.state=="ready"&&state.maintenanceAt!=null)scheduleMaintenance(server,credential,state,takeoverActive,onState)}
-    private fun scheduleMaintenance(server:String,credential:String,state:UpdateUiState,takeoverActive:()->Boolean,onState:(UpdateUiState)->Unit){if(maintenanceJob?.isActive==true)return;maintenanceJob=scope.launch{delay(java.time.Duration.between(Instant.now(),Instant.parse(state.maintenanceAt)).toMillis().coerceAtLeast(0));while(takeoverActive()){delay(30_000)};val permissionRequired=Build.VERSION.SDK_INT>=26&&!app.packageManager.canRequestPackageInstalls();val unattended=!permissionRequired&&PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT);var next=state.copy(state=if(permissionRequired)"waiting_for_permission" else if(unattended)"installing" else "waiting_for_user",message=if(permissionRequired)"Allow Tilecast Player to install updates" else if(unattended)"Installing verified player update" else "This Android version requires local installer approval",permissionRequired=permissionRequired,installReady=!permissionRequired&&!unattended);persist(next);onState(next);if(unattended&&!install(next)){next=next.copy(state="failed",message="Android could not start the installer",errorCode="installer_session_failed");persist(next);onState(next)};runCatching{api.updateStatus(server,credential,next.deploymentId,next.state,next.downloadedBytes,if(permissionRequired)"required" else "granted",installerStatus=if(unattended)"unattended_install_requested" else "maintenance_window_reached",error=next.errorCode?:"")}}}
+    private fun scheduleMaintenance(server:String,credential:String,state:UpdateUiState,takeoverActive:()->Boolean,onState:(UpdateUiState)->Unit){
+        if(maintenanceJob?.isActive==true)return
+        maintenanceJob=scope.launch{
+            delay(java.time.Duration.between(Instant.now(),Instant.parse(state.maintenanceAt)).toMillis().coerceAtLeast(0))
+            while(takeoverActive()){delay(30_000)}
+            val permissionRequired=Build.VERSION.SDK_INT>=26&&!app.packageManager.canRequestPackageInstalls()
+            val unattended=!permissionRequired&&PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT)
+            var next=state.copy(state=if(permissionRequired)"waiting_for_permission" else if(unattended)"installing" else "waiting_for_user",message=if(permissionRequired)"Allow Tilecast Player to install updates" else if(unattended)"Installing verified player update" else "This Android version requires local installer approval",permissionRequired=permissionRequired,installReady=!permissionRequired&&!unattended)
+            val permissionStatus=if(permissionRequired)"required" else "granted"
+            val installerStatus=if(unattended)"unattended_install_requested" else "maintenance_window_reached"
+            // The wait can outlast the deployment. The server refuses reports for a cancelled
+            // target, so report first and install only if the deployment is still live.
+            val gate=gateScheduledInstall{api.updateStatus(server,credential,next.deploymentId,next.state,next.downloadedBytes,permissionStatus,installerStatus)}
+            if(gate==ScheduledInstallGate.Cancelled){discardCancelled(state,onState);return@launch}
+            persist(next);onState(next)
+            if(unattended&&!install(next)){
+                next=next.copy(state="failed",message="Android could not start the installer",errorCode="installer_session_failed")
+                persist(next);onState(next)
+                runCatching{api.updateStatus(server,credential,next.deploymentId,next.state,next.downloadedBytes,permissionStatus,installerStatus,next.errorCode?:"")}
+            }
+        }
+    }
+
+    /** Drops a deployment the server cancelled while the update was waiting locally. */
+    private fun discardCancelled(state:UpdateUiState,onState:(UpdateUiState)->Unit){
+        state.exactPath?.let{runCatching{File(it).delete()}}
+        store.edit().clear().apply()
+        onState(state.copy(state="cancelled",message="Update deployment was cancelled",installReady=false,permissionRequired=false,maintenanceAt=null))
+    }
     fun install(state:UpdateUiState):Boolean{
         val persisted=state.exactPath?.let(::File)?:return false
         val apk=if(!state.releaseId.isNullOrBlank()&&!state.artifactId.isNullOrBlank()){
