@@ -8,10 +8,6 @@ pub async fn run(context: Arc<crate::daemon::DaemonContext>) {
     let coordinator = core
         .commands(crate::command_handlers::DaemonHandlers::new(&context))
         .with_hold(|| std::path::Path::new(edge_platform::paths::MIGRATION_PROBATION_FILE).exists());
-    if let Err(error) = coordinator.recover().await {
-        tracing::error!(component = "commands", event = "recovery_failed", reason = error.reason_code());
-        return;
-    }
     let server = context.command_server.subscribe();
     let mut held = false;
     core.run_commands(&coordinator, server, &context.command_wake, &context.shutdown, |outcome| {
