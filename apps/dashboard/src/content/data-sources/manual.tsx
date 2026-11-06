@@ -642,10 +642,7 @@ export function ManualDataSourceEditor({
           )}
         </Field>
       )}
-      <fieldset
-        className="grid gap-3"
-        hidden={entryMode === "list"}
-      >
+      <fieldset className={entryMode === "list" ? "hidden" : "grid gap-3"}>
         <legend className="text-sm font-medium">
           {t("dataSources.manual.dateAware")}
         </legend>
