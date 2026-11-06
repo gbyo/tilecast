@@ -578,7 +578,11 @@ fn break_command_store(path: &std::path::Path, broken: bool) {
     let (from, to) =
         if broken { ("player_commands", "player_commands_off") } else { ("player_commands_off", "player_commands") };
     let db = StateDb::open(path, OpenOptions::default()).unwrap();
-    db.run_blocking(move |c| Ok(c.execute_batch(&format!("ALTER TABLE {from} RENAME TO {to}")).unwrap())).unwrap();
+    db.run_blocking(move |c| {
+        c.execute_batch(&format!("ALTER TABLE {from} RENAME TO {to}")).unwrap();
+        Ok(())
+    })
+    .unwrap();
 }
 
 #[tokio::test(start_paused = true)]
