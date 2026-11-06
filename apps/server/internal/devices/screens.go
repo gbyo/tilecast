@@ -25,8 +25,8 @@ SELECT s.id,s.name,s.description,COALESCE(l.name,''),s.location_id,s.room_name,s
        s.last_connected_at,s.last_disconnected_at,s.last_heartbeat_at,host(s.last_known_ip),s.created_at,s.updated_at,
        EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL),
        s.archived_at,s.archived_reason,
-       sg.id,sg.name,COALESCE(p.name,ly.name),
-       CASE WHEN p.id IS NOT NULL THEN 'playlist' WHEN ly.id IS NOT NULL THEN 'presentation' END,
+       sg.id,sg.name,COALESCE(tp.name,p.name,ly.name),
+       CASE WHEN tp.id IS NOT NULL OR p.id IS NOT NULL THEN 'playlist' WHEN ly.id IS NOT NULL THEN 'presentation' END,
        ps.player_version_code,ps.android_sdk,ps.installer_source,ps.install_permission_status,ps.current_update_deployment_id,ps.update_state,ps.update_downloaded_bytes,ps.update_expected_bytes,ps.update_error,
        ps.player_family,ps.player_architecture,
        EXISTS(SELECT 1 FROM browser_player_slots bp WHERE bp.screen_id=s.id AND bp.active_binding_epoch=0)
@@ -36,6 +36,20 @@ LEFT JOIN screen_group_memberships gm ON gm.screen_id=s.id
 LEFT JOIN screen_groups sg ON sg.id=gm.screen_group_id
 LEFT JOIN screen_playlist_assignments sa ON sa.screen_id=s.id
 LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=sg.id
+LEFT JOIN LATERAL (
+       SELECT e.playlist_id
+       FROM takeovers e
+       JOIN takeover_screen_states es ON es.takeover_id=e.id
+       WHERE es.screen_id=s.id
+         AND e.status='active'
+         AND e.activated_at IS NOT NULL
+         AND e.activated_at<=now()
+         AND e.expires_at>now()
+         AND es.state NOT IN ('restored','cancelled','expired')
+       ORDER BY e.activated_at DESC,e.id DESC
+       LIMIT 1
+) active_takeover ON TRUE
+LEFT JOIN playlists tp ON tp.id=active_takeover.playlist_id
 LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,sa.playlist_id)
 LEFT JOIN layouts ly ON ly.id=COALESCE(ga.layout_id,sa.layout_id)
 LEFT JOIN screen_player_status ps ON ps.screen_id=s.id`
@@ -151,7 +165,8 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var previousLocation *uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT location_id FROM screens WHERE id=$1 AND archived_at IS NULL FOR UPDATE`, id).Scan(&previousLocation); errors.Is(err, pgx.ErrNoRows) {
+	var previousRoomName, previousRoomNumber string
+	if err := tx.QueryRow(ctx, `SELECT location_id,room_name,room_number FROM screens WHERE id=$1 AND archived_at IS NULL FOR UPDATE`, id).Scan(&previousLocation, &previousRoomName, &previousRoomNumber); errors.Is(err, pgx.ErrNoRows) {
 		return Screen{}, ErrNotFound
 	} else if err != nil {
 		return Screen{}, err
@@ -187,11 +202,22 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 			return Screen{}, err
 		}
 	}
+	// Player configuration carries the derived screen location, so a new
+	// location or room needs a newer configuration revision.
+	var configRevision int64
+	if locationChanged || previousRoomName != roomName || previousRoomNumber != roomNumber {
+		if err := tx.QueryRow(ctx, `UPDATE screen_config_state SET config_revision=config_revision+1,changed_at=now(),change_reason='screen.location_changed' WHERE screen_id=$1 RETURNING config_revision`, id).Scan(&configRevision); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return Screen{}, fmt.Errorf("advance screen configuration: %w", err)
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Screen{}, err
 	}
 	for _, change := range changes {
 		s.ManifestChanged(change.ScreenID, change.Version)
+	}
+	if configRevision > 0 {
+		s.ConfigChanged(id, configRevision)
 	}
 	return s.GetScreen(ctx, id)
 }

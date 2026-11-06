@@ -273,6 +273,17 @@ describe("settings presentation", () => {
         "power.outside_active_hours_display": "custom_text",
       }),
     ).toEqual({ disabled: false });
+    expect(
+      dependencyState("power.outside_active_hours_wake_animation", {
+        "power.active_hours_enabled": false,
+      }),
+    ).toMatchObject({ disabled: true });
+    expect(
+      dependencyState("power.outside_active_hours_wake_animation", {
+        "power.active_hours_enabled": true,
+        "power.outside_active_hours_display": "black",
+      }),
+    ).toEqual({ disabled: false });
     const groups = groupsFor("playback", [
       definition({
         key: "player.cache.max_bytes",

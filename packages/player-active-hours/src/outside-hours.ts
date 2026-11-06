@@ -12,6 +12,8 @@ export interface OutsideActiveHoursPresentation {
   display: OutsideActiveHoursDisplay;
   text: string;
   textColor: string;
+  /** Play the startup animation when active hours begin. */
+  wakeAnimation: boolean;
 }
 
 interface ConfigurationSections {
@@ -25,7 +27,8 @@ function trimmed(value: unknown): string {
 
 /**
  * Unknown or missing modes fail safely to true black, and the text falls
- * back to the branding footer and then to the product line.
+ * back to the branding footer and then to the product line. The wake
+ * animation is on unless the configuration is exactly `false`.
  */
 export function buildOutsideActiveHoursPresentation(
   config: ConfigurationSections | null | undefined,
@@ -45,5 +48,6 @@ export function buildOutsideActiveHoursPresentation(
       trimmed(branding["footerText"]) ||
       "Powered by Tilecast",
     textColor: trimmed(branding["textColor"]) || "#F5F7FA",
+    wakeAnimation: power["outsideActiveHoursWakeAnimation"] !== false,
   };
 }

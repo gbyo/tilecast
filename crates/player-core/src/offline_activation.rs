@@ -1,15 +1,67 @@
 //! Binding-scoped offline manifests, trial evidence, promotion, and pin lifetime.
+//!
+//! An activation trial shows the pending manifest and promotes it only after
+//! the current renderer accepted exactly that activation and reported content
+//! evidence for it. Core owns the trial outcome durably:
+//!
+//! * the trial is recorded as running before the host shows the manifest, so
+//!   a process that ends during it without an orderly shutdown counts the
+//!   trial as failed after a restart;
+//! * a failed trial holds the manifest back on a bounded backoff, then tries
+//!   it again, instead of retrying at once or never;
+//! * only a refusal of the whole activation, or no content evidence before
+//!   the deadline, fails a trial. An item failure is a diagnostic: the
+//!   Runtime isolates the item and keeps rotating.
 use crate::{Dependencies, ManifestPreparationError, NativeConfiguration, NativeManifest, manifest_pin_holder};
 use player_cas::ContentStore;
 use player_state::repo::{
     binding::{self, CredentialState},
     cas::{self, PinReason},
-    manifests::{self, Binding, Stage, StoredManifest},
+    manifests::{self, ActivationTrial, Binding, Stage, StoredManifest, TrialState},
     playback,
 };
-use player_types::Sha256Digest;
+use player_types::{Sha256Digest, Timestamp};
 
 pub const ACTIVATION_TRIAL_TIMEOUT_MS: i64 = 30_000;
+
+/// How long a manifest whose trial failed `failures` times in a row is held
+/// back before it is tried again. Bounded, so a transient failure (a slow
+/// network, a renderer restart) recovers without a new server change, and a
+/// manifest that keeps failing is tried at most hourly.
+pub fn trial_retry_delay_ms(failures: u32) -> i64 {
+    match failures {
+        0 | 1 => 60_000,
+        2 => 5 * 60_000,
+        3 => 15 * 60_000,
+        _ => MAX_TRIAL_RETRY_DELAY_MS,
+    }
+}
+
+const MAX_TRIAL_RETRY_DELAY_MS: i64 = 60 * 60_000;
+
+/// Why a trial failed, for logs and the heartbeat. Stable reason codes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrialFailure {
+    /// The renderer refused the whole activation.
+    Refused,
+    /// No accepted content evidence before the trial deadline.
+    NoEvidence,
+    /// The host could not issue the activation.
+    ActivationRejected,
+    /// The process ended while the trial was running.
+    Interrupted,
+}
+
+impl TrialFailure {
+    pub fn reason_code(self) -> &'static str {
+        match self {
+            Self::Refused => "renderer_refused",
+            Self::NoEvidence => "no_content_evidence",
+            Self::ActivationRejected => "activation_rejected",
+            Self::Interrupted => "trial_interrupted",
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActivationGate {
@@ -57,9 +109,30 @@ pub struct OfflineManifestState {
     pub active: Option<StoredManifest>,
     pub pending: Option<StoredManifest>,
     pub target: Option<Sha256Digest>,
+    /// The durable trial of `pending`, when one was recorded.
+    pub trial: Option<ActivationTrial>,
     pub local_now_ms: i64,
     pub offset_ms: i64,
     pub playback_disabled: bool,
+}
+
+impl OfflineManifestState {
+    /// When the pending manifest failed its trial and is held back, the
+    /// local time at which it may be tried again. A retry time further away
+    /// than the longest delay means the wall clock stepped back (a device
+    /// that booted with a wrong clock, then synchronized): the hold ends
+    /// instead of lasting as long as the step.
+    pub fn pending_held_until(&self) -> Option<i64> {
+        let pending = self.pending.as_ref()?;
+        self.trial
+            .as_ref()
+            .filter(|trial| trial.digest == pending.digest && trial.state == TrialState::Failed)
+            .and_then(|trial| trial.retry_at)
+            .map(|retry_at| retry_at.unix_millis())
+            .filter(|retry_at| {
+                *retry_at > self.local_now_ms && retry_at - self.local_now_ms <= MAX_TRIAL_RETRY_DELAY_MS
+            })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,13 +140,14 @@ pub struct TrialEvidence {
     pub manifest: Option<Sha256Digest>,
     pub accepted: bool,
     pub meaningful: bool,
-    pub renderer_error: bool,
+    /// The renderer refused the whole activation. Item failures are not here.
+    pub refused: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrialDecision {
     NotCurrent,
-    Failed,
+    Failed(TrialFailure),
     Promote,
     AwaitEvidence { deadline_ms: i64 },
 }
@@ -84,26 +158,20 @@ pub struct OfflineActivationCoordinator {
     store: Option<ContentStore>,
     binding: Option<Binding>,
     invalid_pending: Option<Sha256Digest>,
-    pending_error_version: Option<Sha256Digest>,
+    /// The trial this process started, with its local start time. A durable
+    /// running trial that this process did not start was interrupted.
     trial: Option<(Sha256Digest, i64)>,
     plugin_refresh: Option<(Sha256Digest, Sha256Digest)>,
 }
 
 impl OfflineActivationCoordinator {
     pub fn new(dependencies: Dependencies, store: Option<ContentStore>) -> Self {
-        Self {
-            dependencies,
-            store,
-            binding: None,
-            invalid_pending: None,
-            pending_error_version: None,
-            trial: None,
-            plugin_refresh: None,
-        }
+        Self { dependencies, store, binding: None, invalid_pending: None, trial: None, plugin_refresh: None }
     }
 
     pub async fn load(&mut self) -> Option<OfflineManifestState> {
-        let db = &self.dependencies.state;
+        let db = self.dependencies.state.clone();
+        let db = &db;
         let bound = db.run(|connection| binding::get(connection)).await.ok().flatten()?;
         if bound.credential_state != CredentialState::Stored {
             self.binding = None;
@@ -117,7 +185,6 @@ impl OfflineActivationCoordinator {
         if self.binding.as_ref() != Some(&binding) {
             self.binding = Some(binding.clone());
             self.invalid_pending = None;
-            self.pending_error_version = None;
             self.trial = None;
             self.plugin_refresh = None;
         }
@@ -133,16 +200,71 @@ impl OfflineActivationCoordinator {
             .ok()?
             .map(|target| target.digest);
         let local_now_ms = self.dependencies.clock.now().unix_millis();
+        let trial_binding = binding.clone();
+        let mut trial = db.run(move |connection| manifests::trial(connection, &trial_binding)).await.ok()?;
+        // A running trial that this process did not start ended with the
+        // previous process. Count it, so a manifest that takes the process
+        // down cannot crash-loop the Player.
+        if let Some(interrupted) = trial.as_ref().filter(|trial| {
+            trial.state == TrialState::Running && self.trial.is_none_or(|(digest, _)| digest != trial.digest)
+        }) {
+            let digest = interrupted.digest;
+            tracing::warn!(component = "activation", event = "trial_interrupted", manifest = %digest.short());
+            self.record_failure(&binding, digest, TrialFailure::Interrupted, local_now_ms).await;
+            let reread = binding.clone();
+            trial = db.run(move |connection| manifests::trial(connection, &reread)).await.ok()?;
+        }
         let flags = db.run(|connection| playback::get(connection)).await.unwrap_or_default();
         Some(OfflineManifestState {
             binding,
             active,
             pending,
             target,
+            trial,
             local_now_ms,
             offset_ms: flags.server_clock_offset_ms.unwrap_or_default(),
             playback_disabled: flags.playback_disabled,
         })
+    }
+
+    /// Records a failed trial durably and holds the manifest back. Returns
+    /// the local time at which it may be tried again.
+    pub async fn record_failure(
+        &mut self,
+        binding: &Binding,
+        digest: Sha256Digest,
+        failure: TrialFailure,
+        now_ms: i64,
+    ) -> Option<i64> {
+        if self.trial.is_some_and(|(trial, _)| trial == digest) {
+            self.trial = None;
+        }
+        let previous = {
+            let binding = binding.clone();
+            self.dependencies
+                .state
+                .run(move |connection| manifests::trial(connection, &binding))
+                .await
+                .ok()
+                .flatten()
+                .filter(|trial| trial.digest == digest)
+                .map_or(0, |trial| trial.failures)
+        };
+        let retry_at_ms = now_ms.saturating_add(trial_retry_delay_ms(previous.saturating_add(1)));
+        let retry_at = Timestamp::from_unix_millis(retry_at_ms)?;
+        let binding = binding.clone();
+        let failures = self
+            .dependencies
+            .state
+            .run(move |connection| {
+                manifests::fail_trial(connection, &binding, &digest, failure.reason_code(), retry_at)
+            })
+            .await
+            .ok()
+            .flatten()?;
+        tracing::warn!(component = "activation", event = "pending_trial_failed", manifest = %digest.short(),
+            reason = failure.reason_code(), failures, retry_in_ms = retry_at_ms - now_ms);
+        Some(retry_at_ms)
     }
 
     pub async fn retain_pending(&mut self, state: &mut OfflineManifestState, on_screen: Option<Sha256Digest>) {
@@ -158,15 +280,12 @@ impl OfflineActivationCoordinator {
                 tracing::info!(component = "activation", event = "pending_superseded", manifest = %digest.short());
             }
             state.pending = None;
+            state.trial = None;
         }
         if self.trial.is_some_and(|(digest, _)| state.pending.as_ref().is_none_or(|pending| pending.digest != digest)) {
             self.trial = None;
         }
         self.sweep_pins(&state.active, &state.pending, on_screen).await;
-    }
-
-    pub fn pending_rejected(&self, digest: Sha256Digest) -> bool {
-        self.pending_error_version == Some(digest)
     }
 
     pub(crate) fn plugin_refresh_matches(&self, base: Sha256Digest, on_screen: Option<Sha256Digest>) -> bool {
@@ -187,11 +306,49 @@ impl OfflineActivationCoordinator {
         }
     }
 
-    pub fn suspend_trial(&mut self) {
-        self.trial = None;
+    /// A policy surface or safe mode took the screen from a running trial.
+    /// That is not a failure: the deadline restarts when the trial resumes.
+    pub async fn suspend_trial(&mut self, binding: &Binding) {
+        if let Some((digest, _)) = self.trial.take() {
+            let binding = binding.clone();
+            let _ = self
+                .dependencies
+                .state
+                .run(move |connection| manifests::suspend_trial(connection, &binding, &digest))
+                .await;
+        }
     }
-    pub fn start_trial(&mut self, digest: Sha256Digest, now_ms: i64) {
-        self.trial = Some((digest, now_ms));
+
+    /// An orderly shutdown is not a failure: the trial resumes after the
+    /// restart. Only a process that ended without this (a crash, a kill, a
+    /// power loss) leaves a running trial that counts as interrupted.
+    pub async fn shutdown(&mut self) {
+        if let Some(binding) = self.binding.clone() {
+            self.suspend_trial(&binding).await;
+        }
+    }
+
+    /// Records the trial as running before the host shows the manifest.
+    /// Returns false (and starts nothing) when the record cannot be written:
+    /// an unrecorded trial could crash-loop the Player.
+    pub async fn start_trial(&mut self, binding: &Binding, digest: Sha256Digest, now_ms: i64) -> bool {
+        let Some(now) = Timestamp::from_unix_millis(now_ms) else { return false };
+        if self.binding.as_ref() != Some(binding) {
+            self.binding = Some(binding.clone());
+            self.invalid_pending = None;
+            self.plugin_refresh = None;
+        }
+        let write = binding.clone();
+        let started = self
+            .dependencies
+            .state
+            .run(move |connection| manifests::begin_trial(connection, &write, &digest, now))
+            .await
+            .unwrap_or(false);
+        if started {
+            self.trial = Some((digest, now_ms));
+        }
+        started
     }
 
     pub fn trial_decision(&mut self, digest: Sha256Digest, now_ms: i64, evidence: TrialEvidence) -> TrialDecision {
@@ -203,12 +360,12 @@ impl OfflineActivationCoordinator {
             *started = (digest, now_ms);
         }
         let deadline_ms = started.1.saturating_add(ACTIVATION_TRIAL_TIMEOUT_MS);
-        if evidence.renderer_error || (now_ms >= deadline_ms && !(evidence.accepted && evidence.meaningful)) {
-            self.pending_error_version = Some(digest);
-            self.trial = None;
-            TrialDecision::Failed
+        if evidence.refused {
+            TrialDecision::Failed(TrialFailure::Refused)
         } else if evidence.accepted && evidence.meaningful {
             TrialDecision::Promote
+        } else if now_ms >= deadline_ms {
+            TrialDecision::Failed(TrialFailure::NoEvidence)
         } else {
             TrialDecision::AwaitEvidence { deadline_ms }
         }
@@ -264,7 +421,7 @@ impl OfflineActivationCoordinator {
     /// Commit only the still-current target after the caller supplies accepted
     /// generation-bound evidence. Recheck verified bytes before changing pins.
     pub async fn promote(
-        &self,
+        &mut self,
         binding: &Binding,
         pending: &StoredManifest,
         candidate: &NativeManifest,
@@ -273,11 +430,10 @@ impl OfflineActivationCoordinator {
         if evidence.manifest != Some(candidate.digest)
             || !evidence.accepted
             || !evidence.meaningful
-            || evidence.renderer_error
+            || evidence.refused
             || pending.digest != candidate.digest
             || pending.binding != *binding
             || self.trial.is_none_or(|(digest, _)| digest != candidate.digest)
-            || self.pending_rejected(candidate.digest)
         {
             return false;
         }
@@ -302,6 +458,7 @@ impl OfflineActivationCoordinator {
                 tracing::warn!(component = "activation", event = "old_pin_drain_incomplete", manifest = %digest.short());
             }
         }
+        self.trial = None;
         self.sweep_pins(&Some(pending.clone()), &None, Some(digest)).await;
         tracing::info!(component = "activation", event = "activated", manifest = %digest.short(), manifest_version = pending.version);
         true
@@ -430,7 +587,12 @@ mod tests {
     }
 
     fn evidence(digest: Sha256Digest) -> TrialEvidence {
-        TrialEvidence { manifest: Some(digest), accepted: true, meaningful: true, renderer_error: false }
+        TrialEvidence { manifest: Some(digest), accepted: true, meaningful: true, refused: false }
+    }
+
+    async fn trial_row(core: &OfflineActivationCoordinator, binding: &Binding) -> Option<ActivationTrial> {
+        let binding = binding.clone();
+        core.dependencies.state.run(move |connection| manifests::trial(connection, &binding)).await.unwrap()
     }
 
     #[tokio::test]
@@ -439,9 +601,10 @@ mod tests {
         let (stored, candidate) = pending(&core, &binding, 1).await;
         let proof = evidence(stored.digest);
         assert!(!core.promote(&binding, &stored, &candidate, proof).await, "no current trial");
-        core.start_trial(stored.digest, core.dependencies.clock.now().unix_millis());
+        assert!(core.start_trial(&binding, stored.digest, core.dependencies.clock.now().unix_millis()).await);
         assert!(!core.promote(&binding, &stored, &candidate, TrialEvidence { meaningful: false, ..proof }).await);
         assert!(!core.promote(&binding, &stored, &candidate, TrialEvidence { accepted: false, ..proof }).await);
+        assert!(!core.promote(&binding, &stored, &candidate, TrialEvidence { refused: true, ..proof }).await);
         assert!(
             !core
                 .promote(
@@ -452,7 +615,9 @@ mod tests {
                 )
                 .await
         );
+        assert_eq!(trial_row(&core, &binding).await.unwrap().state, TrialState::Running);
         assert!(core.promote(&binding, &stored, &candidate, proof).await);
+        assert_eq!(trial_row(&core, &binding).await, None, "promotion commits the trial with the manifest");
         let clock = core.dependencies.clock.clone();
         drop(core);
         let state = StateDb::open(dir.path().join("state.db"), OpenOptions::default()).unwrap();
@@ -467,11 +632,12 @@ mod tests {
         let (_dir, mut core, binding) = fixture().await;
         let (first, candidate) = pending(&core, &binding, 1).await;
         core.load().await.unwrap();
-        core.start_trial(first.digest, 0);
+        assert!(core.start_trial(&binding, first.digest, 0).await);
         let (_newer, _) = pending(&core, &binding, 2).await;
         assert!(!core.promote(&binding, &first, &candidate, evidence(first.digest)).await);
         let mut local = core.load().await.unwrap();
         assert_eq!(local.pending.as_ref().unwrap().version, 2);
+        assert!(local.trial.is_none(), "the replacement pending carries no trial of the old one");
         // The latest target is now newer than that pending document.
         let third = Target {
             binding: binding.clone(),
@@ -488,7 +654,6 @@ mod tests {
         core.retain_pending(&mut local, Some(first.digest)).await;
         assert!(local.pending.is_none());
         assert!(core.trial.is_none());
-        core.pending_error_version = Some(first.digest);
         core.dependencies
             .state
             .run(|connection| {
@@ -500,22 +665,82 @@ mod tests {
             .await
             .unwrap();
         let local = core.load().await.unwrap();
-        assert!(local.active.is_none() && local.pending.is_none());
-        assert!(!core.pending_rejected(first.digest));
+        assert!(local.active.is_none() && local.pending.is_none() && local.trial.is_none());
     }
 
     #[tokio::test]
-    async fn policy_suspension_restarts_the_trial_deadline_and_failures_stay_rejected() {
-        let (_dir, mut core, _binding) = fixture().await;
-        let digest = Sha256Digest::of(b"trial");
+    async fn policy_suspension_restarts_the_trial_deadline_and_failures_are_held_then_retried() {
+        let (_dir, mut core, binding) = fixture().await;
+        let (stored, _) = pending(&core, &binding, 1).await;
+        let digest = stored.digest;
         let waiting = TrialEvidence { accepted: true, meaningful: false, ..evidence(digest) };
-        core.start_trial(digest, 1000);
+        assert!(core.start_trial(&binding, digest, 1000).await);
         assert_eq!(core.trial_decision(digest, 2000, waiting), TrialDecision::AwaitEvidence { deadline_ms: 31000 });
-        core.suspend_trial();
+        core.suspend_trial(&binding).await;
+        assert_eq!(trial_row(&core, &binding).await.unwrap().state, TrialState::Idle, "suspension is not a failure");
         assert_eq!(core.trial_decision(digest, 90000, waiting), TrialDecision::AwaitEvidence { deadline_ms: 120000 });
-        assert_eq!(core.trial_decision(digest, 120000, waiting), TrialDecision::Failed);
-        assert!(core.pending_rejected(digest));
+        assert_eq!(core.trial_decision(digest, 120000, waiting), TrialDecision::Failed(TrialFailure::NoEvidence));
         assert_eq!(core.trial_decision(Sha256Digest::of(b"other"), 120000, waiting), TrialDecision::NotCurrent);
+        // Evidence that arrives by the deadline still promotes.
+        assert_eq!(core.trial_decision(digest, 120000, evidence(digest)), TrialDecision::Promote);
+        let now = core.dependencies.clock.now().unix_millis();
+        let retry = core.record_failure(&binding, digest, TrialFailure::NoEvidence, now).await.unwrap();
+        assert_eq!(retry, now + trial_retry_delay_ms(1));
+        let local = core.load().await.unwrap();
+        assert_eq!(local.pending_held_until(), Some(retry), "a failed manifest is held back, not forgotten");
+        let failed = local.trial.unwrap();
+        assert_eq!((failed.failures, failed.reason.as_deref()), (1, Some("no_content_evidence")));
+        // A second failure in a row backs off further, within a bound.
+        let second = core.record_failure(&binding, digest, TrialFailure::Refused, now).await.unwrap();
+        assert_eq!(second, now + trial_retry_delay_ms(2));
+        assert!(trial_retry_delay_ms(u32::MAX) <= 60 * 60_000);
+        // The device booted with a clock a year ahead, failed the trial, and
+        // then synchronized. The hold must not last a year.
+        let mut local = core.load().await.unwrap();
+        local.local_now_ms = second - trial_retry_delay_ms(2) - 365 * 24 * 60 * 60_000;
+        assert_eq!(local.pending_held_until(), None, "a wall-clock step back ends the hold");
+    }
+
+    #[tokio::test]
+    async fn an_item_failure_never_fails_a_trial_but_a_refusal_does() {
+        let (_dir, mut core, binding) = fixture().await;
+        let (stored, _) = pending(&core, &binding, 1).await;
+        let digest = stored.digest;
+        assert!(core.start_trial(&binding, digest, 0).await);
+        // The tracker never sets `refused` for an isolated item failure, so
+        // the trial waits for content evidence from the next item.
+        let waiting = TrialEvidence { accepted: true, meaningful: false, ..evidence(digest) };
+        assert_eq!(core.trial_decision(digest, 1000, waiting), TrialDecision::AwaitEvidence { deadline_ms: 30000 });
+        assert_eq!(core.trial_decision(digest, 2000, evidence(digest)), TrialDecision::Promote);
+        assert_eq!(
+            core.trial_decision(digest, 2000, TrialEvidence { refused: true, ..waiting }),
+            TrialDecision::Failed(TrialFailure::Refused)
+        );
+    }
+
+    #[tokio::test]
+    async fn a_trial_running_when_the_process_ended_is_counted_and_held_back() {
+        let (dir, mut core, binding) = fixture().await;
+        let (stored, _) = pending(&core, &binding, 1).await;
+        let now = core.dependencies.clock.now().unix_millis();
+        assert!(core.start_trial(&binding, stored.digest, now).await);
+        // This process started the trial: it is running, not interrupted.
+        assert_eq!(core.load().await.unwrap().trial.unwrap().state, TrialState::Running);
+        let clock = core.dependencies.clock.clone();
+        drop(core);
+        // The process ended mid-trial (a crash, an OOM kill, a power cut).
+        let state = StateDb::open(dir.path().join("state.db"), OpenOptions::default()).unwrap();
+        let mut restarted = OfflineActivationCoordinator::new(Dependencies { state, clock }, None);
+        let local = restarted.load().await.unwrap();
+        let trial = local.trial.clone().unwrap();
+        assert_eq!(
+            (trial.state, trial.failures, trial.reason.as_deref()),
+            (TrialState::Failed, 1, Some("trial_interrupted"))
+        );
+        assert_eq!(local.pending_held_until(), Some(now + trial_retry_delay_ms(1)));
+        assert_eq!(local.pending.unwrap().digest, stored.digest, "the pending manifest is kept for its retry");
+        // Loading again does not count the same interruption twice.
+        assert_eq!(restarted.load().await.unwrap().trial.unwrap().failures, 1);
     }
 
     #[tokio::test]

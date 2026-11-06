@@ -70,7 +70,9 @@ pub struct OfflineCurrent<K> {
 #[derive(Debug, Clone, Copy)]
 pub struct OfflineRendererHealth {
     pub safe_mode: bool,
-    pub current_error: bool,
+    /// The renderer refused the current activation as a whole. Item
+    /// failures inside an accepted activation never set this.
+    pub current_refused: bool,
 }
 
 #[async_trait::async_trait]
@@ -146,7 +148,10 @@ pub async fn drive_offline_activation<H: OfflineActivationHost>(
             .map(|at| Duration::from_millis(at.saturating_sub(now_ms).max(50) as u64).min(MAX_SLEEP))
             .unwrap_or(IDLE_SLEEP);
         tokio::select! {
-            () = signals.shutdown.cancelled() => return,
+            () = signals.shutdown.cancelled() => {
+                state.shutdown().await;
+                return;
+            }
             () = signals.wake.notified() => {},
             () = tokio::time::sleep(delay) => {},
         }
@@ -214,16 +219,20 @@ async fn tick<H: OfflineActivationHost>(
     state.retain_pending(&mut local, current.as_ref().and_then(|current| current.manifest)).await;
     let retry_at = Some(time.local_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
     if host.health().await.safe_mode {
-        state.suspend_trial();
+        state.suspend_trial(&binding).await;
         return retry_at;
     }
     let parse = |stored: &player_state::repo::manifests::StoredManifest| {
         NativeManifest::parse(stored.document.clone(), binding.screen_id, stored.digest)
     };
     let active_candidate = local.active.as_ref().and_then(|stored| parse(stored).ok());
+    // A pending manifest whose trial failed is held back until this local
+    // time; the committed presentation shows meanwhile.
+    let mut held_until = None;
     'pending: {
         if let Some(stored) = local.pending.as_ref() {
-            if state.pending_rejected(stored.digest) {
+            if let Some(until) = local.pending_held_until() {
+                held_until = Some(until);
                 break 'pending;
             }
             let candidate = match parse(stored) {
@@ -244,27 +253,25 @@ async fn tick<H: OfflineActivationHost>(
                     .project(&candidate, &configuration, time)
                     .is_ok_and(|resolved| overrides_activation_gate(resolved.source))
             {
-                state.suspend_trial();
+                state.suspend_trial(&binding).await;
                 host.show_gate(gate, active_candidate.as_ref().or(Some(&candidate)), &configuration, time).await;
                 return earliest(hours_wake, retry_at);
             }
             if let Some(current) = current.as_ref().filter(|current| current.manifest == Some(stored.digest)) {
-                let renderer_error = host.health().await.current_error;
                 let evidence = TrialEvidence {
                     manifest: current.manifest,
                     accepted: current.accepted,
                     meaningful: current.evidence,
-                    renderer_error,
+                    refused: host.health().await.current_refused,
                 };
                 let decision = state.trial_decision(stored.digest, time.local_ms, evidence);
                 match decision {
-                    TrialDecision::Failed => {
-                        tracing::warn!(component = "activation", event = "pending_trial_failed", manifest = %stored.digest.short(), renderer_error);
+                    TrialDecision::Failed(failure) => {
+                        held_until = state.record_failure(&binding, stored.digest, failure, time.local_ms).await;
                         break 'pending;
                     }
                     TrialDecision::Promote => {
                         if state.promote(&binding, stored, &candidate, evidence).await {
-                            state.suspend_trial();
                             host.promoted();
                             return Some(time.local_ms.saturating_add(50));
                         }
@@ -310,7 +317,7 @@ async fn tick<H: OfflineActivationHost>(
                 && current.accepted
                 && current.evidence
                 && current.key == resolved.key
-                && !host.health().await.current_error
+                && !host.health().await.current_refused
                 && plugin_only
             {
                 if state.pin(PinReason::ActivePresentation, &candidate).await.is_err() {
@@ -330,7 +337,7 @@ async fn tick<H: OfflineActivationHost>(
                         // Reuse generation-bound evidence without resetting the
                         // renderer tracker. The next tick fences promotion to
                         // the still-current target through the ordinary commit.
-                        state.start_trial(candidate.digest, time.local_ms);
+                        state.start_trial(&binding, candidate.digest, time.local_ms).await;
                         state.note_plugin_refresh(active.digest, candidate.digest);
                         return Some(time.local_ms.saturating_add(50));
                     }
@@ -350,16 +357,28 @@ async fn tick<H: OfflineActivationHost>(
                 if state.verify_content(&candidate).await.is_err() {
                     return retry_at;
                 }
+                // Durable before visible: a trial that takes the process down
+                // is known as interrupted after the restart.
+                if !state.start_trial(&binding, stored.digest, time.local_ms).await {
+                    return retry_at;
+                }
                 match host.activate(&candidate, resolved.projection, time).await {
                     Ok(reference) => {
-                        state.start_trial(stored.digest, time.local_ms);
                         tracing::info!(component = "activation", event = "activation_started", manifest = %stored.digest.short(),
                             version = stored.version, generation = reference.generation, boundary = item_boundary,
                             grace_expired = time.local_ms >= grace_at, takeover);
                     }
                     Err(reason) => {
                         tracing::warn!(component = "activation", event = "activation_rejected", reason);
-                        return retry_at;
+                        state
+                            .record_failure(
+                                &binding,
+                                stored.digest,
+                                crate::TrialFailure::ActivationRejected,
+                                time.local_ms,
+                            )
+                            .await;
+                        return Some(time.local_ms.saturating_add(50));
                     }
                 }
                 return Some(time.local_ms.saturating_add(250));
@@ -367,6 +386,7 @@ async fn tick<H: OfflineActivationHost>(
             return Some(grace_at);
         }
     }
+    let hours_wake = earliest(hours_wake, held_until);
     let Some(stored) = local.active.as_ref() else {
         if let Some(gate) = gate {
             host.show_gate(gate, None, &configuration, time).await;
@@ -405,10 +425,12 @@ async fn tick<H: OfflineActivationHost>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ACTIVATION_TRIAL_TIMEOUT_MS;
     use player_state::repo::{
         binding::{self, CredentialState, ServerBinding},
         manifests::{self, Binding, StoredManifest, Target},
     };
+    use player_types::time::WallClock;
     use player_types::{InstallationId, ScreenId, Timestamp, time::ManualClock};
     use serde_json::{Value, json};
     use std::sync::{Arc, Mutex, atomic::AtomicUsize};
@@ -453,6 +475,24 @@ mod tests {
         promotions: AtomicUsize,
         plugin_updates: AtomicUsize,
         fail_plugin_update: AtomicBool,
+        refused: AtomicBool,
+    }
+    impl Host {
+        fn new() -> Self {
+            Self {
+                current: Mutex::new(None),
+                supported: AtomicBool::new(false),
+                evidence: AtomicBool::new(false),
+                activations: AtomicUsize::new(0),
+                promotions: AtomicUsize::new(0),
+                plugin_updates: AtomicUsize::new(0),
+                fail_plugin_update: AtomicBool::new(false),
+                refused: AtomicBool::new(false),
+            }
+        }
+        fn showing(&self) -> Option<Sha256Digest> {
+            self.current.lock().unwrap().as_ref().map(|(digest, _)| *digest)
+        }
     }
     #[async_trait::async_trait]
     impl OfflineActivationHost for Host {
@@ -492,7 +532,7 @@ mod tests {
         }
         fn preserve_plugin_generation(&self, _: &NativeManifest, _: &Value, _: &mut OfflineProjection<Value, Value>) {}
         async fn health(&self) -> OfflineRendererHealth {
-            OfflineRendererHealth { safe_mode: false, current_error: false }
+            OfflineRendererHealth { safe_mode: false, current_refused: self.refused.load(Ordering::Relaxed) }
         }
         async fn set_clock_offset(&self, _: i64) {}
         async fn supports(&self, _: &[RendererRequirement]) -> bool {
@@ -514,6 +554,8 @@ mod tests {
             _: ActivationTime,
         ) -> Result<RendererActivationRef, &'static str> {
             self.activations.fetch_add(1, Ordering::Relaxed);
+            // A new activation starts without the previous one's refusal.
+            self.refused.store(false, Ordering::Relaxed);
             *self.current.lock().unwrap() = Some((candidate.digest, payload));
             Ok(RendererActivationRef {
                 activation_id: player_types::ActivationId::from_uuid(uuid::Uuid::from_u128(3)),
@@ -610,15 +652,7 @@ mod tests {
         .unwrap();
         let mut state =
             OfflineActivationCoordinator::new(crate::Dependencies { state: db.clone(), clock }, Some(store));
-        let host = Host {
-            current: Mutex::new(None),
-            supported: AtomicBool::new(false),
-            evidence: AtomicBool::new(false),
-            activations: AtomicUsize::new(0),
-            promotions: AtomicUsize::new(0),
-            plugin_updates: AtomicUsize::new(0),
-            fail_plugin_update: AtomicBool::new(false),
-        };
+        let host = Host::new();
         tick(&mut state, &host, false).await;
         assert_eq!(host.activations.load(Ordering::Relaxed), 0, "absent connected support blocks activation");
         host.supported.store(true, Ordering::Relaxed);
@@ -740,6 +774,237 @@ mod tests {
         let mut restarted =
             OfflineActivationCoordinator::new(crate::Dependencies { state: db, clock: ManualClock::new(now) }, None);
         assert_eq!(restarted.load().await.unwrap().active.unwrap().document["playlist"], expected);
+    }
+
+    fn manifest_document(binding: &Binding, version: i64, label: &str) -> Value {
+        json!({"schemaVersion":11,"mode":"presentation","screenId":binding.screen_id,"manifestVersion":version,
+            "assets":[],"playlists":[],"schedules":[],"widgets":[],"dataSources":[],"plugins":[],"layouts":[],
+            "playlist":{"id":uuid::Uuid::from_u128(4),"items":[],"label":label}})
+    }
+
+    async fn stage_pending(
+        db: &player_state::StateDb,
+        binding: &Binding,
+        document: Value,
+        now: Timestamp,
+    ) -> Sha256Digest {
+        let digest = crate::manifest_digest(&document);
+        let version = document["manifestVersion"].as_i64().unwrap();
+        let binding = binding.clone();
+        db.run(move |connection| {
+            let target = Target {
+                binding: binding.clone(),
+                digest,
+                version,
+                document: document.clone(),
+                fetched_at: now,
+                etag: version.to_string(),
+            };
+            assert!(manifests::put_target(connection, &target)?);
+            assert!(manifests::put_pending_for_target(
+                connection,
+                &StoredManifest { binding, digest, version, document, stored_at: now }
+            )?);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        digest
+    }
+
+    struct Rig {
+        _dir: tempfile::TempDir,
+        db: player_state::StateDb,
+        clock: Arc<ManualClock>,
+        binding: Binding,
+        store: player_cas::ContentStore,
+    }
+
+    async fn rig() -> Rig {
+        let dir = tempfile::tempdir().unwrap();
+        let db =
+            player_state::StateDb::open(dir.path().join("state.db"), player_state::OpenOptions::default()).unwrap();
+        let now = Timestamp::parse("2026-10-04T12:00:00Z").unwrap();
+        let clock = ManualClock::new(now);
+        let binding = Binding {
+            installation_id: InstallationId::from_uuid(uuid::Uuid::from_u128(1)),
+            screen_id: ScreenId::from_uuid(uuid::Uuid::from_u128(2)),
+            server_url: "https://signs.example.org".into(),
+        };
+        let write = binding.clone();
+        db.run(move |connection| {
+            binding::put(
+                connection,
+                &ServerBinding {
+                    server_url: write.server_url.clone(),
+                    installation_id: write.installation_id,
+                    screen_id: Some(write.screen_id),
+                    organization_name: None,
+                    screen_name: None,
+                    credential_state: CredentialState::Stored,
+                    identity_verified_at: Some(now),
+                    bound_at: now,
+                },
+                now,
+            )
+        })
+        .await
+        .unwrap();
+        let store = player_cas::ContentStore::open(
+            dir.path().join("cas"),
+            dir.path().join("partial"),
+            db.clone(),
+            clock.clone(),
+            Arc::new(Space),
+            Arc::new(TestOpener),
+            player_cas::StorePolicy { limit_bytes: 1 << 30, reserved_free_bytes: 0 },
+            Arc::new(player_cas::LruByDomain),
+        )
+        .await
+        .unwrap();
+        Rig { _dir: dir, db, clock, binding, store }
+    }
+
+    impl Rig {
+        fn coordinator(&self) -> OfflineActivationCoordinator {
+            OfflineActivationCoordinator::new(
+                crate::Dependencies { state: self.db.clone(), clock: self.clock.clone() },
+                Some(self.store.clone()),
+            )
+        }
+        async fn committed(&self, host: &Host, state: &mut OfflineActivationCoordinator, version: i64) -> Sha256Digest {
+            let digest = stage_pending(
+                &self.db,
+                &self.binding,
+                manifest_document(&self.binding, version, "committed"),
+                self.clock.now(),
+            )
+            .await;
+            host.evidence.store(true, Ordering::Relaxed);
+            tick(state, host, false).await;
+            tick(state, host, false).await;
+            assert_eq!(state.load().await.unwrap().active.unwrap().digest, digest);
+            digest
+        }
+    }
+
+    /// The old Core rejected a failed trial only in memory: the replacement
+    /// (a takeover, say) was never tried again in that process, was tried at
+    /// once after any restart, and the screen kept superseded content.
+    #[tokio::test]
+    async fn a_failed_trial_restores_the_committed_presentation_then_retries_on_backoff_and_promotes() {
+        let rig = rig().await;
+        let host = Host::new();
+        host.supported.store(true, Ordering::Relaxed);
+        let mut state = rig.coordinator();
+        let committed = rig.committed(&host, &mut state, 1).await;
+        let replacement =
+            stage_pending(&rig.db, &rig.binding, manifest_document(&rig.binding, 2, "takeover"), rig.clock.now()).await;
+        host.evidence.store(false, Ordering::Relaxed);
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.showing(), Some(replacement), "the replacement is tried at the boundary");
+        // The renderer refuses the whole activation.
+        host.refused.store(true, Ordering::Relaxed);
+        let wake = tick(&mut state, &host, false).await;
+        assert_eq!(host.showing(), Some(committed), "a failed trial restores the committed presentation");
+        let local = state.load().await.unwrap();
+        let held = local.pending_held_until().expect("held back, not forgotten");
+        assert_eq!(wake, Some(held), "the driver wakes for the retry");
+        // Boundaries and evidence before the retry time never re-try it.
+        for _ in 0..3 {
+            tick(&mut state, &host, true).await;
+            assert_eq!(host.showing(), Some(committed));
+        }
+        rig.clock.set(Timestamp::from_unix_millis(held).unwrap());
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.showing(), Some(replacement), "the held manifest is tried again without a server change");
+        host.evidence.store(true, Ordering::Relaxed);
+        tick(&mut state, &host, false).await;
+        let local = state.load().await.unwrap();
+        assert_eq!(local.active.unwrap().digest, replacement);
+        assert!(local.pending.is_none() && local.trial.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_trial_that_never_proves_itself_fails_at_its_deadline_and_a_restart_does_not_retry_it_at_once() {
+        let rig = rig().await;
+        let host = Host::new();
+        host.supported.store(true, Ordering::Relaxed);
+        let mut state = rig.coordinator();
+        let committed = rig.committed(&host, &mut state, 1).await;
+        let replacement =
+            stage_pending(&rig.db, &rig.binding, manifest_document(&rig.binding, 2, "next"), rig.clock.now()).await;
+        host.evidence.store(false, Ordering::Relaxed);
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.showing(), Some(replacement));
+        rig.clock
+            .set(Timestamp::from_unix_millis(rig.clock.now().unix_millis() + ACTIVATION_TRIAL_TIMEOUT_MS).unwrap());
+        tick(&mut state, &host, false).await;
+        assert_eq!(host.showing(), Some(committed));
+        // A process restart keeps the hold: it neither forgets the failure
+        // nor retries the manifest at once.
+        let mut restarted = rig.coordinator();
+        let restarted_host = Host::new();
+        restarted_host.supported.store(true, Ordering::Relaxed);
+        restarted_host.evidence.store(true, Ordering::Relaxed);
+        tick(&mut restarted, &restarted_host, true).await;
+        assert_eq!(restarted_host.showing(), Some(committed), "a restart shows the committed presentation");
+        let trial = restarted.load().await.unwrap().trial.unwrap();
+        assert_eq!((trial.failures, trial.reason.as_deref()), (1, Some("no_content_evidence")));
+    }
+
+    #[tokio::test]
+    async fn a_restart_during_a_trial_counts_it_and_shows_the_committed_presentation() {
+        let rig = rig().await;
+        let host = Host::new();
+        host.supported.store(true, Ordering::Relaxed);
+        let mut state = rig.coordinator();
+        let committed = rig.committed(&host, &mut state, 1).await;
+        let replacement =
+            stage_pending(&rig.db, &rig.binding, manifest_document(&rig.binding, 2, "crashes"), rig.clock.now()).await;
+        host.evidence.store(false, Ordering::Relaxed);
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.showing(), Some(replacement));
+        // The process ends during the trial; the next one starts cold.
+        drop(state);
+        let mut restarted = rig.coordinator();
+        let fresh = Host::new();
+        fresh.supported.store(true, Ordering::Relaxed);
+        tick(&mut restarted, &fresh, false).await;
+        assert_eq!(fresh.showing(), Some(committed), "an interrupted trial is not retried at once");
+        let trial = restarted.load().await.unwrap().trial.unwrap();
+        assert_eq!((trial.failures, trial.reason.as_deref()), (1, Some("trial_interrupted")));
+        assert_eq!(fresh.activations.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn an_orderly_shutdown_during_a_trial_resumes_it_at_once_after_the_restart() {
+        let rig = rig().await;
+        let host = Host::new();
+        host.supported.store(true, Ordering::Relaxed);
+        let mut state = rig.coordinator();
+        rig.committed(&host, &mut state, 1).await;
+        let replacement =
+            stage_pending(&rig.db, &rig.binding, manifest_document(&rig.binding, 2, "update"), rig.clock.now()).await;
+        host.evidence.store(false, Ordering::Relaxed);
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.showing(), Some(replacement));
+        // A service stop or a Player update: the driver ends through shutdown.
+        let (wake, boundary, shutdown) = (Notify::new(), AtomicBool::new(false), CancellationToken::new());
+        shutdown.cancel();
+        drive_offline_activation(
+            state,
+            &host,
+            OfflineActivationSignals { wake: &wake, item_boundary: &boundary, shutdown: &shutdown },
+        )
+        .await;
+        let mut restarted = rig.coordinator();
+        let fresh = Host::new();
+        fresh.supported.store(true, Ordering::Relaxed);
+        tick(&mut restarted, &fresh, false).await;
+        assert_eq!(fresh.showing(), Some(replacement), "an orderly stop is not a failed trial");
+        let trial = restarted.load().await.unwrap().trial.unwrap();
+        assert_eq!((trial.state, trial.failures), (player_state::repo::manifests::TrialState::Running, 0));
     }
 
     #[test]

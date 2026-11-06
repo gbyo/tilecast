@@ -171,6 +171,9 @@ import type {
   SpanViewport,
 } from "./types";
 
+/** Update staged for a maintenance window; see SelfUpdater.resume(). */
+const STAGED_UPDATE_FILE = "staged-update.json";
+
 const log = logger("player");
 
 const SUPERVISOR_FILE = "supervisor-state.json";
@@ -828,6 +831,11 @@ export class PlayerRuntime {
       promote: promoteAppImage,
       restart: () => this.host.exitForUpdate(),
       now: () => Date.now(),
+      stagedJob: {
+        load: () => this.store.readJson<unknown>(STAGED_UPDATE_FILE),
+        save: (job) => this.store.writeJson(STAGED_UPDATE_FILE, job),
+        clear: () => this.store.delete(STAGED_UPDATE_FILE),
+      },
     });
 
     this.autostart = new AutostartInstaller(
@@ -968,6 +976,9 @@ export class PlayerRuntime {
     // content on screen: cached playback starts long before this.
     this.startupTimings.totalMs = Date.now() - this.startedAt;
     await this.commands.start();
+    // An update staged for a maintenance window survives a restart only as this
+    // record; its command already ran and will not be delivered again.
+    void this.selfUpdater?.resume();
     await autostartProbed;
     this.connectSocket();
   }
@@ -1473,11 +1484,27 @@ export class PlayerRuntime {
         renderProgressConfigFor(this.config?.reliability),
       ).progressing
     ) {
-      this.supervisorState = onProgress(
-        this.supervisorState,
-        now,
-        this.supervisorConfig(),
-      );
+      const previous = this.supervisorState;
+      this.supervisorState = onProgress(previous, now, this.supervisorConfig());
+      // A healthy period that clears recovery history must survive a
+      // restart, or the next stall resumes at an obsolete rung. This is rare,
+      // so it is written when it happens rather than on every progress event.
+      if (
+        previous.escalationStep !== 0 ||
+        previous.lastActionAtMs !== null ||
+        previous.ladderRunsAtMs.length > 0
+      ) {
+        const cleared = this.supervisorState;
+        if (
+          cleared.escalationStep === 0 &&
+          cleared.lastActionAtMs === null &&
+          cleared.ladderRunsAtMs.length === 0
+        ) {
+          void this.store
+            .writeJson(SUPERVISOR_FILE, cleared)
+            .catch(() => undefined);
+        }
+      }
     }
     if (kind === "item-started") {
       // The first item on screen is the milestone an operator watching a screen

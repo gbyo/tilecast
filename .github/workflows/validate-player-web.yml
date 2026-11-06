@@ -70,6 +70,12 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           sudo apt-get install -y --no-install-recommends ffmpeg postgresql-client
+      # The fixture still rebuilds after embedding the exact Browser Player.
+      # Download modules and compile dependencies before Playwright starts its
+      # readiness deadline, so a cold Go cache cannot consume that window.
+      - name: Compile the Server before starting the browser fixture
+        working-directory: apps/server
+        run: go build -o "$RUNNER_TEMP/tilecast-browser-server" ./cmd/tilecast-server
       - name: Browser Player end to end against the real server
         run: npx playwright test -c apps/player-web/e2e/playwright.config.ts
         env:

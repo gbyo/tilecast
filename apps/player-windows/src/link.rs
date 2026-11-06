@@ -15,8 +15,7 @@ pub use player_core::{
     SERVER_RETRY_BASE as RETRY_BASE, SERVER_SOCKET_LIVENESS_TIMEOUT as SOCKET_LIVENESS_TIMEOUT,
     ServerLinkState as LinkState, server_retry_delay as retry_delay,
 };
-use player_state::repo::manifests::{Binding as ManifestBinding, Stage, get_for};
-use player_state::repo::{binding, playback};
+use player_state::repo::playback;
 use std::sync::Arc;
 
 use crate::daemon::{DaemonContext, VERSION};
@@ -244,25 +243,12 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         heartbeat["cacheUsedBytes"] = serde_json::json!(usage.used_bytes);
         heartbeat["cacheLimitBytes"] = serde_json::json!(cas.policy().limit_bytes);
     }
-    if let Some(db) = context.db() {
-        if let Ok(state) = db.run(|c| playback::get(c)).await {
-            heartbeat["playbackDisabled"] = serde_json::json!(state.playback_disabled);
-            if let Some(offset) = state.server_clock_offset_ms {
-                heartbeat["deviceClockOffsetSeconds"] = serde_json::json!(offset / 1000);
-            }
-        }
-        if let Ok(Some(bound)) = db.run(|c| binding::get(c)).await
-            && let Some(screen_id) = bound.screen_id
-        {
-            let binding =
-                ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url };
-            for (stage, field) in [(Stage::Active, "activeManifestVersion"), (Stage::Pending, "pendingManifestVersion")]
-            {
-                let stage_binding = binding.clone();
-                if let Ok(Some(stored)) = db.run(move |c| get_for(c, stage, &stage_binding)).await {
-                    heartbeat[field] = serde_json::json!(stored.version);
-                }
-            }
+    if let Some(db) = context.db()
+        && let Ok(state) = db.run(|c| playback::get(c)).await
+    {
+        heartbeat["playbackDisabled"] = serde_json::json!(state.playback_disabled);
+        if let Some(offset) = state.server_clock_offset_ms {
+            heartbeat["deviceClockOffsetSeconds"] = serde_json::json!(offset / 1000);
         }
     }
     if let Some(revision) = crate::config_sync::accepted_revision(context) {
@@ -275,10 +261,8 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         heartbeat["configurationError"] = serde_json::json!(code);
     }
     let preparation = context.preparation.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    if let Some(reason) =
-        preparation.reason.filter(|_| matches!(preparation.state, "failed" | "incompatible" | "invalid"))
-    {
-        heartbeat["lastSynchronizationError"] = serde_json::json!(reason.chars().take(240).collect::<String>());
+    if let Some(db) = context.db() {
+        player_core::ManifestReport::read(db, &preparation).await.apply(&mut heartbeat);
     }
     heartbeat
 }

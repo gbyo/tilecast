@@ -11,6 +11,7 @@
     "./runtime": "./src/runtime.ts",
     "./runtime/testing": "./src/runtime-testing.ts",
     "./player": "./src/player.ts",
+    "./player/testing": "./src/player-testing.ts",
     "./services": "./src/services.ts",
     "./player-services.json": "./player-services.json",
     "./schema/tilecast-plugin.schema.json": "./schema/tilecast-plugin.schema.json",

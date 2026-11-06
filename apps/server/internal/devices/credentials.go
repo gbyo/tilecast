@@ -93,6 +93,10 @@ func (s *Service) enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 		return EnrollmentResult{}, fmt.Errorf("create device credential: %w", err)
 	}
 	if pairingMode == "hardware_replacement" {
+		// A schedule may have been assigned between approval and enrollment.
+		if err := checkReplacementDisplayControl(ctx, tx, screenID, metadata.Platform); err != nil {
+			return EnrollmentResult{}, err
+		}
 		if _, err := tx.Exec(ctx, `UPDATE screen_player_history SET retired_at=now(),retirement_reason='Hardware replaced' WHERE screen_id=$1 AND retired_at IS NULL`, screenID); err != nil {
 			return EnrollmentResult{}, fmt.Errorf("retire previous hardware history: %w", err)
 		}
@@ -171,7 +175,10 @@ func (s *Service) enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	if err := tx.Commit(ctx); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("commit enrollment: %w", err)
 	}
-	if pairingMode == "hardware_replacement" || browser != nil {
+	// Any enrollment that revoked a previous credential disconnects its
+	// socket (pairing invariant 8). The new Player has not received its
+	// credential yet, so it cannot be the socket being closed.
+	if replaceExisting || pairingMode == "hardware_replacement" || browser != nil {
 		s.presence.Disconnect(screenID)
 	}
 	return EnrollmentResult{ScreenID: screenID, ScreenName: screenName, DeviceCredential: credential, BrowserSession: browserSession}, nil
@@ -458,4 +465,33 @@ func (s *Service) MarkDisconnected(ctx context.Context, screenID uuid.UUID) {
 
 func (s *Service) RegisterPresence(screenID uuid.UUID, closeConnection func()) func() {
 	return s.presence.Connect(screenID, closeConnection)
+}
+
+// checkReplacementDisplayControl refuses a hardware replacement that would
+// give a non-Linux Player a Display Control schedule, directly or through a
+// Display Group. Schedule creation and group membership enforce the same rule.
+func checkReplacementDisplayControl(ctx context.Context, tx pgx.Tx, screenID uuid.UUID, platform string) error {
+	if platform == "linux" {
+		return nil
+	}
+	var scheduled bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM schedules schedule
+			JOIN schedule_targets target ON target.schedule_id=schedule.id
+			WHERE schedule.deleted_at IS NULL
+			  AND schedule.display_action IS NOT NULL
+			  AND (
+				(target.target_type='screen' AND target.screen_id=$1)
+				OR (target.target_type='group' AND target.screen_group_id IN (
+					SELECT screen_group_id FROM screen_group_memberships WHERE screen_id=$1))
+			  )
+		)`, screenID).Scan(&scheduled); err != nil {
+		return fmt.Errorf("check replacement display-control schedules: %w", err)
+	}
+	if scheduled {
+		return fmt.Errorf("display-control schedules target this screen and are supported only on Linux Players; remove them before replacing the hardware: %w", ErrConflict)
+	}
+	return nil
 }

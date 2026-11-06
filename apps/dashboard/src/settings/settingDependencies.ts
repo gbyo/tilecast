@@ -27,6 +27,7 @@ export const settingDependencies: Record<string, Dependency | Dependency[]> = {
       messageKey: "dependencies.customText",
     },
   ],
+  "power.outside_active_hours_wake_animation": activeHours(),
   "managed_kiosk.lock_task_enabled": kiosk(),
   "managed_kiosk.block_overlays": kiosk(),
   "managed_kiosk.allow_settings_during_admin": kiosk(),

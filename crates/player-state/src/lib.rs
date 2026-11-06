@@ -85,6 +85,7 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "widget_frame_domain",
         sql: include_str!("../migrations/0012_widget_frame_domain.sql"),
     },
+    Migration { version: 13, name: "activation_trial", sql: include_str!("../migrations/0013_activation_trial.sql") },
 ];
 
 pub fn latest_schema_version() -> u32 {

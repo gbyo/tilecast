@@ -911,6 +911,7 @@ fn gate_document(
                     "display": power.outside_display,
                     "text": power.outside_text,
                     "textColor": branding.text(),
+                    "wakeAnimation": power.wake_animation,
                 }),
                 Vec::new(),
             )
@@ -1127,7 +1128,7 @@ impl OfflineActivationHost for SelectionHost {
     }
     async fn health(&self) -> OfflineRendererHealth {
         let engine = self.engine.lock().await;
-        OfflineRendererHealth { safe_mode: engine.is_safe_mode(), current_error: engine.current_has_renderer_error() }
+        OfflineRendererHealth { safe_mode: engine.is_safe_mode(), current_refused: engine.current_refused() }
     }
 
     async fn set_clock_offset(&self, offset_ms: i64) {
@@ -1729,7 +1730,13 @@ mod tests {
         assert_eq!(surface["state"], "sleep");
         assert_eq!(surface["display"], "custom_text");
         assert_eq!(surface["text"], "Closed");
+        assert_eq!(surface["wakeAnimation"], true);
         assert!(content.is_empty());
+        let mut quiet = document.clone();
+        quiet["power"]["outsideActiveHoursWakeAnimation"] = serde_json::json!(false);
+        let quiet = AndroidPlayerConfig::parse(&quiet).expect("projected");
+        let (surface, _) = gate_document(player_core::ActivationGate::Rest, &quiet, None, at("2026-07-18T00:00:00Z"));
+        assert_eq!(surface["wakeAnimation"], false);
         // Takeover and Quick Present override the gate; schedules do not.
         assert!(player_core::overrides_activation_gate(player_core::Source::Takeover));
         assert!(player_core::overrides_activation_gate(player_core::Source::QuickPresent));

@@ -330,8 +330,26 @@ describe("AirPlay capability limitation reporting", () => {
       }),
     ).toContain("GStreamer is not installed");
     expect(
-      describeLimitation({ ...ready, decoder: null, supported: false }),
+      describeLimitation({
+        ...ready,
+        decoder: null,
+        hardware: false,
+        hardwarePlugin: false,
+        supported: false,
+      }),
     ).toContain("H.264 decoder");
+  });
+
+  it("explains an unusable VA-API driver with no software fallback", () => {
+    const limitation = describeLimitation({
+      ...ready,
+      decoder: null,
+      hardware: false,
+      hardwarePlugin: true,
+      supported: false,
+    });
+    expect(limitation).toContain("vainfo could not validate the driver");
+    expect(limitation).toContain("avdec_h264");
   });
 
   // Blocking dependencies outrank quality notes: a box with neither UxPlay nor

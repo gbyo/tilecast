@@ -103,7 +103,8 @@ const outputFieldSchema = z
 const outputSchemaSchema = z
   .object({
     kind: z.enum(OUTPUT_KINDS),
-    fields: z.array(outputFieldSchema),
+    // A Player Data Document dataset carries at most 16 fields.
+    fields: z.array(outputFieldSchema).max(16),
   })
   .strict();
 

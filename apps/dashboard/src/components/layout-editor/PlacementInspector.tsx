@@ -20,6 +20,7 @@ import { Link, useLocation } from "react-router";
 import type {
   Asset,
   DataSource,
+  DataSourceProvider,
   LayoutPlacement,
   LayoutPrimitive,
   Playlist,
@@ -58,6 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { FontPicker, type FontChoice } from "../../fonts/FontPicker";
 import { Slider } from "../ui/slider";
 import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
@@ -282,6 +284,33 @@ function InspectorSelect({
       </Select>
       {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
+  );
+}
+
+/**
+ * Text font: the organization's library families first, then the bundled
+ * fonts. A library choice keeps the bundled family as its fallback.
+ */
+function FontSelect({
+  primitive,
+  onChange,
+}: {
+  primitive: LayoutPrimitive;
+  onChange: (next: FontChoice) => void;
+}) {
+  const { t } = useTranslation("layouts");
+  return (
+    <FontPicker
+      id="text-font"
+      label={t("inspector.fontLabel")}
+      value={
+        primitive.fontId
+          ? { kind: "library", id: primitive.fontId }
+          : { kind: "builtIn", value: primitive.fontFamily ?? "Inter" }
+      }
+      onChange={onChange}
+      builtIn={fontOptions}
+    />
   );
 }
 
@@ -734,6 +763,7 @@ export function PlacementInspector({
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message={t("inspector.groupConnectHint")}
+              createProviders={BINDABLE_PROVIDERS}
               csrf={csrf}
               onCreated={(dataSourceId) =>
                 void bindNewDataSource(dataSourceId, (binding) =>
@@ -804,6 +834,7 @@ export function PlacementInspector({
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message={t("inspector.textConnectHint")}
+              createProviders={BINDABLE_PROVIDERS}
               csrf={csrf}
               onCreated={(dataSourceId) =>
                 void bindNewDataSource(dataSourceId, (binding) =>
@@ -970,17 +1001,20 @@ export function PlacementInspector({
             </Field>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
-            <InspectorSelect
-              id="text-font"
-              label={t("inspector.fontLabel")}
-              value={primitive.fontFamily ?? "Inter"}
-              options={fontOptions}
+            <FontSelect
+              primitive={primitive}
               onChange={(next) =>
-                update(
-                  (target) =>
-                    (target.primitive!.fontFamily =
-                      next as LayoutPrimitive["fontFamily"]),
-                )
+                update((target) => {
+                  if (next.kind === "library") {
+                    target.primitive!.fontId = next.id;
+                    // The bundled family stays as the fallback.
+                    target.primitive!.fontFamily ??= "Inter";
+                  } else {
+                    delete target.primitive!.fontId;
+                    target.primitive!.fontFamily =
+                      next.value as LayoutPrimitive["fontFamily"];
+                  }
+                })
               }
             />
             <NumberField
@@ -1185,8 +1219,11 @@ function BindingFieldSelect({
   );
 }
 
+/** Layout bindings accept only structured Data Sources (server-enforced). */
+const BINDABLE_PROVIDERS: DataSourceProvider[] = ["csv", "json"];
+
 export function structuredFields(source?: DataSource): string[] {
-  if (!source || !["csv", "json"].includes(source.provider)) return [];
+  if (!source || !BINDABLE_PROVIDERS.includes(source.provider)) return [];
   const config = source.configuration as {
     mapping?: { valueFields?: Record<string, string> };
   };

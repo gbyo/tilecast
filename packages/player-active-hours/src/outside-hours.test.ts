@@ -62,4 +62,18 @@ describe("buildOutsideActiveHoursPresentation", () => {
     ).toBe("black");
     expect(buildOutsideActiveHoursPresentation(null).display).toBe("black");
   });
+
+  it("plays the wake animation unless the policy is exactly false", () => {
+    const wake = (power: Record<string, unknown>) =>
+      buildOutsideActiveHoursPresentation(config(power)).wakeAnimation;
+    expect(wake({})).toBe(true);
+    expect(wake({ outsideActiveHoursWakeAnimation: true })).toBe(true);
+    expect(wake({ outsideActiveHoursWakeAnimation: false })).toBe(false);
+    expect(wake({ outsideActiveHoursWakeAnimation: "false" })).toBe(true);
+    expect(wake({ outsideActiveHoursWakeAnimation: 0 })).toBe(true);
+    expect(buildOutsideActiveHoursPresentation(null).wakeAnimation).toBe(true);
+    expect(buildOutsideActiveHoursPresentation(null)).toMatchObject({
+      wakeAnimation: true,
+    });
+  });
 });

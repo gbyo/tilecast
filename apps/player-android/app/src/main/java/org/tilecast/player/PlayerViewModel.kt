@@ -451,12 +451,16 @@ class PlayerViewModel internal constructor(
         appliedConfigRevision = revision
         mutablePlatform.value = config.platform
         applyPlatformPolicy(config)
+        // A new policy re-applies the current active-hours state.
+        lastPowerActive = null
+        applyPowerEffects()
         reportPlatformObservations()
     }
 
     /** Writes the policy prefs the OS integration reads: boot, kiosk return, and foreground reporting. */
     private fun applyPlatformPolicy(config: CorePlayerConfig) {
         val platform = config.platform
+        BootRecovery.setLaunchAfterBoot(getApplication<Application>(), platform.reliability.launchAfterBoot)
         prefs.edit()
             .putBoolean("launch-after-boot", platform.reliability.launchAfterBoot)
             .putBoolean("accessibility-enabled-by-policy", platform.accessibility.controlAssistEnabled)
@@ -480,8 +484,10 @@ class PlayerViewModel internal constructor(
     private fun applyPowerEffects() {
         val active = mutableActiveHours.value
         if (active == lastPowerActive) return
-        lastPowerActive = active
+        // The edge is recorded only once a policy can act on it, so a status
+        // that arrives before the configuration is applied when it loads.
         val platform = mutablePlatform.value ?: return
+        lastPowerActive = active
         if (active) {
             reliability.requestWake()
             return
@@ -513,7 +519,7 @@ class PlayerViewModel internal constructor(
             val state = mutableUpdate.value ?: return@launch
             val manager = updates ?: return@launch
             val server = (host.state.value as? CoreHostState.Ready)?.status?.serverUrl
-            manager.refreshPermission(server, credentials.read(), state)
+            manager.refreshPermission(server, credentials.read(), state) { mutableTakeoverActive.value }
             reportPlatformObservations()
         }
     }
@@ -531,7 +537,7 @@ class PlayerViewModel internal constructor(
         viewModelScope.launch {
             val state = mutableUpdate.value ?: return@launch
             val server = (host.state.value as? CoreHostState.Ready)?.status?.serverUrl
-            updates?.beginInstall(server, credentials.read(), state)
+            updates?.beginInstall(server, credentials.read(), state) { mutableTakeoverActive.value }
             reportPlatformObservations()
         }
     }

@@ -16,6 +16,7 @@ import { authStatusFor } from "../test/capabilities";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import type { WireScreenPreview as ScreenPreviewMetadata } from "../api/domains/screens";
 import { i18n } from "../i18n";
+import { toast } from "../components/ui/toast";
 import type { PowerAssistResults, Screen } from "../api/types";
 import { canManageScreens } from "../data/screens";
 import {
@@ -626,6 +627,79 @@ describe("screen management", () => {
     expect(updateScreen.mock.calls[0]?.[1]).not.toHaveProperty(
       "mapPositionOverride",
     );
+  });
+
+  it("reports a partial location move, refreshes, and keeps failures selected", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(min-width: 1024px)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    const updateScreen = vi
+      .spyOn(api, "updateScreen")
+      .mockImplementation((id) =>
+        id === "screen-2"
+          ? Promise.reject(new Error("boom"))
+          : Promise.resolve({} as Screen),
+      );
+    const notice = vi.spyOn(toast, "add").mockReturnValue("toast-id");
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    const items = [
+      { id: "screen-1", name: "Lobby" },
+      { id: "screen-2", name: "Hallway" },
+    ].map(
+      (item) =>
+        ({
+          ...item,
+          description: "",
+          platform: "android-tv",
+          status: "online",
+          enabled: true,
+          hasActiveCredential: true,
+        }) as Screen,
+    );
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <ScreenListContent
+            screens={items}
+            loading={false}
+            canManage
+            onRefresh={onRefresh}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const interaction = userEvent.setup();
+    await interaction.click(
+      screen.getByRole("checkbox", { name: "Select Lobby" }),
+    );
+    await interaction.click(
+      screen.getByRole("checkbox", { name: "Select Hallway" }),
+    );
+    await interaction.click(
+      screen.getByRole("button", { name: "Move to location" }),
+    );
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(updateScreen).toHaveBeenCalledTimes(2);
+    expect(notice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "warning",
+        title:
+          "Moved 1 of 2 screens. The others could not be moved and are still selected so you can try again.",
+      }),
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Select Lobby" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Select Hallway" }),
+    ).toBeChecked();
   });
 
   it("keeps card selection separate from navigation links", async () => {

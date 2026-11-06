@@ -172,6 +172,9 @@ func validatePrimitive(p Primitive) error {
 	if len(p.Text) > 4000 || len(p.FontFamily) > 40 {
 		return errors.New("primitive text is too long")
 	}
+	if p.FontID != nil && (p.Kind != "text" || *p.FontID == uuid.Nil) {
+		return errors.New("only text primitives may choose a library font")
+	}
 	if p.Kind == "text" {
 		if p.FontFamily != "" && p.FontFamily != "Inter" && p.FontFamily != "Roboto" && p.FontFamily != "Source Sans 3" && p.FontFamily != "Noto Sans" {
 			return errors.New("text font is not bundled")
@@ -226,6 +229,9 @@ func Dependencies(document Document) []Dependency {
 		if placement.Primitive != nil && placement.Primitive.Binding != nil {
 			id := placement.Primitive.Binding.DataSourceID
 			add("data_source", &id)
+		}
+		if placement.Primitive != nil {
+			add("font", placement.Primitive.FontID)
 		}
 	}
 	return result

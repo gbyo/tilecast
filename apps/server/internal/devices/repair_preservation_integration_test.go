@@ -54,7 +54,8 @@ func TestCredentialRepairPreservesLogicalScreen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(pool, NewPresenceHub(), "https://signage.example.org")
+	presence := NewPresenceHub()
+	service := NewService(pool, presence, "https://signage.example.org")
 	identity, err := service.Identity(ctx)
 	if err != nil || identity.InstallationID == "" {
 		t.Fatalf("identity: %#v %v", identity, err)
@@ -155,9 +156,16 @@ func TestCredentialRepairPreservesLogicalScreen(t *testing.T) {
 	if err != nil || repairClaim.EnrollmentToken == "" {
 		t.Fatalf("repair claim=%#v err=%v", repairClaim, err)
 	}
+	// The old credential may still hold a socket. Revoking it during repair
+	// must also disconnect that socket, as every other revocation does.
+	oldSocketClosed := false
+	presence.Connect(screen.ID, func() { oldSocketClosed = true })
 	repairEnrollment, err := service.Enroll(ctx, repair.ID, repairClaim.EnrollmentToken)
 	if err != nil || repairEnrollment.ScreenID != screen.ID {
 		t.Fatalf("repair enrollment=%#v err=%v", repairEnrollment, err)
+	}
+	if !oldSocketClosed {
+		t.Fatal("the revoked credential's socket stayed connected after repair")
 	}
 	if _, err := service.AuthenticateDevice(ctx, enrollment.DeviceCredential); !errors.Is(err, ErrRevokedCredential) {
 		t.Fatalf("old credential still valid after repair enrollment: %v", err)

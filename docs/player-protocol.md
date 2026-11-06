@@ -1,6 +1,6 @@
 # Player pairing and connection protocol
 
-The bootstrap identity endpoint is public and returns only the product identifier, permanent installation ID, organization name, API version, and whether pairing is enabled. A configured player verifies the installation ID before sending any stored device credential.
+The bootstrap identity endpoint is public and returns only the product identifier, permanent installation ID, organization name, API version, and whether pairing is enabled. A configured player verifies the installation ID before sending any stored device credential. A native Player repeats this check during the session: see [Identity changes during a session](device-credential-security.md#identity-changes-during-a-session).
 
 ## Presentation capability reports
 
@@ -152,6 +152,10 @@ changes the connection state. See [Player capabilities](player-capabilities.md).
 
 Playback-relevant changes send only `{ "type": "manifest.changed", "manifestVersion": 12 }` on the authenticated socket. Players also reconcile every five minutes and on connection. They save a pending manifest, resume `.part` downloads with `Range` and `If-Range`, verify size and SHA-256, and atomically promote verified files. A replacement activates at the next item boundary; failed preparation never overwrites active content.
 
+The manifest version is a label, not an order. A Server that restores its database from a backup reports a lower version. Native Players accept that manifest as the current target and converge to it.
+
+Native Players try a replacement on screen before they commit it. A refusal of the whole activation, or no content evidence in 30 seconds, fails the trial. A failed item does not fail the trial. After a failure, the Player shows the committed presentation and tries the replacement again after one minute, then five minutes, fifteen minutes, and one hour. While the replacement is held back, the heartbeat omits `pendingManifestVersion` and reports `lastSynchronizationError` as `activation_trial_failed:<reason>`. The reasons are `renderer_refused`, `no_content_evidence`, `activation_rejected`, and `trial_interrupted`. See [Native Player Core](player-core.md#activation-trials).
+
 Synchronized playlists use that same boundary rule. Their monotonic shared timeline supplies the boundary, so rapid manifest revisions coalesce without remounting the current item several times. Takeovers and root Layout presentations still activate immediately; root Layouts do not emit playlist boundaries.
 
 Native Players can refresh plugin state without a presentation activation.
@@ -236,6 +240,9 @@ The same persistent command system carries `display_power_on`,
 `display_mute`, `display_unmute`, `display_set_brightness`, and
 `display_probe`. Payloads are closed and range-checked by the server and the
 Player. Linux executes only fixed shell-free `cec-ctl` or `ddcutil` calls with
-bounded time and output. A Display Control schedule uses the normal manifest
+bounded time and output. A Display Group with a Display Control schedule only
+accepts Linux Players. When group membership moves a screen's Display Control
+schedule to the group, all group members must be Linux Players.
+A Display Control schedule uses the normal manifest
 schedule entry with `displayAction`; it has no playlist or Layout and is
 evaluated by the same timezone, priority, and offline transition resolver.

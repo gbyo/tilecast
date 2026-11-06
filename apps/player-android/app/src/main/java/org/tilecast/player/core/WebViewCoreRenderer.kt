@@ -273,8 +273,8 @@ class WebViewCoreRenderer(
 
     private fun handleActivate(root: JsonObject): Int {
         val pair = synchronized(lock) { session to webView }
-        val current = pair.first ?: return CoreRendererRequestCode.NOT_READY
-        val view = pair.second ?: return CoreRendererRequestCode.NOT_READY
+        pair.first ?: return CoreRendererRequestCode.NOT_READY
+        pair.second ?: return CoreRendererRequestCode.NOT_READY
         val activationId = root.stringOrNull("activationId")?.take(64)
         val generation = root["generation"]?.jsonPrimitive?.longOrNull
         val presentation = runCatching { root["presentation"]?.jsonObject }.getOrNull()
@@ -334,13 +334,17 @@ class WebViewCoreRenderer(
             RuntimeBridgeProtocol.parseHostMessage(pluginsJson.toString()).getOrNull()
                 ?: return CoreRendererRequestCode.INVALID_ACTIVATION
         }
-        val stateGeneration = synchronized(lock) {
+        // Recreation can swap the session and WebView while the activation
+        // is parsed, so the nudge goes to the view paired with the session
+        // that receives it.
+        val (view, stateGeneration) = synchronized(lock) {
             val live = session ?: return CoreRendererRequestCode.NOT_READY
+            val liveView = webView ?: return CoreRendererRequestCode.NOT_READY
             grants = Grants(authorized, localFiles, mimeByVariant,
                 widgetFrames.authorized + pluginFrames.authorized, widgetFrames.files + pluginFrames.files)
             live.offer(parsed)
             pluginsMessage?.let { live.offer(it) }
-            live.currentStateGeneration()
+            liveView to live.currentStateGeneration()
         }
         owner?.nudge(view, stateGeneration)
         log.event(
@@ -488,8 +492,9 @@ class WebViewCoreRenderer(
             return CoreRendererRequestCode.INVALID_ACTIVATION
         }
         val capture = captureFrame
-        val blockReason = runCatching { captureBlockReason?.invoke() }.getOrNull()
         scope.launch {
+            val blockReason = runCatching { captureBlockReason?.invoke() }
+                .getOrElse { "capture_policy_unavailable" }
             if (blockReason != null) {
                 report(unavailableCapture(requestId, blockReason.take(64)))
                 return@launch

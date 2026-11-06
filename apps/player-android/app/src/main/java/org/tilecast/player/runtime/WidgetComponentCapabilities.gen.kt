@@ -31,6 +31,6 @@ object WidgetComponentCapabilities {
         "widget.tilecast.text" to 1,
         "widget.tilecast.ticker" to 1,
         "widget.tilecast.timeline" to 1,
-        "widget.tilecast.weather" to 1,
+        "widget.tilecast.weather" to 2,
     )
 }

@@ -393,7 +393,7 @@ func normalizeWeatherForecast(forecast metForecast, c WeatherSourceConfig) (Type
 			"condition":         weatherConditionLabel(currentCondition),
 			"temperature":       formatWeatherNumber(currentDetails["air_temperature"]*tempMultiplier + tempOffset),
 			"temperatureUnit":   unitTemperature,
-			"humidity":          formatWeatherNumber(currentDetails["relative_humidity"]),
+			"humidity":          formatWeatherRatio(currentDetails["relative_humidity"]),
 			"windSpeed":         formatWeatherNumber(currentDetails["wind_speed"] * windMultiplier),
 			"windUnit":          unitWind,
 			"precipitation":     formatWeatherNumber(first.Data.Next1.Details["precipitation_amount"] * precipMultiplier),
@@ -453,6 +453,12 @@ func normalizeWeatherForecast(forecast metForecast, c WeatherSourceConfig) (Type
 
 func formatWeatherNumber(value float64) string {
 	return strconv.FormatFloat(math.Round(value*10)/10, 'f', -1, 64)
+}
+
+// formatWeatherRatio converts a whole-percent reading such as 62 into the
+// ratio 0.62 that percent-typed Data Source fields carry.
+func formatWeatherRatio(percent float64) string {
+	return strconv.FormatFloat(math.Round(percent*100)/10000, 'f', -1, 64)
 }
 
 func weatherConditionLabel(code string) string {

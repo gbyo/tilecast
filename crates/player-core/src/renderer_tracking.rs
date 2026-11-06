@@ -35,7 +35,7 @@ pub struct RendererTracker {
     accepted: Option<RendererActivationRef>,
     last_progress: Option<Timestamp>,
     last_error: Option<ShortToken>,
-    has_error: bool,
+    refused: bool,
     current_item: Option<(String, Timestamp)>,
     meaningful: bool,
     content_progress: bool,
@@ -52,7 +52,7 @@ impl RendererTracker {
         self.logged.clear();
         self.accepted = None;
         self.last_error = None;
-        self.has_error = false;
+        self.refused = false;
     }
 
     pub fn clear(&mut self) {
@@ -65,10 +65,13 @@ impl RendererTracker {
         self.accepted = None;
         self.last_progress = None;
         self.last_error = None;
-        self.has_error = false;
+        self.refused = false;
         self.current_item = None;
         self.meaningful = false;
         self.content_progress = false;
+        // Fixture checks count items per renderer connection, so proof from
+        // the previous connection does not carry over.
+        self.content_items.clear();
         // A replacement renderer must prove the activation again, so its
         // first evidence is logged even when the previous one logged it.
         self.logged.clear();
@@ -80,7 +83,7 @@ impl RendererTracker {
             self.accepted = None;
             self.last_progress = None;
             self.last_error = None;
-            self.has_error = false;
+            self.refused = false;
             self.current_item = None;
         }
     }
@@ -95,6 +98,8 @@ impl RendererTracker {
         }
     }
 
+    /// The renderer refused the whole activation. Only a refusal, never an
+    /// item failure, makes the activation unfit for promotion.
     pub fn reject(
         &mut self,
         connection: uuid::Uuid,
@@ -105,7 +110,23 @@ impl RendererTracker {
             return false;
         }
         self.last_error = code;
-        self.has_error = true;
+        self.refused = true;
+        true
+    }
+
+    /// One item of the activation failed. The Runtime isolates the item and
+    /// keeps rotating, so this is a diagnostic, not a refusal: the activation
+    /// still proves itself, or fails its trial, by content evidence.
+    pub fn item_failed(
+        &mut self,
+        connection: uuid::Uuid,
+        activation: RendererActivationRef,
+        code: Option<ShortToken>,
+    ) -> bool {
+        if !self.matches(connection, activation) {
+            return false;
+        }
+        self.last_error = code;
         true
     }
 
@@ -181,8 +202,8 @@ impl RendererTracker {
     pub fn last_error(&self) -> Option<&ShortToken> {
         self.last_error.as_ref()
     }
-    pub fn has_error(&self) -> bool {
-        self.has_error
+    pub fn refused(&self) -> bool {
+        self.refused
     }
 }
 
@@ -221,6 +242,7 @@ mod tests {
         assert!(tracker.content_progress());
         tracker.connected(two);
         assert!(!tracker.content_progress());
+        assert!(tracker.content_items().is_empty());
         tracker.accept(one, reference(2));
         assert!(!tracker.accepted_current());
         tracker.disconnected(one);
@@ -228,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn errors_require_current_connection_and_activation_and_reset_on_replacement() {
+    fn refusals_require_current_connection_and_activation_and_reset_on_replacement() {
         let one = uuid::Uuid::from_u128(1);
         let two = uuid::Uuid::from_u128(2);
         let mut tracker = RendererTracker::default();
@@ -236,22 +258,42 @@ mod tests {
         tracker.connected(one);
         assert!(!tracker.reject(two, reference(1), None));
         assert!(!tracker.reject(one, reference(2), None));
-        assert!(!tracker.has_error());
+        assert!(!tracker.refused());
         assert!(tracker.reject(one, reference(1), None));
-        assert!(tracker.has_error());
+        assert!(tracker.refused());
         assert!(tracker.last_error().is_none());
         tracker.activate(reference(2));
-        assert!(!tracker.has_error());
+        assert!(!tracker.refused());
         assert!(tracker.reject(one, reference(2), Some(ShortToken::new("failed").unwrap())));
         assert_eq!(tracker.last_error().unwrap().as_str(), "failed");
         tracker.connected(two);
-        assert!(!tracker.has_error());
+        assert!(!tracker.refused());
         assert!(!tracker.reject(one, reference(2), None));
         assert!(tracker.reject(two, reference(2), None));
         tracker.disconnected(one);
-        assert!(tracker.has_error());
+        assert!(tracker.refused());
         tracker.disconnected(two);
-        assert!(!tracker.has_error());
+        assert!(!tracker.refused());
+    }
+
+    #[test]
+    fn item_failures_are_diagnostics_and_never_refuse_the_activation() {
+        let one = uuid::Uuid::from_u128(1);
+        let two = uuid::Uuid::from_u128(2);
+        let now = Timestamp::from_unix_millis(0).unwrap();
+        let mut tracker = RendererTracker::default();
+        tracker.activate(reference(1));
+        tracker.connected(one);
+        tracker.accept(one, reference(1));
+        assert!(!tracker.item_failed(two, reference(1), None), "a stale connection reports nothing");
+        assert!(!tracker.item_failed(one, reference(2), None), "a stale activation reports nothing");
+        assert!(tracker.item_failed(one, reference(1), Some(ShortToken::new("playback-error").unwrap())));
+        assert_eq!(tracker.last_error().unwrap().as_str(), "playback-error");
+        assert!(!tracker.refused(), "an isolated item failure is not a refusal");
+        assert!(tracker.accepted_current());
+        // The Runtime moves on to the next item, which proves the activation.
+        assert!(tracker.progress(one, &report(1, ProgressEvidence::ImageShown), Expectation::Still, now).meaningful);
+        assert!(tracker.content_progress() && !tracker.refused());
     }
 
     #[test]

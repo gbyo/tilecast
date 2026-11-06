@@ -615,7 +615,9 @@
       "noResults": "No Widgets match this search.",
       "noMatch": "No Apps or Widgets match “{{search}}”.",
       "sourcePlugin": "Plugin · {{name}}",
-      "requiresPlugin": "Requires {{name}}"
+      "requiresPlugin": "Requires {{name}}",
+      "pluginChecking": "Checking whether {{name}} is installed",
+      "pluginUnknown": "Can't confirm that {{name}} is installed"
     },
     "preview": {
       "webUnavailable": "Web presentation URL is unavailable.",
@@ -1053,6 +1055,10 @@
   },
   "dataSources": {
     "deleteSuccess": "Data Source deleted.",
+    "saved": {
+      "created": "Data Source created.",
+      "updated": "Data Source updated."
+    },
     "duplicated": "Data Source duplicated.",
     "calendar": {
       "addCalendar": "Add calendar",
@@ -1106,6 +1112,8 @@
       "setupGuidance": "Data Source setup guidance",
       "sourcePlugin": "Plugin · {{name}}",
       "requiresPlugin": "Requires {{name}}",
+      "pluginChecking": "Checking whether {{name}} is installed",
+      "pluginUnknown": "Can't confirm that {{name}} is installed",
       "sourcePackage": "Package · {{name}}"
     },
     "detail": {

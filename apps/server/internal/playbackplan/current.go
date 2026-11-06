@@ -69,25 +69,47 @@ func (s *Current) At(ctx context.Context, screen uuid.UUID, at time.Time) (Curre
 	if screen == uuid.Nil || at.IsZero() {
 		return CurrentPlan{}, ErrInvalidCurrentInspection
 	}
-	assignment, err := s.assignments.ReadAssignment(ctx, screen)
+	inputs, err := s.loadSelectionInputs(ctx, screen)
 	if err != nil {
 		return CurrentPlan{}, err
+	}
+	return s.selectAt(ctx, screen, at, inputs)
+}
+
+type selectionInputs struct {
+	assignment playlists.Assignment
+	schedules  []scheduling.Schedule
+	names      map[uuid.UUID]string
+}
+
+func (s *Current) loadSelectionInputs(ctx context.Context, screen uuid.UUID) (selectionInputs, error) {
+	assignment, err := s.assignments.ReadAssignment(ctx, screen)
+	if err != nil {
+		return selectionInputs{}, err
 	}
 	records, err := s.schedules.Relevant(ctx, screen)
 	if err != nil {
-		return CurrentPlan{}, err
+		return selectionInputs{}, err
 	}
-	base := make([]scheduling.Schedule, 0, len(records))
-	names := make(map[uuid.UUID]string, len(records))
+	inputs := selectionInputs{
+		assignment: assignment,
+		schedules:  make([]scheduling.Schedule, 0, len(records)),
+		names:      make(map[uuid.UUID]string, len(records)),
+	}
 	for _, record := range records {
 		// Display-control schedules have their own authority and do not replace
 		// a presentation. They must not win the content selection trace.
 		if record.PlaylistID != uuid.Nil || record.LayoutID != nil {
-			base = append(base, record.Schedule)
-			names[record.ID] = record.Name
+			inputs.schedules = append(inputs.schedules, record.Schedule)
+			inputs.names[record.ID] = record.Name
 		}
 	}
-	trace := scheduling.Explain(at, base)
+	return inputs, nil
+}
+
+func (s *Current) selectAt(ctx context.Context, screen uuid.UUID, at time.Time, inputs selectionInputs) (CurrentPlan, error) {
+	assignment := inputs.assignment
+	trace := scheduling.Explain(at, inputs.schedules)
 	quick, err := s.overrides.ActiveForScreenAt(ctx, screen, at)
 	if err != nil {
 		return CurrentPlan{}, err
@@ -115,7 +137,7 @@ func (s *Current) At(ctx context.Context, screen uuid.UUID, at time.Time) (Curre
 		plan.Selected = &Selection{Source: "quick_present", ContentType: quick.ContentType, ContentID: quick.ContentID, SelectionID: &quick.ID, Reason: "active_quick_present"}
 	} else if trace.Resolution.Winner != nil {
 		winner := trace.Resolution.Winner.Schedule
-		selection := Selection{Source: "schedule", ContentType: "playlist", ContentID: winner.PlaylistID, SelectionID: &winner.ID, ScheduleName: names[winner.ID], Reason: string(scheduling.ReasonSelected)}
+		selection := Selection{Source: "schedule", ContentType: "playlist", ContentID: winner.PlaylistID, SelectionID: &winner.ID, ScheduleName: inputs.names[winner.ID], Reason: string(scheduling.ReasonSelected)}
 		if winner.LayoutID != nil {
 			selection.ContentType = "layout"
 			selection.ContentID = *winner.LayoutID
@@ -155,7 +177,7 @@ func (s *Current) At(ctx context.Context, screen uuid.UUID, at time.Time) (Curre
 			reason = plan.Selected.Reason
 		}
 		id := candidate.ScheduleID
-		plan.Candidates = append(plan.Candidates, SelectionCandidate{Source: "schedule", ID: &id, Name: names[id], Status: status, Reason: reason, ScheduleReason: candidate.Reason})
+		plan.Candidates = append(plan.Candidates, SelectionCandidate{Source: "schedule", ID: &id, Name: inputs.names[id], Status: status, Reason: reason, ScheduleReason: candidate.Reason})
 	}
 	add("assignment", nil, assignment.PlaylistID != nil || assignment.LayoutID != nil, "no_assignment")
 	return plan, nil

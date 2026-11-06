@@ -28,6 +28,7 @@ class CorePlayerConfigTest {
         assertEquals("Lobby", config.runtime.playback.screenLocation)
         assertEquals("custom_text", config.runtime.power.outsideDisplay)
         assertEquals("Closed", config.runtime.power.outsideText)
+        assertTrue("a config stored before the setting existed reads as on", config.runtime.power.wakeAnimation)
         assertTrue(config.runtime.website.clearOnRestart)
         assertEquals("managed_kiosk", config.platform.reliability.mode)
         assertFalse(config.platform.reliability.launchAfterBoot)
@@ -49,5 +50,15 @@ class CorePlayerConfigTest {
         assertEquals(3L, config.revision)
         assertEquals("Tilecast", config.runtime.branding.organizationName)
         assertEquals(true, config.platform.power.keepScreenOn)
+    }
+
+    @Test fun wakeAnimationReadsStoredValueAndDefaultsOn() {
+        fun parse(power: String) = CorePlayerConfig.parse(
+            """{"ok":true,"revision":3,"runtime":{"power":$power}}""",
+        ).runtime.power.wakeAnimation
+        assertTrue(parse("""{"outsideDisplay":"black"}"""))
+        assertFalse(parse("""{"wakeAnimation":false}"""))
+        assertTrue(parse("""{"wakeAnimation":true}"""))
+        assertTrue(parse("""{"wakeAnimation":"nope"}"""))
     }
 }

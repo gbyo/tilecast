@@ -2,6 +2,7 @@ package org.tilecast.player.runtime
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -388,5 +389,8 @@ class RuntimePresentationBuilderTest {
         assertEquals("ABC123", pairing["code"]!!.jsonPrimitive.content)
         val sleep = RuntimePresentationBuilder.build(RuntimeScreenState.Sleep("black", null, null))
         assertEquals("sleep", sleep["state"]!!.jsonPrimitive.content)
+        assertEquals(true, sleep["wakeAnimation"]!!.jsonPrimitive.boolean)
+        val quiet = RuntimePresentationBuilder.build(RuntimeScreenState.Sleep("black", null, null, wakeAnimation = false))
+        assertEquals(false, quiet["wakeAnimation"]!!.jsonPrimitive.boolean)
     }
 }

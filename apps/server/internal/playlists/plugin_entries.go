@@ -45,10 +45,39 @@ func (s *Service) projectPlayerState(ctx context.Context, manifest *Manifest, sc
 			}
 		}
 		entry.Media = kept
+		fonts, err := s.projectStateFonts(ctx, manifest, entry.Fonts)
+		if err != nil {
+			return err
+		}
+		entry.Fonts = fonts
 		copy := entry
 		manifest.Plugins = append(manifest.Plugins, ManifestPluginEntry{State: &copy})
 	}
 	return nil
+}
+
+// projectStateFonts resolves the library families a state entry declares. A
+// family that was removed, or has no ready face, is dropped from the entry,
+// so the Player's player.fonts@1 binding answers null for it and the plugin
+// keeps its own face. Face files join the manifest assets, so each is a
+// verified download.
+func (s *Service) projectStateFonts(ctx context.Context, manifest *Manifest, declared []plugin.FontRef) ([]plugin.FontRef, error) {
+	var kept []plugin.FontRef
+	for _, ref := range declared {
+		font, err := s.projectFont(ctx, manifest, ref.ID)
+		if err != nil {
+			return nil, err
+		}
+		if font == nil {
+			continue
+		}
+		resolved := plugin.FontRef{ID: font.ID, Family: font.Family}
+		for _, face := range font.Faces {
+			resolved.Faces = append(resolved.Faces, plugin.FontFace(face))
+		}
+		kept = append(kept, resolved)
+	}
+	return kept, nil
 }
 
 // reportsPlayerPluginHost is the only gate for Plugin API v2 state: the

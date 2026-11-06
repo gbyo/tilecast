@@ -62,6 +62,9 @@ object TcMediaBridge {
             "Accept-Ranges" to "bytes",
             "Content-Length" to resolved.contentLength.toString(),
             "Content-Type" to resolved.mimeType,
+            // Font faces load in CORS mode; only the trusted runtime origin may
+            // read media cross-origin. Images and video stay no-cors.
+            "Access-Control-Allow-Origin" to TrustedRuntimeOrigin.origin,
         )
         resolved.contentRange?.let { headers["Content-Range"] = it }
         return headers

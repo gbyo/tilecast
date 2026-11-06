@@ -10,7 +10,7 @@ Start with the screen detail page and **Activity**. Compare what Tilecast select
 Temporary content can take priority over the normal screen assignment. The order is:
 
 1. active Takeover;
-2. on stable Linux, active AirPlay;
+2. on the AppImage Player, active AirPlay;
 3. Quick Present;
 4. the highest-priority active Schedule;
 5. the normal screen or Display Group assignment.
@@ -44,6 +44,20 @@ Studio sends the new content to the Player as soon as you save the assignment. T
 1. Open the screen's **Overview** and check **Player health**. The screen must be online with a healthy renderer. Fix a disconnected renderer first.
 2. Check **Activity**. If the new content failed to prepare, Studio shows the reason there, for example a Layout that holds a Playlist zone with a Widget in it.
 3. Check that no Takeover, Quick Present, or active Schedule has priority. They show before the normal assignment.
+
+## New content appeared briefly, then the old content came back
+
+Tilecast Edge, Windows, and Android Players try new content on screen before they keep it. If the display engine refuses the new presentation, or nothing in it renders within 30 seconds, the Player goes back to the content that last worked. A single item that fails, such as a Website that can't load, doesn't count: the Player skips it and keeps trying the rest.
+
+While the new content is held back, the screen's **Overview** shows it as **Out of date**, and **Playback** › **Diagnostics** shows a synchronization error that starts with `activation_trial_failed`. The part after the colon says why:
+
+- `renderer_refused`: the display engine refused the presentation. Check the Player version and **Last renderer failure**.
+- `no_content_evidence`: nothing in the presentation rendered within 30 seconds. Check that its media is Ready and its Websites load from the screen's network.
+- `trial_interrupted`: the Player stopped while it was trying the content, for example after a crash or a power loss.
+
+You don't need to resend anything. The Player tries the held content again after one minute, then after 5 minutes, 15 minutes, and every hour. Saving a change that produces new content starts over at once.
+
+After you restore the server from a backup, screens move to the restored content on their own, even though its version number is lower than what they last played.
 
 ## A schedule changes at the wrong time
 

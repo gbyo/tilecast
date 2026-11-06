@@ -116,7 +116,10 @@ func (s *server) recordHeartbeatActivity(r *http.Request, screenID uuid.UUID, sn
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM player_activity_events WHERE screen_id=$1 AND event_type='heartbeat.gap_detected' AND occurred_at=$2)`, screenID, gapAt).Scan(&gapAlreadyRecorded); err == nil && !gapAlreadyRecorded {
 			// Close at the last confirmed heartbeat first: the gap event below would
 			// otherwise close the same sessions at the end of the grace period.
-			_, _ = tx.Exec(ctx, `UPDATE playback_sessions SET ended_at=$2,result='unknown',actual_duration_ms=GREATEST(0,EXTRACT(EPOCH FROM ($2-started_at))*1000)::bigint,metadata=metadata||'{"closedReason":"heartbeat_gap"}'::jsonb,updated_at=now() WHERE screen_id=$1 AND ended_at IS NULL AND started_at<$3`, screenID, snapshot.previousHeartbeat.UTC(), now)
+			// Only sessions already open at that heartbeat belong to the gap. A
+			// session the Player started later (often flushed from its offline
+			// outbox before this heartbeat) is real playback and stays open.
+			_, _ = tx.Exec(ctx, `UPDATE playback_sessions SET ended_at=$2,result='unknown',actual_duration_ms=GREATEST(0,EXTRACT(EPOCH FROM ($2-started_at))*1000)::bigint,metadata=metadata||'{"closedReason":"heartbeat_gap"}'::jsonb,updated_at=now() WHERE screen_id=$1 AND ended_at IS NULL AND started_at<=$2`, screenID, snapshot.previousHeartbeat.UTC())
 			s.recordServerTransition(r, tx, screenID, playerActivityEventInput{
 				ID: uuid.New(), EventType: "heartbeat.gap_detected", Category: "connectivity", Severity: "warning",
 				OccurredAt: gapAt, PlayerTimezone: "UTC", Result: "unknown",

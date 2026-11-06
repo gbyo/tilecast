@@ -124,7 +124,9 @@
         "playback": "Reproducción",
         "storage": "Almacenamiento",
         "safe_mode": "Modo seguro",
-        "update": "Actualización"
+        "update": "Actualización",
+        "data_source": "Fuente de datos",
+        "content": "Contenido"
       },
       "categories": {
         "connectivity": "Conectividad",

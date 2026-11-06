@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
@@ -37,6 +37,7 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   const { t } = useTranslation(["auth", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
+  const [backgroundFailed, setBackgroundFailed] = useState(false);
   const requestedReturn = new URLSearchParams(location.search).get("returnTo");
   const returnTo =
     requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//")
@@ -55,12 +56,30 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   // language with a slightly wider card for the guided questions. There are
   // no social-provider buttons: this installation has only local accounts.
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+    <main className="relative isolate flex min-h-svh flex-col items-center justify-center gap-6 overflow-hidden bg-muted p-6 md:p-10">
+      {!backgroundFailed && (
+        <>
+          <img
+            src="/api/v1/auth/background"
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 -z-20 size-full object-cover"
+            onError={() => setBackgroundFailed(true)}
+          />
+          <div className="absolute inset-0 -z-10 bg-black/40" />
+        </>
+      )}
       <div
         className={`flex w-full flex-col gap-6 ${mode === "setup" ? "max-w-md" : "max-w-sm"}`}
       >
         <div className="flex justify-center">
-          <Brand compact />
+          <div
+            className={
+              backgroundFailed ? "" : "rounded-md bg-card/90 px-3 py-1.5"
+            }
+          >
+            <Brand compact />
+          </div>
         </div>
         <Card>
           {mode === "setup" ? (

@@ -114,10 +114,18 @@ pub struct Website {
     pub clear_on_restart: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Power {
     pub outside_display: String,
     pub outside_text: String,
+    /// Play the startup animation when active hours begin. Only `false` turns it off.
+    pub wake_animation: bool,
+}
+
+impl Default for Power {
+    fn default() -> Self {
+        Self { outside_display: String::new(), outside_text: String::new(), wake_animation: true }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,7 +154,11 @@ impl Default for RuntimeConfiguration {
         Self {
             branding: Branding::default(),
             playback: Playback::default(),
-            power: Power { outside_display: "black".to_owned(), outside_text: "Powered by Tilecast".to_owned() },
+            power: Power {
+                outside_display: "black".to_owned(),
+                outside_text: "Powered by Tilecast".to_owned(),
+                wake_animation: true,
+            },
             website: Website::default(),
         }
     }
@@ -246,7 +258,10 @@ impl PlayerConfig {
         let outside_text = text(power_values, "outsideActiveHoursText", 240)
             .or_else(|| branding.footer_text.clone())
             .unwrap_or_else(|| "Powered by Tilecast".to_owned());
-        let power = Power { outside_display, outside_text };
+        let wake_animation = power_values
+            .and_then(|values| values.get("outsideActiveHoursWakeAnimation"))
+            .is_none_or(|value| value.as_bool() != Some(false));
+        let power = Power { outside_display, outside_text, wake_animation };
 
         let kiosk_values = section(object, "linuxKiosk");
         let flag =
@@ -437,6 +452,17 @@ mod tests {
         );
         assert_eq!(projected.native.cache.maximum_bytes, Some(4096));
         assert!(!projected.platform.linux_kiosk.prevent_display_sleep);
+    }
+
+    #[test]
+    fn wake_animation_defaults_true_and_only_false_disables() {
+        let parse = |power: Value| PlayerConfig::parse(&document(json!({"power": power}))).unwrap();
+        assert!(parse(json!({})).runtime.power.wake_animation);
+        assert!(!parse(json!({"outsideActiveHoursWakeAnimation": false})).runtime.power.wake_animation);
+        assert!(parse(json!({"outsideActiveHoursWakeAnimation": true})).runtime.power.wake_animation);
+        assert!(parse(json!({"outsideActiveHoursWakeAnimation": "no"})).runtime.power.wake_animation);
+        assert!(PlayerConfig::parse(&document(json!({}))).unwrap().runtime.power.wake_animation);
+        assert!(RuntimeConfiguration::default().power.wake_animation);
     }
 
     #[test]

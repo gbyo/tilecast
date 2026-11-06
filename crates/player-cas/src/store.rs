@@ -63,10 +63,20 @@ struct Inner {
     space: Arc<dyn SpaceProbe>,
     opener: Arc<dyn SecureOpener>,
     policy: Mutex<StorePolicy>,
+    automatic_threshold: Mutex<Option<u64>>,
     eviction: Arc<dyn EvictionPolicy>,
     writers: Mutex<HashMap<Sha256Digest, Weak<tokio::sync::Mutex<()>>>>,
     touches: Mutex<HashMap<Sha256Digest, Timestamp>>,
+    /// Expected sizes of open write sessions. Space checks count the bytes
+    /// these sessions have not written yet, so concurrent writers for
+    /// different digests cannot all fit into the same free space.
+    reservations: Mutex<HashMap<Sha256Digest, u64>>,
+    /// Serializes space checks with the reservation each one records.
+    room: tokio::sync::Mutex<()>,
 }
+
+/// Eviction candidates read from the index per round.
+const EVICTION_BATCH: usize = 10_000;
 
 #[derive(Clone)]
 pub struct ContentStore {
@@ -136,9 +146,12 @@ impl ContentStore {
                 space,
                 opener,
                 policy: Mutex::new(policy),
+                automatic_threshold: Mutex::new(None),
                 eviction,
                 writers: Mutex::new(HashMap::new()),
                 touches: Mutex::new(HashMap::new()),
+                reservations: Mutex::new(HashMap::new()),
+                room: tokio::sync::Mutex::new(()),
             }),
         };
         store.reconcile().await?;
@@ -153,12 +166,21 @@ impl ContentStore {
         *self.inner.policy.lock().unwrap_or_else(|p| p.into_inner())
     }
 
-    /// Half the cache limit: `automatic` videos larger than this become
-    /// stream claims instead of downloads, so one object can never consume
-    /// the whole store. Explicit `download` still fails rather than
-    /// streaming. The one-byte floor keeps the comparison total.
+    /// Sets the configured Automatic delivery threshold; `None` leaves only
+    /// the cache-limit bound.
+    pub fn set_automatic_threshold(&self, threshold: Option<u64>) {
+        *self.inner.automatic_threshold.lock().unwrap_or_else(|p| p.into_inner()) = threshold;
+    }
+
+    /// The configured Automatic delivery threshold, capped at half the cache
+    /// limit: `automatic` videos larger than this become stream claims
+    /// instead of downloads, so one object can never consume the whole
+    /// store. Explicit `download` still fails rather than streaming. The
+    /// one-byte floor keeps the comparison total.
     pub fn download_threshold_bytes(&self) -> u64 {
-        (self.policy().limit_bytes / 2).max(1)
+        let configured = *self.inner.automatic_threshold.lock().unwrap_or_else(|p| p.into_inner());
+        let half = self.policy().limit_bytes / 2;
+        configured.map_or(half, |value| value.min(half)).max(1)
     }
 
     pub fn cas_dir(&self) -> &Path {
@@ -389,13 +411,16 @@ impl ContentStore {
         Ok(self.inner.db.run(|c| repo::usage(c)).await?)
     }
 
-    /// Removes an unpinned object.
+    /// Removes an unpinned object. The pin check and the row deletion are one
+    /// statement, so a pin taken concurrently always wins.
     pub async fn remove(&self, digest: &Sha256Digest) -> Result<(), CasError> {
         let d = *digest;
-        if self.inner.db.run(move |c| repo::is_pinned(c, &d)).await? {
+        // Row first: a crash after this leaves an orphan file, which the
+        // next reconciliation re-hashes and adopts or deletes.
+        if !self.inner.db.run(move |c| repo::delete_unpinned_object(c, &d)).await? {
             return Err(CasError::Pinned(*digest));
         }
-        self.remove_unchecked(digest).await
+        self.remove_file(digest).await
     }
 
     async fn remove_unchecked(&self, digest: &Sha256Digest) -> Result<(), CasError> {
@@ -403,6 +428,10 @@ impl ContentStore {
         // Row first: a crash after this leaves an orphan file, which the
         // next reconciliation re-hashes and adopts or deletes.
         self.inner.db.run(move |c| repo::delete_object(c, &d)).await?;
+        self.remove_file(digest).await
+    }
+
+    async fn remove_file(&self, digest: &Sha256Digest) -> Result<(), CasError> {
         let path = object_path(&self.inner.cas_dir, digest);
         match tokio::fs::remove_file(&path).await {
             Ok(()) => {}
@@ -419,43 +448,74 @@ impl ContentStore {
     }
 
     /// Frees at least `bytes` by evicting unpinned objects. Returns bytes freed.
+    /// Candidates are read in batches, so `u64::MAX` clears every eligible
+    /// object rather than only the first batch.
     pub async fn evict(&self, bytes: u64) -> Result<u64, CasError> {
-        let candidates = self.inner.db.run(|c| repo::eviction_candidates(c, 10_000)).await?;
-        let selected = self.inner.eviction.select(&candidates, bytes);
         let mut freed = 0u64;
-        for digest in selected {
-            let size = candidates.iter().find(|c| c.sha256 == digest).map_or(0, |c| c.size_bytes);
-            // Re-checked inside remove(): a pin taken since selection wins.
-            match self.remove(&digest).await {
-                Ok(()) => {
-                    freed += size;
-                    tracing::info!(component = "cas", event = "evicted", sha256 = %digest.short(), bytes = size);
+        while freed < bytes {
+            let candidates = self.inner.db.run(|c| repo::eviction_candidates(c, EVICTION_BATCH)).await?;
+            let last_batch = candidates.len() < EVICTION_BATCH;
+            let selected = self.inner.eviction.select(&candidates, bytes - freed);
+            let mut removed = 0usize;
+            for digest in selected {
+                let size = candidates.iter().find(|c| c.sha256 == digest).map_or(0, |c| c.size_bytes);
+                // Re-checked inside remove(): a pin taken since selection wins.
+                match self.remove(&digest).await {
+                    Ok(()) => {
+                        freed += size;
+                        removed += 1;
+                        tracing::info!(component = "cas", event = "evicted", sha256 = %digest.short(), bytes = size);
+                    }
+                    Err(CasError::Pinned(_)) => {}
+                    Err(error) => return Err(error),
                 }
-                Err(CasError::Pinned(_)) => {}
-                Err(error) => return Err(error),
+                if freed >= bytes {
+                    break;
+                }
             }
-            if freed >= bytes {
+            // A batch that freed nothing would return the same rows again.
+            if last_batch || removed == 0 {
                 break;
             }
         }
         Ok(freed)
     }
 
-    /// Ensures `needed` more bytes fit under the limit and above the free
-    /// space reserve, evicting unpinned objects if necessary.
-    async fn make_room(&self, needed: u64) -> Result<(), CasError> {
+    /// Ensures the rest of `digest` (`expected_size` less `offset` already
+    /// present) fits under the limit and above the free space reserve,
+    /// counting bytes other open writers still expect, evicting unpinned
+    /// objects if necessary. Returns the reservation for the new writer.
+    async fn make_room(&self, digest: Sha256Digest, expected_size: u64, offset: u64) -> Result<Reservation, CasError> {
+        let _room = self.inner.room.lock().await;
+        let needed = expected_size - offset;
+        let others: Vec<(Sha256Digest, u64)> = self
+            .inner
+            .reservations
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .iter()
+            .filter(|(reserved, _)| **reserved != digest)
+            .map(|(reserved, expected)| (*reserved, *expected))
+            .collect();
+        let mut pending = 0u64;
+        for (reserved, expected) in others {
+            let present =
+                self.inner.db.run(move |c| repo::get_partial(c, &reserved)).await?.map_or(0, |row| row.bytes_present);
+            pending += expected.saturating_sub(present);
+        }
         let policy = self.policy();
         let usage = self.usage().await?;
-        let over_limit = (usage.used_bytes + usage.partial_bytes + needed).saturating_sub(policy.limit_bytes);
+        let over_limit = (usage.used_bytes + usage.partial_bytes + pending + needed).saturating_sub(policy.limit_bytes);
         if over_limit > 0 && self.evict(over_limit).await? < over_limit {
             return Err(CasError::OverLimit);
         }
         let available = self.inner.space.available_bytes(&self.inner.partial_dir)?;
-        let shortfall = (needed + policy.reserved_free_bytes).saturating_sub(available);
+        let shortfall = (needed + pending + policy.reserved_free_bytes).saturating_sub(available);
         if shortfall > 0 && self.evict(shortfall).await? < shortfall {
             return Err(CasError::InsufficientSpace { needed });
         }
-        Ok(())
+        self.inner.reservations.lock().unwrap_or_else(|p| p.into_inner()).insert(digest, expected_size);
+        Ok(Reservation { store: self.clone(), digest })
     }
 
     async fn writer_lock(&self, digest: &Sha256Digest) -> OwnedMutexGuard<()> {
@@ -493,7 +553,7 @@ impl ContentStore {
             Some(row) if row.expected_size == expected_size && on_disk <= expected_size => on_disk,
             _ => 0,
         };
-        self.make_room(expected_size - offset).await?;
+        let reservation = self.make_room(digest, expected_size, offset).await?;
         let file = tokio::fs::OpenOptions::new()
             .create(true)
             .truncate(offset == 0)
@@ -506,6 +566,7 @@ impl ContentStore {
         let session = WriteSession {
             store: self.clone(),
             _guard: guard,
+            _reservation: reservation,
             digest,
             expected_size,
             meta,
@@ -571,10 +632,23 @@ pub enum VerifyOutcome {
     Corrupt,
 }
 
+/// The space a write session holds until it ends.
+struct Reservation {
+    store: ContentStore,
+    digest: Sha256Digest,
+}
+
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        self.store.inner.reservations.lock().unwrap_or_else(|p| p.into_inner()).remove(&self.digest);
+    }
+}
+
 /// Exclusive write access to one digest's partial file.
 pub struct WriteSession {
     store: ContentStore,
     _guard: OwnedMutexGuard<()>,
+    _reservation: Reservation,
     digest: Sha256Digest,
     expected_size: u64,
     meta: IngestMeta,

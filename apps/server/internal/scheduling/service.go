@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -385,6 +386,13 @@ func (s *Service) CreateGroupWithScreens(ctx context.Context, user uuid.UUID, na
 
 // addScreenInTx is one membership addition inside tx.
 func addScreenInTx(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID) ([]note, int64, error) {
+	// Take the screen lock before the group lock, as schedule writes do.
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM screens WHERE id=$1 FOR UPDATE`, screen); err != nil {
+		return nil, 0, err
+	}
+	if err := lockDisplayControlGroup(ctx, tx, group); err != nil {
+		return nil, 0, err
+	}
 	// A group-targeted display-control schedule follows every member. Check the
 	// new member before changing membership so an Android Player cannot acquire
 	// a schedule it has no way to execute after the schedule itself was created
@@ -395,8 +403,8 @@ func addScreenInTx(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID
 			SELECT 1
 			FROM screens sc
 			JOIN screen_groups g ON g.id=$1 AND g.organization_id=sc.organization_id AND g.deleted_at IS NULL
-			WHERE sc.id=$2 AND sc.platform<>'linux'
-			  AND EXISTS(
+			WHERE sc.id=$2 AND (
+			  (sc.platform<>'linux' AND EXISTS(
 				SELECT 1
 				FROM schedules schedule
 				JOIN schedule_targets target ON target.schedule_id=schedule.id
@@ -404,7 +412,13 @@ func addScreenInTx(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID
 				  AND target.screen_group_id=$1
 				  AND schedule.deleted_at IS NULL
 				  AND schedule.display_action IS NOT NULL
-			  )
+			  )) OR (
+				EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screens member ON member.id=m.screen_id
+					WHERE m.screen_group_id=$1 AND member.platform<>'linux')
+				AND EXISTS(SELECT 1 FROM schedule_targets target JOIN schedules schedule ON schedule.id=target.schedule_id
+					WHERE target.target_type='screen' AND target.screen_id=$2
+					  AND schedule.deleted_at IS NULL AND schedule.display_action IS NOT NULL)
+			  ))
 		)`, group, screen).Scan(&unsupported); err != nil {
 		return nil, 0, err
 	}
@@ -478,9 +492,11 @@ func addScreenInTx(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID
 // restoreScreenSnapshot reinstates the playlist assignment and screen-targeted
 // schedules a screen had before it joined a sync group, then discards the
 // snapshot. Memberships created before snapshots existed have no snapshot row
-// and fall back to inheriting the group's playlist.
+// and fall back to inheriting the group's playlist. A snapshotted playlist or
+// Layout deleted while the screen was a member is not restored: the screen's
+// own assignment no longer exists, and restoring it would break its manifest.
 func restoreScreenSnapshot(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `INSERT INTO screen_playlist_assignments(id,screen_id,playlist_id,layout_id,assigned_by,assigned_at,updated_at) SELECT gen_random_uuid(),snap.screen_id,snap.playlist_id,snap.layout_id,COALESCE(snap.assigned_by,$2),COALESCE(snap.assigned_at,now()),now() FROM screen_group_membership_snapshots snap WHERE snap.screen_id=$1 AND (snap.playlist_id IS NULL) <> (snap.layout_id IS NULL) ON CONFLICT(screen_id)DO UPDATE SET playlist_id=EXCLUDED.playlist_id,layout_id=EXCLUDED.layout_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`, screen, user); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO screen_playlist_assignments(id,screen_id,playlist_id,layout_id,assigned_by,assigned_at,updated_at) SELECT gen_random_uuid(),snap.screen_id,snap.playlist_id,snap.layout_id,COALESCE(snap.assigned_by,$2),COALESCE(snap.assigned_at,now()),now() FROM screen_group_membership_snapshots snap LEFT JOIN playlists p ON p.id=snap.playlist_id AND p.deleted_at IS NULL LEFT JOIN layouts l ON l.id=snap.layout_id AND l.deleted_at IS NULL WHERE snap.screen_id=$1 AND (snap.playlist_id IS NULL) <> (snap.layout_id IS NULL) AND (p.id IS NOT NULL OR l.id IS NOT NULL) ON CONFLICT(screen_id)DO UPDATE SET playlist_id=EXCLUDED.playlist_id,layout_id=EXCLUDED.layout_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`, screen, user); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO screen_playlist_assignments(id,screen_id,playlist_id,layout_id,assigned_by,assigned_at,updated_at) SELECT gen_random_uuid(),$2,a.playlist_id,a.layout_id,$3,now(),now() FROM screen_group_playlist_assignments a WHERE a.screen_group_id=$1 AND NOT EXISTS(SELECT 1 FROM screen_group_membership_snapshots WHERE screen_id=$2) ON CONFLICT(screen_id)DO UPDATE SET playlist_id=EXCLUDED.playlist_id,layout_id=EXCLUDED.layout_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`, group, screen, user); err != nil {
@@ -629,16 +645,8 @@ func (s *Service) validateInputFor(ctx context.Context, in Input, platformCheck 
 			return errors.New("schedule target is invalid or belongs to another organization")
 		}
 		if in.DisplayAction != nil && platformCheck {
-			var unsupported bool
-			if t.Type == "screen" {
-				if err := s.db.QueryRow(ctx, `SELECT platform<>'linux' FROM screens WHERE id=$1`, t.ID).Scan(&unsupported); err != nil {
-					return err
-				}
-			} else if err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screens sc ON sc.id=m.screen_id WHERE m.screen_group_id=$1 AND sc.platform<>'linux')`, t.ID).Scan(&unsupported); err != nil {
+			if err := validateDisplayControlTarget(ctx, s.db, t); err != nil {
 				return err
-			}
-			if unsupported {
-				return fmt.Errorf("%w: display-control schedules are supported only on Linux Players", ErrDisplayControlUnsupported)
 			}
 		}
 	}
@@ -685,6 +693,26 @@ func (s *Service) withDefaultTimezone(ctx context.Context, in Input) (Input, err
 // rowQuerier is satisfied by both the pool and a transaction.
 type rowQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func lockDisplayControlGroup(ctx context.Context, tx pgx.Tx, group uuid.UUID) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('tilecast.schedule.display_control.' || $1::text, 0))`, group.String())
+	return err
+}
+
+func validateDisplayControlTarget(ctx context.Context, q rowQuerier, target Target) error {
+	var unsupported bool
+	query := `SELECT EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screens sc ON sc.id=m.screen_id WHERE m.screen_group_id=$1 AND sc.platform<>'linux')`
+	if target.Type == "screen" {
+		query = `SELECT platform<>'linux' FROM screens WHERE id=$1`
+	}
+	if err := q.QueryRow(ctx, query, target.ID).Scan(&unsupported); err != nil {
+		return err
+	}
+	if unsupported {
+		return fmt.Errorf("%w: display-control schedules are supported only on Linux Players", ErrDisplayControlUnsupported)
+	}
+	return nil
 }
 
 func (s *Service) normalizeSyncGroupTargets(ctx context.Context, in Input) (Input, error) {
@@ -808,15 +836,40 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 	// Lock each screen target, then normalize under that lock. A membership
 	// change locks the same screen row, so a screen that joins a group after
 	// the pre-check is stored as its group target, not as a screen-only target.
+	var screenIDs []uuid.UUID
 	for _, target := range in.Targets {
 		if target.Type == "screen" {
-			if _, err = tx.Exec(ctx, `SELECT 1 FROM screens WHERE id=$1 FOR UPDATE`, target.ID); err != nil {
-				return err
-			}
+			screenIDs = append(screenIDs, target.ID)
+		}
+	}
+	if len(screenIDs) > 0 {
+		if _, err = tx.Exec(ctx, `SELECT 1 FROM screens WHERE id=ANY($1) ORDER BY id FOR UPDATE`, screenIDs); err != nil {
+			return err
 		}
 	}
 	if in, err = normalizeSyncGroupTargetsWith(ctx, tx, in); err != nil {
 		return err
+	}
+	if in.DisplayAction != nil {
+		// Validate the final targets after acquiring every group admission lock.
+		// Membership changes can promote a screen target to a group target.
+		var groups []uuid.UUID
+		for _, target := range in.Targets {
+			if target.Type == "group" {
+				groups = append(groups, target.ID)
+			}
+		}
+		slices.SortFunc(groups, func(a, b uuid.UUID) int { return slices.Compare(a[:], b[:]) })
+		for _, group := range groups {
+			if err = lockDisplayControlGroup(ctx, tx, group); err != nil {
+				return err
+			}
+		}
+		for _, target := range in.Targets {
+			if err = validateDisplayControlTarget(ctx, tx, target); err != nil {
+				return err
+			}
+		}
 	}
 	old, err := affectedForSchedule(ctx, tx, id)
 	if err != nil {
