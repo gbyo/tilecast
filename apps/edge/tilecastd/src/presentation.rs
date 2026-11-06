@@ -1093,8 +1093,15 @@ impl PresentationEngine {
 /// Callers invoke this after a recovery action or command that changes
 /// supervision state. A failed write is logged, never fatal: the next
 /// supervision change persists again.
+///
+/// The whole read, snapshot, and write runs under one lock, and the engine is
+/// snapshotted after taking it. A caller that waits therefore persists the
+/// state as of its own turn, so a stale snapshot from the supervisor loop can
+/// neither overwrite a newer transition nor make that transition's write look
+/// like a no-op.
 pub async fn persist_supervision(context: &crate::daemon::DaemonContext) {
     let Some(db) = context.db() else { return };
+    let _serialized = context.supervision_persist.lock().await;
     let now = context.now();
     let previous = match db.run(|conn| edge_state::repo::renderer::get(conn)).await {
         Ok(record) => record,
