@@ -339,6 +339,12 @@ curl --fail-with-body \
 
 The player resumes `.part` downloads, verifies available storage, SHA-256, package name, version code, minimum SDK, signing certificate, install permission, and Takeover state, then uses Android `PackageInstaller`. For API 31 and newer it declares `UPDATE_PACKAGES_WITHOUT_USER_ACTION` and requests `USER_ACTION_NOT_REQUIRED` for its own signed update. Android can still return `STATUS_PENDING_USER_ACTION`, so the Player preserves an explicit confirmation fallback instead of claiming universal silent installation. Takeover playback delays installation but not downloading. The Player checks Takeover again when a person approves a pending update or grants the install permission. If a Takeover is active at that time, the update returns to its delayed state and asks for approval again after the Takeover ends. Pairing credentials, manifests, configuration, disabled state, and media cache live outside the APK and survive replacement. The package-replaced receiver and the already-enabled bounded Accessibility service both request a return to Tilecast after replacement; Accessibility never reads or clicks installer controls. Success is recorded after the updated Player reconnects at the expected version, remains up for at least 120 seconds or does not report uptime, is not in safe mode, and reports no update error. Healthy playback is not required, so a sleeping screen can settle the update.
 
+The Android Player writes a durable staging marker before it copies the APK into a `PackageInstaller` session.
+It removes the marker after the session is committed.
+If the Player process stops while the marker exists, no installer result can arrive.
+At the next start, the Player abandons the unfinished session and returns the update to `WaitingForUser` with an **Install update** control.
+If the staged APK is no longer present, the Player reports the update as failed with `staged_update_missing`, and an Owner or Administrator can retry the target in Studio.
+
 Deployments may start with a deterministic canary cohort. Other targeted screens remain held until every canary reconnects successfully. The rollout pauses when a canary reports failure, enters safe mode, or remains reconnecting beyond the bounded health window. Studio shows the rollout phase and safe pause reason; it never treats `WaitingForUser` as failure.
 
 ## Settling a deployment
