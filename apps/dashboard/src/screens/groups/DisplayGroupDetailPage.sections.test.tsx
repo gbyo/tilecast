@@ -13,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
+import { screenKeys } from "../../data/screens";
 import type { Screen, ScreenGroup } from "../../api/types";
 import { DisplayGroupDetailPage } from "./DisplayGroupDetailPage";
 import { normalizeGroupDetailTab } from "./displayGroupModel";
@@ -179,13 +180,12 @@ function LocationProbe() {
   return <output data-testid="location">{location.pathname}</output>;
 }
 
-function renderGroupDetail(entries: string[] = ["/groups/group-1"]) {
+function renderGroupDetail(
+  entries: string[] = ["/groups/group-1"],
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+    <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={entries}>
         <Routes>
           <Route path="/groups/:id" element={<DisplayGroupDetailPage />} />
@@ -316,6 +316,26 @@ describe("Display Group mutation failures", () => {
     expect(
       screen.getByRole("heading", { name: "North Wing" }),
     ).toBeInTheDocument();
+  });
+
+  it("refreshes member screens after a group assignment", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    renderGroupDetail(["/groups/group-1"], client);
+    await user.click(await screen.findByRole("tab", { name: "Playback" }));
+    await user.click(
+      await screen.findByRole("combobox", { name: "Presentation" }),
+    );
+    await user.click(await screen.findByRole("option", { name: "Morning" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(api.assignSyncGroupPlaylist).toHaveBeenCalled());
+    // Each member's assignment, playback plan and fleet row changed too.
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: screenKeys.all }),
+    );
   });
 
   it("returns to the index after a confirmed delete", async () => {

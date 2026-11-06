@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use edge_protocol::Timestamp;
 use edge_protocol::bounded::{DetailText, ShortToken};
 use edge_protocol::capability::{Capability, CapabilityId, CapabilityState, ids};
-use edge_protocol::ipc::event::{RemoteWebStatus, RendererCommandKind, RendererCommandResult};
+use edge_protocol::ipc::event::{HealthState, RemoteWebStatus, RendererCommandKind, RendererCommandResult};
 use edge_state::repo::commands::CommandResult;
 use player_core::{
     RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear as StartupClear,
@@ -77,9 +77,16 @@ pub async fn clear_website_data(context: &DaemonContext) -> CommandResult {
     }
 }
 
-/// Whether this `renderer.ready` should start the startup clear.
-fn should_clear_at_start(status: Option<&RemoteWebStatus>, clear_on_restart: bool, state: &mut StartupClear) -> bool {
-    state.begin(status.is_some_and(|status| status.available), clear_on_restart)
+/// Whether a renderer readiness or helper-recovery event should start the
+/// startup clear. `available` is whether the remote web helper is reachable.
+fn should_clear_at_start(available: bool, clear_on_restart: bool, state: &mut StartupClear) -> bool {
+    state.begin(available, clear_on_restart)
+}
+
+/// A healthy report after the helper restarted means remote web is reachable
+/// again. The caller passes it only when the restart flag actually cleared.
+pub fn helper_recovered(state: HealthState) -> bool {
+    state == HealthState::Healthy
 }
 
 /// Record what the startup clear did. Only the renderer's success answer
@@ -93,13 +100,14 @@ fn note_startup_clear_result(state: &mut StartupClear, result: &CommandResult) {
 /// `website.clearOnRestart`: once per daemon start, when a renderer with
 /// remote web is ready (the reference player clears at startup). The
 /// renderer re-sends `renderer.ready` after a reconnect and when the helper
-/// appears later, so a failed startup clear retries on recovery; a
-/// successful one never runs again for this process.
-pub fn clear_at_start_if_configured(context: &std::sync::Arc<DaemonContext>, status: Option<&RemoteWebStatus>) {
+/// first appears. A helper that restarts later reports healthy health instead
+/// (`recovered`), which also calls this. A failed startup clear retries on
+/// either event; a successful one never runs again for this process.
+pub fn clear_at_start_if_configured(context: &std::sync::Arc<DaemonContext>, available: bool) {
     let clear_on_restart = crate::config_sync::effective(context).runtime.website.clear_on_restart;
     {
         let mut state = context.renderer_commands.startup_clear.lock().unwrap_or_else(|e| e.into_inner());
-        if !should_clear_at_start(status, clear_on_restart, &mut state) {
+        if !should_clear_at_start(available, clear_on_restart, &mut state) {
             return;
         }
     }
@@ -194,10 +202,6 @@ mod tests {
         assert_eq!(state(Some(&status(true, true)), true, false), (CapabilityState::Available, None));
     }
 
-    fn ready(available: bool) -> RemoteWebStatus {
-        status(available, true)
-    }
-
     fn failed(code: &str) -> CommandResult {
         CommandResult::failed(code, "not cleared")
     }
@@ -206,52 +210,72 @@ mod tests {
     fn startup_clear_completes_only_after_success() {
         // A successful first clear runs once; later ready events do nothing.
         let mut state = StartupClear::default();
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         assert_eq!(state, StartupClear::InFlight);
         // No duplicate simultaneous clear while one runs.
-        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(!should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
         assert_eq!(state, StartupClear::Done);
-        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(!should_clear_at_start(true, true, &mut state));
     }
 
     #[test]
     fn startup_clear_waits_for_the_helper_then_runs_once() {
         // Helper unavailable at first ready: nothing starts.
         let mut state = StartupClear::default();
-        assert!(!should_clear_at_start(Some(&ready(false)), true, &mut state));
-        assert!(!should_clear_at_start(None, true, &mut state));
-        assert!(!should_clear_at_start(Some(&ready(true)), false, &mut state));
+        assert!(!should_clear_at_start(false, true, &mut state));
+        assert!(!should_clear_at_start(false, true, &mut state));
+        assert!(!should_clear_at_start(true, false, &mut state));
         assert_eq!(state, StartupClear::Idle);
         // Recovery (the helper appears, ready re-sent): the clear runs.
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
         assert_eq!(state, StartupClear::Done);
-        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(!should_clear_at_start(true, true, &mut state));
+    }
+
+    #[test]
+    fn only_a_healthy_report_counts_as_helper_recovery() {
+        assert!(helper_recovered(HealthState::Healthy));
+        assert!(!helper_recovered(HealthState::Degraded));
+    }
+
+    #[test]
+    fn startup_clear_retries_after_helper_recovery_event() {
+        // The helper restarts mid-clear: the clear fails and returns to idle.
+        let mut state = StartupClear::default();
+        assert!(should_clear_at_start(true, true, &mut state));
+        note_startup_clear_result(&mut state, &failed("remote_web_helper_restarted"));
+        assert_eq!(state, StartupClear::Idle);
+        // Recovery is reported as health, not renderer.ready, and retries.
+        assert!(helper_recovered(HealthState::Healthy));
+        assert!(should_clear_at_start(true, true, &mut state));
+        note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
+        assert!(!should_clear_at_start(true, true, &mut state));
     }
 
     #[test]
     fn startup_clear_retries_after_disconnect_timeout_or_helper_failure() {
         // Renderer disconnect during the clear.
         let mut state = StartupClear::default();
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &failed("renderer_disconnected"));
         assert_eq!(state, StartupClear::Idle);
         // Timeout waiting for the answer.
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &failed("renderer_timeout"));
         assert_eq!(state, StartupClear::Idle);
         // Helper restarted or unavailable mid-clear.
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &failed("remote_web_helper_restarted"));
         assert_eq!(state, StartupClear::Idle);
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &failed("remote_web_unavailable"));
         assert_eq!(state, StartupClear::Idle);
         // Recovery finally succeeds: done, exactly once.
-        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(should_clear_at_start(true, true, &mut state));
         note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
         assert_eq!(state, StartupClear::Done);
-        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert!(!should_clear_at_start(true, true, &mut state));
     }
 }

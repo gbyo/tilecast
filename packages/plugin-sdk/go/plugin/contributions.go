@@ -79,8 +79,32 @@ type PlayerState struct {
 	// Media lists verified media variants the state uses. Players download
 	// and verify them, and player.media@1 addresses only these.
 	Media []MediaRef
+	// Fonts lists organization font library families the state uses. The
+	// Server resolves each ID to its faces (verified downloads) and a
+	// family that was removed is dropped, so the Player's player.fonts@1
+	// binding answers null and the plugin keeps its own fallback face.
+	Fonts []uuid.UUID
 	// ValidUntil, when set, is enforced by the Player on its corrected clock.
 	ValidUntil *time.Time
+}
+
+// FontRef names one organization font library family. Family and Faces are
+// set by the Server when it resolves the reference for the manifest; a
+// plugin sets only ID.
+type FontRef struct {
+	ID     uuid.UUID  `json:"id"`
+	Family string     `json:"family,omitempty"`
+	Faces  []FontFace `json:"faces,omitempty"`
+}
+
+// FontFace is one verified font file of a family.
+type FontFace struct {
+	AssetID      uuid.UUID `json:"assetId"`
+	VariantID    uuid.UUID `json:"variantId"`
+	Style        string    `json:"style"`
+	WeightMin    int       `json:"weightMin"`
+	WeightMax    int       `json:"weightMax"`
+	UnicodeRange string    `json:"unicodeRange,omitempty"`
 }
 
 // MediaRef names one media variant.

@@ -65,9 +65,9 @@ func TestPlaybackPlanHTTPBoundary(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		get := func(credential, id, query string) *httptest.ResponseRecorder {
+		getRoute := func(credential, id, path, query string) *httptest.ResponseRecorder {
 			t.Helper()
-			request := httptest.NewRequest(http.MethodGet, "/api/v1/screens/"+id+"/playback-plan"+query, nil)
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/screens/"+id+path+query, nil)
 			if credential == "session" {
 				request.AddCookie(&http.Cookie{Name: "tilecast_session", Value: login.Session.Token})
 			} else if credential != "" {
@@ -76,6 +76,9 @@ func TestPlaybackPlanHTTPBoundary(t *testing.T) {
 			response := httptest.NewRecorder()
 			api.ServeHTTP(response, request)
 			return response
+		}
+		get := func(credential, id, query string) *httptest.ResponseRecorder {
+			return getRoute(credential, id, "/playback-plan", query)
 		}
 		read := func(response *httptest.ResponseRecorder) playbackplan.Response {
 			t.Helper()
@@ -159,6 +162,54 @@ func TestPlaybackPlanHTTPBoundary(t *testing.T) {
 		if err := env.pool.QueryRow(ctx, `SELECT manifest_version FROM screen_manifest_state WHERE screen_id=$1`, inScope).Scan(&version); err != nil || version != 7 {
 			t.Fatalf("inspection changed manifest version=%d err=%v", version, err)
 		}
+		t.Run("agenda", func(t *testing.T) {
+			overlapStart := future.Add(15 * time.Minute)
+			overlapEnd := future.Add(45 * time.Minute)
+			loserID := uuid.New()
+			exec(`INSERT INTO schedules(id,organization_id,name,playlist_id,type,timezone,priority,one_time_start,one_time_end) VALUES($1,$2,'Lower priority',$3,'one_time','UTC',-1,$4,$5)`, loserID, org, fallback, overlapStart, overlapEnd)
+			exec(`INSERT INTO schedule_targets(schedule_id,target_type,screen_id) VALUES($1,'screen',$2)`, loserID, inScope)
+			to := future.Add(2 * time.Hour)
+			query := "?from=" + past.Format(time.RFC3339) + "&to=" + to.Format(time.RFC3339)
+			getAgenda := func(credential, id, query string) *httptest.ResponseRecorder {
+				return getRoute(credential, id, "/playback-agenda", query)
+			}
+			response := getAgenda(token, inScope.String(), query)
+			if response.Code != http.StatusOK {
+				t.Fatalf("agenda status=%d body=%s", response.Code, response.Body.String())
+			}
+			var envelope struct {
+				Data playbackplan.Agenda `json:"data"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			segments := envelope.Data.Segments
+			if len(segments) != 5 {
+				t.Fatalf("segments=%#v", segments)
+			}
+			if !segments[0].Start.Equal(envelope.Data.EvaluatedAt) ||
+				!segments[0].End.Equal(future) || segments[0].Selected.ContentID != fallback ||
+				!segments[4].Start.Equal(future.Add(time.Hour)) ||
+				!segments[4].End.Equal(to) || segments[4].Selected.ContentID != fallback {
+				t.Fatalf("agenda must start at server time and return to fallback: %#v", segments)
+			}
+			overlap := segments[2]
+			if !overlap.Start.Equal(overlapStart) || !overlap.End.Equal(overlapEnd) ||
+				overlap.Selected.ContentID != scheduled || overlap.Selected.ScheduleName != "Plan schedule" ||
+				len(overlap.Superseded) != 1 || overlap.Superseded[0].Name != "Lower priority" ||
+				overlap.Superseded[0].Reason != string(scheduling.ReasonLowerPriority) {
+				t.Fatalf("wrong overlap: %#v", overlap)
+			}
+			if response := getAgenda(token, outOfScope.String(), query); response.Code != http.StatusNotFound {
+				t.Fatalf("agenda scope status=%d", response.Code)
+			}
+			if response := getAgenda("", inScope.String(), query); response.Code != http.StatusUnauthorized {
+				t.Fatalf("unauthenticated agenda status=%d", response.Code)
+			}
+			if response := getAgenda(token, inScope.String(), query+"&from="+past.Format(time.RFC3339)); response.Code != http.StatusBadRequest {
+				t.Fatalf("duplicate agenda parameter status=%d", response.Code)
+			}
+		})
 		// Two authoritative windows are a conflict, never a guessed winner.
 		exec(`INSERT INTO expected_playback_windows(id,screen_id,presentation_type,presentation_id,presentation_revision,trigger_source,expected_start,expected_end) VALUES($1,$2,'playlist','another-recorded','1','assignment',$3,$4)`, uuid.New(), inScope, past, past.Add(time.Hour))
 		if response := get(token, inScope.String(), "?at="+past.Format(time.RFC3339)); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "playback_expectation_ambiguous") {

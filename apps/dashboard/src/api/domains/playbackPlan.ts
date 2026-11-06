@@ -13,3 +13,19 @@ export function getScreenPlaybackPlan(
     signal: options.signal,
   });
 }
+
+export type PlaybackAgenda = components["schemas"]["PlaybackAgenda"];
+export type PlaybackAgendaSegment =
+  components["schemas"]["PlaybackAgendaSegment"];
+
+export function getScreenPlaybackAgenda(
+  id: string,
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<PlaybackAgenda> {
+  return apiGet("/api/v1/screens/{id}/playback-agenda", {
+    params: { path: { id }, query: { from, to } },
+    signal,
+  });
+}

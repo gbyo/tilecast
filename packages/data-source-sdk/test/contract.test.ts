@@ -260,6 +260,29 @@ describe("data source manifests", () => {
     ).toBe(false);
   });
 
+  it("bounds output schemas to the Player dataset field limit", () => {
+    const fields = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        key: `field${index}`,
+        label: "Field",
+        type: "text" as const,
+      }));
+    const outputSchema = (count: number) => ({
+      kind: "records" as const,
+      fields: fields(count),
+    });
+    expect(
+      dataSourceManifestSchema.safeParse(
+        validManifest({ outputSchema: outputSchema(16) }),
+      ).success,
+    ).toBe(true);
+    expect(
+      dataSourceManifestSchema.safeParse(
+        validManifest({ outputSchema: outputSchema(17) }),
+      ).success,
+    ).toBe(false);
+  });
+
   it("emits a portable JSON schema", () => {
     const schema = dataSourceManifestJSONSchema() as Record<string, unknown>;
     expect(schema.type).toBe("object");

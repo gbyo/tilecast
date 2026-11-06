@@ -101,7 +101,7 @@ The canvas is a design coordinate system, not a requirement that the display hav
 
 Tilecast does not add a broadcast-style title-safe or overscan margin automatically. Set the TV to a 1:1 mode such as **Just Scan**, **Screen Fit**, or the manufacturer's equivalent when possible. If the display cannot disable overscan, keep essential text away from the canvas edge and test that exact model.
 
-Layout text uses the built-in families **Inter**, **Roboto**, **Source Sans 3**, and **Noto Sans**. Layouts do not currently load an uploaded font or an arbitrary Google Font. A text layer can choose independently among the built-in families.
+A text layer can use one of your [organization fonts](../administration/fonts/), added from Google Fonts or uploaded as TTF or OTF files, or one of the built-in families **Inter**, **Roboto**, **Source Sans 3**, and **Noto Sans**. A text layer that uses an organization font keeps a built-in family as its fallback: screens show the fallback while the font downloads, and screens on an older Player version keep using it.
 
 Layer order controls overlap: a higher layer is painted in front of a lower layer, and each placement keeps its own opacity. Use **Layers** and **Bring to front** to make the intended order explicit. A Span screen receives only the part of a placement that intersects its panel. Size ordinary Layout placements to the visible region you want instead of depending on content outside their box.
 

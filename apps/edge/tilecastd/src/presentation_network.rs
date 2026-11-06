@@ -374,6 +374,10 @@ struct Inner {
     persisted: NetworkState,
     loaded: bool,
     status: Status,
+    /// The last reconciliation failed for a reason that can pass by itself
+    /// (an unreachable server, a helper that refused the install or was not
+    /// running). A failed connection test is not one: it stays visible.
+    retry_provisioning: bool,
 }
 
 #[derive(Debug)]
@@ -482,6 +486,25 @@ impl PresentationNetwork {
         self.publish(&inner);
     }
 
+    /// Whether the retained assignment failed to provision for a reason that
+    /// can pass without a new configuration.
+    pub async fn provisioning_retry_pending(&self) -> bool {
+        self.inner.lock().await.retry_provisioning
+    }
+
+    /// Reconciles the retained assignment again after a transient failure.
+    /// Does nothing when no such failure is pending, so a failed connection
+    /// test keeps its status.
+    pub async fn retry_provisioning(&self, provisioner: &dyn Provisioner, now: Timestamp) {
+        let mut inner = self.inner.lock().await;
+        if !inner.retry_provisioning {
+            return;
+        }
+        tracing::info!(component = "network", event = "provisioning_retry");
+        self.reconcile_locked(&mut inner, provisioner, now).await;
+        self.publish(&inner);
+    }
+
     pub async fn reconcile(&self, provisioner: &dyn Provisioner, now: Timestamp) -> Status {
         let mut inner = self.inner.lock().await;
         self.reconcile_locked(&mut inner, provisioner, now).await;
@@ -492,16 +515,18 @@ impl PresentationNetwork {
     /// Converges the installed Tilecast profiles on the assignment: deletes
     /// every profile that does not belong, installs a missing or stale one.
     async fn reconcile_locked(&self, inner: &mut Inner, provisioner: &dyn Provisioner, now: Timestamp) {
+        inner.retry_provisioning = false;
         self.load(inner).await;
         let capability = self.helper.status().await;
         inner.capability = Some(capability.clone());
+        let assignment = inner.assignment.clone().flatten();
         if !capability.network_manager_available {
             let code =
                 if capability.helper_state == "missing" { "helper_unavailable" } else { "network_manager_unavailable" };
+            inner.retry_provisioning = assignment.is_some();
             Self::set_status(inner, "unsupported", Some((code, capability.limitation.unwrap_or_default())), now);
             return;
         }
-        let assignment = inner.assignment.clone().flatten();
         for network_id in &player_core::obsolete_network_profiles(assignment.as_ref(), &capability.installed) {
             tracing::info!(component = "network", event = "obsolete_profile_removed", network = network_id.as_str());
             self.helper.delete(network_id).await;
@@ -561,6 +586,7 @@ impl PresentationNetwork {
         let material = match provisioner.provisioning().await {
             Ok(material) => material,
             Err(message) => {
+                inner.retry_provisioning = true;
                 Self::set_status(inner, "failed", Some(("credential_unavailable", message)), now);
                 return;
             }
@@ -577,6 +603,7 @@ impl PresentationNetwork {
                 HelperError::Refused { code, .. } => *code,
                 _ => "profile_install_failed",
             };
+            inner.retry_provisioning = true;
             Self::set_status(inner, "failed", Some((code, error.to_string())), now);
             return;
         }

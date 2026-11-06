@@ -519,7 +519,7 @@ class PlayerViewModel internal constructor(
             val state = mutableUpdate.value ?: return@launch
             val manager = updates ?: return@launch
             val server = (host.state.value as? CoreHostState.Ready)?.status?.serverUrl
-            manager.refreshPermission(server, credentials.read(), state)
+            manager.refreshPermission(server, credentials.read(), state) { mutableTakeoverActive.value }
             reportPlatformObservations()
         }
     }
@@ -537,7 +537,7 @@ class PlayerViewModel internal constructor(
         viewModelScope.launch {
             val state = mutableUpdate.value ?: return@launch
             val server = (host.state.value as? CoreHostState.Ready)?.status?.serverUrl
-            updates?.beginInstall(server, credentials.read(), state)
+            updates?.beginInstall(server, credentials.read(), state) { mutableTakeoverActive.value }
             reportPlatformObservations()
         }
     }

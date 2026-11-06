@@ -631,11 +631,11 @@ impl NativeManifest {
                 if state_entries > crate::plugin_host::MAX_STATE_ENTRIES {
                     return Err(NativeManifestError::Bound);
                 }
-                let media =
+                let references =
                     crate::plugin_host::validate_plugin_state(plugin).map_err(|_| NativeManifestError::Structure)?;
-                for key in media {
-                    // Declared plugin media is a verified download like any
-                    // other reference outside a playlist.
+                for key in references.all() {
+                    // Declared plugin media and font files are verified
+                    // downloads like any other reference outside a playlist.
                     forced_downloads.insert(key);
                     if !by_variant.contains_key(&key) {
                         return Err(NativeManifestError::Reference);

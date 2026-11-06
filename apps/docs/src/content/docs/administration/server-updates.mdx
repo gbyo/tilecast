@@ -15,7 +15,7 @@ Tilecast Server has three release channels:
 - **Beta** lets you test the next Stable release. Beta images are versioned like `ghcr.io/gbyo/tilecast-server:0.26.0-beta.1`, and `beta` names the newest release of either kind. When Stable catches up, `beta` moves to it.
 - **Development** tracks `main` through the `development` image tag and may be unstable. Use it only for development and testing.
 
-Tilecast itself is still pre-1.0, so Stable means stable relative to Development, not a claim of mature or enterprise stability. See [Releases and downloads](../../reference/releases/) for how versions are ordered.
+See [Releases and downloads](../../reference/releases/) for how versions are ordered.
 
 `TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases, use `beta` to test early, or pin an explicit release for controlled upgrades.
 
