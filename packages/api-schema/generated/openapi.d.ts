@@ -24466,7 +24466,10 @@ export interface operations {
   };
   updateWidgetPreviewImage: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description The Widget asset `updatedAt` the image was rendered from. When present and the Widget has changed since, the server refuses the image with 409 `widget_preview_stale`. Omit it to store unconditionally. */
+        renderedUpdatedAt?: string;
+      };
       header?: never;
       path: {
         id: components["parameters"]["ResourceID"];
@@ -24488,6 +24491,13 @@ export interface operations {
       };
       /** @description Widget not found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The Widget changed after the preview was rendered (`widget_preview_stale`) */
+      409: {
         headers: {
           [name: string]: unknown;
         };
