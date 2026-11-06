@@ -111,6 +111,8 @@ struct Recorder {
     entered: Arc<Notify>,
     disrupted: Arc<Mutex<Vec<Option<commands::CommandRecord>>>>,
     api: Arc<FakeApi>,
+    /// Makes the command store unavailable once the handler has run.
+    break_store: Arc<AtomicBool>,
 }
 
 #[async_trait]
@@ -126,6 +128,14 @@ impl Handlers for Recorder {
     async fn run(&self, _command: &ServerCommand) -> CommandResult {
         self.runs.fetch_add(1, Ordering::SeqCst);
         self.entered.notify_one();
+        if self.break_store.load(Ordering::SeqCst) {
+            self.db
+                .run_blocking(|c| {
+                    c.execute_batch("ALTER TABLE player_commands RENAME TO player_commands_off").unwrap();
+                    Ok(())
+                })
+                .unwrap();
+        }
         if self.hang.load(Ordering::SeqCst) {
             std::future::pending::<()>().await;
         }
@@ -153,6 +163,7 @@ struct Harness {
     hang: Arc<AtomicBool>,
     entered: Arc<Notify>,
     disrupted: Arc<Mutex<Vec<Option<commands::CommandRecord>>>>,
+    break_store: Arc<AtomicBool>,
 }
 
 impl Harness {
@@ -171,6 +182,7 @@ impl Harness {
             hang: Arc::default(),
             entered: Arc::default(),
             disrupted: Arc::default(),
+            break_store: Arc::default(),
         }
     }
 
@@ -188,6 +200,7 @@ impl Harness {
             entered: Arc::clone(&self.entered),
             disrupted: Arc::clone(&self.disrupted),
             api: Arc::clone(&self.api),
+            break_store: Arc::clone(&self.break_store),
         };
         let coordinator = Coordinator::new(db, self.clock(), recorder);
         coordinator.recover().await.unwrap();
@@ -565,4 +578,32 @@ async fn a_migration_probation_leaves_commands_on_the_server_until_it_ends() {
     probation.store(false, Ordering::SeqCst);
     assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Completed);
     assert_eq!(h.runs.load(Ordering::SeqCst), 1, "after acceptance the command runs once");
+}
+
+#[tokio::test]
+async fn a_result_that_could_not_be_stored_is_settled_as_interrupted_by_the_next_pass() {
+    let h = Harness::new();
+    h.deliver(command(id(1), "reload_playback"));
+    h.break_store.store(true, Ordering::SeqCst);
+    let coordinator = h.start().await;
+    assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Interrupted("state_unavailable"));
+    assert_eq!(h.runs.load(Ordering::SeqCst), 1);
+    assert!(h.reports().is_empty());
+
+    // The store recovers while the process keeps running.
+    h.break_store.store(false, Ordering::SeqCst);
+    let db = StateDb::open(&h.path, OpenOptions::default()).unwrap();
+    db.run_blocking(|c| {
+        c.execute_batch("ALTER TABLE player_commands_off RENAME TO player_commands").unwrap();
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(h.record().state, CommandState::Executing);
+
+    assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Completed);
+    let record = h.record();
+    assert_eq!(record.state, CommandState::Completed);
+    assert_eq!(record.result.as_ref().unwrap().code, commands::INTERRUPTED_CODE);
+    assert_eq!(h.runs.load(Ordering::SeqCst), 1, "the handler is not run again");
+    assert_eq!(h.reports(), vec![(id(1), commands::INTERRUPTED_CODE.to_owned())]);
 }
