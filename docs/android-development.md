@@ -131,6 +131,11 @@ toolchain flags first.
 
 ## Production cutover
 
+Power wake requests use `NEW_TASK`, `CLEAR_TOP`, and `SINGLE_TOP` together.
+An existing top `MainActivity` receives the request without a new instance.
+This preserves its ViewModel when configuration applies active-hours policy.
+An explicit Activity restart retains its separate restart behavior.
+
 Core owns pairing, configuration, manifest preparation, the server link,
 presence, commands, activity, renderer recovery, and capture policy.
 Kotlin owns server discovery, manual address entry, window, kiosk, and
@@ -556,6 +561,8 @@ The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Build an unsigned,
 The single `org.tilecast.player` application ID is suitable for Play Store and direct APK distribution. Do not introduce Fire TV or Google TV variants unless a future store requirement cannot be handled through resources or manifest metadata.
 
 The shared Player Runtime is the only presentation implementation. Playlists, Widgets (including V2 components), Layouts, websites, and YouTube play in the trusted Player Runtime WebView through generic references plus a projection context. The player keeps no Compose renderer and no Media3 dependency. The player skips unsupported entries in ordinary playlists. It keeps the other entries playing and reports the unsupported content. It does not start reliability recovery. A synchronized group stops if any entry cannot render. It must keep one shared timeline for all screens. Tickers and countdown bars project inside the runtime page. Core drives website data clearing through the renderer command channel. The website navigation policy stays host-owned.
+
+The Android bridge collects device metadata for each Core request. It reports the current display width and height after an orientation change without restarting Core.
 
 Calendar Sources project inside the shared runtime from sanitized manifest data. The Player does not fetch ICS, receive feed URLs, or use WebView for calendar content. Manifest validation bounds event counts and text before activation. Cached manifest startup preserves last-known-good prepared events.
 

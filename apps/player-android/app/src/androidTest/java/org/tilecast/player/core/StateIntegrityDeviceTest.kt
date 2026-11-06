@@ -28,7 +28,7 @@ class StateIntegrityDeviceTest {
                     KeystoreCredentialStore.CORE_KEY_ALIAS,
                 ),
                 File(filesDir, "player-core/pairing.json"),
-                DeviceFacts.collect(context.applicationContext),
+                { DeviceFacts.collect(context.applicationContext) },
                 sink,
             )
         })
