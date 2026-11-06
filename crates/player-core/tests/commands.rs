@@ -131,7 +131,8 @@ impl Handlers for Recorder {
         if self.break_store.load(Ordering::SeqCst) {
             self.db
                 .run_blocking(|c| {
-                    Ok(c.execute_batch("ALTER TABLE player_commands RENAME TO player_commands_off").unwrap())
+                    c.execute_batch("ALTER TABLE player_commands RENAME TO player_commands_off").unwrap();
+                    Ok(())
                 })
                 .unwrap();
         }
@@ -592,8 +593,11 @@ async fn a_result_that_could_not_be_stored_is_settled_as_interrupted_by_the_next
     // The store recovers while the process keeps running.
     h.break_store.store(false, Ordering::SeqCst);
     let db = StateDb::open(&h.path, OpenOptions::default()).unwrap();
-    db.run_blocking(|c| Ok(c.execute_batch("ALTER TABLE player_commands_off RENAME TO player_commands").unwrap()))
-        .unwrap();
+    db.run_blocking(|c| {
+        c.execute_batch("ALTER TABLE player_commands_off RENAME TO player_commands").unwrap();
+        Ok(())
+    })
+    .unwrap();
     assert_eq!(h.record().state, CommandState::Executing);
 
     assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Completed);
