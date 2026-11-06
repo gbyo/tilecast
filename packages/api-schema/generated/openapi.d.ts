@@ -2221,6 +2221,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/player/browser/binding": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store. */
+    post: operations["lookupBrowserPlayerBinding"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/player/browser/challenge": {
     parameters: {
       query?: never;
@@ -2595,6 +2612,142 @@ export interface paths {
     put?: never;
     /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Approves a pending pairing session and creates the screen record. */
     post: operations["approvePairing"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description List the organization font library: every family with its stored faces. Requires an authenticated dashboard user. */
+    get: operations["listFonts"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    delete: operations["deleteFont"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/{id}/faces/{faceId}/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Serve one stored font face file to Studio. Players read the same bytes through the device-authenticated asset route. Requires an authenticated dashboard user. */
+    get: operations["getFontFaceFile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/catalog": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Search the Google Fonts catalog through the server. The server reads the Fontsource catalog and caches it. Requires the settings.manage capability. */
+    get: operations["searchFontCatalog"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/catalog/{sourceId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read one catalog family with its subsets, styles, weights, and variable weight range. Requires the settings.manage capability. */
+    get: operations["getFontCatalogFamily"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/catalog/{sourceId}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Serve a small regular face of one catalog family so Studio can show the family name in its own type. Requires the settings.manage capability. */
+    get: operations["getFontCatalogPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/google": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    post: operations["importGoogleFont"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/fonts/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Upload one TrueType or OpenType face. The server reads the family name, weight, and style from the file. A face whose family matches an uploaded family joins it. Requires the settings.manage capability and a confirmation that the organization may use the font on its displays. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    post: operations["uploadFont"];
     delete?: never;
     options?: never;
     head?: never;
@@ -3502,6 +3655,25 @@ export interface paths {
     head?: never;
     /** @description Update playlist item. Requires an authenticated dashboard user. */
     patch: operations["updatePlaylistItem"];
+    trace?: never;
+  };
+  "/api/v1/screens/{id}/playback-agenda": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    /** @description Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback. */
+    get: operations["getScreenPlaybackAgenda"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/screens/{id}/playback-plan": {
@@ -6147,6 +6319,9 @@ export interface components {
       /** Format: uuid */
       pairingSessionId: string;
       enrollmentToken: string;
+      registration: components["schemas"]["BrowserRegistration"];
+    };
+    BrowserBindingLookupRequest: {
       registration: components["schemas"]["BrowserRegistration"];
     };
     BrowserBindingRequest: {
@@ -9400,6 +9575,20 @@ export interface components {
         message: string;
       };
     };
+    PlaybackAgenda: {
+      /** Format: date-time */
+      evaluatedAt: string;
+      segments: components["schemas"]["PlaybackAgendaSegment"][];
+    };
+    PlaybackAgendaSegment: {
+      /** Format: date-time */
+      start: string;
+      /** Format: date-time */
+      end: string;
+      selected?: components["schemas"]["PlaybackPlanSelection"];
+      /** @description Active schedules that did not select playback during this segment. */
+      superseded: components["schemas"]["PlaybackPlanCandidate"][];
+    };
     /** @description Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state. */
     PlaybackPlan: {
       /** Format: uuid */
@@ -9729,6 +9918,11 @@ export interface components {
        * @enum {string}
        */
       fontFamily?: "Inter" | "Roboto" | "Source Sans 3" | "Noto Sans";
+      /**
+       * Format: uuid
+       * @description A family from the organization font library. fontFamily stays the bundled fallback
+       */
+      fontId?: string;
       fontSize?: number;
       /** @enum {integer} */
       fontWeight?: 400 | 500 | 600 | 700 | 800;
@@ -11807,6 +12001,84 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    FontFace: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      assetId: string;
+      /** Format: uuid */
+      variantId: string;
+      /** @enum {string} */
+      style: "normal" | "italic";
+      weightMin: number;
+      weightMax: number;
+      subset: string;
+      unicodeRange: string;
+      /** @enum {string} */
+      mimeType: "font/woff2" | "font/ttf" | "font/otf";
+      fileSize: number;
+      fileUrl: string;
+    };
+    FontFamily: {
+      /** Format: uuid */
+      id: string;
+      family: string;
+      /** @enum {string} */
+      source: "google" | "upload";
+      sourceId: string;
+      sourceVersion: string;
+      category: string;
+      license: string;
+      subsets: string[];
+      faces: components["schemas"]["FontFace"][];
+      totalBytes: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    FontFamilyList: {
+      items: components["schemas"]["FontFamily"][];
+      total: number;
+    };
+    FontCatalogEntry: {
+      id: string;
+      family: string;
+      category: string;
+      license: string;
+      subsets: string[];
+      weights: number[];
+      styles: string[];
+      defaultSubset: string;
+      variable: boolean;
+    };
+    FontCatalogFamily: {
+      id: string;
+      family: string;
+      category: string;
+      license: string;
+      subsets: string[];
+      weights: number[];
+      styles: string[];
+      defaultSubset: string;
+      variable: boolean;
+      version: string;
+      weightRange: null | number[];
+    };
+    FontCatalogPage: {
+      families: components["schemas"]["FontCatalogEntry"][];
+      total: number;
+    };
+    GoogleFontImport: {
+      sourceId: string;
+      subsets?: string[];
+      styles?: ("normal" | "italic")[];
+      weights?: number[];
+    };
+    FontUploadResult: {
+      family: components["schemas"]["FontFamily"];
+      embeddingRestricted: boolean;
+    };
     LocationList: {
       items: components["schemas"]["Location"][];
       total: number;
@@ -12119,6 +12391,11 @@ export interface components {
        * @default 100
        */
       textScale: number;
+      /**
+       * Format: uuid
+       * @description An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
+       */
+      fontId?: string;
       /**
        * @description Enable automatic starting-soon, urgent, and final pulse stages.
        * @default false
@@ -18686,6 +18963,53 @@ export interface operations {
       };
     };
   };
+  lookupBrowserPlayerBinding: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserBindingLookupRequest"];
+      };
+    };
+    responses: {
+      /** @description Active slot and binding for this device key */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["BrowserBindingRequest"];
+          };
+        };
+      };
+      /** @description No active binding for this device key */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Rate limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   challengeBrowserPlayer: {
     parameters: {
       query?: never;
@@ -19659,6 +19983,459 @@ export interface operations {
       };
       /** @description Pairing recovery confirmation required, hardware replacement conflict, or pairing state conflict */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listFonts: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Font families in name order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["FontFamilyList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deleteFont: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Font family removed */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient capability */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Font family not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A Layout or a plugin instance still uses the font family */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getFontFaceFile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        faceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Font file */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "font/woff2": string;
+          "font/ttf": string;
+          "font/otf": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Font face not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  searchFontCatalog: {
+    parameters: {
+      query?: {
+        q?: string;
+        category?:
+          | "sans-serif"
+          | "serif"
+          | "display"
+          | "handwriting"
+          | "monospace"
+          | "icons";
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One page of catalog families */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["FontCatalogPage"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient capability */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog could not be reached */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog is disabled on this server */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getFontCatalogFamily: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Catalog family */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["FontCatalogFamily"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient capability */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Catalog family not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog could not be reached */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog is disabled on this server */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getFontCatalogPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description WOFF2 preview face */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "font/woff2": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient capability */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Catalog family not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog could not be reached */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog is disabled on this server */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  importGoogleFont: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GoogleFontImport"];
+      };
+    };
+    responses: {
+      /** @description Font family added */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["FontFamily"];
+          };
+        };
+      };
+      /** @description Invalid request body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient capability */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A family with this name is already in the library */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The selection exceeds the import size limit */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The selection is not available for this family */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog could not be reached */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The catalog is disabled on this server */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  uploadFont: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+          rightsConfirmed: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Font face stored */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["FontUploadResult"];
+          };
+        };
+      };
+      /** @description Malformed upload */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient capability */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The face or family name already exists */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The file exceeds 15 MB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The file is not a supported font or rights were not confirmed */
+      422: {
         headers: {
           [name: string]: unknown;
         };
@@ -22040,7 +22817,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Playlist is assigned */
+      /** @description Playlist is in use by a screen or Display Group assignment, a schedule, a Layout, a draft, active, or cancelling takeover, or a running Quick Present */
       409: {
         headers: {
           [name: string]: unknown;
@@ -22351,6 +23128,68 @@ export interface operations {
             data: components["schemas"]["Playlist"];
           };
         };
+      };
+    };
+  };
+  getScreenPlaybackAgenda: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Expected playback segments, empty when the range has elapsed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaybackAgenda"];
+          };
+        };
+      };
+      /** @description Invalid or duplicate parameters or range longer than eight days */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Management authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Grant lacks the read scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen unavailable or outside account scope */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Range contains too many schedule boundaries */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -24171,7 +25010,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Layout is assigned or scheduled */
+      /** @description Layout is assigned, scheduled, used by a playlist, or shown by a running Quick Present */
       409: {
         headers: {
           [name: string]: unknown;

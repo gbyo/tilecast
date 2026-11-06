@@ -359,19 +359,23 @@ func (s *Service) Transition(ctx context.Context, formID, recordID, actor uuid.U
 	if !allowed {
 		return Record{}, visibilityError(isOwner, canViewAll)
 	}
-	var targetEligible bool
-	if err := s.db.QueryRow(ctx, `SELECT eligible_for_output FROM form_workflow_states WHERE data_source_id=$1 AND state_key=$2`, formID, toState).Scan(&targetEligible); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Record{}, fmt.Errorf("%w: target state %q does not exist", ErrValidation, toState)
-		}
-		return Record{}, err
-	}
-
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return Record{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	// Read the target state's eligibility under the transition transaction with a row lock. A
+	// concurrent ConfigureWorkflow updates every state row before it re-derives record
+	// eligibility, so the share lock makes either the workflow edit or this transition commit
+	// first and prevents a stale value from re-enabling a record. The state lock is taken before
+	// the record lock, the same order ConfigureWorkflow uses.
+	var targetEligible bool
+	if err := tx.QueryRow(ctx, `SELECT eligible_for_output FROM form_workflow_states WHERE data_source_id=$1 AND state_key=$2 FOR SHARE`, formID, toState).Scan(&targetEligible); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Record{}, fmt.Errorf("%w: target state %q does not exist", ErrValidation, toState)
+		}
+		return Record{}, err
+	}
 	var version int
 	var lockedState string
 	var revisionID uuid.UUID

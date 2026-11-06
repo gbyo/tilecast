@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   clockDiscontinuity,
   foregroundStateOf,
@@ -8,6 +8,7 @@ import {
   mayShowLocalActivation,
   meaningfulEvidence,
   proofEligible,
+  reloadWhenRestored,
   requireReconfirmation,
   revokeLocalAuthority,
   type HostState,
@@ -164,5 +165,29 @@ describe("browser evidence lifecycle", () => {
     expect(foregroundStateOf(state)).toBe("background");
     state.frozen = true;
     expect(foregroundStateOf(state)).toBe("frozen");
+  });
+});
+
+describe("back-forward cache restoration", () => {
+  const show = (target: EventTarget, persisted: boolean) => {
+    const event = new Event("pageshow");
+    Object.defineProperty(event, "persisted", { value: persisted });
+    target.dispatchEvent(event);
+  };
+
+  it("reloads a page restored from the cache", () => {
+    const target = new EventTarget();
+    const reload = vi.fn();
+    reloadWhenRestored(target, reload);
+    show(target, true);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves an ordinary page load alone", () => {
+    const target = new EventTarget();
+    const reload = vi.fn();
+    reloadWhenRestored(target, reload);
+    show(target, false);
+    expect(reload).not.toHaveBeenCalled();
   });
 });

@@ -55,6 +55,7 @@ import {
   markReconciled,
   meaningfulEvidence,
   proofEligible,
+  reloadWhenRestored,
   requireReconfirmation,
   revokeLocalAuthority,
   type HostState,
@@ -76,6 +77,7 @@ import {
   type StorageFacts,
 } from "./storage/persistence";
 import { VerifiedStore } from "./storage/verified-store";
+import { ShellUpdate } from "./shell-update";
 
 declare const __HOST_VERSION__: string;
 
@@ -137,6 +139,11 @@ export class BrowserPlayer {
   private startControl: HTMLButtonElement | undefined;
   private everStarted = false;
   private updateRequested = false;
+  private readonly shellUpdate = new ShellUpdate(
+    navigator.serviceWorker,
+    () => this.state.resting,
+    () => location.reload(),
+  );
 
   private currentItemId: string | undefined;
   private lastPlaybackError: string | undefined;
@@ -292,6 +299,7 @@ export class BrowserPlayer {
         presentation: decision.presentation,
       });
       void this.display.setAwakeWanted(false);
+      this.shellUpdate.settle();
     } else if (!decision.resting && was) {
       void this.display.setAwakeWanted(true);
       if (this.active) this.publish(this.active);
@@ -328,6 +336,8 @@ export class BrowserPlayer {
     this.index = new IndexedObjects(this.database);
     this.mountStartControl();
     addEventListener("pagehide", () => this.onPageHide(), { once: true });
+    // Not tied to the host's abort signal: it must outlive the pagehide above.
+    reloadWhenRestored(window, () => location.reload());
     try {
       const [shell] = await Promise.all([
         registerShell().then((value) => {
@@ -337,6 +347,7 @@ export class BrowserPlayer {
         this.restoreAtStartup(),
       ]);
       this.registration = shell;
+      this.shellUpdate.watch();
       await this.readiness;
       this.memory.generation = this.active?.generation ?? 0;
       this.memory.clockOffsetMs = this.active?.policy?.clockOffsetMs ?? 0;
@@ -357,6 +368,7 @@ export class BrowserPlayer {
       await this.untilStopped();
     } finally {
       if (this.restTimer) clearTimeout(this.restTimer);
+      this.shellUpdate.stop();
       cleanMedia();
       this.startControl?.remove();
       this.display.dispose();
@@ -508,17 +520,6 @@ export class BrowserPlayer {
         markClockDiscontinuity(this.state);
         this.activity?.proof.sync();
         wakeNow();
-      },
-      { signal },
-    );
-    window.addEventListener(
-      "pageshow",
-      (event: PageTransitionEvent) => {
-        if (event.persisted) {
-          markClockDiscontinuity(this.state);
-          this.activity?.proof.sync();
-          wakeNow();
-        }
       },
       { signal },
     );
@@ -791,17 +792,15 @@ export class BrowserPlayer {
   /**
    * A waiting Host update is taken only while the screen rests outside active
    * hours, never during playback. It then reloads, so the new Host and the
-   * Runtime it names start together.
+   * Runtime it names start together. A page that missed the takeover because
+   * another slot activated the worker reloads here once it rests.
    */
   private async finishUpdate(): Promise<void> {
+    // Another slot may have activated the worker while this one played.
+    this.shellUpdate.settle();
     const waiting = this.registration?.waiting;
     if (!waiting || !this.state.resting || this.updateRequested) return;
     this.updateRequested = true;
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      () => location.reload(),
-      { once: true },
-    );
     waiting.postMessage({ type: "skip-waiting" });
   }
 

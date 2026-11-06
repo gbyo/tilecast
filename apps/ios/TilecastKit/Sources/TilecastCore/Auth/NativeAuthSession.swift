@@ -55,6 +55,11 @@ public actor NativeAuthSession {
     /// Incremented when the credential is replaced or deleted, so a rotation
     /// that was already in flight cannot write its result back.
     private var generation = 0
+    /// Counts the events that end a sign-in still waiting for its code
+    /// exchange: sign-out, discarding the credential, and the host closing
+    /// the page. It is readable without the actor so the host can end a
+    /// sign-in in the same step that closes the page.
+    private nonisolated let signInEpoch = SignInEpoch()
 
     private enum Rotation: Sendable {
         case rotated(accessToken: String, cookie: HTTPCookie?)
@@ -94,8 +99,17 @@ public actor NativeAuthSession {
     /// Redeems a browser authorization code. The refresh token is committed
     /// before native API access counts as established, and any credential
     /// from an earlier sign-in is replaced and revoked.
+    ///
+    /// A sign-in that was ended while the exchange ran (sign-out, removal of
+    /// the server, or a closed page) keeps nothing: its grant is revoked and
+    /// the call throws `cancelled`.
     public func completeSignIn(code: String, verifier: String) async throws(IOSSessionError) -> NativeSignInResult {
+        let epoch = signInEpoch.value
         let grant = try await exchanger.exchange(code: code, verifier: verifier)
+        guard epoch == signInEpoch.value else {
+            if let credential = grant.credential { revokeInBackground(credential.refreshToken) }
+            throw .cancelled
+        }
         guard let cookie = grant.cookie else { throw .missingCookie }
         generation += 1
         access = nil
@@ -162,6 +176,7 @@ public actor NativeAuthSession {
     /// in the returned task, so sign-out also works offline.
     @discardableResult
     public func signOut() -> Task<Void, Never> {
+        signInEpoch.advance()
         let refreshToken = forget()
         guard let refreshToken else { return Task {} }
         return revokeInBackground(refreshToken)
@@ -170,7 +185,14 @@ public actor NativeAuthSession {
     /// Deletes the local credential without contacting the server, for an
     /// address that now serves another installation.
     public func discard() {
+        signInEpoch.advance()
         _ = forget()
+    }
+
+    /// Ends a sign-in that is still redeeming its code, for example because
+    /// its page closed. The credential already stored is kept.
+    public nonisolated func cancelPendingSignIn() {
+        signInEpoch.advance()
     }
 
     /// A generated Tilecast API client whose requests authenticate with this
@@ -247,5 +269,16 @@ public actor NativeAuthSession {
     @discardableResult
     private nonisolated func revokeInBackground(_ token: String) -> Task<Void, Never> {
         Task.detached { [exchanger] in await exchanger.revoke(token: token) }
+    }
+}
+
+private final class SignInEpoch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int { lock.withLock { count } }
+
+    func advance() {
+        lock.withLock { count += 1 }
     }
 }

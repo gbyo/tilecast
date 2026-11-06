@@ -234,6 +234,17 @@ func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {
 	return active, transitions
 }
 
+// CanActivate reports whether a schedule's definition allows any occurrence at
+// all. A one-time window outside its own date bounds never activates in
+// Resolve, so a Player must not receive it either: Player-side evaluators
+// apply date bounds to recurring windows only.
+func CanActivate(s Schedule) bool {
+	if s.Type != OneTime {
+		return true
+	}
+	return s.OneTimeStart != nil && s.OneTimeEnd != nil && oneTimeAllowed(s, *s.OneTimeStart, *s.OneTimeEnd)
+}
+
 // oneTimeAllowed applies a Campaign's date bounds to a fixed window. The
 // window's first and last local days, in the schedule's time zone, must fall
 // inside the bounds, as recurring occurrences already do.

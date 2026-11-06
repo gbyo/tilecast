@@ -6,10 +6,12 @@
  * player, independent of socket state. The socket's `commands.available`
  * message remains the fast path — it just triggers an immediate poll.
  *
- * Execution is exactly-once per command: a single in-process mutex means
- * overlapping notification and timer polls cannot race, and executed
- * idempotency keys are persisted so a command that restarts the process is
- * not executed again when the process comes back and re-fetches it.
+ * Execution is at-most-once per command: a single in-process mutex means
+ * overlapping notification and timer polls cannot race, and the idempotency
+ * key is persisted as in flight BEFORE the handler runs. A process that
+ * dies mid-handler therefore never repeats the side effect when it comes
+ * back and re-fetches the command; it reports the interrupted outcome
+ * instead, because whether the effect happened is unknown.
  */
 
 import { ApiError, type ApiClient } from "./api";
@@ -36,6 +38,8 @@ export type CommandOutcome = CommandResultReport | "handled_before_disruption";
 
 interface ExecutedRecord {
   keys: string[];
+  /** Keys whose handler started but whose completion was never recorded. */
+  inFlight?: string[];
 }
 
 export interface CommandExecutorEvents {
@@ -47,6 +51,7 @@ export interface CommandExecutorEvents {
 
 export class CommandCoordinator {
   private executed: Set<string> = new Set();
+  private inFlight: Set<string> = new Set();
   private loaded = false;
   private timer: NodeJS.Timeout | null = null;
   private running = false;
@@ -66,6 +71,7 @@ export class CommandCoordinator {
     if (!this.loaded) {
       const record = await this.store.readJson<ExecutedRecord>(EXECUTED_FILE);
       this.executed = new Set(record?.keys ?? []);
+      this.inFlight = new Set(record?.inFlight ?? []);
       this.loaded = true;
     }
     if (this.timer === null) {
@@ -137,6 +143,18 @@ export class CommandCoordinator {
     command: PlayerCommand,
     trigger: string,
   ): Promise<void> {
+    if (this.inFlight.has(command.idempotencyKey)) {
+      // A previous process started this command and died before recording
+      // completion. Do not run it again; the effect may or may not have
+      // happened, so report that honestly and settle the command.
+      await this.rememberExecuted(command.idempotencyKey);
+      await this.tryReport(command.id, {
+        success: false,
+        code: "interrupted",
+        message: "player restarted while the command was running",
+      });
+      return;
+    }
     if (this.executed.has(command.idempotencyKey)) {
       // Already ran (possibly before a process restart). Re-report the
       // terminal state so the server can settle; result reporting is
@@ -191,6 +209,9 @@ export class CommandCoordinator {
       return;
     }
 
+    // Durable before the side effect, so a crash inside the handler cannot
+    // lead to a second execution after restart.
+    await this.markInFlight(command.idempotencyKey);
     let result: CommandResultReport;
     try {
       result = await handler(command);
@@ -206,13 +227,27 @@ export class CommandCoordinator {
     this.events.onCommandCompleted(command, result);
   }
 
+  private async markInFlight(key: string): Promise<void> {
+    this.inFlight.add(key);
+    await this.persist();
+  }
+
   private async rememberExecuted(key: string): Promise<void> {
+    this.inFlight.delete(key);
     this.executed.add(key);
     // Bound the persisted set; oldest first.
     const keys = [...this.executed];
     const trimmed = keys.slice(Math.max(0, keys.length - MAX_REMEMBERED_KEYS));
     this.executed = new Set(trimmed);
-    await this.store.writeJson(EXECUTED_FILE, { keys: trimmed });
+    await this.persist();
+  }
+
+  private async persist(): Promise<void> {
+    const record: ExecutedRecord = { keys: [...this.executed] };
+    if (this.inFlight.size > 0) {
+      record.inFlight = [...this.inFlight];
+    }
+    await this.store.writeJson(EXECUTED_FILE, record);
   }
 
   private async tryReport(

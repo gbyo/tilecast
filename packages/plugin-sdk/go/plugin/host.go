@@ -35,6 +35,7 @@ type Host struct {
 	DataSources          DataSources
 	Users                Users
 	PluginAssets         PluginAssets
+	Fonts                Fonts
 	// ScreenAccess decides a Studio operator's screen access for plugin
 	// routes that store or act on screen targets. It is the host's
 	// decision, the same one the dashboard routes use.
@@ -117,6 +118,26 @@ type ScreenTargets struct {
 type ScreenAccess interface {
 	AuthorizeTargetInTx(ctx context.Context, tx pgx.Tx, principal Principal, target Target) error
 	AuthorizeScreenTargetsInTx(ctx context.Context, tx pgx.Tx, principal Principal, targets ScreenTargets) error
+}
+
+// Fonts is the organization font library as a plugin uses it. A plugin
+// that lets a person pick a family stores the family ID in its own tables
+// and tells the library which of its instances use it, so the library
+// refuses to remove a family that is still in use. The Server resolves the
+// ID to verified font files when it projects Player state (PlayerState.Fonts).
+//
+// Studio reads the library through its own font picker; a plugin never
+// reads the font tables.
+type Fonts interface {
+	// UseInTx replaces the families one owner of this plugin, normally an
+	// instance, uses. It locks each family so a concurrent removal waits for
+	// the transaction, and reports ErrInvalid when a family does not exist or
+	// was removed. The label names the owner when a person tries to remove a
+	// family it uses. No families releases the owner.
+	UseInTx(ctx context.Context, tx pgx.Tx, ownerID uuid.UUID, label string, fontIDs ...uuid.UUID) error
+	// ReleaseInTx releases everything the owner uses. Call it when the
+	// instance is deleted.
+	ReleaseInTx(ctx context.Context, tx pgx.Tx, ownerID uuid.UUID) error
 }
 
 type Targets interface {

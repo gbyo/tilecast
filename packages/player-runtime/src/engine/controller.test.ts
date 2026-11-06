@@ -156,6 +156,58 @@ describe("playback controller", () => {
     expect(h.log).toContain("a2:item-started:t");
   });
 
+  it("stops the replaced presentation's heartbeats and deadlines", () => {
+    const h = harness();
+    h.controller.present({
+      type: "presentation",
+      presentation: playing([item("a", { durationMs: 600_000 })]),
+      activation: { activationId: "a1", generation: 1 },
+    });
+    h.ready();
+    h.controller.present({
+      type: "presentation",
+      presentation: playing([item("t", { durationMs: 600_000 })]),
+      activation: { activationId: "a2", generation: 2 },
+    });
+    h.ready();
+    h.log.length = 0;
+    h.clock.advance(95_000);
+    // Only the takeover's own heartbeat remains; nothing is credited to "a".
+    expect(h.log.some((entry) => entry.endsWith(":a"))).toBe(false);
+    expect(h.log).toContain("a2:image-shown:t");
+    h.controller.stop();
+    expect(h.clock.pendingTimers).toBe(0);
+  });
+
+  it("skips a component widget that turns empty after it is shown", () => {
+    const h = harness();
+    const widget = item("w", {
+      kind: "widget",
+      durationMs: null,
+      widget: {
+        component: {
+          type: "tilecast.test",
+          version: 1,
+          config: {},
+          dataSources: [],
+          media: [],
+          empty: "skip-eligible",
+        },
+        documents: {},
+        media: {},
+        regional: { locale: "en", timeZone: "UTC", hourCycle: "h23" },
+      },
+    });
+    h.controller.present({
+      type: "presentation",
+      presentation: playing([widget, item("b")]),
+    });
+    h.ready();
+    h.controller.surface({ type: "WIDGET_EMPTY", mount: h.stage()!.mount });
+    h.clock.advance(1_000);
+    expect(h.stage()!.item.id).toBe("b");
+  });
+
   it("rejects a presentation it cannot project and keeps the previous one", () => {
     const h = harness();
     h.controller.present({
