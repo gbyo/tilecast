@@ -584,3 +584,58 @@ func TestUpdateBlockedByRedefinedDataSourceInUse(t *testing.T) {
 		t.Fatalf("update with an unchanged definition: %v", err)
 	}
 }
+
+func TestActivateReplacesOnlyTheObservedInstallation(t *testing.T) {
+	f := newInstallerFixture(t)
+	ctx := context.Background()
+	const packageID = "acme.athletics"
+
+	update := testActivation("2.5.0", testDigestV2)
+	update.Replaces = testDigestV1
+	if _, err := f.service.Activate(ctx, update); !errors.Is(err, ErrStale) {
+		t.Fatalf("update of a package that is not installed = %v, want ErrStale", err)
+	}
+	if _, err := f.service.Get(ctx, packageID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stale update installed the package: %v", err)
+	}
+
+	if _, err := f.service.Activate(ctx, testActivation("2.4.1", testDigestV1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Remove(ctx, packageID, f.userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.Activate(ctx, update); !errors.Is(err, ErrStale) {
+		t.Fatalf("update after removal = %v, want ErrStale", err)
+	}
+	var rows int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM installed_packages WHERE package_id=$1`, packageID).Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("stale update left %d installation rows (%v)", rows, err)
+	}
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM installed_package_contributions WHERE package_id=$1`, packageID).Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("stale update left %d contribution rows (%v)", rows, err)
+	}
+
+	if _, err := f.service.Activate(ctx, testActivation("2.4.1", testDigestV1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.Activate(ctx, testActivation("2.5.0", testDigestV2)); err != nil {
+		t.Fatal(err)
+	}
+	stale := testActivation("2.6.0", "sha256:"+strings.Repeat("a", 64))
+	stale.Replaces = testDigestV1
+	if _, err := f.service.Activate(ctx, stale); !errors.Is(err, ErrStale) {
+		t.Fatalf("update over a newer activation = %v, want ErrStale", err)
+	}
+	current, err := f.service.Get(ctx, packageID)
+	if err != nil || current.Digest != testDigestV2 {
+		t.Fatalf("stale update changed the installation: %+v %v", current, err)
+	}
+
+	fresh := testActivation("2.6.0", "sha256:"+strings.Repeat("a", 64))
+	fresh.Replaces = testDigestV2
+	installed, err := f.service.Activate(ctx, fresh)
+	if err != nil || installed.Version != "2.6.0" {
+		t.Fatalf("update of the observed activation = %+v, %v", installed, err)
+	}
+}

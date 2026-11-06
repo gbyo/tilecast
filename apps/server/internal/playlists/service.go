@@ -51,6 +51,7 @@ type SourceProjector interface {
 
 type PluginProjector interface {
 	ManifestForScreen(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error)
+	ManifestForPluginHost(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error)
 	PlayerStateForScreen(context.Context, uuid.UUID, map[string]int) ([]plugins.PlayerStateEntry, error)
 }
 
@@ -589,10 +590,21 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Lock the row first so the in-use check and the delete see one state.
+	if _, err = tx.Exec(ctx, `SELECT 1 FROM playlists WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id); err != nil {
+		return err
+	}
+	// Every path that projects a playlist into a manifest counts as a use:
+	// a screen or Display Group assignment, a schedule, a Layout, a takeover
+	// that can still play, and a running Quick Present override. Deleting
+	// any of them would make every receiving screen's manifest unbuildable.
 	var assigned int
 	if err = tx.QueryRow(ctx, `SELECT
 		(SELECT count(*) FROM screen_playlist_assignments WHERE playlist_id=$1)+
+		(SELECT count(*) FROM screen_group_playlist_assignments WHERE playlist_id=$1)+
 		(SELECT count(*) FROM schedules WHERE playlist_id=$1 AND deleted_at IS NULL)+
+		(SELECT count(*) FROM takeovers WHERE playlist_id=$1 AND status IN ('draft','active','cancelling'))+
+		(SELECT count(*) FROM presentation_overrides WHERE content_type='playlist' AND content_id=$1 AND stopped_at IS NULL AND (expires_at IS NULL OR expires_at>now()))+
 		(SELECT count(*) FROM layout_draft_dependencies WHERE dependency_type='playlist' AND dependency_id=$1)+
 		(SELECT count(*) FROM layout_revision_dependencies WHERE dependency_type='playlist' AND dependency_id=$1)`, id).Scan(&assigned); err != nil {
 		return err
@@ -1713,7 +1725,17 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	if s.plugins != nil {
 		var builtin []plugins.ManifestPlugin
-		builtin, err = s.plugins.ManifestForScreen(ctx, screenID)
+		// A Player that hosts Plugin API v2 receives v2 plugins as
+		// plugin_state below, never also as their v1 compatibility entries.
+		reported, capabilityErr := readPlayerPresentationCapabilities(ctx, s.db, screenID)
+		if capabilityErr != nil {
+			return Manifest{}, "", capabilityErr
+		}
+		if reportsPlayerPluginHost(reported) {
+			builtin, err = s.plugins.ManifestForPluginHost(ctx, screenID)
+		} else {
+			builtin, err = s.plugins.ManifestForScreen(ctx, screenID)
+		}
 		if err != nil {
 			return Manifest{}, "", err
 		}
@@ -1776,6 +1798,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 		horizon := now.AddDate(0, 0, prefetch)
 		for _, record := range records {
+			if !scheduling.CanActivate(record.Schedule) {
+				continue
+			}
 			if record.Type == scheduling.OneTime {
 				if record.OneTimeEnd != nil && !record.OneTimeEnd.After(now) {
 					continue
@@ -1878,6 +1903,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	layoutDependencies := []layoutManifestDependency{}
 	layoutAssetVariants := map[uuid.UUID][]*uuid.UUID{}
+	layoutFontIDs := []uuid.UUID{}
 	for _, layoutID := range uniqueUUIDs(layoutIDs) {
 		item := ManifestLayout{ID: layoutID}
 		var raw []byte
@@ -1926,8 +1952,15 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			if dependency.Type == "playlist" {
 				playlistIDs = append(playlistIDs, dependency.ID)
 			}
+			if dependency.Type == "font" {
+				layoutFontIDs = append(layoutFontIDs, dependency.ID)
+			}
 		}
 		rows.Close()
+		if err = s.projectLayoutFonts(ctx, &manifest, &item, layoutFontIDs); err != nil {
+			return Manifest{}, "", err
+		}
+		layoutFontIDs = layoutFontIDs[:0]
 		manifest.Layouts = append(manifest.Layouts, item)
 		if assignment.LayoutID != nil && layoutID == *assignment.LayoutID {
 			fallback := item
@@ -2836,6 +2869,65 @@ func mediaTypesImageOnly(types []string) bool {
 		}
 	}
 	return true
+}
+
+// projectLayoutFonts adds the library families a Layout's text uses. A
+// family removed since publication is skipped, so the text uses its
+// bundled fallback instead of blocking the whole manifest.
+func (s *Service) projectLayoutFonts(ctx context.Context, manifest *Manifest, item *ManifestLayout, fontIDs []uuid.UUID) error {
+	for _, fontID := range uniqueUUIDs(fontIDs) {
+		font, err := s.projectFont(ctx, manifest, fontID)
+		if err != nil {
+			return err
+		}
+		if font != nil {
+			item.Fonts = append(item.Fonts, *font)
+		}
+	}
+	return nil
+}
+
+// projectFont returns one library family with its deliverable faces and
+// adds each face file to the manifest assets once. It returns nil for a family that was removed or has no
+// ready face. Layout text and Plugin API v2 state share it, so a face is
+// one verified download however many consumers use it.
+func (s *Service) projectFont(ctx context.Context, manifest *Manifest, fontID uuid.UUID) (*ManifestFont, error) {
+	rows, err := s.db.Query(ctx, `SELECT f.family,ff.style,ff.weight_min,ff.weight_max,ff.unicode_range,v.asset_id,v.id,v.mime_type,encode(v.sha256,'hex'),v.file_size
+		FROM font_families f
+		JOIN font_faces ff ON ff.family_id=f.id
+		JOIN assets a ON a.id=ff.asset_id AND a.deleted_at IS NULL AND a.type='font' AND a.processing_status='ready'
+		JOIN asset_variants v ON v.asset_id=a.id AND v.kind='original' AND v.deleted_at IS NULL AND v.player_compatible=TRUE
+		WHERE f.id=$1 AND f.deleted_at IS NULL
+		ORDER BY ff.style,ff.weight_min,ff.subset,ff.id`, fontID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	font := ManifestFont{ID: fontID, Faces: []ManifestFontFace{}}
+	var assets []ManifestAsset
+	for rows.Next() {
+		var face ManifestFontFace
+		var asset ManifestAsset
+		if err = rows.Scan(&font.Family, &face.Style, &face.WeightMin, &face.WeightMax, &face.UnicodeRange, &asset.AssetID, &asset.VariantID, &asset.MIMEType, &asset.SHA256, &asset.FileSize); err != nil {
+			return nil, err
+		}
+		face.AssetID, face.VariantID = asset.AssetID, asset.VariantID
+		font.Faces = append(font.Faces, face)
+		asset.DownloadPath = "/api/v1/player/assets/" + asset.AssetID.String() + "/variants/" + asset.VariantID.String()
+		assets = append(assets, asset)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(font.Faces) == 0 {
+		return nil, nil
+	}
+	for _, asset := range assets {
+		if !manifestHasVariant(manifest, asset.AssetID, asset.VariantID) {
+			manifest.Assets = append(manifest.Assets, asset)
+		}
+	}
+	return &font, nil
 }
 
 func (s *Service) resolveImageVariant(ctx context.Context, assetID uuid.UUID) (ManifestAsset, error) {

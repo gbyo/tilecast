@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/tilecast/tilecast/apps/server/internal/fonts"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -92,6 +93,7 @@ func productionServerForRoutes() *server {
 		snapshots:            &snapshots.Service{},
 		backups:              &backup.Service{},
 		demo:                 &demo.Runtime{},
+		fonts:                &fonts.Service{},
 	}
 	s.plugins = plugins.NewService(nil, nil, plugins.WithPlugins(bundled.Bundled()...))
 	return s

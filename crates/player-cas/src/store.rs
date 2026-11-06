@@ -411,13 +411,16 @@ impl ContentStore {
         Ok(self.inner.db.run(|c| repo::usage(c)).await?)
     }
 
-    /// Removes an unpinned object.
+    /// Removes an unpinned object. The pin check and the row deletion are one
+    /// statement, so a pin taken concurrently always wins.
     pub async fn remove(&self, digest: &Sha256Digest) -> Result<(), CasError> {
         let d = *digest;
-        if self.inner.db.run(move |c| repo::is_pinned(c, &d)).await? {
+        // Row first: a crash after this leaves an orphan file, which the
+        // next reconciliation re-hashes and adopts or deletes.
+        if !self.inner.db.run(move |c| repo::delete_unpinned_object(c, &d)).await? {
             return Err(CasError::Pinned(*digest));
         }
-        self.remove_unchecked(digest).await
+        self.remove_file(digest).await
     }
 
     async fn remove_unchecked(&self, digest: &Sha256Digest) -> Result<(), CasError> {
@@ -425,6 +428,10 @@ impl ContentStore {
         // Row first: a crash after this leaves an orphan file, which the
         // next reconciliation re-hashes and adopts or deletes.
         self.inner.db.run(move |c| repo::delete_object(c, &d)).await?;
+        self.remove_file(digest).await
+    }
+
+    async fn remove_file(&self, digest: &Sha256Digest) -> Result<(), CasError> {
         let path = object_path(&self.inner.cas_dir, digest);
         match tokio::fs::remove_file(&path).await {
             Ok(()) => {}

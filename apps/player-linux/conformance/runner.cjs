@@ -57,7 +57,12 @@ app.commandLine.appendSwitch("force-color-profile", "srgb");
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "tcmedia",
-    privileges: { standard: true, stream: true, supportFetchAPI: true },
+    privileges: {
+      standard: true,
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
   },
   RUNTIME_SCHEME_PRIVILEGES,
 ]);
@@ -94,7 +99,7 @@ app.whenReady().then(async () => {
   protocol.handle(RUNTIME_SCHEME, (request) =>
     serveRuntimeRequest(runtime, request.url),
   );
-  protocol.handle("tcmedia", (request) => {
+  protocol.handle("tcmedia", async (request) => {
     const match = /^tcmedia:\/\/sha256\/([0-9a-f]{64})$/.exec(request.url);
     if (!match) return new Response("not found", { status: 404 });
     const hex = match[1];
@@ -102,7 +107,15 @@ app.whenReady().then(async () => {
     const headers = new Headers();
     const range = request.headers.get("Range");
     if (range) headers.set("Range", range);
-    return net.fetch(pathToFileURL(file).toString(), { headers });
+    const response = await net.fetch(pathToFileURL(file).toString(), {
+      headers,
+    });
+    const out = new Headers(response.headers);
+    out.set("Access-Control-Allow-Origin", "tilecast://runtime");
+    return new Response(response.body, {
+      status: response.status,
+      headers: out,
+    });
   });
 
   const { width, height } = fixture.viewport;

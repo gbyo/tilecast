@@ -12,6 +12,7 @@ import type { RuntimeClock } from "../clock/scheduler";
 import type { TimerGroup } from "../clock/scheduler";
 import { FIT_MODES } from "../engine/model";
 import { compactDuration } from "@tilecast/plugin-sdk/runtime";
+import { registerFontFaces } from "./font-faces";
 
 export interface AnyNode {
   t: string;
@@ -112,6 +113,13 @@ function applyTextStyle(el: HTMLElement, style: Record<string, unknown>): void {
       typeof style["fontSize"] === "number" ? style["fontSize"] : 16,
     );
     s.maxWidth = "100%";
+  }
+  if (Array.isArray(style["fontFaces"]) && style["fontFaces"].length > 0) {
+    // Library faces load asynchronously. Text first measures with the
+    // fallback family, so an auto-fit node fits again once its face is in.
+    void registerFontFaces(style["fontFaces"]).then(() => {
+      if (el.isConnected && el.dataset["autofitBase"]) fitTextElement(el);
+    });
   }
 }
 

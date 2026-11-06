@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -100,6 +100,10 @@ export function SubmissionEditor({
   );
   const pendingFiles = useRef<Record<string, File>>({});
   const [pendingKeys, setPendingKeys] = useState<string[]>([]);
+  // Object URLs this editor created for pending image previews, by field key. The browser keeps the
+  // backing file until each one is revoked, so every URL is released once it is replaced, removed,
+  // superseded by the saved image, or the editor unmounts.
+  const previewUrls = useRef<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState<"" | "draft" | "submit">("");
@@ -167,6 +171,29 @@ export function SubmissionEditor({
     return set;
   }
 
+  useEffect(() => {
+    const owned = previewUrls.current;
+    return () => {
+      for (const url of Object.values(owned)) URL.revokeObjectURL(url);
+      for (const key of Object.keys(owned)) delete owned[key];
+    };
+  }, []);
+
+  function releasePreview(fieldKey: string) {
+    const url = previewUrls.current[fieldKey];
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    delete previewUrls.current[fieldKey];
+  }
+
+  // Previews of images that are no longer pending have been committed (the server copy replaces
+  // them in state), so their object URLs are no longer needed.
+  function releaseSettledPreviews() {
+    for (const fieldKey of Object.keys(previewUrls.current)) {
+      if (!pendingFiles.current[fieldKey]) releasePreview(fieldKey);
+    }
+  }
+
   function setPending(fieldKey: string, file: File | null) {
     if (file) pendingFiles.current[fieldKey] = file;
     else delete pendingFiles.current[fieldKey];
@@ -184,6 +211,7 @@ export function SubmissionEditor({
     setEvents(detail.events);
     setComments(detail.comments);
     setImages(imagesFromDetail(form.id, detail));
+    releaseSettledPreviews();
     setValues((current) => {
       const next = { ...current };
       for (const field of schema.fields) {
@@ -207,6 +235,7 @@ export function SubmissionEditor({
     setEvents(detail.events);
     setComments(detail.comments);
     setImages(imagesFromDetail(form.id, detail));
+    releaseSettledPreviews();
     setValues(nextValues);
     setBaseline(JSON.stringify(nextValues));
   }
@@ -222,7 +251,9 @@ export function SubmissionEditor({
   }
 
   async function handleImageSelect(fieldKey: string, file: File) {
+    releasePreview(fieldKey);
     const objectUrl = URL.createObjectURL(file);
+    previewUrls.current[fieldKey] = objectUrl;
     setPending(fieldKey, file);
     setImages((current) => ({
       ...current,
@@ -284,6 +315,7 @@ export function SubmissionEditor({
       return;
     }
     setPending(fieldKey, null);
+    releasePreview(fieldKey);
     setImages((current) => {
       const next = { ...current };
       delete next[fieldKey];

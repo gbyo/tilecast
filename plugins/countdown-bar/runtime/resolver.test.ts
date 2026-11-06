@@ -45,7 +45,6 @@ interface CountdownBarResolver {
     showBar: boolean;
     showConfetti: boolean;
     urgencyStage: string;
-    urgencyLabel: string;
     pulse: boolean;
   } | null;
 }
@@ -233,18 +232,14 @@ describe("countdown bar resolver", () => {
     });
     expect(
       resolver.resolve([plugin], new Date("2026-07-27T15:54:59Z")),
-    ).toMatchObject({ urgencyStage: "normal", urgencyLabel: "", pulse: false });
+    ).toMatchObject({ urgencyStage: "normal", pulse: false });
     expect(
       resolver.resolve([plugin], new Date("2026-07-27T15:55:00Z")),
-    ).toMatchObject({
-      urgencyStage: "starting_soon",
-      urgencyLabel: "Starting soon",
-    });
+    ).toMatchObject({ urgencyStage: "starting_soon" });
     expect(
       resolver.resolve([plugin], new Date("2026-07-27T15:59:00Z")),
     ).toMatchObject({
       urgencyStage: "urgent",
-      urgencyLabel: "Urgent",
       heightPx: 72,
     });
     expect(

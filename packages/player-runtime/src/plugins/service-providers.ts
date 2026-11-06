@@ -3,8 +3,11 @@
  * one plugin at a time; disposing the binding releases timers, listeners,
  * claims, and containers. Nothing here knows a plugin by identity.
  */
+import type { SurfaceSlot } from "@tilecast/plugin-sdk/runtime";
 import type {
   PlayerClockService,
+  PlayerFont,
+  PlayerFontsService,
   PlayerMediaRef,
   PlayerMediaService,
   PlayerSurfaceGrant,
@@ -18,6 +21,11 @@ import type {
   SurfaceContributionBinding,
   SurfaceContributionSpec,
 } from "./host";
+import {
+  libraryFamilyName,
+  registerFontFaces,
+  type ProjectedFontFace,
+} from "../compat/font-faces";
 import type { PlayerServiceProvider } from "./services";
 
 /** `player.clock@1`: corrected time and plugin-owned timers. */
@@ -78,6 +86,64 @@ export function mediaService(options: {
             } catch {
               return null;
             }
+          },
+        },
+        dispose: () => undefined,
+      };
+    },
+  };
+}
+
+/**
+ * `player.fonts@1`: only library families that one of the plugin's current
+ * state entries declares. The faces register under a generated family name
+ * through the host's own media grant, so a family name from the library
+ * never becomes CSS text and a face the host did not grant never loads.
+ */
+export function fontsService(options: {
+  resolve(assetId: string, variantId: string): string;
+  /** Test seam; defaults to `document.fonts`. */
+  register?: (faces: readonly ProjectedFontFace[]) => Promise<void>;
+}): PlayerServiceProvider<PlayerFontsService> {
+  const register = options.register ?? ((faces) => registerFontFaces(faces));
+  return {
+    name: "player.fonts",
+    version: 1,
+    bind(context) {
+      return {
+        api: {
+          use(fontId): PlayerFont | null {
+            if (typeof fontId !== "string") return null;
+            const id = fontId.toLowerCase();
+            const font = context
+              .entries()
+              .flatMap((entry) => entry.fonts)
+              .find((candidate) => candidate.id === id);
+            if (!font) return null;
+            const family = libraryFamilyName(id);
+            const faces: ProjectedFontFace[] = [];
+            for (const face of font.faces) {
+              let src: string;
+              try {
+                src = options.resolve(face.assetId, face.variantId);
+              } catch {
+                continue;
+              }
+              const low = Math.round(face.weightMin);
+              const high = Math.round(face.weightMax);
+              if (!(low >= 1 && high <= 1000 && low <= high)) continue;
+              faces.push({
+                family,
+                src,
+                weight: low === high ? String(low) : `${low} ${high}`,
+                style: face.style,
+                ...(face.unicodeRange
+                  ? { unicodeRange: face.unicodeRange }
+                  : {}),
+              });
+            }
+            if (faces.length === 0) return null;
+            return { family, ready: register(faces) };
           },
         },
         dispose: () => undefined,
@@ -161,6 +227,7 @@ export interface SurfaceArbiter {
     spec: SurfaceContributionSpec,
     render: (grant: PlayerSurfaceGrant) => void,
     report: (message: string) => void,
+    describe?: (slot: SurfaceSlot) => string,
   ): SurfaceContributionBinding | null;
 }
 
@@ -180,7 +247,7 @@ export function surfaceService(options: {
       const open = new Map<string, SurfaceContributionBinding>();
       return {
         api: {
-          open(contributionId, render) {
+          open(contributionId, render, describe) {
             const declared = context.declaration.surfaces.find(
               (surface) => surface.id === contributionId,
             );
@@ -199,6 +266,7 @@ export function surfaceService(options: {
               (grant) => context.guard(() => render(grant)),
               (message) =>
                 context.report(`surface ${contributionId}: ${message}`),
+              describe,
             );
             if (!binding) return null;
             open.set(contributionId, binding);

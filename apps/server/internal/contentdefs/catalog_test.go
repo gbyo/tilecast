@@ -1,6 +1,9 @@
 package contentdefs
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestReleaseDefinitionsValidateAndFingerprintDeterministically(t *testing.T) {
 	first, err := Load()
@@ -130,5 +133,21 @@ func TestDataSourceFieldValuesFollowRepeatingGroups(t *testing.T) {
 		if got[index] != want[index] {
 			t.Fatalf("Data Source values = %v, want %v", got, want)
 		}
+	}
+}
+
+func TestOutputSchemaRejectsMoreFieldsThanAPlayerDataset(t *testing.T) {
+	build := func(count int) OutputSchema {
+		schema := OutputSchema{Kind: "records"}
+		for i := 0; i < count; i++ {
+			schema.Fields = append(schema.Fields, OutputField{Key: fmt.Sprintf("field%d", i), Label: "Field", Type: "text"})
+		}
+		return schema
+	}
+	if err := validateOutputSchema(build(maxOutputFields)); err != nil {
+		t.Fatalf("schema at the limit rejected: %v", err)
+	}
+	if err := validateOutputSchema(build(maxOutputFields + 1)); err == nil {
+		t.Fatal("schema above the Player dataset field limit was accepted")
 	}
 }
