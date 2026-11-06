@@ -60,6 +60,9 @@ for (const viewport of [
     });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("1 of 3 — Version & build");
+    await expect(dialog.locator('[aria-current="step"]')).toHaveText(
+      /^1\s*Update$/,
+    );
     await expect(
       dialog.getByRole("button", { name: "Continue", exact: true }),
     ).toBeDisabled();
