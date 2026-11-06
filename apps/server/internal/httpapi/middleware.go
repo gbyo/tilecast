@@ -13,7 +13,11 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
-const dashboardContentSecurityPolicy = "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://images.unsplash.com; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+// Studio normally frames only same-origin content. The YouTube Widget preview is
+// the one built-in cross-origin frame path, and may use either the server's
+// youtube.com compatibility URL or the shared privacy-enhanced nocookie URL.
+// Keep these origins explicit instead of opening frame-src to arbitrary HTTPS.
+const dashboardContentSecurityPolicy = "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://images.unsplash.com; connect-src 'self'; worker-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 func (s *server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
