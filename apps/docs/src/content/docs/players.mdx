@@ -47,7 +47,7 @@ Tilecast Player runs on each display, and each paired display appears in Studio 
   />
   <LinkCard
     title="Tilecast Edge"
-    description="Preview. The service-based Linux Player, still being qualified on physical hardware."
+    description="The service-based Linux Player with a WPE WebKit renderer, included in every release."
     href="../edge/"
   />
 </CardGrid>
@@ -56,18 +56,18 @@ To retire a screen or change several at once, see [Screen archive](../screens/ar
 
 ## Which Player to use
 
-Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session. The native Windows Player is being prepared for preview on Windows 10/11 x64 and ARM64; it is not qualified for production use.
+Choose the Android APK for Android TV, Google TV, or Fire TV, the signed MSIX for a Windows 10 or 11 PC (x64 or ARM64), or Tilecast Edge for a Linux computer. The AppImage Player is the earlier Linux Player. Keep it for screens that already run it, or when you need AirPlay Present.
 
-Tilecast Edge is the new Linux Player. It replaces the Electron/AppImage Player with a Linux service and a WPE WebKit renderer. Its software is complete, but it is still being qualified on physical hardware, so it is not the production Linux install yet. See [Tilecast Edge](../edge/).
+Tilecast Edge is the Linux Player. It replaces the Electron/AppImage Player with a Linux service and a WPE WebKit renderer. See [Tilecast Edge](../edge/).
 
-| Player  | Install format                    | Notes                                                                                                            |
-| ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
-| Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
-| Windows | Signed MSIX package               | Preview release pending. Windows 10 and 11, x64 and ARM64; physical qualification still in progress.             |
-| Edge    | Signed Linux release archive      | Preview. Use it only when a Tilecast release lists your hardware as supported.                                   |
+| Player  | Install format                    | Notes                                                                                                                 |
+| ------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                           |
+| Edge    | Signed Linux release archive      | The Linux Player, for `x86_64` and `aarch64` computers. Included in every release.                                    |
+| Linux   | AppImage                          | The earlier Linux Player. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
+| Windows | Signed MSIX package               | Windows 10 and 11, x64 and ARM64. Included in every Stable release.                                                   |
 
-Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/). Windows requirements and preview availability are in [Install Tilecast Player on Windows](./install-windows/).
+Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/) for the AppImage Player and [Tilecast Edge](../edge/) for Edge. Windows requirements are in [Install Tilecast Player on Windows](./install-windows/).
 
 ## Connect a display
 

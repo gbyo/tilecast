@@ -167,6 +167,7 @@ func (s *Service) hostFor(id string) plugin.Host {
 		DataSources:          dataSourceService{db: s.db, invalidator: s.dsInvalidator, pluginID: id, provider: provider},
 		Users:                userService{db: s.db},
 		PluginAssets:         pluginAssetService{db: s.db, backend: s.attachments, pluginID: id},
+		Fonts:                fontService{pluginID: id},
 		ScreenAccess:         screenAccessService{},
 	}
 }

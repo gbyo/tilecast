@@ -150,6 +150,27 @@ impl UiHandle {
         self.send(UiCommand::Post { message })
     }
 
+    /// Posts several host messages as one unit: either every message is
+    /// queued, in order, or none is. A caller that needs the Runtime to see
+    /// related messages together (a presentation and its plugin state) must
+    /// not let a nearly full queue accept only the first.
+    pub fn post_all(&self, messages: Vec<Value>) -> Result<(), UiError> {
+        if messages.is_empty() {
+            return Ok(());
+        }
+        match self.commands.try_reserve_many(messages.len()) {
+            Ok(permits) => {
+                for (permit, message) in permits.zip(messages) {
+                    permit.send(UiCommand::Post { message });
+                }
+                (self.wake)();
+                Ok(())
+            }
+            Err(mpsc::error::TrySendError::Full(())) => Err(UiError::Full),
+            Err(mpsc::error::TrySendError::Closed(())) => Err(UiError::Gone),
+        }
+    }
+
     pub fn restart(&self, reason: &str, deadline_ms: u32) -> Result<(), UiError> {
         self.send(UiCommand::Restart { reason: reason.to_owned(), deadline_ms })
     }
@@ -246,5 +267,26 @@ mod tests {
         let handle = UiHandle::new(tx, Arc::new(|| {}));
         handle.post(Value::Null).expect("first");
         assert_eq!(handle.post(Value::Null), Err(UiError::Full));
+    }
+
+    #[test]
+    fn post_all_queues_every_message_in_order_or_none() {
+        let (tx, mut rx) = mpsc::channel(3);
+        let handle = UiHandle::new(tx, Arc::new(|| {}));
+        handle.post(Value::Null).expect("one slot used");
+        handle.post_all(vec![Value::from(1), Value::from(2)]).expect("two slots free");
+        assert_eq!(handle.post_all(vec![Value::from(3), Value::from(4)]), Err(UiError::Full));
+        let mut posted = Vec::new();
+        while let Ok(UiCommand::Post { message }) = rx.try_recv() {
+            posted.push(message);
+        }
+        assert_eq!(posted, vec![Value::Null, Value::from(1), Value::from(2)]);
+
+        let (tx, mut rx) = mpsc::channel(2);
+        let handle = UiHandle::new(tx, Arc::new(|| {}));
+        handle.post(Value::Null).expect("one slot used");
+        assert_eq!(handle.post_all(vec![Value::from(1), Value::from(2)]), Err(UiError::Full));
+        assert!(matches!(rx.try_recv(), Ok(UiCommand::Post { message: Value::Null })));
+        assert!(rx.try_recv().is_err(), "a rejected batch leaves no partial post");
     }
 }

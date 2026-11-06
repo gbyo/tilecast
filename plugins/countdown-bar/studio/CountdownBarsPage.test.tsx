@@ -51,6 +51,7 @@ const storedInstance = {
   heightPx: 72,
   contentPadding: 2,
   textScale: 125,
+  fontId: null,
   urgencyEnabled: true,
   startingSoonSeconds: 300,
   urgentSeconds: 60,
@@ -65,19 +66,45 @@ const storedInstance = {
 
 let submitted: Record<string, unknown>[] = [];
 
+const FONT = "5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f";
+let stored: Record<string, unknown> = storedInstance;
+
 beforeEach(() => {
+  stored = storedInstance;
   ({ submitted } = stubStudioApi({
     installed: ["countdown_bar"],
     respond: (path) =>
       path.endsWith("/plugins/countdown-bar/instances/bar-1")
-        ? storedInstance
-        : undefined,
+        ? stored
+        : path.endsWith("/api/v1/fonts")
+          ? {
+              items: [
+                {
+                  id: FONT,
+                  family: "Lobster",
+                  source: "upload",
+                  sourceId: "",
+                  sourceVersion: "",
+                  category: "",
+                  license: "",
+                  subsets: [],
+                  faces: [],
+                  totalBytes: 0,
+                  createdAt: "2026-07-01T00:00:00Z",
+                  updatedAt: "2026-07-01T00:00:00Z",
+                },
+              ],
+              total: 1,
+            }
+          : undefined,
   }));
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // A spy on countdownApi must not outlive its test.
+  vi.restoreAllMocks();
 });
 
 describe("Countdown Bar editor", () => {
@@ -289,6 +316,56 @@ describe("Countdown Bar editor", () => {
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]?.contentPadding).toBe(0);
     expect(submitted[0]?.textScale).toBe(180);
+  }, 10_000);
+
+  it("keeps the Player's own face unless an organization font is chosen", async () => {
+    renderEditor("/plugins/countdown-bar/new");
+    await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Lunch" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]?.fontId).toBeNull();
+  }, 10_000);
+
+  it("submits the organization font chosen from the library", async () => {
+    renderEditor("/plugins/countdown-bar/new");
+    await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Lunch" },
+    });
+    await chooseOption("Font", "Lobster");
+    fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]?.fontId).toBe(FONT);
+  }, 10_000);
+
+  it("shows the stored font and keeps it when the bar is saved", async () => {
+    stored = { ...storedInstance, fontId: FONT };
+    renderEditor("/plugins/countdown-bar/bar-1");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Font" })).toHaveTextContent(
+        "Lobster",
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]?.fontId).toBe(FONT);
+  }, 10_000);
+
+  it("clears the font when the Player default is chosen", async () => {
+    stored = { ...storedInstance, fontId: FONT };
+    renderEditor("/plugins/countdown-bar/bar-1");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Font" })).toHaveTextContent(
+        "Lobster",
+      ),
+    );
+    await chooseOption("Font", "Player default");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]?.fontId).toBeNull();
   }, 10_000);
 
   it("keeps the schedule and mode selections across an unrelated edit", async () => {

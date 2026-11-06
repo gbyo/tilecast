@@ -2,8 +2,10 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +97,23 @@ func TestLifecycleTargetingAndManifest(t *testing.T) {
 	}
 	if others := h.Manifest(other); len(others) != 1 || others[0].Config.(server.ManifestConfig).Name != "All screens" {
 		t.Fatalf("untargeted manifest = %#v", others)
+	}
+
+	// A Player that hosts Plugin API 2 receives the same instances as
+	// plugin_state, with the v1 configuration as the state.
+	states := h.PlayerState(targeted)
+	if len(states) != len(entries) {
+		t.Fatalf("v2 state = %#v, v1 entries = %d", states, len(entries))
+	}
+	for index, state := range states {
+		if state.Type != "plugin_state" || state.Plugin != "countdown_bar" || state.StateType != server.ManifestType ||
+			state.StateVersion != 1 || state.ID != entries[index].ID {
+			t.Fatalf("state %d = %#v", index, state)
+		}
+		config, _ := json.Marshal(entries[index].Config)
+		if string(state.State) != string(config) {
+			t.Fatalf("state %d is not the v1 configuration:\n%s\n%s", index, state.State, config)
+		}
 	}
 
 	// A disabled instance leaves the manifest; every change revises it.
@@ -207,5 +226,77 @@ func TestWritesNeedOnlyOneConnection(t *testing.T) {
 	}
 	if err = p.Delete(ctx, created.ID, h.OwnerID); err != nil {
 		t.Fatalf("delete with one connection: %v", err)
+	}
+}
+
+func TestFontIsLibraryReferencedAndPlayerStateOnly(t *testing.T) {
+	p := countdownbar.New().(*server.Plugin)
+	h := pluginharness.New(t, p)
+	screen := h.Screen("Cafeteria")
+	h.Install()
+	font := h.Font("Lobster")
+
+	unknown := input()
+	missing := uuid.New()
+	unknown.FontID = &missing
+	if _, err := p.Create(h.Ctx, h.OwnerID, unknown); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("an unknown font = %v, want ErrInvalid", err)
+	}
+
+	withFont := input()
+	withFont.FontID = &font
+	created, err := p.Create(h.Ctx, h.OwnerID, withFont)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.FontID == nil || *created.FontID != font {
+		t.Fatalf("created font = %v", created.FontID)
+	}
+	if users := h.FontUsers(font); len(users) != 1 || users[0] != "Lunch" {
+		t.Fatalf("the library does not know the bar uses the font: %v", users)
+	}
+
+	// Plugin API 2 state names the family and carries its ID in the state;
+	// the Plugin API 1 entry has no font, so older Players keep their face.
+	states := h.PlayerState(screen)
+	if len(states) != 1 || len(states[0].Fonts) != 1 || states[0].Fonts[0].ID != font {
+		t.Fatalf("state fonts = %#v", states)
+	}
+	var state map[string]any
+	if err = json.Unmarshal(states[0].State, &state); err != nil || state["fontId"] != font.String() {
+		t.Fatalf("state = %s (%v)", states[0].State, err)
+	}
+	entries := h.Manifest(screen)
+	config, _ := json.Marshal(entries[0].Config)
+	if len(entries) != 1 || strings.Contains(string(config), "fontId") {
+		t.Fatalf("the v1 entry carries the font: %s", config)
+	}
+
+	// Choosing the Player's own face releases the family.
+	created.FontID = nil
+	if _, err = p.Update(h.Ctx, created.ID, h.OwnerID, created.Input); err != nil {
+		t.Fatal(err)
+	}
+	if users := h.FontUsers(font); len(users) != 0 {
+		t.Fatalf("an unused font is still referenced: %v", users)
+	}
+	if states = h.PlayerState(screen); len(states[0].Fonts) != 0 {
+		t.Fatalf("state still declares a font: %#v", states[0].Fonts)
+	}
+	state = nil
+	if err = json.Unmarshal(states[0].State, &state); err != nil || state["fontId"] != nil {
+		t.Fatalf("state = %s (%v)", states[0].State, err)
+	}
+
+	// Deleting an instance releases whatever it used.
+	created.FontID = &font
+	if _, err = p.Update(h.Ctx, created.ID, h.OwnerID, created.Input); err != nil {
+		t.Fatal(err)
+	}
+	if err = p.Delete(h.Ctx, created.ID, h.OwnerID); err != nil {
+		t.Fatal(err)
+	}
+	if users := h.FontUsers(font); len(users) != 0 {
+		t.Fatalf("a deleted bar still holds the font: %v", users)
 	}
 }

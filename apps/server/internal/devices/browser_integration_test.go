@@ -182,6 +182,68 @@ func TestBrowserRecoveryEpochAndKeyRenewal(t *testing.T) {
 	}
 }
 
+func TestBrowserLookupFindsTheBindingAfterALostEnrollmentResponse(t *testing.T) {
+	ctx, _, owner, service := browserEnvironment(t)
+	identity, err := service.Identity(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	private, public := browserTestKey(t)
+	installation := uuid.New()
+	registration := BrowserRegistration{InstallationID: installation, PublicKey: public}
+	pairing, err := service.CreatePairing(ctx, identity.InstallationID, browserTestMetadata(installation))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ApprovePairingWithOptions(ctx, pairing.ID, owner.User.ID, PairingApproval{Name: "Lost response", Authorize: SystemApproval}); err != nil {
+		t.Fatal(err)
+	}
+	polled, err := service.PollPairing(ctx, pairing.ID, pairing.PollSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.LookupBrowserBinding(ctx, registration); !errors.Is(err, ErrInvalidCredential) {
+		t.Fatal("a binding was found before enrollment committed")
+	}
+	// The enrollment commits; the browser never sees the response.
+	committed, err := service.EnrollBrowser(ctx, pairing.ID, polled.EnrollmentToken, registration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, err := service.LookupBrowserBinding(ctx, registration)
+	if err != nil || found.SlotID != committed.SlotID || found.BindingID != committed.BindingID {
+		t.Fatalf("committed binding was not found: %v", err)
+	}
+	// Identifiers alone grant nothing: a session needs the device key.
+	challenge, err := service.BrowserChallenge(ctx, found.SlotID, found.BindingID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongPrivate, _ := browserTestKey(t)
+	if _, err := service.RenewBrowserSession(ctx, found.SlotID, found.BindingID, challenge.Nonce, browserTestSignature(t, wrongPrivate, challenge.Message)); !errors.Is(err, ErrInvalidCredential) {
+		t.Fatal("renewal accepted a signature from another key")
+	}
+	challenge, err = service.BrowserChallenge(ctx, found.SlotID, found.BindingID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewed, err := service.RenewBrowserSession(ctx, found.SlotID, found.BindingID, challenge.Nonce, browserTestSignature(t, private, challenge.Message))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := service.AuthenticateBrowser(ctx, renewed.SessionSecret); err != nil {
+		t.Fatal(err)
+	}
+	// Another key, or the same key under another installation ID, matches nothing.
+	_, otherPublic := browserTestKey(t)
+	if _, err := service.LookupBrowserBinding(ctx, BrowserRegistration{InstallationID: installation, PublicKey: otherPublic}); !errors.Is(err, ErrInvalidCredential) {
+		t.Fatal("a different key found the binding")
+	}
+	if _, err := service.LookupBrowserBinding(ctx, BrowserRegistration{InstallationID: uuid.New(), PublicKey: public}); !errors.Is(err, ErrInvalidCredential) {
+		t.Fatal("a different installation found the binding")
+	}
+}
+
 func browserTestMetadata(installation uuid.UUID) DeviceMetadata {
 	return DeviceMetadata{PlayerInstallationID: installation.String(), Platform: "browser", Manufacturer: "Browser", Model: "Chromium", AndroidVersion: "Not applicable", PlayerVersion: "test", ScreenWidth: 1920, ScreenHeight: 1080, Density: 1, Locale: "en-US", Timezone: "UTC"}
 }

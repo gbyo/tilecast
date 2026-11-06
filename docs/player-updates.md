@@ -127,6 +127,14 @@ Electron Player also refuses an `install_player_update` command whose
 carries `playerFamily` and `expectedArtifactSha256` beside the existing
 fields.
 
+The Electron Player keeps an update that waits for a maintenance window in
+`staged-update.json` in its data directory. The record holds the deployment ID,
+the window start, and the SHA-256 and size of the verified AppImage. After a
+restart, the Player checks the staged file again, waits for the rest of the
+window, and installs. It deletes the record before it replaces the AppImage.
+If the staged file is missing or does not match, the Player reports the
+deployment as `failed` so that the operator can retry it.
+
 Drafts, arbitrary repositories, arbitrary asset names/URLs, invalid signatures, downgrades, incompatible SDK declarations, checksum mismatches, invalid APK signatures, and signing-certificate mismatches are rejected. A verified APK is streamed to a temporary file beneath `/data/updates`, checked, and atomically renamed. Players download only from their paired Tilecast server using authenticated range requests.
 
 ## Permanent signing keys
@@ -308,6 +316,11 @@ Owners and Administrators can retry failed targets.
 Permission and TV-approval states do not offer retry.
 **Cancel deployment** requires confirmation.
 Cancellation does not revert an installed release.
+An Android Player that waits for a maintenance window or for Takeover to end
+reports its status to the server before it starts the installer.
+When the server answers that the deployment is cancelled or complete,
+the Player discards the staged APK and does not install.
+When the Player cannot reach the server, it installs as scheduled.
 Initial loading uses skeleton rows.
 Background refresh retains the current rows.
 
@@ -324,7 +337,7 @@ curl --fail-with-body \
   https://tilecast.example.org/api/v1/player-releases/upload
 ```
 
-The player resumes `.part` downloads, verifies available storage, SHA-256, package name, version code, minimum SDK, signing certificate, install permission, and Takeover state, then uses Android `PackageInstaller`. For API 31 and newer it declares `UPDATE_PACKAGES_WITHOUT_USER_ACTION` and requests `USER_ACTION_NOT_REQUIRED` for its own signed update. Android can still return `STATUS_PENDING_USER_ACTION`, so the Player preserves an explicit confirmation fallback instead of claiming universal silent installation. Takeover playback delays installation but not downloading. Pairing credentials, manifests, configuration, disabled state, and media cache live outside the APK and survive replacement. The package-replaced receiver and the already-enabled bounded Accessibility service both request a return to Tilecast after replacement; Accessibility never reads or clicks installer controls. Success is recorded after the updated Player reconnects at the expected version, remains up for at least 120 seconds or does not report uptime, is not in safe mode, and reports no update error. Healthy playback is not required, so a sleeping screen can settle the update.
+The player resumes `.part` downloads, verifies available storage, SHA-256, package name, version code, minimum SDK, signing certificate, install permission, and Takeover state, then uses Android `PackageInstaller`. For API 31 and newer it declares `UPDATE_PACKAGES_WITHOUT_USER_ACTION` and requests `USER_ACTION_NOT_REQUIRED` for its own signed update. Android can still return `STATUS_PENDING_USER_ACTION`, so the Player preserves an explicit confirmation fallback instead of claiming universal silent installation. Takeover playback delays installation but not downloading. The Player checks Takeover again when a person approves a pending update or grants the install permission. If a Takeover is active at that time, the update returns to its delayed state and asks for approval again after the Takeover ends. Pairing credentials, manifests, configuration, disabled state, and media cache live outside the APK and survive replacement. The package-replaced receiver and the already-enabled bounded Accessibility service both request a return to Tilecast after replacement; Accessibility never reads or clicks installer controls. Success is recorded after the updated Player reconnects at the expected version, remains up for at least 120 seconds or does not report uptime, is not in safe mode, and reports no update error. Healthy playback is not required, so a sleeping screen can settle the update.
 
 Deployments may start with a deterministic canary cohort. Other targeted screens remain held until every canary reconnects successfully. The rollout pauses when a canary reports failure, enters safe mode, or remains reconnecting beyond the bounded health window. Studio shows the rollout phase and safe pause reason; it never treats `WaitingForUser` as failure.
 

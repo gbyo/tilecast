@@ -286,6 +286,8 @@ public final class StudioHost {
             result = try await auth.completeSignIn(code: code, verifier: verifier)
         } catch .missingCookie {
             throw .missingCookie
+        } catch .cancelled {
+            throw .invalidCallback
         } catch {
             throw .serverRejected
         }
@@ -452,6 +454,9 @@ public final class StudioHost {
         generation += 1
         nativeAuthEvents?.cancel()
         nativeAuthEvents = nil
+        // A sign-in still redeeming its code can no longer complete: its
+        // page is gone, so it must not store a credential.
+        nativeAuth?.cancelPendingSignIn()
         nativeAuth = nil
         mediaIntake.detach()
         guard let page else { return }

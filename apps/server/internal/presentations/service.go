@@ -125,6 +125,18 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Override, erro
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.presentation.'||$1))`, org.String()); err != nil {
 		return Override{}, fmt.Errorf("lock presentation installation: %w", err)
 	}
+	// Share-lock the presented playlist or Layout so a concurrent delete,
+	// which locks the row and counts running overrides, cannot commit around
+	// this insert and leave an override for deleted content.
+	switch input.ContentType {
+	case "playlist":
+		_, err = tx.Exec(ctx, `SELECT 1 FROM playlists WHERE id=$1 FOR SHARE`, input.ContentID)
+	case "layout":
+		_, err = tx.Exec(ctx, `SELECT 1 FROM layouts WHERE id=$1 FOR SHARE`, input.ContentID)
+	}
+	if err != nil {
+		return Override{}, fmt.Errorf("lock presented content: %w", err)
+	}
 	screens, targetName, err := targetScreens(ctx, tx, org, input.TargetType, input.TargetID)
 	if err != nil {
 		return Override{}, err

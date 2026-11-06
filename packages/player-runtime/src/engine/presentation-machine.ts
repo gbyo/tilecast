@@ -133,6 +133,15 @@ export function missingPayloadReason(item: RuntimeItem): string | null {
   return null;
 }
 
+/** Only a single-video local playlist restarts in place; see ItemCompletion. */
+function loopsInPlace(context: PresentationContext): boolean {
+  return (
+    context.authority === "local" &&
+    context.items.length === 1 &&
+    context.stage?.item.kind === "video"
+  );
+}
+
 function isAutoSkipWidget(
   item: RuntimeItem,
   authority: PlaybackAuthority,
@@ -243,6 +252,24 @@ export const presentationMachine = setup({
             : 0,
       };
     }),
+    /**
+     * A single local video loops in place. Its authored duration bounds every
+     * lap of visible playback, so the deadline starts when a lap starts
+     * playing: when the occurrence is first shown and after each restart.
+     */
+    armLapDuration: ({ context, self }) => {
+      const stage = context.stage;
+      if (!stage || !loopsInPlace(context)) return;
+      const authored = positiveDurationMs(stage.item.durationMs);
+      if (!authored) return;
+      context.timers.cancelAll();
+      // The dwell floor in finish is measured from the mount, which an
+      // in-place restart keeps. Apply it per lap here, or a sub-second
+      // duration would restart the video as fast as timers fire.
+      context.timers.after(Math.max(authored, MIN_ITEM_DWELL_MS), () =>
+        self.send({ type: "DURATION_DUE", mount: stage.mount }),
+      );
+    },
     /** Evidence and deadlines that start with the occurrence itself. */
     startOccurrence: ({ context, self }) => {
       context.timers.cancelAll();
@@ -552,7 +579,7 @@ export const presentationMachine = setup({
           {
             guard: "isCurrent",
             target: "showing",
-            actions: ["showStage", "onShown"],
+            actions: ["showStage", "onShown", "armLapDuration"],
           },
         ],
         WIDGET_EMPTY: {
@@ -573,7 +600,13 @@ export const presentationMachine = setup({
           },
           { guard: "isCurrent", actions: ["websiteFailed", "finish"] },
         ],
-        OUTCOME: { guard: "advances", target: "advancing" },
+        OUTCOME: [
+          { guard: "advances", target: "advancing" },
+          // The mount-time deadline of a looping video passed before its
+          // first frame. Nothing has played yet, so there is no lap to
+          // restart: reopen the arbiter and let the lap start when shown.
+          { guard: "restarts", actions: "occurrenceStarted" },
+        ],
       },
     },
     /** On screen. */
@@ -585,7 +618,10 @@ export const presentationMachine = setup({
         },
         SURFACE_ENDED: { guard: "isCurrent", actions: "finish" },
         DURATION_DUE: { guard: "isCurrent", actions: "finish" },
-        SURFACE_RESUMED: { guard: "isCurrent", actions: "occurrenceStarted" },
+        SURFACE_RESUMED: {
+          guard: "isCurrent",
+          actions: ["occurrenceStarted", "armLapDuration"],
+        },
         SURFACE_FAILED: { guard: "isCurrent", target: "failed" },
         WEBSITE_RECOVERED: { guard: "isCurrent", actions: "websiteRecovered" },
         WEBSITE_FAILED: [

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { layoutQueries } from "../data/layouts";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLibraryFonts } from "../fonts/libraryFonts";
 import { Navigate, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
 import type { Asset, LayoutDocument, Playlist } from "../api/types";
@@ -181,6 +182,8 @@ export function LayoutPreviewPage() {
   const location = useLocation();
   const auth = useAuth();
   const presentation = useNativePresentation();
+  // Library faces must be registered before Layout text can draw in them.
+  useLibraryFonts();
   const query = useQuery({
     ...layoutQueries.detail(id),
     enabled: Boolean(id && auth.status?.authenticated),

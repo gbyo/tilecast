@@ -246,6 +246,11 @@ export class PlaybackController {
   stop(): void {
     this.projectionTimers.cancelAll();
     this.timeline.stop();
+    // Stopping the parent does not run the presentation's exit actions;
+    // let it cancel its own deadlines and heartbeats first.
+    this.player.getSnapshot().children[PRESENTATION_ACTOR_ID]?.send({
+      type: "STOP",
+    });
     this.player.stop();
   }
 
