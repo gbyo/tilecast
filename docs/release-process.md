@@ -334,7 +334,10 @@ Only `stable`, `latest`, and `beta` can move, and only a Stable release can move
 `stable` and `latest`. A failed or incomplete release never moves an alias.
 
 `latest` currently names a build from before this process and `stable` does not
-exist. The first Stable release creates `stable` and moves `latest`.
+exist. The first Stable release creates `stable` and moves `latest`. That build
+has the version `main`, which is not a release version. No release is older than
+it, so the promotion replaces it. The promotion refuses an image whose own
+version is not a release version, so a Development build cannot own an alias.
 
 ## Player update discovery
 
@@ -537,6 +540,16 @@ Dispatch the next version, for example `0.26.1`, from the commit with the fix.
 Read the plan in the `prepare` job: it lists, for every component, whether it is
 built or inherited, and why. Turn `reuse_unchanged` off to build everything. See
 [Carrying components forward](#carrying-components-forward).
+
+### Promote the aliases of a published release
+
+If the `promote` job of a published release failed, a resume of `release.yml`
+must start from the tagged commit. That commit has the promotion script as it
+was at release time, so it cannot use a fix that main has since received. Run
+`promote-server-aliases.yml` from main instead, with the release version. It
+reads the published release, decides the due aliases with `release_plan.py`,
+and runs the same promotion script from main. It builds nothing and publishes
+nothing. An alias never moves backwards. A second run moves nothing.
 
 ### Resume or recover
 

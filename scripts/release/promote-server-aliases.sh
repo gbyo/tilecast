@@ -15,7 +15,10 @@
 #     a version never names two images. The version is the OCI version
 #     annotation every release build writes, so a Server carried forward from
 #     an earlier release (release_reuse.py) can be promoted without moving an
-#     alias backwards.
+#     alias backwards;
+#   * the image being promoted must carry a release version. An alias that
+#     names a build with no release version, such as a Development build named
+#     "main", is replaced by a release.
 # An empty list is not an error: a release that is not the newest of its kind
 # owes no alias.
 #
@@ -71,6 +74,10 @@ if [ -z "$new_version" ]; then
   echo "The image $digest carries no version annotation, so its place in the release order cannot be proven." >&2
   exit 1
 fi
+if ! python3 "$here/release_version.py" code "$new_version" > /dev/null 2>&1; then
+  echo "The image $digest names '$new_version', which is not a release version, so it cannot own an alias." >&2
+  exit 1
+fi
 for alias in "${aliases[@]}"; do
   current=$("$docker" buildx imagetools inspect "$image:$alias" --format '{{json .Manifest}}' 2>/dev/null | jq -r '.digest // ""' 2>/dev/null || true)
   if [ -z "$current" ] || [ "$current" = "$digest" ]; then
@@ -78,6 +85,12 @@ for alias in "${aliases[@]}"; do
   fi
   current_version=$(version_of "$image@$current")
   if [ -z "$current_version" ]; then
+    continue
+  fi
+  # An alias can still name a build from before the release process, or a
+  # Development build, whose version is "main" or a commit name. That is not a
+  # release, so no release can be older than it and the alias may move.
+  if ! python3 "$here/release_version.py" code "$current_version" > /dev/null 2>&1; then
     continue
   fi
   order=$(python3 "$here/release_version.py" compare "$current_version" "$new_version" 2>/dev/null || echo invalid)
