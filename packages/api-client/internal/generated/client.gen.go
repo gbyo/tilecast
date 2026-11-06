@@ -14391,6 +14391,12 @@ type CompileWidgetPreviewJSONBody struct {
 	Provider WidgetProvider `json:"provider"`
 }
 
+// UpdateWidgetPreviewImageParams defines parameters for UpdateWidgetPreviewImage.
+type UpdateWidgetPreviewImageParams struct {
+	// RenderedUpdatedAt The Widget asset `updatedAt` the image was rendered from. When present and the Widget has changed since, the server refuses the image with 409 `widget_preview_stale`. Omit it to store unconditionally.
+	RenderedUpdatedAt *time.Time `form:"renderedUpdatedAt,omitempty" json:"renderedUpdatedAt,omitempty"`
+}
+
 // Health200JSONResponseBodyDataService defines parameters for Health.
 type Health200JSONResponseBodyDataService string
 
@@ -19129,7 +19135,7 @@ type ClientInterface interface {
 	// with any type of body and a specified content type.
 	//
 	// Stores the frozen image captured from the actual Widget editor render. Requires an editor-capable dashboard session and CSRF token. The server accepts only a 960 by 540 JPEG no larger than 500 KB; Widget configuration updates clear the prior snapshot so stale renders are never shown.
-	UpdateWidgetPreviewImageWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateWidgetPreviewImageWithBody(ctx context.Context, id ResourceID, params *UpdateWidgetPreviewImageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Health performs a GET /healthz (the `Health` operationId) request.
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -28147,8 +28153,8 @@ func (c *Client) DuplicateWidget(ctx context.Context, id ResourceID, reqEditors 
 // with any type of body and a specified content type.
 //
 // Stores the frozen image captured from the actual Widget editor render. Requires an editor-capable dashboard session and CSRF token. The server accepts only a 960 by 540 JPEG no larger than 500 KB; Widget configuration updates clear the prior snapshot so stale renders are never shown.
-func (c *Client) UpdateWidgetPreviewImageWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateWidgetPreviewImageRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) UpdateWidgetPreviewImageWithBody(ctx context.Context, id ResourceID, params *UpdateWidgetPreviewImageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWidgetPreviewImageRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -48141,7 +48147,7 @@ func NewDuplicateWidgetRequest(server string, id ResourceID) (*http.Request, err
 }
 
 // NewUpdateWidgetPreviewImageRequestWithBody constructs an http.Request for the UpdateWidgetPreviewImage method, with any body, and a specified content type
-func NewUpdateWidgetPreviewImageRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateWidgetPreviewImageRequestWithBody(server string, id ResourceID, params *UpdateWidgetPreviewImageParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -48164,6 +48170,33 @@ func NewUpdateWidgetPreviewImageRequestWithBody(server string, id ResourceID, co
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.RenderedUpdatedAt != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "renderedUpdatedAt", *params.RenderedUpdatedAt, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
@@ -52477,7 +52510,7 @@ type ClientWithResponsesInterface interface {
 	// Stores the frozen image captured from the actual Widget editor render. Requires an editor-capable dashboard session and CSRF token. The server accepts only a 960 by 540 JPEG no larger than 500 KB; Widget configuration updates clear the prior snapshot so stale renders are never shown.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateWidgetPreviewImageWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWidgetPreviewImageResponse, error)
+	UpdateWidgetPreviewImageWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateWidgetPreviewImageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWidgetPreviewImageResponse, error)
 
 	// HealthWithResponse performs a GET /healthz (the `Health` operationId) request.
 	//
@@ -78214,8 +78247,8 @@ func (c *ClientWithResponses) DuplicateWidgetWithResponse(ctx context.Context, i
 // Stores the frozen image captured from the actual Widget editor render. Requires an editor-capable dashboard session and CSRF token. The server accepts only a 960 by 540 JPEG no larger than 500 KB; Widget configuration updates clear the prior snapshot so stale renders are never shown.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateWidgetPreviewImageWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWidgetPreviewImageResponse, error) {
-	rsp, err := c.UpdateWidgetPreviewImageWithBody(ctx, id, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateWidgetPreviewImageWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateWidgetPreviewImageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWidgetPreviewImageResponse, error) {
+	rsp, err := c.UpdateWidgetPreviewImageWithBody(ctx, id, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
