@@ -90,6 +90,7 @@ pub async fn install(context: &DaemonContext, config: Option<PlayerConfig>) {
     if let Some(cas) = &context.cas {
         cas.set_policy(store_policy(context, &effective));
         cas.set_automatic_threshold(effective.native.cache.automatic_threshold_bytes);
+        cas.set_download_concurrency(effective.native.cache.concurrent_downloads);
     }
     context.presentation.lock().await.apply_player_config(&context.config, &effective);
     context.manifest_wake.notify_one();

@@ -1,5 +1,6 @@
 //! Verified manifest content preparation and pin identities.
-use crate::{AssetPolicy, ManifestAsset, NativeManifest, OriginBlobSource, StreamClaim, StreamReason};
+use crate::{AssetPolicy, ManifestAsset, ManifestBundle, NativeManifest, OriginBlobSource, StreamClaim, StreamReason};
+use futures_util::stream::{self, StreamExt, TryStreamExt};
 use player_cas::{BlobSource, CasError, ContentStore, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta};
 use player_client::AuthenticatedServer;
 use player_state::repo::cas::{Domain, SourceKind};
@@ -303,6 +304,41 @@ async fn fetch_frame_object<P: ManifestSourcePlan>(
     }
 }
 
+/// Fetches one required media download. A download the store cannot fit
+/// fails visibly as `CacheTooSmall`; it never streams silently.
+async fn fetch_required_download<P: ManifestSourcePlan>(
+    store: &ContentStore,
+    plan: &P,
+    asset: &ManifestAsset,
+) -> Result<(), ManifestPreparationError> {
+    let meta =
+        IngestMeta { domain: Domain::Media, content_type: Some(asset.mime_type.clone()), source: SourceKind::Origin };
+    fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await.map_err(|error| {
+        match &error {
+            ManifestPreparationError::Fetch(FetchError::Store(
+                CasError::OverLimit | CasError::InsufficientSpace { .. },
+            ))
+            | ManifestPreparationError::Store(CasError::OverLimit | CasError::InsufficientSpace { .. }) => {
+                ManifestPreparationError::CacheTooSmall
+            }
+            _ => error,
+        }
+    })
+}
+
+async fn fetch_required_bundle<P: ManifestSourcePlan>(
+    store: &ContentStore,
+    plan: &P,
+    bundle: &ManifestBundle,
+) -> Result<(), ManifestPreparationError> {
+    let meta = IngestMeta {
+        domain: Domain::WidgetBundle,
+        content_type: Some("text/javascript".to_owned()),
+        source: SourceKind::Origin,
+    };
+    fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await
+}
+
 /// Fetches every variant, Widget bundle, and Widget frame the candidate
 /// needs. The caller persists and pins a candidate only after this
 /// succeeds, so a manifest whose bundle or frame cannot be fetched
@@ -317,6 +353,7 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
     let mut digests = BTreeSet::new();
     let mut seen_stream = BTreeSet::new();
     let mut streams = Vec::new();
+    let mut downloads = Vec::new();
     for asset in &candidate.required_downloads {
         if let Some(claim) = stream_claim(asset, threshold) {
             if seen_stream.insert(claim.digest) {
@@ -324,35 +361,25 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
             }
             continue;
         }
-        let meta = IngestMeta {
-            domain: Domain::Media,
-            content_type: Some(asset.mime_type.clone()),
-            source: SourceKind::Origin,
-        };
-        fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await.map_err(
-            |error| match &error {
-                // The partition requires this download and the store
-                // cannot fit it: fail visibly, never stream silently.
-                ManifestPreparationError::Fetch(FetchError::Store(
-                    CasError::OverLimit | CasError::InsufficientSpace { .. },
-                ))
-                | ManifestPreparationError::Store(CasError::OverLimit | CasError::InsufficientSpace { .. }) => {
-                    ManifestPreparationError::CacheTooSmall
-                }
-                _ => error,
-            },
-        )?;
-        digests.insert(asset.digest);
+        if digests.insert(asset.digest) {
+            downloads.push(asset.clone());
+        }
     }
-    for bundle in &candidate.required_bundles {
-        let meta = IngestMeta {
-            domain: Domain::WidgetBundle,
-            content_type: Some("text/javascript".to_owned()),
-            source: SourceKind::Origin,
-        };
-        fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await?;
-        digests.insert(bundle.digest);
-    }
+    // Required media and bundles download up to the configured number at a
+    // time; the content store reserves space across concurrent writers.
+    // Items are owned so the stream's futures stay `Send` for hosts that
+    // spawn preparation.
+    let limit = store.download_concurrency();
+    stream::iter(downloads.into_iter().map(|asset| async move { fetch_required_download(store, plan, &asset).await }))
+        .buffer_unordered(limit)
+        .try_collect::<Vec<()>>()
+        .await?;
+    let bundles: Vec<ManifestBundle> =
+        candidate.required_bundles.iter().filter(|bundle| digests.insert(bundle.digest)).cloned().collect();
+    stream::iter(bundles.into_iter().map(|bundle| async move { fetch_required_bundle(store, plan, &bundle).await }))
+        .buffer_unordered(limit)
+        .try_collect::<Vec<()>>()
+        .await?;
     for frame in &candidate.required_frames {
         let meta = IngestMeta {
             domain: Domain::WidgetFrame,
