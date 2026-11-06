@@ -1,6 +1,7 @@
 package playlists
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +17,12 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	formsserver "github.com/tilecast/tilecast/plugins/forms/server"
 )
+
+type externalWidgetGate struct{}
+
+func (externalWidgetGate) LockPackageContribution(_ context.Context, _ pgx.Tx, packageID, kind, contributionID, digest string) (bool, error) {
+	return packageID == "acme.athletics" && kind == "widget" && contributionID == "acme.athletics.scoreboard" && digest == "sha256:"+strings.Repeat("a", 64), nil
+}
 
 // reportCapabilities records what the fixture screen's Player reported: the
 // shared Player Runtime's declarative profile (which renders time-bound
@@ -483,6 +490,7 @@ func TestExternalWidgetManifestVersion(t *testing.T) {
 	catalog := externalWidgetCatalog(t)
 	f.service.SetContentDefinitions(catalog)
 	f.media.SetContentDefinitions(catalog)
+	f.media.SetPackageSourceGate(externalWidgetGate{})
 	f.service.SetPackagePayloads(stubPackagePayloads{
 		[2]string{"acme.athletics", "scoreboard"}: {
 			PackageDigest: "sha256:" + strings.Repeat("a", 64),
@@ -560,6 +568,7 @@ func TestExternalWidgetFrameManifestVersion(t *testing.T) {
 	catalog := externalWidgetCatalog(t)
 	f.service.SetContentDefinitions(catalog)
 	f.media.SetContentDefinitions(catalog)
+	f.media.SetPackageSourceGate(externalWidgetGate{})
 	f.service.SetPackagePayloads(stubPackagePayloads{
 		[2]string{"acme.athletics", "scoreboard"}: {
 			PackageDigest:  "sha256:" + strings.Repeat("a", 64),
