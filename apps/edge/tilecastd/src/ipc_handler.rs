@@ -88,7 +88,10 @@ impl IpcHandler for DaemonIpc {
                 engine.renderer_ready(session, ready, now.unix_millis());
                 drop(engine);
                 crate::capabilities::refresh(&self.context).await;
-                crate::remote_web::clear_at_start_if_configured(&self.context, remote_web.as_ref());
+                crate::remote_web::clear_at_start_if_configured(
+                    &self.context,
+                    remote_web.as_ref().is_some_and(|status| status.available),
+                );
                 self.context.report_status_soon();
                 self.context.manifest_wake.notify_one();
             }
@@ -150,6 +153,11 @@ impl IpcHandler for DaemonIpc {
                 drop(engine);
                 if capability_changed {
                     crate::capabilities::refresh(&self.context).await;
+                    // A helper reconnect reports health, not `renderer.ready`; a
+                    // startup clear that the restart failed retries here.
+                    if crate::remote_web::helper_recovered(health.state) {
+                        crate::remote_web::clear_at_start_if_configured(&self.context, true);
+                    }
                 }
             }
             Event::RendererCommandResult(result) => {

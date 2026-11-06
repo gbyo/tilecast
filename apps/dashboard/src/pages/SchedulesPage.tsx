@@ -2,7 +2,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { PlaybackAgenda } from "../components/schedules/PlaybackAgenda";
 import type { ScheduleListParams, AuthStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useNow } from "../components/overview/format";
@@ -17,6 +18,12 @@ import { useScheduleDeletion } from "../components/schedules/useScheduleDeletion
 import { buttonVariants } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { defaultScheduleListParams, scheduleQueries } from "../data/schedules";
 import { useCompactLayout } from "../hooks/use-compact-layout";
 import { hasCapability } from "../auth/capabilities";
@@ -25,6 +32,42 @@ const canManage = (status?: AuthStatus) =>
   hasCapability(status, "schedule.edit");
 
 export function SchedulesPage() {
+  const { t } = useTranslation("schedules");
+  const { status } = useAuth();
+  const [params, setParams] = useSearchParams();
+  if (!hasCapability(status, "screen.read")) return <ScheduleList />;
+  return (
+    <Tabs
+      value={params.get("view") === "agenda" ? "agenda" : "list"}
+      onValueChange={(value) =>
+        setParams((previous) => {
+          const next = new URLSearchParams(previous);
+          if (value === "agenda") next.set("view", "agenda");
+          else next.delete("view");
+          return next;
+        })
+      }
+      className="w-full min-w-0 gap-5"
+    >
+      <TabsList aria-label={t("page.title")}>
+        <TabsTrigger value="list" className="px-2.5">
+          {t("agenda.listTab")}
+        </TabsTrigger>
+        <TabsTrigger value="agenda" className="px-2.5">
+          {t("agenda.title")}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="list">
+        <ScheduleList />
+      </TabsContent>
+      <TabsContent value="agenda">
+        <PlaybackAgenda />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function ScheduleList() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
   const compact = useCompactLayout();

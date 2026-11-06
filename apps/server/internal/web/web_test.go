@@ -19,8 +19,9 @@ func TestStudioAssetsAndNavigation(t *testing.T) {
 		{"/", "no-cache", "<title>Studio</title>", 200},
 		{"/screens/screen-id", "no-cache", "<title>Studio</title>", 200},
 		{"/assets/app-hash.js", "public, max-age=31536000, immutable", "console.log", 200},
+		{"/assets", "no-cache", "<title>Studio</title>", 200},
 		{"/assets/previous-build.js", "no-cache", "404 page not found", 404},
-		{"/assets/", "no-cache", "404 page not found", 404},
+		{"/assets/", "no-cache", "<title>Studio</title>", 200},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			response := httptest.NewRecorder()

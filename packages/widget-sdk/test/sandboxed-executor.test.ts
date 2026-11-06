@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SANDBOX_BRIDGE_PROTOCOL,
+  snapshotDeclaredResources,
   type DeclaredWidgetInputs,
 } from "../src/sandbox-bridge.ts";
 import {
@@ -1057,5 +1058,102 @@ describe("SandboxedWidgetExecutor", () => {
     );
     expect(states).toEqual([{ state: "pending" }]);
     expect(container.querySelector("iframe")).toBeNull();
+  });
+});
+
+describe("sandbox frame input revisions", () => {
+  // Runs the real bootstrap in an iframe window with a fake port, so the
+  // frame's update handling is observed without a browser.
+  function bootFrame() {
+    const iframe = document.createElement("iframe");
+    document.body.appendChild(iframe);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = iframe.contentWindow as any;
+    class Probe extends win.HTMLElement {}
+    win[SANDBOX_DEFINITION_GLOBAL] = {
+      type: "acme.probe",
+      version: 2,
+      tagName: "acme-probe",
+      element: Probe,
+      parseConfig: (config: unknown) => ({ ok: true, config }),
+      resolveData: () => ({ state: "ready", data: {} }),
+    };
+    const posted: unknown[] = [];
+    const port = {
+      postMessage: (message: unknown) => posted.push(message),
+      onmessage: null as ((event: { data: unknown }) => void) | null,
+    };
+    const context = createTestContext();
+    const snapshot = (config: unknown) => ({
+      component: { type: "acme.probe", version: 2, config },
+      ...snapshotDeclaredResources(fixtureResources(), DECLARED),
+      context: snapshotSandboxContext(context),
+    });
+    win.eval(sandboxFrameBootstrap("hello"));
+    win.dispatchEvent(
+      Object.assign(new win.Event("message"), {
+        data: {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce: "n1",
+          kind: "init",
+          revision: 1,
+          snapshot: snapshot({ label: "first" }),
+        },
+        ports: [port],
+      }),
+    );
+    const element = win.document.querySelector("acme-probe");
+    const announce = (revision: number) =>
+      element.dispatchEvent(
+        new win.CustomEvent("tilecast-widget-ready", {
+          bubbles: true,
+          detail: { revision },
+        }),
+      );
+    const update = (revision: number, config: unknown) =>
+      port.onmessage!({
+        data: {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce: "n1",
+          kind: "update",
+          revision,
+          snapshot: snapshot(config),
+        },
+      });
+    return {
+      posted,
+      announce,
+      update,
+      config: () => element.config as unknown,
+      close: () => iframe.remove(),
+    };
+  }
+
+  it("holds an update pending until the element announces that revision", () => {
+    const frame = bootFrame();
+    frame.announce(1);
+    expect(frame.posted).toEqual([
+      {
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        nonce: "n1",
+        revision: 1,
+        state: { state: "ready" },
+      },
+    ]);
+    frame.update(2, { label: "second" });
+    expect(frame.config()).toEqual({ label: "second" });
+    // Resolving the inputs is not a render: nothing reports yet.
+    expect(frame.posted).toHaveLength(1);
+    // A slow render of the previous input announces late and is dropped.
+    frame.announce(1);
+    expect(frame.posted).toHaveLength(1);
+    frame.announce(2);
+    expect(frame.posted.at(-1)).toEqual({
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      nonce: "n1",
+      revision: 2,
+      state: { state: "ready" },
+    });
+    frame.close();
   });
 });

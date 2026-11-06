@@ -89,6 +89,19 @@ func (s *Service) availableFieldKeys(ctx context.Context, q rowQuerier, id uuid.
 	return keys, nil
 }
 
+// checkViewFieldCount rejects a view whose dataset would carry more fields than a Player
+// accepts. An empty selection exposes every available field, so it counts as all of them.
+func checkViewFieldCount(selected, available int) error {
+	exposed := selected
+	if exposed == 0 {
+		exposed = available
+	}
+	if exposed > maxViewOutputFields {
+		return fmt.Errorf("%w: a view can expose at most %d output fields but this one exposes %d; select fewer fields", ErrValidation, maxViewOutputFields, exposed)
+	}
+	return nil
+}
+
 func (s *Service) validateView(ctx context.Context, q rowQuerier, id uuid.UUID, in ViewInput) error {
 	if !viewKeyPattern.MatchString(in.Key) {
 		return fmt.Errorf("%w: view key %q is invalid", ErrValidation, in.Key)
@@ -120,6 +133,9 @@ func (s *Service) validateView(ctx context.Context, q rowQuerier, id uuid.UUID, 
 		if !fields[key] {
 			return fmt.Errorf("%w: view references unknown output field %q", ErrValidation, key)
 		}
+	}
+	if err := checkViewFieldCount(len(in.OutputFields), len(fields)); err != nil {
+		return err
 	}
 	for _, filter := range in.FieldFilters {
 		if !fields[filter.Field] {

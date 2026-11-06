@@ -122,6 +122,41 @@ func browserChallengeMessage(slotID, bindingID uuid.UUID, nonce string) string {
 	return "tilecast-browser-player-v1:" + slotID.String() + ":" + bindingID.String() + ":" + nonce
 }
 
+// BrowserBinding names the current slot and binding of a browser identity.
+type BrowserBinding struct {
+	SlotID    uuid.UUID `json:"slotId"`
+	BindingID uuid.UUID `json:"bindingId"`
+}
+
+// LookupBrowserBinding lets a browser that lost an enrollment response find
+// the binding its own key already holds. It returns identifiers only. A
+// session still requires a signature from the matching private key through
+// the challenge and renewal exchange, so knowing a public key grants nothing.
+func (s *Service) LookupBrowserBinding(ctx context.Context, registration BrowserRegistration) (BrowserBinding, error) {
+	if _, err := registration.PublicKey.parse(); err != nil {
+		return BrowserBinding{}, ErrInvalidCredential
+	}
+	publicJSON, err := json.Marshal(registration.PublicKey)
+	if err != nil {
+		return BrowserBinding{}, err
+	}
+	var binding BrowserBinding
+	err = s.db.QueryRow(ctx, `SELECT p.id,b.id FROM browser_player_bindings b
+		JOIN browser_player_slots p ON p.id=b.slot_id JOIN screens s ON s.id=p.screen_id
+		JOIN device_credentials c ON c.id=b.credential_id
+		WHERE b.installation_id=$1 AND b.public_key=$2::jsonb
+		AND b.epoch=p.active_binding_epoch AND b.revoked_at IS NULL
+		AND c.revoked_at IS NULL AND s.enabled AND s.archived_at IS NULL AND s.deleted_at IS NULL`,
+		registration.InstallationID, publicJSON).Scan(&binding.SlotID, &binding.BindingID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return BrowserBinding{}, ErrInvalidCredential
+	}
+	if err != nil {
+		return BrowserBinding{}, err
+	}
+	return binding, nil
+}
+
 func (s *Service) BrowserChallenge(ctx context.Context, slotID, bindingID uuid.UUID) (BrowserChallenge, error) {
 	nonce, err := randomSecret(32)
 	if err != nil {

@@ -142,7 +142,6 @@ pub struct AndroidServerLinkHost {
     manifest_facts: crate::manifest_host::SharedManifestFacts,
     clock: player_types::time::SharedClock,
     manifest_wake: Arc<Notify>,
-    pairing_wake: Arc<Notify>,
     state_dir: PathBuf,
     started_at: std::time::Instant,
 }
@@ -156,6 +155,23 @@ pub fn shutdown_preparing_at(hours: Option<&player_core::ActiveHours>, prepare_s
     let result = player_core::evaluate_active_hours(hours, now_ms);
     let window_ms = i64::try_from(prepare_seconds).unwrap_or(i64::MAX).saturating_mul(1_000);
     result.active && result.ms_until_transition.is_some_and(|remaining| remaining <= window_ms)
+}
+
+/// When the next active window opens (wall ms), or `None` when the schedule
+/// is always active. `evaluate_active_hours` reports the next window edge,
+/// which can be a closing edge outside a selected day, so this walks edges
+/// until the schedule is active. A week of windows needs at most a few edges;
+/// the bound only guards against a degenerate schedule.
+pub fn next_active_start_ms(hours: Option<&player_core::ActiveHours>, now_ms: i64) -> Option<i64> {
+    let mut at = now_ms;
+    for _ in 0..32 {
+        let result = player_core::evaluate_active_hours(hours, at);
+        if result.active {
+            return (at != now_ms).then_some(at);
+        }
+        at = at.checked_add(result.ms_until_transition?)?;
+    }
+    None
 }
 
 fn renderer_snapshot(
@@ -235,7 +251,6 @@ impl AndroidServerLinkHost {
         manifest_facts: crate::manifest_host::SharedManifestFacts,
         clock: player_types::time::SharedClock,
         manifest_wake: Arc<Notify>,
-        pairing_wake: Arc<Notify>,
         state_dir: PathBuf,
     ) -> Self {
         Self {
@@ -255,7 +270,6 @@ impl AndroidServerLinkHost {
             manifest_facts,
             clock,
             manifest_wake,
-            pairing_wake,
             state_dir,
             started_at: std::time::Instant::now(),
         }
@@ -476,6 +490,9 @@ impl ConfigurationHost for AndroidServerLinkHost {
 
     async fn install_configuration(&self, projection: Option<Self::Projection>) {
         ConfigurationHost::install_configuration(&*self.config, projection).await;
+        if let Some(config) = self.config.effective() {
+            self.engine.lock().await.set_clear_website_data_on_start(config.runtime.website.clear_on_restart);
+        }
     }
 }
 
@@ -505,10 +522,6 @@ impl player_core::ServerLinkHost for AndroidServerLinkHost {
 
     fn record_activity(&self, event: ActivityEvent) {
         self.activity.record(event);
-    }
-
-    fn credential_rejected(&self) {
-        self.pairing_wake.notify_one();
     }
 
     async fn heartbeat(&self) -> serde_json::Value {
@@ -546,14 +559,31 @@ mod tests {
             start_minutes: Some(8 * 60),
             end_minutes: Some(17 * 60),
         };
-        let at =
-            |time: &str| Timestamp::parse(&format!("2026-09-24T{time}Z")).expect("valid test timestamp").unix_millis();
+        let at = |time: &str| Timestamp::parse(&format!("2026-09-24T{time}Z")).expect("valid test time").unix_millis();
         assert!(shutdown_preparing_at(Some(&hours), 60, at("16:59:30")));
         assert!(!shutdown_preparing_at(Some(&hours), 60, at("16:58:00")));
         assert!(!shutdown_preparing_at(Some(&hours), 0, at("16:59:30")));
         // Off-hours approaching the start is not a preparation window.
         assert!(!shutdown_preparing_at(Some(&hours), 60, at("07:59:30")));
         assert!(!shutdown_preparing_at(None, 60, at("16:59:30")));
+    }
+
+    #[test]
+    fn next_active_start_skips_edges_on_unselected_days() {
+        // Mondays only, 09:00-17:00 UTC. 2026-09-22 is a Tuesday.
+        let hours = player_core::ActiveHours {
+            timezone: "UTC".into(),
+            days: vec![1],
+            start_minutes: Some(9 * 60),
+            end_minutes: Some(17 * 60),
+        };
+        let at = |stamp: &str| Timestamp::parse(stamp).unwrap().unix_millis();
+        assert_eq!(next_active_start_ms(Some(&hours), at("2026-09-22T10:00:00Z")), Some(at("2026-09-28T09:00:00Z")));
+        // After the window closes on an active day.
+        assert_eq!(next_active_start_ms(Some(&hours), at("2026-09-21T18:00:00Z")), Some(at("2026-09-28T09:00:00Z")));
+        // Inside a window, and for an always-active schedule, there is no start to wait for.
+        assert_eq!(next_active_start_ms(Some(&hours), at("2026-09-21T10:00:00Z")), None);
+        assert_eq!(next_active_start_ms(None, at("2026-09-21T10:00:00Z")), None);
     }
 
     const FACTS: &str = r#"{
@@ -627,7 +657,6 @@ mod tests {
             signals.manifest_facts.clone(),
             clock,
             signals.manifest_wake.clone(),
-            Arc::new(Notify::new()),
             dir.to_path_buf(),
         );
         (host, signals, commands, renderer, engine, store)

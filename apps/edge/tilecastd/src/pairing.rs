@@ -138,6 +138,9 @@ impl player_core::PairingHost for Metadata<'_> {
             PairingStatus::Paired => set_view(context, "paired", None, None),
             PairingStatus::Enrolled => {
                 set_view(context, "paired", None, None);
+                // The binding was just stored; resume checkpoints need it
+                // before the first item evidence arrives.
+                crate::resume::refresh_binding(context).await;
                 activate(context, crate::daemon::status_surface(context, true)).await;
                 context.server_wake.notify_one();
                 context.manifest_wake.notify_one();

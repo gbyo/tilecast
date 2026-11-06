@@ -39,13 +39,18 @@ manifest contains these fields:
   control set.
 - `defaultConfiguration`: the defaults for the schema.
 - `outputSchema`: the typed output fields. It uses the Tilecast Data
-  Types in §3.
+  Types in §3. It declares at most 16 fields, the most a Player Data
+  Document dataset can carry. The Server and `data-sources:check` reject
+  a larger schema.
 - `adapterId`: one exact Server adapter ID from §4.
 - `fetch`: the bounded fetch input. It is required for `http_records`
   and forbidden for other adapters.
 - `refreshBehavior`: `manual` or `interval`.
-- `requiresManifestV13`: compatibility metadata. Migrated definitions
-  keep the flag they already carry.
+- `requiresManifestV13`: compatibility metadata. It must be `true` for
+  every declarative adapter. Player manifest v11 and v12 accept only
+  the built-in provider ids, so the Server uses this flag to block
+  assignment to a Player that has not reported v13 support. `datactl new`
+  sets it and `datactl check` rejects a module that omits it.
 - `setup`: flat Studio guidance copy. It contains no references and no
   executable content.
 - `attribution`: the on-screen credit when the source requires one.
@@ -126,6 +131,11 @@ declarative binding:
 | `manual_object`  | One author-maintained object. The manifest carries no fetch.                                     |
 | `manual_records` | Author-maintained rows. The manifest carries no fetch.                                           |
 | `http_records`   | One release-pinned HTTPS endpoint with a bounded field mapping. The manifest must carry `fetch`. |
+
+Each declarative adapter produces one dataset kind. `manual_object`
+produces `object`. `manual_records` and `http_records` produce `records`.
+The `outputSchema.kind` must match. Widget compatibility reads the
+declared kind, so the Server rejects a mismatch at composition.
 
 Every other adapter reads an adapter-specific configuration shape or
 runs executable code. A module that names one is rejected at
