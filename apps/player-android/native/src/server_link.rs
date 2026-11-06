@@ -577,7 +577,7 @@ mod tests {
             start_minutes: Some(9 * 60),
             end_minutes: Some(17 * 60),
         };
-        let at = |stamp: &str| Timestamp::parse(stamp).unwrap().unix_millis();
+        let at = |stamp: &str| Timestamp::parse(stamp).expect("valid test timestamp").unix_millis();
         assert_eq!(next_active_start_ms(Some(&hours), at("2026-09-22T10:00:00Z")), Some(at("2026-09-28T09:00:00Z")));
         // After the window closes on an active day.
         assert_eq!(next_active_start_ms(Some(&hours), at("2026-09-21T18:00:00Z")), Some(at("2026-09-28T09:00:00Z")));
