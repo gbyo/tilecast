@@ -245,6 +245,45 @@ describe("exact resource closure", () => {
     );
   });
 
+  it("requires the font files of a plugin_state entry's library families", () => {
+    const plan = planPresentation(
+      base({
+        manifest: manifest({
+          plugins: [
+            {
+              id: "bar-1",
+              type: "plugin_state",
+              version: 1,
+              plugin: "sample_beacon",
+              definitionVersion: 1,
+              stateType: "sample_beacon",
+              stateVersion: 1,
+              state: {},
+              media: [],
+              fonts: [
+                {
+                  id: id(9),
+                  family: "Lobster",
+                  faces: [
+                    {
+                      assetId: id(8),
+                      variantId: id(108),
+                      style: "normal",
+                      weightMin: 400,
+                      weightMax: 400,
+                    },
+                  ],
+                },
+                null,
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+    expect(required(plan)).toContain(id(8));
+  });
+
   it("requires nothing for media an availability window hides, and reports when it opens", () => {
     const hidden = asset(1, "image/png", {
       availableFrom: "2026-10-01T13:00:00Z",

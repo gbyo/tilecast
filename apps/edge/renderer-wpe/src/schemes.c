@@ -350,6 +350,9 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
   SoupMessageHeaders *headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
   soup_message_headers_append (headers, "Accept-Ranges", "bytes");
   soup_message_headers_append (headers, "Cache-Control", "no-store");
+  /* Font faces load in CORS mode. Only the runtime document reads media
+   * cross-origin; images and video stay no-cors and ignore the header. */
+  soup_message_headers_append (headers, "Access-Control-Allow-Origin", "tilecast://runtime");
   switch (tc_parse_range (range, size, &start, &end)) {
   case TC_RANGE_OK: {
     g_autofree char *content_range =

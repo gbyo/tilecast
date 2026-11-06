@@ -5,9 +5,9 @@ description: Troubleshoot power, input, brightness, volume, and mute controls on
 
 Studio only shows Display Control actions that the Player reports as available. Support depends on the Linux host, adapter, cable path, display, and firmware.
 
-## Check the stable Linux Player
+## Check the AppImage Player
 
-The current Electron Linux Player uses HDMI-CEC for supported power and input controls, and DDC/CI for supported brightness and volume controls.
+The Electron AppImage Player uses HDMI-CEC for supported power and input controls, and DDC/CI for supported brightness and volume controls.
 
 Check:
 
@@ -27,8 +27,8 @@ If the Player can read the new state back, Studio can confirm more. Otherwise, t
 
 ## Tilecast Edge works differently
 
-Tilecast Edge talks to Linux CEC and I²C/DDC devices directly instead of using the stable Player's command-line providers. On an Edge computer, run `tilecastctl capabilities` to see the reason a control is unavailable.
+Tilecast Edge talks to Linux CEC and I²C/DDC devices directly instead of using the AppImage Player's command-line providers. On an Edge computer, run `tilecastctl capabilities` to see the reason a control is unavailable.
 
-Do not remove `cec-ctl` or `ddcutil` from a stable Linux Player because of Edge.
+Do not remove `cec-ctl` or `ddcutil` from an AppImage Player because of Edge.
 
 See [Display Control](../../screens/display-control/) and [Edge hardware integrations](../../edge/hardware/) for the two Linux Player paths.
