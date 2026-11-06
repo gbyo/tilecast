@@ -984,6 +984,33 @@ async fn an_unanswered_installing_report_keeps_the_staged_update_from_activating
 }
 
 #[tokio::test]
+async fn activation_is_not_requested_when_the_activating_state_cannot_be_saved() {
+    let world = World::new();
+    world.accept("install_now").await;
+    // The local state store refuses exactly the write that precedes activation.
+    rusqlite::Connection::open(&world.db_path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER refuse_activating BEFORE UPDATE ON update_jobs WHEN NEW.state = 'activating'
+             BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+        )
+        .unwrap();
+    let old = world.daemon(OLD).await;
+    let pass = world.passes(&old, 20, |w| w.observe(true, true), |p| p == Pass::Waiting("state_unavailable")).await;
+    assert_eq!(pass, Pass::Waiting("state_unavailable"), "{:?}", world.job().await);
+    assert_eq!(world.job().await.state, JobState::Staged);
+    assert_eq!(world.helper_phase(), None, "the helper was never asked to activate");
+    assert_eq!(world.current(), OLD);
+    assert!(!world.reports().contains(&"installing".to_owned()));
+
+    // Once the store accepts writes again the same job activates normally.
+    rusqlite::Connection::open(&world.db_path).unwrap().execute_batch("DROP TRIGGER refuse_activating;").unwrap();
+    let pass = world.passes(&old, 5, |w| w.observe(true, true), |p| p == Pass::Waiting("activating")).await;
+    assert_eq!(pass, Pass::Waiting("activating"), "{:?}", world.job().await);
+    assert_eq!(world.current(), NEW);
+}
+
+#[tokio::test]
 async fn the_command_handler_only_records_a_job() {
     let world = World::new();
     let db = world.db().await;
