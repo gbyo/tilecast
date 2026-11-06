@@ -546,7 +546,8 @@ mod tests {
             start_minutes: Some(8 * 60),
             end_minutes: Some(17 * 60),
         };
-        let at = |time: &str| Timestamp::parse(&format!("2026-09-24T{time}Z")).unwrap().unix_millis();
+        let at =
+            |time: &str| Timestamp::parse(&format!("2026-09-24T{time}Z")).expect("valid test timestamp").unix_millis();
         assert!(shutdown_preparing_at(Some(&hours), 60, at("16:59:30")));
         assert!(!shutdown_preparing_at(Some(&hours), 60, at("16:58:00")));
         assert!(!shutdown_preparing_at(Some(&hours), 0, at("16:59:30")));
