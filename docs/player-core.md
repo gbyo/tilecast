@@ -329,6 +329,9 @@ reporting. Redelivery or restart must never execute a command twice.
 `run_commands` settles commands that an earlier run left `executing` before it
 fetches anything. If the state store fails, it retries with a bounded backoff
 until it succeeds or shutdown starts. Hosts do not call `recover` themselves.
+A command whose result could not be stored stays `executing`. The next delivery
+settles it as `command_interrupted` and reports that result. The handler is
+never run again, because its effect is unknown.
 Display operations and Player installation use typed platform handlers.
 Do not add arbitrary command execution.
 

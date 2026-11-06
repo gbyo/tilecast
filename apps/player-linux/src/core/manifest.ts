@@ -421,46 +421,56 @@ export class ManifestSync {
     }
   }
 
+  /**
+   * Make room for the candidate manifest without breaking the active one.
+   * Preparation can still fail after this returns (a download error), and the
+   * active manifest must keep playing offline from its cached media, so its
+   * files are released only when the candidate cannot fit otherwise. Nothing
+   * belonging to the active manifest is deleted for a candidate that cannot
+   * fit even then.
+   */
   private async ensureSpace(required: ManifestAsset[]): Promise<void> {
+    const mediaDir = this.store.mediaDir();
     const requiredNames = new Set(required.map(mediaFileName));
+    const activeNames = new Set(
+      (this.stored?.manifest.assets ?? []).map(mediaFileName),
+    );
     let entries: string[] = [];
     try {
-      entries = await fs.readdir(this.store.mediaDir());
+      entries = await fs.readdir(mediaDir);
     } catch {
       return;
     }
-    // Evict files outside the candidate manifest before enforcing the server
-    // policy. A stale cache must not make a valid new manifest impossible.
+    // Files that neither manifest references are always safe to evict, and a
+    // stale cache must not make a valid new manifest impossible.
     await Promise.all(
       entries
         .filter(
-          (entry) => !entry.endsWith(".part") && !requiredNames.has(entry),
+          (entry) =>
+            !entry.endsWith(".part") &&
+            !requiredNames.has(entry) &&
+            !activeNames.has(entry),
         )
-        .map((entry) =>
-          fs.rm(path.join(this.store.mediaDir(), entry), { force: true }),
-        ),
+        .map((entry) => fs.rm(path.join(mediaDir, entry), { force: true })),
     );
+    entries = await fs.readdir(mediaDir);
     const sizes = new Map(
       await Promise.all(
-        (await fs.readdir(this.store.mediaDir())).map(
-          async (entry): Promise<[string, number]> => {
-            try {
-              const stat = await fs.stat(
-                path.join(this.store.mediaDir(), entry),
-              );
-              return [entry, stat.size];
-            } catch {
-              return [entry, 0];
-            }
-          },
-        ),
+        entries.map(async (entry): Promise<[string, number]> => {
+          try {
+            const stat = await fs.stat(path.join(mediaDir, entry));
+            return [entry, stat.size];
+          } catch {
+            return [entry, 0];
+          }
+        }),
       ),
     );
     const used = [...sizes.values()].reduce((sum, size) => sum + size, 0);
     const missingBytes = (
       await Promise.all(
         required.map(async (asset) => {
-          const file = path.join(this.store.mediaDir(), mediaFileName(asset));
+          const file = path.join(mediaDir, mediaFileName(asset));
           if (await verifyFileIntegrity(file, asset.sha256, asset.fileSize))
             return 0;
           // A resumable partial is already counted in `used`; only the rest
@@ -470,14 +480,33 @@ export class ManifestSync {
         }),
       )
     ).reduce((sum, size) => sum + size, 0);
-    const filesystem = await fs.statfs(this.store.mediaDir());
+    const filesystem = await fs.statfs(mediaDir);
     const diskFree = filesystem.bavail * filesystem.bsize;
-    if (
-      used + missingBytes > this.maximumBytes ||
-      diskFree - missingBytes < this.minimumFreeBytes
-    ) {
+    const fits = (reclaimedBytes: number) =>
+      used - reclaimedBytes + missingBytes <= this.maximumBytes &&
+      diskFree + reclaimedBytes - missingBytes >= this.minimumFreeBytes;
+    if (fits(0)) {
+      return;
+    }
+
+    const activeOnly = entries.filter(
+      (entry) =>
+        !entry.endsWith(".part") &&
+        !requiredNames.has(entry) &&
+        activeNames.has(entry),
+    );
+    const reclaimable = activeOnly.reduce(
+      (sum, entry) => sum + (sizes.get(entry) ?? 0),
+      0,
+    );
+    if (!fits(reclaimable)) {
       throw new Error("insufficient cache space for the configured policy");
     }
+    await Promise.all(
+      activeOnly.map((entry) =>
+        fs.rm(path.join(mediaDir, entry), { force: true }),
+      ),
+    );
   }
 
   /** Local media path for a cached variant, or null if not cached. */

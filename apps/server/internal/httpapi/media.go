@@ -73,7 +73,16 @@ func (s *server) updateWidgetPreviewImage(w http.ResponseWriter, r *http.Request
 		return
 	}
 	user := principal.User
-	if err = s.media.StoreWidgetPreview(r.Context(), id, user.ID, data); err != nil {
+	var renderedUpdatedAt *time.Time
+	if raw := r.URL.Query().Get("renderedUpdatedAt"); raw != "" {
+		parsed, parseErr := time.Parse(time.RFC3339Nano, raw)
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "renderedUpdatedAt must be an RFC 3339 timestamp.")
+			return
+		}
+		renderedUpdatedAt = &parsed
+	}
+	if err = s.media.StoreWidgetPreview(r.Context(), id, user.ID, data, renderedUpdatedAt); err != nil {
 		s.writeMediaError(w, r, err)
 		return
 	}
@@ -951,6 +960,8 @@ func (s *server) writeMediaError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, http.StatusConflict, "plugin_not_installed", unavailable.Error())
 	case errors.Is(err, media.ErrNotFound), errors.Is(err, media.ErrOutOfScope):
 		writeError(w, http.StatusNotFound, "not_found", "The requested media resource was not found.")
+	case errors.Is(err, media.ErrWidgetPreviewStale):
+		writeError(w, http.StatusConflict, "widget_preview_stale", "The Widget changed after this preview was rendered.")
 	case errors.Is(err, media.ErrTagNotAssignable):
 		writeError(w, http.StatusForbidden, "tag_not_assignable", "One or more tags cannot be applied by your account.")
 	case errors.Is(err, media.ErrScopeRestricted):

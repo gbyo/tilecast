@@ -172,6 +172,7 @@ impl Drivers {
             signals.manifest_facts.clone(),
             clock.clone(),
             signals.manifest_wake.clone(),
+            wake.clone(),
             link.state_dir,
         );
         let handlers = AndroidCommandHandlers::new(

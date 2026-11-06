@@ -139,7 +139,7 @@ class PlayerCoreHostTest {
 
     private fun handlerFactory(dir: File, credentials: FakeCredentials = FakeCredentials()): CoreHandlerFactory =
         CoreHandlerFactory { sink ->
-            CoreBridgeHandler(credentials, File(dir, "player-core/pairing.json"), facts(), sink)
+            CoreBridgeHandler(credentials, File(dir, "player-core/pairing.json"), { facts() }, sink)
         }
 
     @Test fun startsAndStopsThroughReady() = runTest {
@@ -244,7 +244,7 @@ class PlayerCoreHostTest {
         var sink: ((String) -> Unit)? = null
         val factory = CoreHandlerFactory { found ->
             sink = found
-            CoreBridgeHandler(FakeCredentials(), File(dir, "pairing.json"), facts(), found)
+            CoreBridgeHandler(FakeCredentials(), File(dir, "pairing.json"), { facts() }, found)
         }
         val host = PlayerCoreHost.forTesting(dir, bridge, factory)
         host.start()
@@ -520,11 +520,21 @@ class PlayerCoreHostTest {
         assertEquals("result_unparseable", CoreRecoveryResult.parse("{nope").code)
     }
 
+    @Test fun metadataRefreshesAfterDisplayRotationWithoutRestartingCore() {
+        var current = facts()
+        val handler = CoreBridgeHandler(FakeCredentials(), File(filesDir(), "pairing.json"), { current }, {})
+        assertTrue(handler.deviceMetadata().contains("\"screenWidth\":1920"))
+        current = current.copy(screenWidth = 1080, screenHeight = 1920)
+        val rotated = handler.deviceMetadata()
+        assertTrue(rotated.contains("\"screenWidth\":1080"))
+        assertTrue(rotated.contains("\"screenHeight\":1920"))
+    }
+
     @Test fun handlerRoundTripsStores() {
         val dir = filesDir()
         val credentials = FakeCredentials()
         val seen = mutableListOf<String>()
-        val handler = CoreBridgeHandler(credentials, File(dir, "pairing.json"), facts(), seen::add)
+        val handler = CoreBridgeHandler(credentials, File(dir, "pairing.json"), { facts() }, seen::add)
         assertEquals(null, handler.credentialLoad())
         assertEquals(0, handler.credentialSave("secret"))
         assertEquals("secret", handler.credentialLoad())

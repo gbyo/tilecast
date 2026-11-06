@@ -172,7 +172,11 @@ function useSnapshotUpload(
     async (element: HTMLElement, cancelled: () => boolean) => {
       const image = await captureWidgetPreview(element, t, renderFrame);
       if (cancelled()) return;
-      await api.uploadWidgetPreview(asset.id, image, csrf);
+      // Bound to the revision this capture rendered: a Widget edited while the capture ran keeps
+      // the preview the editor uploads for the new configuration.
+      await api.uploadWidgetPreview(asset.id, image, csrf, undefined, {
+        renderedUpdatedAt: asset.updatedAt,
+      });
     },
   );
   useEffect(() => {

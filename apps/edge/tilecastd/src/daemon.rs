@@ -99,6 +99,9 @@ pub struct DaemonContext {
     /// Wakes activation when a manifest is prepared or an item boundary passes.
     pub manifest_wake: tokio::sync::Notify,
     pub manifest_item_boundary: std::sync::atomic::AtomicBool,
+    /// Serializes supervision persistence: the read, snapshot, and write
+    /// must not interleave between the supervisor loop and commands.
+    pub supervision_persist: Mutex<()>,
     /// Durable playlist resume, loaded once at startup. Synchronous: the
     /// offline projection path consumes it without awaiting.
     pub resume: std::sync::Mutex<crate::resume::ResumeState>,
@@ -443,6 +446,7 @@ impl Daemon {
             server_wake: tokio::sync::Notify::new(),
             manifest_wake: tokio::sync::Notify::new(),
             manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
+            supervision_persist: Mutex::new(()),
             resume: std::sync::Mutex::new(resume_state),
             installation_mismatch: std::sync::Mutex::new(mismatch_state),
             preparation: Default::default(),
