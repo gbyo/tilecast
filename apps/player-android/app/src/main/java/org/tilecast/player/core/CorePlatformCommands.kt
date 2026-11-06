@@ -79,14 +79,8 @@ class CorePlatformCommands(
             ?: return PlatformCommandExecutor.result(false, "command_unsupported", "Command has no type.")
         val payload = runCatching { root["payload"]?.jsonObject }.getOrNull() ?: buildJsonObject {}
         return when (type) {
-            "power_assist_sleep" -> {
-                val result = effects.powerSleep()
-                PlatformCommandExecutor.result(true, result, "Power Assist sleep request was sent to Android")
-            }
-            "power_assist_wake" -> {
-                val result = effects.powerWake()
-                PlatformCommandExecutor.result(true, result, "Power Assist wake request was sent to Android")
-            }
+            "power_assist_sleep" -> powerResult(SLEEP_OUTCOMES, effects.powerSleep(), "Power Assist sleep did not happen.")
+            "power_assist_wake" -> powerResult(WAKE_OUTCOMES, effects.powerWake(), "Power Assist wake did not happen.")
             "restart_activity" -> {
                 effects.restartActivity()
                 PlatformCommandExecutor.result(
@@ -112,6 +106,11 @@ class CorePlatformCommands(
         }
     }
 
+    private fun powerResult(outcomes: Map<String, PowerOutcome>, code: String, unknownMessage: String): String {
+        val outcome = outcomes[code] ?: PowerOutcome(false, unknownMessage)
+        return PlatformCommandExecutor.result(outcome.performed, code, outcome.message)
+    }
+
     private fun installUpdate(
         root: kotlinx.serialization.json.JsonObject,
         payload: kotlinx.serialization.json.JsonObject,
@@ -134,3 +133,32 @@ class CorePlatformCommands(
         return PlatformCommandExecutor.result(outcome.success, outcome.code, outcome.message)
     }
 }
+
+/**
+ * Whether a Power Assist result code means Android took the requested
+ * action. Core records `ok = false` as a failed command, so deferred,
+ * unsupported, and blocked outcomes must not report success.
+ */
+internal data class PowerOutcome(val performed: Boolean, val message: String)
+
+private val SLEEP_OUTCOMES = mapOf(
+    "device_policy_requested" to PowerOutcome(true, "Power Assist sleep request was sent to Android."),
+    "accessibility_lock_requested" to PowerOutcome(true, "Power Assist sleep request was sent to Android."),
+    "accessibility_lock_deferred" to PowerOutcome(
+        true,
+        "Power Assist sleep is queued until Accessibility Control next responds.",
+    ),
+    "fire_tv_sleep_blocked" to PowerOutcome(false, "Fire TV does not let the Player put the display to sleep."),
+    "maintenance_session_deferred" to PowerOutcome(false, "Sleep was deferred because a maintenance session is open."),
+    "player_update_deferred" to PowerOutcome(false, "Sleep was deferred because a Player update is in progress."),
+    "black_screen_only" to PowerOutcome(
+        false,
+        "Android sleep is unavailable on this screen; the Player shows a black screen instead.",
+    ),
+    "sleep_unsupported" to PowerOutcome(false, "Android did not accept the sleep request."),
+)
+
+private val WAKE_OUTCOMES = mapOf(
+    "device_wake_requested" to PowerOutcome(true, "Power Assist wake request was sent to Android."),
+    "wake_launch_blocked" to PowerOutcome(false, "Android blocked the Player from starting to wake the screen."),
+)

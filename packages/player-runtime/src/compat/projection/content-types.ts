@@ -269,6 +269,8 @@ export interface LayoutPrimitive {
   kind: string; // text|rectangle|circle|line|group
   text?: string;
   fontFamily?: string;
+  /** Organization library family; fontFamily stays the bundled fallback. */
+  fontId?: string | null;
   fontSize?: number;
   fontWeight?: number;
   textAlign?: string;
@@ -337,10 +339,27 @@ export interface LayoutDocument {
   placements: LayoutPlacement[];
 }
 
+export interface ManifestLayoutFontFace {
+  assetId: string;
+  variantId: string;
+  style: string;
+  weightMin: number;
+  weightMax: number;
+  unicodeRange?: string;
+}
+
+/** A library family the Layout's text uses; each face is a manifest asset. */
+export interface ManifestLayoutFont {
+  id: string;
+  family: string;
+  faces: ManifestLayoutFontFace[];
+}
+
 export interface ManifestLayout {
   id: string;
   revisionId: string;
   revision: number;
   documentSha256: string;
   document: LayoutDocument;
+  fonts?: ManifestLayoutFont[];
 }

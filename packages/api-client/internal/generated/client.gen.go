@@ -1437,6 +1437,63 @@ func (e DisplayControlGroupResultState) Valid() bool {
 	}
 }
 
+// Defines values for FontFaceMimeType.
+const (
+	Fontotf   FontFaceMimeType = "font/otf"
+	Fontttf   FontFaceMimeType = "font/ttf"
+	Fontwoff2 FontFaceMimeType = "font/woff2"
+)
+
+// Valid indicates whether the value is a known member of the FontFaceMimeType enum.
+func (e FontFaceMimeType) Valid() bool {
+	switch e {
+	case Fontotf:
+		return true
+	case Fontttf:
+		return true
+	case Fontwoff2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FontFaceStyle.
+const (
+	FontFaceStyleItalic FontFaceStyle = "italic"
+	FontFaceStyleNormal FontFaceStyle = "normal"
+)
+
+// Valid indicates whether the value is a known member of the FontFaceStyle enum.
+func (e FontFaceStyle) Valid() bool {
+	switch e {
+	case FontFaceStyleItalic:
+		return true
+	case FontFaceStyleNormal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FontFamilySource.
+const (
+	FontFamilySourceGoogle FontFamilySource = "google"
+	FontFamilySourceUpload FontFamilySource = "upload"
+)
+
+// Valid indicates whether the value is a known member of the FontFamilySource enum.
+func (e FontFamilySource) Valid() bool {
+	switch e {
+	case FontFamilySourceGoogle:
+		return true
+	case FontFamilySourceUpload:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GitHubAuthSource.
 const (
 	GitHubAuthSourceAnonymous   GitHubAuthSource = "anonymous"
@@ -1533,6 +1590,24 @@ func (e GitHubInstallReviewContributionsPlayerRuntimeTier) Valid() bool {
 	case GitHubInstallReviewContributionsPlayerRuntimeTierLive:
 		return true
 	case GitHubInstallReviewContributionsPlayerRuntimeTierScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GoogleFontImportStyles.
+const (
+	GoogleFontImportStylesItalic GoogleFontImportStyles = "italic"
+	GoogleFontImportStylesNormal GoogleFontImportStyles = "normal"
+)
+
+// Valid indicates whether the value is a known member of the GoogleFontImportStyles enum.
+func (e GoogleFontImportStyles) Valid() bool {
+	switch e {
+	case GoogleFontImportStylesItalic:
+		return true
+	case GoogleFontImportStylesNormal:
 		return true
 	default:
 		return false
@@ -3293,16 +3368,16 @@ func (e PlayerReleaseChannel) Valid() bool {
 
 // Defines values for PlayerReleaseSource.
 const (
-	Github PlayerReleaseSource = "github"
-	Upload PlayerReleaseSource = "upload"
+	PlayerReleaseSourceGithub PlayerReleaseSource = "github"
+	PlayerReleaseSourceUpload PlayerReleaseSource = "upload"
 )
 
 // Valid indicates whether the value is a known member of the PlayerReleaseSource enum.
 func (e PlayerReleaseSource) Valid() bool {
 	switch e {
-	case Github:
+	case PlayerReleaseSourceGithub:
 		return true
-	case Upload:
+	case PlayerReleaseSourceUpload:
 		return true
 	default:
 		return false
@@ -6012,6 +6087,36 @@ func (e ResetDemoJSONBodyScenario) Valid() bool {
 	}
 }
 
+// Defines values for SearchFontCatalogParamsCategory.
+const (
+	SearchFontCatalogParamsCategoryDisplay     SearchFontCatalogParamsCategory = "display"
+	SearchFontCatalogParamsCategoryHandwriting SearchFontCatalogParamsCategory = "handwriting"
+	SearchFontCatalogParamsCategoryIcons       SearchFontCatalogParamsCategory = "icons"
+	SearchFontCatalogParamsCategoryMonospace   SearchFontCatalogParamsCategory = "monospace"
+	SearchFontCatalogParamsCategorySansSerif   SearchFontCatalogParamsCategory = "sans-serif"
+	SearchFontCatalogParamsCategorySerif       SearchFontCatalogParamsCategory = "serif"
+)
+
+// Valid indicates whether the value is a known member of the SearchFontCatalogParamsCategory enum.
+func (e SearchFontCatalogParamsCategory) Valid() bool {
+	switch e {
+	case SearchFontCatalogParamsCategoryDisplay:
+		return true
+	case SearchFontCatalogParamsCategoryHandwriting:
+		return true
+	case SearchFontCatalogParamsCategoryIcons:
+		return true
+	case SearchFontCatalogParamsCategoryMonospace:
+		return true
+	case SearchFontCatalogParamsCategorySansSerif:
+		return true
+	case SearchFontCatalogParamsCategorySerif:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateLayoutJSONBodyOrientation.
 const (
 	CreateLayoutJSONBodyOrientationCustom    CreateLayoutJSONBodyOrientation = "custom"
@@ -6715,6 +6820,11 @@ type BackupWorkerStatus struct {
 	Phase           string             `json:"phase"`
 	ProgressPercent int                `json:"progressPercent"`
 	Status          string             `json:"status"`
+}
+
+// BrowserBindingLookupRequest defines model for BrowserBindingLookupRequest.
+type BrowserBindingLookupRequest struct {
+	Registration BrowserRegistration `json:"registration"`
 }
 
 // BrowserBindingRequest defines model for BrowserBindingRequest.
@@ -7805,16 +7915,19 @@ type CountdownBarInput struct {
 	CompletionText string `json:"completionText"`
 
 	// ContentPadding Share of each side left as a gutter, as a percentage of the bar width. Lowering it gives a long message or a larger type size more room. The default 4 matches the bar's original gutters.
-	ContentPadding  *int        `json:"contentPadding,omitempty"`
-	DaysOfWeek      []int       `json:"daysOfWeek"`
-	DisplayMode     interface{} `json:"displayMode"`
-	Enabled         bool        `json:"enabled"`
-	HeightPx        int         `json:"heightPx"`
-	LeadTimeSeconds int         `json:"leadTimeSeconds"`
-	Message         string      `json:"message"`
-	Name            string      `json:"name"`
-	OneTimeAt       *time.Time  `json:"oneTimeAt,omitempty"`
-	Priority        int         `json:"priority"`
+	ContentPadding *int        `json:"contentPadding,omitempty"`
+	DaysOfWeek     []int       `json:"daysOfWeek"`
+	DisplayMode    interface{} `json:"displayMode"`
+	Enabled        bool        `json:"enabled"`
+
+	// FontId An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
+	FontId          *openapi_types.UUID `json:"fontId,omitempty"`
+	HeightPx        int                 `json:"heightPx"`
+	LeadTimeSeconds int                 `json:"leadTimeSeconds"`
+	Message         string              `json:"message"`
+	Name            string              `json:"name"`
+	OneTimeAt       *time.Time          `json:"oneTimeAt,omitempty"`
+	Priority        int                 `json:"priority"`
 
 	// ProgressFill Background treatment behind the bar text. "drain" starts the bar fully tinted when the lead window opens and retreats the tint leftward as the target approaches, leaving only the bar background at zero. Omitted means "none".
 	ProgressFill interface{} `json:"progressFill,omitempty"`
@@ -8199,6 +8312,92 @@ type FleetHealth struct {
 	} `json:"screens"`
 }
 
+// FontCatalogEntry defines model for FontCatalogEntry.
+type FontCatalogEntry struct {
+	Category      string   `json:"category"`
+	DefaultSubset string   `json:"defaultSubset"`
+	Family        string   `json:"family"`
+	Id            string   `json:"id"`
+	License       string   `json:"license"`
+	Styles        []string `json:"styles"`
+	Subsets       []string `json:"subsets"`
+	Variable      bool     `json:"variable"`
+	Weights       []int    `json:"weights"`
+}
+
+// FontCatalogFamily defines model for FontCatalogFamily.
+type FontCatalogFamily struct {
+	Category      string   `json:"category"`
+	DefaultSubset string   `json:"defaultSubset"`
+	Family        string   `json:"family"`
+	Id            string   `json:"id"`
+	License       string   `json:"license"`
+	Styles        []string `json:"styles"`
+	Subsets       []string `json:"subsets"`
+	Variable      bool     `json:"variable"`
+	Version       string   `json:"version"`
+	WeightRange   *[]int   `json:"weightRange"`
+	Weights       []int    `json:"weights"`
+}
+
+// FontCatalogPage defines model for FontCatalogPage.
+type FontCatalogPage struct {
+	Families []FontCatalogEntry `json:"families"`
+	Total    int                `json:"total"`
+}
+
+// FontFace defines model for FontFace.
+type FontFace struct {
+	AssetId      openapi_types.UUID `json:"assetId"`
+	FileSize     int                `json:"fileSize"`
+	FileUrl      string             `json:"fileUrl"`
+	Id           openapi_types.UUID `json:"id"`
+	MimeType     FontFaceMimeType   `json:"mimeType"`
+	Style        FontFaceStyle      `json:"style"`
+	Subset       string             `json:"subset"`
+	UnicodeRange string             `json:"unicodeRange"`
+	VariantId    openapi_types.UUID `json:"variantId"`
+	WeightMax    int                `json:"weightMax"`
+	WeightMin    int                `json:"weightMin"`
+}
+
+// FontFaceMimeType defines model for FontFace.MimeType.
+type FontFaceMimeType string
+
+// FontFaceStyle defines model for FontFace.Style.
+type FontFaceStyle string
+
+// FontFamily defines model for FontFamily.
+type FontFamily struct {
+	Category      string             `json:"category"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	Faces         []FontFace         `json:"faces"`
+	Family        string             `json:"family"`
+	Id            openapi_types.UUID `json:"id"`
+	License       string             `json:"license"`
+	Source        FontFamilySource   `json:"source"`
+	SourceId      string             `json:"sourceId"`
+	SourceVersion string             `json:"sourceVersion"`
+	Subsets       []string           `json:"subsets"`
+	TotalBytes    int                `json:"totalBytes"`
+	UpdatedAt     time.Time          `json:"updatedAt"`
+}
+
+// FontFamilySource defines model for FontFamily.Source.
+type FontFamilySource string
+
+// FontFamilyList defines model for FontFamilyList.
+type FontFamilyList struct {
+	Items []FontFamily `json:"items"`
+	Total int          `json:"total"`
+}
+
+// FontUploadResult defines model for FontUploadResult.
+type FontUploadResult struct {
+	EmbeddingRestricted bool       `json:"embeddingRestricted"`
+	Family              FontFamily `json:"family"`
+}
+
 // GitHubAuthSource defines model for GitHubAuthSource.
 type GitHubAuthSource string
 
@@ -8289,6 +8488,17 @@ type GitHubInstallReviewContributionsPlayerRuntimeSurfaces string
 
 // GitHubInstallReviewContributionsPlayerRuntimeTier defines model for GitHubInstallReview.Contributions.PlayerRuntime.Tier.
 type GitHubInstallReviewContributionsPlayerRuntimeTier string
+
+// GoogleFontImport defines model for GoogleFontImport.
+type GoogleFontImport struct {
+	SourceId string                    `json:"sourceId"`
+	Styles   *[]GoogleFontImportStyles `json:"styles,omitempty"`
+	Subsets  *[]string                 `json:"subsets,omitempty"`
+	Weights  *[]int                    `json:"weights,omitempty"`
+}
+
+// GoogleFontImportStyles defines model for GoogleFontImport.Styles.
+type GoogleFontImportStyles string
 
 // HeartbeatAccepted defines model for HeartbeatAccepted.
 type HeartbeatAccepted struct {
@@ -8708,7 +8918,10 @@ type LayoutPrimitive struct {
 	FillColor       *string                 `json:"fillColor,omitempty"`
 
 	// FontFamily Only bundled fonts are accepted for text primitives
-	FontFamily      *LayoutPrimitiveFontFamily    `json:"fontFamily,omitempty"`
+	FontFamily *LayoutPrimitiveFontFamily `json:"fontFamily,omitempty"`
+
+	// FontId A family from the organization font library. fontFamily stays the bundled fallback
+	FontId          *openapi_types.UUID           `json:"fontId,omitempty"`
 	FontSize        *float32                      `json:"fontSize,omitempty"`
 	FontWeight      *LayoutPrimitiveFontWeight    `json:"fontWeight,omitempty"`
 	Kind            LayoutPrimitiveKind           `json:"kind"`
@@ -9510,6 +9723,22 @@ type PersonalAccessTokenCreated struct {
 // PersonalAccessTokenList defines model for PersonalAccessTokenList.
 type PersonalAccessTokenList struct {
 	Pats []PersonalAccessToken `json:"pats"`
+}
+
+// PlaybackAgenda defines model for PlaybackAgenda.
+type PlaybackAgenda struct {
+	EvaluatedAt time.Time               `json:"evaluatedAt"`
+	Segments    []PlaybackAgendaSegment `json:"segments"`
+}
+
+// PlaybackAgendaSegment defines model for PlaybackAgendaSegment.
+type PlaybackAgendaSegment struct {
+	End      time.Time              `json:"end"`
+	Selected *PlaybackPlanSelection `json:"selected,omitempty"`
+	Start    time.Time              `json:"start"`
+
+	// Superseded Active schedules that did not select playback during this segment.
+	Superseded []PlaybackPlanCandidate `json:"superseded"`
 }
 
 // PlaybackPlan Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
@@ -13239,6 +13468,38 @@ type ResetDemoJSONBody struct {
 // ResetDemoJSONBodyScenario defines parameters for ResetDemo.
 type ResetDemoJSONBodyScenario string
 
+// SearchFontCatalogParams defines parameters for SearchFontCatalog.
+type SearchFontCatalogParams struct {
+	Q        *string                          `form:"q,omitempty" json:"q,omitempty"`
+	Category *SearchFontCatalogParamsCategory `form:"category,omitempty" json:"category,omitempty"`
+	Limit    *int                             `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset   *int                             `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SearchFontCatalogParamsCategory defines parameters for SearchFontCatalog.
+type SearchFontCatalogParamsCategory string
+
+// ImportGoogleFontParams defines parameters for ImportGoogleFont.
+type ImportGoogleFontParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UploadFontMultipartBody defines parameters for UploadFont.
+type UploadFontMultipartBody struct {
+	File            openapi_types.File `json:"file"`
+	RightsConfirmed bool               `json:"rightsConfirmed"`
+}
+
+// UploadFontParams defines parameters for UploadFont.
+type UploadFontParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteFontParams defines parameters for DeleteFont.
+type DeleteFontParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // CreateFormJSONBody defines parameters for CreateForm.
 type CreateFormJSONBody struct {
 	Description *string                `json:"description,omitempty"`
@@ -14123,6 +14384,12 @@ type RenewLiveStreamParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// GetScreenPlaybackAgendaParams defines parameters for GetScreenPlaybackAgenda.
+type GetScreenPlaybackAgendaParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetScreenPlaybackPlanParams defines parameters for GetScreenPlaybackPlan.
 type GetScreenPlaybackPlanParams struct {
 	// At One RFC 3339 instant with a time zone. Duplicate, empty, invalid, and unknown query parameters are rejected.
@@ -14520,6 +14787,12 @@ type PreviewDataSourceJSONRequestBody PreviewDataSourceJSONBody
 // ResetDemoJSONRequestBody defines body for ResetDemo for application/json ContentType.
 type ResetDemoJSONRequestBody ResetDemoJSONBody
 
+// ImportGoogleFontJSONRequestBody defines body for ImportGoogleFont for application/json ContentType.
+type ImportGoogleFontJSONRequestBody = GoogleFontImport
+
+// UploadFontMultipartRequestBody defines body for UploadFont for multipart/form-data ContentType.
+type UploadFontMultipartRequestBody UploadFontMultipartBody
+
 // CreateFormJSONRequestBody defines body for CreateForm for application/json ContentType.
 type CreateFormJSONRequestBody CreateFormJSONBody
 
@@ -14612,6 +14885,9 @@ type UploadPlayerReleaseMultipartRequestBody UploadPlayerReleaseMultipartBody
 
 // IngestPlayerActivityEventsJSONRequestBody defines body for IngestPlayerActivityEvents for application/json ContentType.
 type IngestPlayerActivityEventsJSONRequestBody IngestPlayerActivityEventsJSONBody
+
+// LookupBrowserPlayerBindingJSONRequestBody defines body for LookupBrowserPlayerBinding for application/json ContentType.
+type LookupBrowserPlayerBindingJSONRequestBody = BrowserBindingLookupRequest
 
 // ChallengeBrowserPlayerJSONRequestBody defines body for ChallengeBrowserPlayer for application/json ContentType.
 type ChallengeBrowserPlayerJSONRequestBody = BrowserBindingRequest
@@ -16743,6 +17019,54 @@ type ClientInterface interface {
 	// Registered only when TILECAST_ENV is demo. Replaces all data with a scenario and returns once its simulated players have connected. Requires the Owner role and X-CSRF-Token.
 	ResetDemo(ctx context.Context, body ResetDemoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFonts performs a GET /api/v1/fonts (the `ListFonts` operationId) request.
+	//
+	// List the organization font library: every family with its stored faces. Requires an authenticated dashboard user.
+	ListFonts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchFontCatalog performs a GET /api/v1/fonts/catalog (the `SearchFontCatalog` operationId) request.
+	//
+	// Search the Google Fonts catalog through the server. The server reads the Fontsource catalog and caches it. Requires the settings.manage capability.
+	SearchFontCatalog(ctx context.Context, params *SearchFontCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFontCatalogFamily performs a GET /api/v1/fonts/catalog/{sourceId} (the `GetFontCatalogFamily` operationId) request.
+	//
+	// Read one catalog family with its subsets, styles, weights, and variable weight range. Requires the settings.manage capability.
+	GetFontCatalogFamily(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFontCatalogPreview performs a GET /api/v1/fonts/catalog/{sourceId}/preview (the `GetFontCatalogPreview` operationId) request.
+	//
+	// Serve a small regular face of one catalog family so Studio can show the family name in its own type. Requires the settings.manage capability.
+	GetFontCatalogPreview(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportGoogleFontWithBody performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	ImportGoogleFontWithBody(ctx context.Context, params *ImportGoogleFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportGoogleFont performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	ImportGoogleFont(ctx context.Context, params *ImportGoogleFontParams, body ImportGoogleFontJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadFontWithBody performs a POST /api/v1/fonts/uploads (the `UploadFont` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Upload one TrueType or OpenType face. The server reads the family name, weight, and style from the file. A face whose family matches an uploaded family joins it. Requires the settings.manage capability and a confirmation that the organization may use the font on its displays. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	UploadFontWithBody(ctx context.Context, params *UploadFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFont performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
+	//
+	// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	DeleteFont(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFontFaceFile performs a GET /api/v1/fonts/{id}/faces/{faceId}/file (the `GetFontFaceFile` operationId) request.
+	//
+	// Serve one stored font face file to Studio. Players read the same bytes through the device-authenticated asset route. Requires an authenticated dashboard user.
+	GetFontFaceFile(ctx context.Context, id openapi_types.UUID, faceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListForms performs a GET /api/v1/forms (the `ListForms` operationId) request.
 	//
 	// Returns every Form Data Source the current user can access, each with name, description, published revision number, the caller's effective capabilities, and the caller's own submission counts (drafts, submitted, changes requested). A global Owner sees all forms; everyone else sees forms they created or hold a grant on. Backs the Forms portal and operator navigation.
@@ -17397,6 +17721,18 @@ type ClientInterface interface {
 	//
 	// Inspect player variant. Requires an authenticated player credential.
 	InspectPlayerVariant(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBrowserPlayerBindingWithBody performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBrowserPlayerBinding performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBinding(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ChallengeBrowserPlayerWithBody performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 	// with any type of body and a specified content type.
@@ -18521,6 +18857,11 @@ type ClientInterface interface {
 	//
 	// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+	//
+	// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+	GetScreenPlaybackAgenda(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetScreenPlaybackPlan performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
 	//
@@ -21781,6 +22122,144 @@ func (c *Client) ResetDemo(ctx context.Context, body ResetDemoJSONRequestBody, r
 	return c.Client.Do(req)
 }
 
+// ListFonts performs a GET /api/v1/fonts (the `ListFonts` operationId) request.
+//
+// List the organization font library: every family with its stored faces. Requires an authenticated dashboard user.
+func (c *Client) ListFonts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFontsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SearchFontCatalog performs a GET /api/v1/fonts/catalog (the `SearchFontCatalog` operationId) request.
+//
+// Search the Google Fonts catalog through the server. The server reads the Fontsource catalog and caches it. Requires the settings.manage capability.
+func (c *Client) SearchFontCatalog(ctx context.Context, params *SearchFontCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchFontCatalogRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetFontCatalogFamily performs a GET /api/v1/fonts/catalog/{sourceId} (the `GetFontCatalogFamily` operationId) request.
+//
+// Read one catalog family with its subsets, styles, weights, and variable weight range. Requires the settings.manage capability.
+func (c *Client) GetFontCatalogFamily(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFontCatalogFamilyRequest(c.Server, sourceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetFontCatalogPreview performs a GET /api/v1/fonts/catalog/{sourceId}/preview (the `GetFontCatalogPreview` operationId) request.
+//
+// Serve a small regular face of one catalog family so Studio can show the family name in its own type. Requires the settings.manage capability.
+func (c *Client) GetFontCatalogPreview(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFontCatalogPreviewRequest(c.Server, sourceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportGoogleFontWithBody performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request,
+// with any type of body and a specified content type.
+//
+// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) ImportGoogleFontWithBody(ctx context.Context, params *ImportGoogleFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportGoogleFontRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportGoogleFont performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) ImportGoogleFont(ctx context.Context, params *ImportGoogleFontParams, body ImportGoogleFontJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportGoogleFontRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UploadFontWithBody performs a POST /api/v1/fonts/uploads (the `UploadFont` operationId) request,
+// with any type of body and a specified content type.
+//
+// Upload one TrueType or OpenType face. The server reads the family name, weight, and style from the file. A face whose family matches an uploaded family joins it. Requires the settings.manage capability and a confirmation that the organization may use the font on its displays. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) UploadFontWithBody(ctx context.Context, params *UploadFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadFontRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteFont performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
+//
+// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) DeleteFont(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFontRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetFontFaceFile performs a GET /api/v1/fonts/{id}/faces/{faceId}/file (the `GetFontFaceFile` operationId) request.
+//
+// Serve one stored font face file to Studio. Players read the same bytes through the device-authenticated asset route. Requires an authenticated dashboard user.
+func (c *Client) GetFontFaceFile(ctx context.Context, id openapi_types.UUID, faceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFontFaceFileRequest(c.Server, id, faceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListForms performs a GET /api/v1/forms (the `ListForms` operationId) request.
 //
 // Returns every Form Data Source the current user can access, each with name, description, published revision number, the caller's effective capabilities, and the caller's own submission counts (drafts, submitted, changes requested). A global Owner sees all forms; everyone else sees forms they created or hold a grant on. Backs the Forms portal and operator navigation.
@@ -23576,6 +24055,38 @@ func (c *Client) DownloadPlayerVariant(ctx context.Context, assetId openapi_type
 // Inspect player variant. Requires an authenticated player credential.
 func (c *Client) InspectPlayerVariant(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInspectPlayerVariantRequest(c.Server, assetId, variantId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBrowserPlayerBindingWithBody performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+// with any type of body and a specified content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *Client) LookupBrowserPlayerBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBrowserPlayerBindingRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBrowserPlayerBinding performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *Client) LookupBrowserPlayerBinding(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBrowserPlayerBindingRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26570,6 +27081,21 @@ func (c *Client) WatchLiveStream(ctx context.Context, id ResourceID, sessionId o
 // Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewLiveStreamRequest(c.Server, id, sessionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+//
+// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+func (c *Client) GetScreenPlaybackAgenda(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScreenPlaybackAgendaRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -35294,6 +35820,374 @@ func NewResetDemoRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewListFontsRequest constructs an http.Request for the ListFonts method
+func NewListFontsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSearchFontCatalogRequest constructs an http.Request for the SearchFontCatalog method
+func NewSearchFontCatalogRequest(server string, params *SearchFontCatalogParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/catalog")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Category != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "category", *params.Category, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFontCatalogFamilyRequest constructs an http.Request for the GetFontCatalogFamily method
+func NewGetFontCatalogFamilyRequest(server string, sourceId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sourceId", sourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/catalog/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFontCatalogPreviewRequest constructs an http.Request for the GetFontCatalogPreview method
+func NewGetFontCatalogPreviewRequest(server string, sourceId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sourceId", sourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/catalog/%s/preview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewImportGoogleFontRequest calls the generic ImportGoogleFont builder with application/json body
+func NewImportGoogleFontRequest(server string, params *ImportGoogleFontParams, body ImportGoogleFontJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewImportGoogleFontRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewImportGoogleFontRequestWithBody constructs an http.Request for the ImportGoogleFont method, with any body, and a specified content type
+func NewImportGoogleFontRequestWithBody(server string, params *ImportGoogleFontParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/google")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewUploadFontRequestWithBody constructs an http.Request for the UploadFont method, with any body, and a specified content type
+func NewUploadFontRequestWithBody(server string, params *UploadFontParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/uploads")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteFontRequest constructs an http.Request for the DeleteFont method
+func NewDeleteFontRequest(server string, id openapi_types.UUID, params *DeleteFontParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetFontFaceFileRequest constructs an http.Request for the GetFontFaceFile method
+func NewGetFontFaceFileRequest(server string, id openapi_types.UUID, faceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "faceId", faceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/fonts/%s/faces/%s/file", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListFormsRequest constructs an http.Request for the ListForms method
 func NewListFormsRequest(server string) (*http.Request, error) {
 	var err error
@@ -38999,6 +39893,46 @@ func NewInspectPlayerVariantRequest(server string, assetId openapi_types.UUID, v
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewLookupBrowserPlayerBindingRequest calls the generic LookupBrowserPlayerBinding builder with application/json body
+func NewLookupBrowserPlayerBindingRequest(server string, body LookupBrowserPlayerBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupBrowserPlayerBindingRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLookupBrowserPlayerBindingRequestWithBody constructs an http.Request for the LookupBrowserPlayerBinding method, with any body, and a specified content type
+func NewLookupBrowserPlayerBindingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/binding")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -45063,6 +45997,71 @@ func NewRenewLiveStreamRequest(server string, id ResourceID, sessionId openapi_t
 	return req, nil
 }
 
+// NewGetScreenPlaybackAgendaRequest constructs an http.Request for the GetScreenPlaybackAgenda method
+func NewGetScreenPlaybackAgendaRequest(server string, id ResourceID, params *GetScreenPlaybackAgendaParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/playback-agenda", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetScreenPlaybackPlanRequest constructs an http.Request for the GetScreenPlaybackPlan method
 func NewGetScreenPlaybackPlanRequest(server string, id ResourceID, params *GetScreenPlaybackPlanParams) (*http.Request, error) {
 	var err error
@@ -49545,6 +50544,70 @@ type ClientWithResponsesInterface interface {
 	// Registered only when TILECAST_ENV is demo. Replaces all data with a scenario and returns once its simulated players have connected. Requires the Owner role and X-CSRF-Token.
 	ResetDemoWithResponse(ctx context.Context, body ResetDemoJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetDemoResponse, error)
 
+	// ListFontsWithResponse performs a GET /api/v1/fonts (the `ListFonts` operationId) request.
+	//
+	// List the organization font library: every family with its stored faces. Requires an authenticated dashboard user.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListFontsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFontsResponse, error)
+
+	// SearchFontCatalogWithResponse performs a GET /api/v1/fonts/catalog (the `SearchFontCatalog` operationId) request.
+	//
+	// Search the Google Fonts catalog through the server. The server reads the Fontsource catalog and caches it. Requires the settings.manage capability.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	SearchFontCatalogWithResponse(ctx context.Context, params *SearchFontCatalogParams, reqEditors ...RequestEditorFn) (*SearchFontCatalogResponse, error)
+
+	// GetFontCatalogFamilyWithResponse performs a GET /api/v1/fonts/catalog/{sourceId} (the `GetFontCatalogFamily` operationId) request.
+	//
+	// Read one catalog family with its subsets, styles, weights, and variable weight range. Requires the settings.manage capability.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetFontCatalogFamilyWithResponse(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*GetFontCatalogFamilyResponse, error)
+
+	// GetFontCatalogPreviewWithResponse performs a GET /api/v1/fonts/catalog/{sourceId}/preview (the `GetFontCatalogPreview` operationId) request.
+	//
+	// Serve a small regular face of one catalog family so Studio can show the family name in its own type. Requires the settings.manage capability.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetFontCatalogPreviewWithResponse(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*GetFontCatalogPreviewResponse, error)
+
+	// ImportGoogleFontWithBodyWithResponse performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ImportGoogleFontWithBodyWithResponse(ctx context.Context, params *ImportGoogleFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportGoogleFontResponse, error)
+
+	// ImportGoogleFontWithResponse performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	ImportGoogleFontWithResponse(ctx context.Context, params *ImportGoogleFontParams, body ImportGoogleFontJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportGoogleFontResponse, error)
+
+	// UploadFontWithBodyWithResponse performs a POST /api/v1/fonts/uploads (the `UploadFont` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Upload one TrueType or OpenType face. The server reads the family name, weight, and style from the file. A face whose family matches an uploaded family joins it. Requires the settings.manage capability and a confirmation that the organization may use the font on its displays. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UploadFontWithBodyWithResponse(ctx context.Context, params *UploadFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFontResponse, error)
+
+	// DeleteFontWithResponse performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
+	//
+	// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeleteFontWithResponse(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*DeleteFontResponse, error)
+
+	// GetFontFaceFileWithResponse performs a GET /api/v1/fonts/{id}/faces/{faceId}/file (the `GetFontFaceFile` operationId) request.
+	//
+	// Serve one stored font face file to Studio. Players read the same bytes through the device-authenticated asset route. Requires an authenticated dashboard user.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetFontFaceFileWithResponse(ctx context.Context, id openapi_types.UUID, faceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetFontFaceFileResponse, error)
+
 	// ListFormsWithResponse performs a GET /api/v1/forms (the `ListForms` operationId) request.
 	//
 	// Returns every Form Data Source the current user can access, each with name, description, published revision number, the caller's effective capabilities, and the caller's own submission counts (drafts, submitted, changes requested). A global Owner sees all forms; everyone else sees forms they created or hold a grant on. Backs the Forms portal and operator navigation.
@@ -50365,6 +51428,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	InspectPlayerVariantWithResponse(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*InspectPlayerVariantResponse, error)
+
+	// LookupBrowserPlayerBindingWithBodyWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	LookupBrowserPlayerBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error)
+
+	// LookupBrowserPlayerBindingWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBindingWithResponse(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error)
 
 	// ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 	// with any type of body and a specified content type.
@@ -51741,6 +52818,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RenewLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*RenewLiveStreamResponse, error)
+
+	// GetScreenPlaybackAgendaWithResponse performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+	//
+	// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetScreenPlaybackAgendaWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackAgendaResponse, error)
 
 	// GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
 	//
@@ -57902,6 +58986,333 @@ func (r ResetDemoResponse) ContentType() string {
 	return ""
 }
 
+type ListFontsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data FontFamilyList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListFontsResponse) GetJSON200() *struct {
+	Data FontFamilyList `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListFontsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFontsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFontsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFontsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SearchFontCatalogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data FontCatalogPage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SearchFontCatalogResponse) GetJSON200() *struct {
+	Data FontCatalogPage `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r SearchFontCatalogResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchFontCatalogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchFontCatalogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SearchFontCatalogResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFontCatalogFamilyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data FontCatalogFamily `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetFontCatalogFamilyResponse) GetJSON200() *struct {
+	Data FontCatalogFamily `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetFontCatalogFamilyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFontCatalogFamilyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFontCatalogFamilyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFontCatalogFamilyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFontCatalogPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r GetFontCatalogPreviewResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFontCatalogPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFontCatalogPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFontCatalogPreviewResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ImportGoogleFontResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data FontFamily `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r ImportGoogleFontResponse) GetJSON201() *struct {
+	Data FontFamily `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r ImportGoogleFontResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportGoogleFontResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportGoogleFontResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ImportGoogleFontResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UploadFontResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data FontUploadResult `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r UploadFontResponse) GetJSON201() *struct {
+	Data FontUploadResult `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r UploadFontResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadFontResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadFontResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UploadFontResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFontResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteFontResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFontResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFontResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFontResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFontFaceFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r GetFontFaceFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFontFaceFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFontFaceFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFontFaceFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFormsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -61528,6 +62939,51 @@ func (r InspectPlayerVariantResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r InspectPlayerVariantResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LookupBrowserPlayerBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BrowserBindingRequest `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupBrowserPlayerBindingResponse) GetJSON200() *struct {
+	Data BrowserBindingRequest `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupBrowserPlayerBindingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupBrowserPlayerBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupBrowserPlayerBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupBrowserPlayerBindingResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -67310,6 +68766,51 @@ func (r RenewLiveStreamResponse) ContentType() string {
 	return ""
 }
 
+type GetScreenPlaybackAgendaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlaybackAgenda `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenPlaybackAgendaResponse) GetJSON200() *struct {
+	Data PlaybackAgenda `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScreenPlaybackAgendaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScreenPlaybackAgendaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScreenPlaybackAgendaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScreenPlaybackAgendaResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetScreenPlaybackPlanResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -72894,6 +74395,124 @@ func (c *ClientWithResponses) ResetDemoWithResponse(ctx context.Context, body Re
 	return ParseResetDemoResponse(rsp)
 }
 
+// ListFontsWithResponse performs a GET /api/v1/fonts (the `ListFonts` operationId) request.
+//
+// List the organization font library: every family with its stored faces. Requires an authenticated dashboard user.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListFontsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFontsResponse, error) {
+	rsp, err := c.ListFonts(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFontsResponse(rsp)
+}
+
+// SearchFontCatalogWithResponse performs a GET /api/v1/fonts/catalog (the `SearchFontCatalog` operationId) request.
+//
+// Search the Google Fonts catalog through the server. The server reads the Fontsource catalog and caches it. Requires the settings.manage capability.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) SearchFontCatalogWithResponse(ctx context.Context, params *SearchFontCatalogParams, reqEditors ...RequestEditorFn) (*SearchFontCatalogResponse, error) {
+	rsp, err := c.SearchFontCatalog(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchFontCatalogResponse(rsp)
+}
+
+// GetFontCatalogFamilyWithResponse performs a GET /api/v1/fonts/catalog/{sourceId} (the `GetFontCatalogFamily` operationId) request.
+//
+// Read one catalog family with its subsets, styles, weights, and variable weight range. Requires the settings.manage capability.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetFontCatalogFamilyWithResponse(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*GetFontCatalogFamilyResponse, error) {
+	rsp, err := c.GetFontCatalogFamily(ctx, sourceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFontCatalogFamilyResponse(rsp)
+}
+
+// GetFontCatalogPreviewWithResponse performs a GET /api/v1/fonts/catalog/{sourceId}/preview (the `GetFontCatalogPreview` operationId) request.
+//
+// Serve a small regular face of one catalog family so Studio can show the family name in its own type. Requires the settings.manage capability.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetFontCatalogPreviewWithResponse(ctx context.Context, sourceId string, reqEditors ...RequestEditorFn) (*GetFontCatalogPreviewResponse, error) {
+	rsp, err := c.GetFontCatalogPreview(ctx, sourceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFontCatalogPreviewResponse(rsp)
+}
+
+// ImportGoogleFontWithBodyWithResponse performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request,
+// with any type of body and a specified content type.
+//
+// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ImportGoogleFontWithBodyWithResponse(ctx context.Context, params *ImportGoogleFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportGoogleFontResponse, error) {
+	rsp, err := c.ImportGoogleFontWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportGoogleFontResponse(rsp)
+}
+
+// ImportGoogleFontWithResponse performs a POST /api/v1/fonts/google (the `ImportGoogleFont` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *ClientWithResponses) ImportGoogleFontWithResponse(ctx context.Context, params *ImportGoogleFontParams, body ImportGoogleFontJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportGoogleFontResponse, error) {
+	rsp, err := c.ImportGoogleFont(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportGoogleFontResponse(rsp)
+}
+
+// UploadFontWithBodyWithResponse performs a POST /api/v1/fonts/uploads (the `UploadFont` operationId) request,
+// with any type of body and a specified content type.
+//
+// Upload one TrueType or OpenType face. The server reads the family name, weight, and style from the file. A face whose family matches an uploaded family joins it. Requires the settings.manage capability and a confirmation that the organization may use the font on its displays. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UploadFontWithBodyWithResponse(ctx context.Context, params *UploadFontParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFontResponse, error) {
+	rsp, err := c.UploadFontWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadFontResponse(rsp)
+}
+
+// DeleteFontWithResponse performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
+//
+// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeleteFontWithResponse(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*DeleteFontResponse, error) {
+	rsp, err := c.DeleteFont(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFontResponse(rsp)
+}
+
+// GetFontFaceFileWithResponse performs a GET /api/v1/fonts/{id}/faces/{faceId}/file (the `GetFontFaceFile` operationId) request.
+//
+// Serve one stored font face file to Studio. Players read the same bytes through the device-authenticated asset route. Requires an authenticated dashboard user.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetFontFaceFileWithResponse(ctx context.Context, id openapi_types.UUID, faceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetFontFaceFileResponse, error) {
+	rsp, err := c.GetFontFaceFile(ctx, id, faceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFontFaceFileResponse(rsp)
+}
+
 // ListFormsWithResponse performs a GET /api/v1/forms (the `ListForms` operationId) request.
 //
 // Returns every Form Data Source the current user can access, each with name, description, published revision number, the caller's effective capabilities, and the caller's own submission counts (drafts, submitted, changes requested). A global Owner sees all forms; everyone else sees forms they created or hold a grant on. Backs the Forms portal and operator navigation.
@@ -74403,6 +76022,32 @@ func (c *ClientWithResponses) InspectPlayerVariantWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseInspectPlayerVariantResponse(rsp)
+}
+
+// LookupBrowserPlayerBindingWithBodyWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+// with any type of body and a specified content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) LookupBrowserPlayerBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error) {
+	rsp, err := c.LookupBrowserPlayerBindingWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBrowserPlayerBindingResponse(rsp)
+}
+
+// LookupBrowserPlayerBindingWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *ClientWithResponses) LookupBrowserPlayerBindingWithResponse(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error) {
+	rsp, err := c.LookupBrowserPlayerBinding(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBrowserPlayerBindingResponse(rsp)
 }
 
 // ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
@@ -76901,6 +78546,19 @@ func (c *ClientWithResponses) RenewLiveStreamWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseRenewLiveStreamResponse(rsp)
+}
+
+// GetScreenPlaybackAgendaWithResponse performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+//
+// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetScreenPlaybackAgendaWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackAgendaResponse, error) {
+	rsp, err := c.GetScreenPlaybackAgenda(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScreenPlaybackAgendaResponse(rsp)
 }
 
 // GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
@@ -81726,6 +83384,266 @@ func ParseResetDemoResponse(rsp *http.Response) (*ResetDemoResponse, error) {
 	return response, nil
 }
 
+// ParseListFontsResponse parses an HTTP response from a ListFontsWithResponse call
+func ParseListFontsResponse(rsp *http.Response) (*ListFontsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFontsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data FontFamilyList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchFontCatalogResponse parses an HTTP response from a SearchFontCatalogWithResponse call
+func ParseSearchFontCatalogResponse(rsp *http.Response) (*SearchFontCatalogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchFontCatalogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data FontCatalogPage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFontCatalogFamilyResponse parses an HTTP response from a GetFontCatalogFamilyWithResponse call
+func ParseGetFontCatalogFamilyResponse(rsp *http.Response) (*GetFontCatalogFamilyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFontCatalogFamilyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data FontCatalogFamily `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFontCatalogPreviewResponse parses an HTTP response from a GetFontCatalogPreviewWithResponse call
+func ParseGetFontCatalogPreviewResponse(rsp *http.Response) (*GetFontCatalogPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFontCatalogPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseImportGoogleFontResponse parses an HTTP response from a ImportGoogleFontWithResponse call
+func ParseImportGoogleFontResponse(rsp *http.Response) (*ImportGoogleFontResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportGoogleFontResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data FontFamily `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 413:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadFontResponse parses an HTTP response from a UploadFontWithResponse call
+func ParseUploadFontResponse(rsp *http.Response) (*UploadFontResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadFontResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data FontUploadResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 413:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFontResponse parses an HTTP response from a DeleteFontWithResponse call
+func ParseDeleteFontResponse(rsp *http.Response) (*DeleteFontResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFontResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetFontFaceFileResponse parses an HTTP response from a GetFontFaceFileWithResponse call
+func ParseGetFontFaceFileResponse(rsp *http.Response) (*GetFontFaceFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFontFaceFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
 // ParseListFormsResponse parses an HTTP response from a ListFormsWithResponse call
 func ParseListFormsResponse(rsp *http.Response) (*ListFormsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -84227,6 +86145,43 @@ func ParseInspectPlayerVariantResponse(rsp *http.Response) (*InspectPlayerVarian
 	response := &InspectPlayerVariantResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseLookupBrowserPlayerBindingResponse parses an HTTP response from a LookupBrowserPlayerBindingWithResponse call
+func ParseLookupBrowserPlayerBindingResponse(rsp *http.Response) (*LookupBrowserPlayerBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupBrowserPlayerBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BrowserBindingRequest `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -88267,6 +90222,49 @@ func ParseRenewLiveStreamResponse(rsp *http.Response) (*RenewLiveStreamResponse,
 		break // No content-type
 
 	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetScreenPlaybackAgendaResponse parses an HTTP response from a GetScreenPlaybackAgendaWithResponse call
+func ParseGetScreenPlaybackAgendaResponse(rsp *http.Response) (*GetScreenPlaybackAgendaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScreenPlaybackAgendaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlaybackAgenda `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
 		break // No content-type
 
 	}

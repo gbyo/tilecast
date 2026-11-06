@@ -502,3 +502,65 @@ func TestRecordPatchTimestampSemantics(t *testing.T) {
 		t.Fatalf("supplied expiresAt must replace, got %v", rec.ExpiresAt)
 	}
 }
+
+// A transition must read the target state's eligibility under its own transaction. A workflow edit
+// that is in flight holds the state rows, so the transition waits for it and then sees the new
+// value instead of writing the eligibility it read before the edit.
+func TestTransitionRevalidatesTargetEligibilityAgainstWorkflowEdit(t *testing.T) {
+	e := setupForms(t)
+	form, err := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Race", DraftSchema: announcementSchema()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Held"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, err = e.service.Transition(e.ctx, form.ID, rec.ID, e.owner, "submitted", "", rec.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Stand in for ConfigureWorkflow mid-flight: the approved state is no longer output-eligible,
+	// but the edit has not committed yet.
+	edit, err := e.pool.Begin(e.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer edit.Rollback(e.ctx) //nolint:errcheck
+	if _, err := edit.Exec(e.ctx, `UPDATE form_workflow_states SET eligible_for_output=FALSE WHERE data_source_id=$1 AND state_key='approved'`, form.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	type result struct {
+		rec formserver.Record
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		out, err := e.service.Transition(e.ctx, form.ID, rec.ID, e.owner, "approved", "", rec.Version)
+		done <- result{out, err}
+	}()
+	select {
+	case r := <-done:
+		t.Fatalf("transition finished while the workflow edit was uncommitted: %+v, %v", r.rec, r.err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err := edit.Commit(e.ctx); err != nil {
+		t.Fatal(err)
+	}
+	r := <-done
+	if r.err != nil {
+		t.Fatalf("transition: %v", r.err)
+	}
+	if r.rec.Eligible {
+		t.Fatal("record entered a state whose output eligibility was disabled and is still eligible")
+	}
+	var eligible bool
+	if err := e.pool.QueryRow(e.ctx, `SELECT eligible FROM form_records WHERE id=$1`, rec.ID).Scan(&eligible); err != nil {
+		t.Fatal(err)
+	}
+	if eligible {
+		t.Fatal("stored eligibility must follow the committed workflow")
+	}
+}

@@ -1,7 +1,7 @@
 //! Edge request and decode adapter for the shared semantic capture broker.
 use base64::Engine as _;
 use edge_protocol::ipc::event::PreviewOutcome;
-use player_core::{CaptureError, CapturedFrame, RendererCaptureRequest, RendererPortError};
+use player_core::{CaptureError, CaptureState, CapturedFrame, RendererCaptureRequest, RendererPortError};
 
 use crate::daemon::DaemonContext;
 
@@ -21,7 +21,8 @@ impl CaptureBroker {
         max_height: u32,
         max_bytes: u32,
     ) -> Result<CapturedFrame, CaptureError> {
-        self.0
+        let frame = self
+            .0
             .capture(uuid::Uuid::new_v4(), max_width, max_height, max_bytes, |request| async move {
                 let engine = context.presentation.lock().await;
                 let current = engine.current().ok_or(CaptureError::NothingShown)?;
@@ -32,8 +33,20 @@ impl CaptureBroker {
                 }
                 Ok(())
             })
-            .await
+            .await?;
+        // The screen can change to setup, pairing, or safe mode while the
+        // renderer produces the frame. Check again before the pixels leave
+        // this function so no caller can upload a protected surface.
+        let state = context.presentation.lock().await.current().map(|active| active.renderer_metadata.capture_state);
+        recheck_after_capture(state, frame)
     }
+}
+
+/// Discards a captured frame when the active presentation, as it is now, must
+/// not be captured.
+fn recheck_after_capture(state: Option<CaptureState>, frame: CapturedFrame) -> Result<CapturedFrame, CaptureError> {
+    state.ok_or(CaptureError::NothingShown)?.check(false)?;
+    Ok(frame)
 }
 
 fn decode(request: RendererCaptureRequest, outcome: PreviewOutcome) -> Result<CapturedFrame, CaptureError> {
@@ -59,6 +72,22 @@ fn capture_error(error: RendererPortError) -> CaptureError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn frame() -> CapturedFrame {
+        let request =
+            RendererCaptureRequest { request_id: uuid::Uuid::nil(), max_width: 640, max_height: 360, max_bytes: 4 };
+        CapturedFrame::new(request, vec![0xff, 0xd8, 0xff, 0xd9], 640, 360).unwrap()
+    }
+
+    #[test]
+    fn a_frame_is_discarded_when_the_screen_became_protected_during_capture() {
+        assert!(recheck_after_capture(Some(CaptureState::Presentation), frame()).is_ok());
+        for protected in [CaptureState::Setup, CaptureState::Pairing, CaptureState::SafeMode] {
+            assert_eq!(recheck_after_capture(Some(protected), frame()), Err(CaptureError::ProtectedState));
+        }
+        assert_eq!(recheck_after_capture(Some(CaptureState::NothingShown), frame()), Err(CaptureError::NothingShown));
+        assert_eq!(recheck_after_capture(None, frame()), Err(CaptureError::NothingShown));
+    }
 
     #[test]
     fn dimensions_are_checked_before_decoding_and_valid_frames_keep_the_wire_shape() {

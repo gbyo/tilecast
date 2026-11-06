@@ -15,6 +15,8 @@ import * as path from "path";
 export const RUNTIME_SCHEME = "tilecast";
 export const RUNTIME_HOST = "runtime";
 export const RUNTIME_ENTRY_URL = `${RUNTIME_SCHEME}://${RUNTIME_HOST}/index.html`;
+/** The runtime document's origin, the only one granted CORS reads of media. */
+export const RUNTIME_ORIGIN = `${RUNTIME_SCHEME}://${RUNTIME_HOST}`;
 
 /** Registered before the app is ready (protocol.registerSchemesAsPrivileged). */
 export const RUNTIME_SCHEME_PRIVILEGES = {

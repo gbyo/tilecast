@@ -40,4 +40,46 @@ describe("plugin_state entries", () => {
       expect(parseStateEntry({ ...fixture, ...change }, at)).toBe(reason);
     }
   });
+
+  describe("library fonts", () => {
+    const at = Date.parse("2026-10-15T00:00:00Z");
+    const id = "5C0A2F8E-3C1B-4D2A-9E7F-0A1B2C3D4E5F";
+    const face = {
+      assetId: "1f8f2d8e-1b1a-4c55-9a0d-3d2f6c7b8a90",
+      variantId: "7b6a5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      style: "italic",
+      weightMin: 100,
+      weightMax: 900,
+      unicodeRange: "U+0000-00FF",
+    };
+
+    it("routes declared families with lower-case identities", () => {
+      const parsed = parseStateEntry(
+        { ...fixture, fonts: [{ id, family: "Inter", faces: [face] }] },
+        at,
+      );
+      if (typeof parsed === "string") throw new Error(parsed);
+      expect(parsed.entry.fonts).toEqual([
+        { id: id.toLowerCase(), family: "Inter", faces: [face] },
+      ]);
+      const plain = parseStateEntry(fixture, at);
+      if (typeof plain === "string") throw new Error(plain);
+      expect(plain.entry.fonts).toEqual([]);
+    });
+
+    it("refuses malformed families like malformed media", () => {
+      const family = { id, family: "Inter", faces: [face] };
+      for (const fonts of [
+        "Inter",
+        Array(5).fill(family),
+        [{ ...family, id: "nope" }],
+        [{ ...family, faces: [{ ...face, style: "oblique" }] }],
+        [{ ...family, faces: [{ ...face, assetId: "x" }] }],
+        [{ ...family, faces: [{ ...face, weightMin: 1.5 }] }],
+      ]) {
+        const parsed = parseStateEntry({ ...fixture, fonts }, at);
+        expect(typeof parsed).toBe("string");
+      }
+    });
+  });
 });

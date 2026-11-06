@@ -778,5 +778,23 @@
     "file": "00131_screen_access_policy.sql",
     "owner": "core",
     "sha256": "0b9aac89c13e1a32d08b8531a36c539921b45ba5e7cc61f7e591ae5463b9fe0f"
+  },
+  {
+    "version": 132,
+    "file": "00132_font_library.sql",
+    "owner": "core",
+    "sha256": "07d54d0ed20bee130d4243195ad06653f14ff5b50df555c998a041b4e7848f57"
+  },
+  {
+    "version": 133,
+    "file": "00133_font_references.sql",
+    "owner": "core",
+    "sha256": "f60068a56a4fd4e64de6ca08c591c71092b63219589c800ecdee496740f53de0"
+  },
+  {
+    "version": 134,
+    "file": "00134_countdown_bar_font.sql",
+    "owner": "countdown_bar",
+    "sha256": "d3159a567cccbfb58cebc50f5ac580a8ea52efdda0ed6a13d6fde1ed7b94739c"
   }
 ]

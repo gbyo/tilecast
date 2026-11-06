@@ -48,6 +48,13 @@ export const PLAYER_SERVICES = [
     hostCapability: "pluginEvents",
   },
   {
+    name: "player.fonts",
+    version: 1,
+    execution: "runtime",
+    description:
+      "Registers the organization font families that the plugin's current state entries declare and names them for CSS.",
+  },
+  {
     name: "player.media",
     version: 1,
     execution: "runtime",
