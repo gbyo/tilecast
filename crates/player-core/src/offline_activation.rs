@@ -214,7 +214,16 @@ impl OfflineActivationCoordinator {
             let reread = binding.clone();
             trial = db.run(move |connection| manifests::trial(connection, &reread)).await.ok()?;
         }
-        let flags = db.run(|connection| playback::get(connection)).await.unwrap_or_default();
+        let (offset_ms, playback_disabled) = match db.run(|connection| playback::get(connection)).await {
+            Ok(flags) => (flags.server_clock_offset_ms.unwrap_or_default(), flags.playback_disabled),
+            Err(error) => {
+                // A row that cannot be decoded must not lift an administrative
+                // disable. Keep the flag when it is readable, else stay disabled.
+                tracing::warn!(component = "activation", event = "playback_state_unreadable", error = %error);
+                let disabled = db.run(|connection| playback::disabled(connection)).await.unwrap_or(true);
+                (0, disabled)
+            }
+        };
         Some(OfflineManifestState {
             binding,
             active,
@@ -222,8 +231,8 @@ impl OfflineActivationCoordinator {
             target,
             trial,
             local_now_ms,
-            offset_ms: flags.server_clock_offset_ms.unwrap_or_default(),
-            playback_disabled: flags.playback_disabled,
+            offset_ms,
+            playback_disabled,
         })
     }
 
@@ -593,6 +602,32 @@ mod tests {
     async fn trial_row(core: &OfflineActivationCoordinator, binding: &Binding) -> Option<ActivationTrial> {
         let binding = binding.clone();
         core.dependencies.state.run(move |connection| manifests::trial(connection, &binding)).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn unreadable_playback_state_keeps_the_disable_flag() {
+        let (dir, mut core, _) = fixture().await;
+        let db = core.dependencies.state.clone();
+        let write = |disabled: i64| {
+            db.run(move |connection| {
+                connection.execute("DELETE FROM playback_state", [])?;
+                connection.execute(
+                    "INSERT INTO playback_state (id, playback_disabled, server_clock_offset_ms,
+                                                 server_clock_synchronized_at_ms, updated_at_ms)
+                     VALUES (1, ?1, 5000, ?2, 0)",
+                    [disabled, i64::MAX],
+                )?;
+                Ok(())
+            })
+        };
+        write(1).await.unwrap();
+        let state = core.load().await.unwrap();
+        assert!(state.playback_disabled, "a decode failure must not lift the administrative disable");
+        assert_eq!(state.offset_ms, 0);
+        write(0).await.unwrap();
+        let state = core.load().await.unwrap();
+        assert!(!state.playback_disabled);
+        drop(dir);
     }
 
     #[tokio::test]
