@@ -51,7 +51,7 @@ export function runtimeHost(callbacks: {
       // worker never sees a sandboxed iframe's navigation, so the
       // attribute would bypass the verified store. The served frame
       // response carries the sandbox directive instead. See
-      // docs/widget-sandbox-spike.md.
+      // docs/records/widget-sandbox-spike.md.
       externalFrameSandbox: "response",
       // The resolver forwards every manifest plugin entry, including Plugin
       // API v2 plugin_state, and grants the media those entries declare.

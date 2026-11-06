@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The M10 systemd-sysupdate spike (docs/tilecast-edge-m10-sysupdate-evaluation.md).
+# The M10 systemd-sysupdate spike (docs/records/edge/m10-sysupdate-evaluation.md).
 #
 # Runs inside a throwaway Debian container as root, for example:
 #

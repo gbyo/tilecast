@@ -415,7 +415,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         // WPE WebKit finds its helper processes under `current`: the web helper
         // and the renderer stop before `current` moves, web first so no new
         // frame socket can appear while the renderer drains
-        // (docs/tilecast-edge-next.md §4,
+        // (docs/tilecast-edge.md §15,
         // docs/tilecast-edge-remote-web-threat-review.md §17).
         self.host.stop(EDGE_WEB).await?;
         self.host.stop(EDGE_RENDERER).await?;

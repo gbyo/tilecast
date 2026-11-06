@@ -1,6 +1,6 @@
 # Tilecast Edge updater: threat-boundary review
 
-This is the written threat-boundary review that the Edge security invariants require for a new root operation ([`tilecast-edge-next.md`](tilecast-edge-next.md), invariant 16; [`tilecast-edge.md`](tilecast-edge.md) §4.3). It covers the M10 update path: the root helper `tilecast-edge-update`, its socket and its guard units, the update coordinator in `tilecastd`, and the server's part in a Tilecast Edge deployment. Read it before you change `apps/edge/tilecast-edge-update`, `apps/edge/crates/edge-release`, `apps/edge/tilecastd/src/update.rs`, the helper's units in `apps/edge/packaging/systemd`, or the `edge` family code in `apps/server/internal/updates`.
+The [Edge privilege contract](tilecast-edge.md#43-privileged-helpers) requires this review for a new root operation. This review covers the root helper `tilecast-edge-update`, its socket and guard units, the update coordinator in `tilecastd`, and the Server's part in an Edge deployment. Read it before you change `apps/edge/tilecast-edge-update`, `apps/edge/crates/edge-release`, `apps/edge/tilecastd/src/update.rs`, the helper's units in `apps/edge/packaging/systemd`, or the `edge` family code in `apps/server/internal/updates`.
 
 The migrator has its own review, [`tilecast-edge-migration-threat-review.md`](tilecast-edge-migration-threat-review.md). The two share the release installer (`edge-release`) and the release signing key.
 
@@ -251,7 +251,7 @@ The helper unit is not enabled and has no dependency on `tilecast-edge.service`,
 
 ### 7.3 Removal of the Edge 0.2.0 field workaround
 
-The 0.2.1 helper removes the five files of the Edge 0.2.0 field workaround after an update is final. The files, their digests and the full behavior are in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §7. This section records the privilege effect.
+The 0.2.1 helper removes the five files of the Edge 0.2.0 field workaround after an update is final. The files, their digests and the full behavior are in [`records/edge/0.2.1-sandbox-review.md`](records/edge/0.2.1-sandbox-review.md) §7. This section records the privilege effect.
 
 - The helper reads and removes files below `/etc/systemd/system` and `/etc/tilecast-edge`. It may write both already (`ReadWritePaths=/etc`). It gains no capability, no operation and no request field.
 - The paths and digests are constants in the binary. A file is removed only when its path is listed and its SHA-256 equals the listed value. It opens a listed path with the no-link open, reads at most 16 KiB, and compares the digest again immediately before it removes the file.
@@ -326,4 +326,4 @@ How the remaining risk is reduced and reported:
 - A new read of `tilecast`-owned data uses the no-link, owner-checked open, and root uses only a private copy that it verified.
 - The guard stays independent of the candidate: its binary is the previous release's, and its units are not release files.
 - The helper's sandbox changes only with a real-systemd test run that shows why.
-- A new path that the helper removes or rewrites by itself is a constant with an exact digest, is applied only when no rollback can need it, and is added to [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §7.
+- A new path that the helper removes or rewrites by itself is a constant with an exact digest, is applied only when no rollback can need it, and is added to [`records/edge/0.2.1-sandbox-review.md`](records/edge/0.2.1-sandbox-review.md) §7.

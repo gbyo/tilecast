@@ -2,11 +2,11 @@
 
 **Status:** Decided, 2026-09-25
 **Decision:** Tilecast Edge does not use `systemd-sysupdate`. M10 builds on the M7 release installer.
-**Evidence:** [`apps/edge/ci/sysupdate-spike.sh`](../apps/edge/ci/sysupdate-spike.sh), run in Debian 12, Debian 13 and Ubuntu 24.04 containers.
+**Evidence:** [`apps/edge/ci/sysupdate-spike.sh`](../../../apps/edge/ci/sysupdate-spike.sh), run in Debian 12, Debian 13 and Ubuntu 24.04 containers.
 
 ## 1. Why this evaluation exists
 
-[`tilecast-edge.md`](tilecast-edge.md) §15 told M10 to prototype `systemd-sysupdate` before it wrote update code, and to write custom code only for a gap that the prototype shows. Mender is not a candidate.
+[`tilecast-edge.md`](../../tilecast-edge.md) §15 told M10 to prototype `systemd-sysupdate` before it wrote update code, and to write custom code only for a gap that the prototype shows. Mender is not a candidate.
 
 M7 already has a release installer. It verifies a signed release manifest with the Tilecast Ed25519 update key, verifies the size, SHA-256 and mode of every file, installs an immutable `/opt/tilecast-edge/<version>/` tree through a staging directory, `fsync` and `rename(2)`, switches `/opt/tilecast-edge/current` atomically, installs the systemd, sysusers, tmpfiles, udev and modules-load files, and verifies an installed tree again before use. The question was whether `systemd-sysupdate` removes a meaningful part of that code, or of the new M10 work.
 
@@ -20,7 +20,7 @@ The spike script defines one transfer: a local `tar` source into a `directory` t
 | Debian 13    | 257.13  | Package `systemd-container`, which is not installed by default. |
 | Ubuntu 24.04 | 255.4   | Package `systemd`.                                              |
 
-Debian 12 is a supported Edge host ([`apps/edge/packaging/README.md`](../apps/edge/packaging/README.md), requirements). A mechanism that is absent on a supported host cannot be the Edge update path.
+Debian 12 is a supported Edge host ([`apps/edge/packaging/README.md`](../../../apps/edge/packaging/README.md), requirements). A mechanism that is absent on a supported host cannot be the Edge update path.
 
 ## 3. Results
 
@@ -61,7 +61,7 @@ The per-file verification of the signed M7 manifest, the installed-tree verifica
 
 `systemd-sysupdate` does not give a material simplification. It would add a second trust model, a second archive format and a second installer beside M7, and it cannot use the authenticated Tilecast artifact download. Edge does not use it.
 
-M10 does this instead ([`tilecast-edge.md`](tilecast-edge.md) §15):
+M10 does this instead ([`tilecast-edge.md`](../../tilecast-edge.md) §15):
 
 1. The Tilecast Server stays the release authority. Edge releases are Player releases of the `edge` player family, in the existing Player Updates model, deployments and canary.
 2. A signed update envelope binds the downloadable archive to the M7 release manifest. The same Ed25519 key signs both.

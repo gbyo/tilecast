@@ -3,7 +3,7 @@
 > Resolved by production external Widgets. This document is retained
 > for its historical measurements and per-target procedures. The
 > production contract lives in [External Widget sandbox threat
-> model](widget-sandbox-threat-model.md) and the shared
+> model](../widget-sandbox-threat-model.md) and the shared
 > `@tilecast/widget-sdk` sandbox implementation.
 
 Content-extension-model §12 allows runtime-installed external Widget code

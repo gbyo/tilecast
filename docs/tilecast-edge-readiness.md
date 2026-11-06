@@ -15,15 +15,15 @@ records code evidence, not documentation claims. Each row uses one status:
 
 ## 1. Pairing, identity and credential lifecycle
 
-| Item                                 | Status                       | Evidence and action                                                                                                                                               |
-| ------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server URL policy                    | Implemented and verified     | `player-client/src/url_policy.rs` with shared fixtures. Edge rejects IPv6-literal HTTP. Legacy accepts it. The difference has negligible fleet impact. No action. |
-| Identity check before credential use | Implemented and verified     | `player-client/src/client.rs` `verify_installation`. Edge re-verifies on every pass. No action.                                                                   |
-| Pairing create, poll and enroll      | Implemented and verified     | `player-core/src/pairing.rs`. Edge persists the enrollment token across a crash. Legacy loses it. No action.                                                      |
-| Credential storage and deletion      | Implemented and verified     | `edge-server/src/credential.rs`. Deletion occurs only on confirmed rejection. No action.                                                                          |
-| Installation mismatch                | Partially implemented        | Edge stops the link but keeps caches and shows no dedicated surface. Action: quarantine caches and add a mismatch surface.                                        |
-| Unpair a paired screen               | Partially implemented        | `tilecastctl` has no unpair command. Action: add an explicit unpair operation.                                                                                    |
-| LAN discovery                        | Needs physical qualification | `tilecastd/src/discovery.rs` browses Avahi over D-Bus. Action: qualify on a real LAN.                                                                             |
+| Item                                 | Status                       | Evidence and action                                                                                                                                                       |
+| ------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server URL policy                    | Implemented and verified     | `player-client/src/url_policy.rs` with shared fixtures. Edge rejects IPv6-literal HTTP. Legacy accepts it. The difference has negligible fleet impact. No action.         |
+| Identity check before credential use | Implemented and verified     | `player-client/src/client.rs` `verify_installation`. Edge re-verifies on every pass. No action.                                                                           |
+| Pairing create, poll and enroll      | Implemented and verified     | `player-core/src/pairing.rs`. Edge persists the enrollment token across a crash. Legacy loses it. No action.                                                              |
+| Credential storage and deletion      | Implemented and verified     | `edge-server/src/credential.rs`. Deletion occurs only on confirmed rejection. No action.                                                                                  |
+| Installation mismatch                | Implemented and verified     | `tilecastd/src/mismatch.rs` records the mismatch, quarantines cached content, and shows a dedicated surface. `tilecastd/tests/pairing.rs` covers quarantine and recovery. |
+| Unpair a paired screen               | Implemented and verified     | `tilecastctl unpair` forgets the relationship. `tilecastd/tests/pairing.rs` covers unpair, retry, and pairing again.                                                      |
+| LAN discovery                        | Needs physical qualification | `tilecastd/src/discovery.rs` browses Avahi over D-Bus. Action: qualify on a real LAN.                                                                                     |
 
 ## 2. Server connection and reconnect
 
@@ -36,25 +36,25 @@ records code evidence, not documentation claims. Each row uses one status:
 
 ## 3. Manifest synchronization and activation
 
-| Item                                         | Status                    | Evidence and action                                                                                                                                        |
-| -------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Conditional fetch, push and timer reconcile  | Implemented and verified  | `player-core/src/manifests.rs`, `server_driver.rs`. No action.                                                                                             |
-| Verify before activate, boundary swap, grace | Implemented and verified  | `offline_activation.rs`, `offline_driver.rs`. Same grace clamp as legacy. No action.                                                                       |
-| Takeover and Quick Present cut-in            | Implemented and verified  | `overrides_activation_gate`. No action.                                                                                                                    |
-| Schema range enforcement                     | Intentionally unsupported | Edge rejects schemas outside 11-19. Legacy only logs the version. The stricter rule is deliberate. No action.                                              |
-| Whole-manifest rejection                     | Intentionally unsupported | Edge rejects the full manifest on incompatibility. Legacy skips bad items. The strict rule is deliberate, except for retired plugin kinds (see section 6). |
+| Item                                         | Status                    | Evidence and action                                                                                                                                                                     |
+| -------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Conditional fetch, push and timer reconcile  | Implemented and verified  | `player-core/src/manifests.rs`, `server_driver.rs`. No action.                                                                                                                          |
+| Verify before activate, boundary swap, grace | Implemented and verified  | `offline_activation.rs`, `offline_driver.rs`. Same grace clamp as legacy. No action.                                                                                                    |
+| Takeover and Quick Present cut-in            | Implemented and verified  | `overrides_activation_gate`. No action.                                                                                                                                                 |
+| Schema range enforcement                     | Implemented and verified  | Edge checks `NATIVE_MANIFEST_SCHEMAS` in `crates/player-core/src/manifest_resources.rs`. The Edge playback tests verify that invalid manifests leave the committed presentation active. |
+| Whole-manifest rejection                     | Intentionally unsupported | Edge rejects the full manifest on incompatibility. Legacy skips bad items. The strict rule is deliberate, except for retired plugin kinds (see section 6).                              |
 
 ## 4. Offline content caching and recovery
 
-| Item                               | Status                   | Evidence and action                                                                                                                                                                                |
-| ---------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Boot playback without network      | Implemented and verified | `offline_activation.rs` loads SQLite state at boot. No action.                                                                                                                                     |
-| Cache identity binding             | Implemented and verified | Binding gate covers installation, screen and URL. No action.                                                                                                                                       |
-| Resumable verified download        | Implemented and verified | `player-cas` fetch with resume and hash-verify on commit. No action.                                                                                                                               |
-| Corruption repair                  | Implemented and verified | Store reconciliation re-hashes orphans and drops dead rows. No action.                                                                                                                             |
-| Pins, eviction and cache policy    | Implemented and verified | Same 8 GiB and 1 GiB defaults as legacy. No action.                                                                                                                                                |
-| Stream delivery without full cache | Partially implemented    | Legacy proxies Range streams with device auth. Edge downloads every item into CAS. Oversize items fail preparation. Action: add a streaming fallback or publish validated store sizing.            |
-| Resume mid-playlist after restart  | Missing and necessary    | Legacy restores `playback-checkpoint.json`. Edge restarts plain playlists at item 0. Synchronized groups use the anchor and need no checkpoint. Action: persist and restore the playlist position. |
+| Item                               | Status                   | Evidence and action                                                                                                                                                                     |
+| ---------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boot playback without network      | Implemented and verified | `offline_activation.rs` loads SQLite state at boot. No action.                                                                                                                          |
+| Cache identity binding             | Implemented and verified | Binding gate covers installation, screen and URL. No action.                                                                                                                            |
+| Resumable verified download        | Implemented and verified | `player-cas` fetch with resume and hash-verify on commit. No action.                                                                                                                    |
+| Corruption repair                  | Implemented and verified | Store reconciliation re-hashes orphans and drops dead rows. No action.                                                                                                                  |
+| Pins, eviction and cache policy    | Implemented and verified | Same 8 GiB and 1 GiB defaults as legacy. No action.                                                                                                                                     |
+| Stream delivery without full cache | Partially implemented    | Legacy proxies Range streams with device auth. Edge downloads every item into CAS. Oversize items fail preparation. Action: add a streaming fallback or publish validated store sizing. |
+| Resume mid-playlist after restart  | Implemented and verified | `tilecastd/src/resume.rs` saves and restores the position of an ordinary playlist. Synchronized groups use their shared anchor.                                                         |
 
 ## 5. Images, video, audio, websites and YouTube
 
@@ -103,11 +103,11 @@ records code evidence, not documentation claims. Each row uses one status:
 
 ## 9. Screenshots, previews and Watch Live
 
-| Item                        | Status                       | Evidence and action                                                                                                                                                   |
-| --------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Snapshot primitive          | Needs physical qualification | Bounded serialized capture with protected-state refusal. Headless path is proven end to end. Action: qualify WPE snapshot fidelity on DRM hardware.                   |
-| Periodic preview and upload | Needs physical qualification | Same cadence and multipart contract as legacy. PR #1376 adds event-driven wake, bounded recovery and last-good frames. Action: finish PR #1376 and qualify fidelity.  |
-| Watch Live                  | Needs physical qualification | Same cadence and TCLS encoding with stricter privacy rechecks. PR #1378 adds stall detection and recovery. Action: finish PR #1378 and qualify encoder load at 8 fps. |
+| Item                        | Status                       | Evidence and action                                                                                                                                 |
+| --------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Snapshot primitive          | Needs physical qualification | Bounded serialized capture with protected-state refusal. Headless path is proven end to end. Action: qualify WPE snapshot fidelity on DRM hardware. |
+| Periodic preview and upload | Needs physical qualification | Edge wakes on preview events, bounds capture recovery, and keeps the last good frame. Qualify capture fidelity on physical DRM hardware.            |
+| Watch Live                  | Needs physical qualification | Watch Live detects stalled streams and recovers them. Qualify encoder load at 8 fps on reference hardware.                                          |
 
 ## 10. Renderer crashes, safe mode and recovery
 
@@ -167,14 +167,14 @@ records code evidence, not documentation claims. Each row uses one status:
 
 ## 15. Linux hardware and display integration
 
-| Item                           | Status                       | Evidence and action                                                                                                                                                        |
-| ------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DRM and KMS output             | Needs physical qualification | DRM is the default platform. Action: qualify output, hotplug and rotation on reference hardware.                                                                           |
-| GPU and video decode           | Needs physical qualification | WPE with GStreamer, pinned WebKit per release. Action: qualify codecs and decode performance.                                                                              |
-| Audio routing                  | Partially implemented        | DDC volume control exists. ALSA access for the main renderer is the section 5 defect. No PipeWire code exists in `tilecastd`. Action: fix the group, then qualify routing. |
-| Presentation Network and Wi-Fi | Implemented and verified     | Same root helper and protocol as legacy, tested with a fake `nmcli`. Wi-Fi hardware still needs M11 qualification.                                                         |
-| System telemetry               | Implemented and verified     | Platform providers feed the same gauges. No action.                                                                                                                        |
-| Content store integrity        | Implemented and verified     | Verified CAS with pins exceeds the legacy flat cache. No action.                                                                                                           |
+| Item                           | Status                       | Evidence and action                                                                                                        |
+| ------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| DRM and KMS output             | Needs physical qualification | DRM is the default platform. Action: qualify output, hotplug and rotation on reference hardware.                           |
+| GPU and video decode           | Needs physical qualification | WPE with GStreamer, pinned WebKit per release. Action: qualify codecs and decode performance.                              |
+| Audio routing                  | Needs physical qualification | DDC controls volume. The renderer service has access through the `audio` group. Qualify audio routing on physical outputs. |
+| Presentation Network and Wi-Fi | Implemented and verified     | Same root helper and protocol as legacy, tested with a fake `nmcli`. Wi-Fi hardware still needs M11 qualification.         |
+| System telemetry               | Implemented and verified     | Platform providers feed the same gauges. No action.                                                                        |
+| Content store integrity        | Implemented and verified     | Verified CAS with pins exceeds the legacy flat cache. No action.                                                           |
 
 ## Ranked implementation actions
 
@@ -188,17 +188,16 @@ records code evidence, not documentation claims. Each row uses one status:
    Hardware must still confirm audible output.
 6. Retired plugins: done (`noise_meter` ignored with a warning;
    unknown kinds still reject).
-7. Playlist resume: persist and restore the playlist position.
-8. Mismatch surface and cache quarantine for installation mismatch.
-9. Streaming fallback or validated store sizing for large video.
-10. Unpair command for `tilecastctl`.
-11. Socket close-code fast path, or ratify the HTTP round-trip delay.
-12. Ratify the renderer-only `restart_activity` semantic.
+7. Playlist resume, installation mismatch quarantine, and `tilecastctl unpair`: done.
+8. Streaming fallback or validated store sizing for large video.
+9. Socket close-code fast path, or ratify the HTTP round-trip delay.
+10. Ratify the renderer-only `restart_activity` semantic.
 
 ## Physical qualification backlog
 
-No physical qualification has run yet. The backlog needs reference hardware
-for: DRM output and hotplug, video codecs and decode load, WPE snapshot
+The [0.2.1 hardening record](records/edge/0.2.1-sandbox-review.md) documents a
+limited Intel i915 field result. Signed-release qualification needs reference
+hardware for: DRM output and hotplug, video codecs and decode load, WPE snapshot
 fidelity, remote-web GPU frames and real-site playback, real YouTube
 playback, CEC and DDC against reference displays, logind idle inhibition on
 a VT kiosk, Presentation Network on supported Wi-Fi adapters, multi-device
@@ -208,13 +207,5 @@ rollback on a real disk.
 
 ## Notes
 
-- PR #1376 (preview transport), PR #1377 (command delivery) and PR #1378
-  (Watch Live stall recovery) remain draft. PR #1377 is green. PR #1376 has
-  one dashboard shard failure. PR #1378 has server, lint and dashboard
-  failures. Phase 3 finishes all three without competing implementations.
 - AirPlay remains unsupported by Edge. It is out of scope and must not be
   presented as implemented.
-- The readiness plan references `docs/tilecast-edge-sandbox-review.md`.
-  That file does not exist. Sandbox material lives in
-  `docs/tilecast-edge-remote-web-threat-review.md` and
-  `docs/widget-sandbox-threat-model.md`.

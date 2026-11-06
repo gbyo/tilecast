@@ -27,9 +27,9 @@ Two root programs install and change releases. Neither is a long-running
 service, and neither can read the device credential:
 
 - `tilecast-edge-migrate` installs the first release and runs the one-way
-  migration from the Electron player (M7). An operator starts it.
+  migration from the Electron player. An operator starts it.
 - `tilecast-edge-update` stages, activates, confirms and rolls back signed
-  updates (M10). Its socket starts it for `tilecastd`'s requests, and the
+  updates. Its socket starts it for `tilecastd`'s requests, and the
   update guard units run the previous release's copy of it. See
   [`docs/tilecast-edge-update-threat-review.md`](../../docs/tilecast-edge-update-threat-review.md).
 
@@ -59,7 +59,7 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `tilecastd`             | Linux composition, lifecycle, IPC, Runtime projection, renderer adapter, hardware providers, and `import-legacy`.                                                       |
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
 | `tilecast-edge-migrate` | The root installer and the one-way migration from the Electron player (M7).                                                                                             |
-| `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard (M10).                                                          |
+| `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard.                                                                |
 
 ### Dependency direction
 
