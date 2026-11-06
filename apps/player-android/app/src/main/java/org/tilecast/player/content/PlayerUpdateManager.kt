@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -59,6 +60,21 @@ object PlayerUpdateInstallPolicy {
 }
 
 /**
+ * Runs blocking file work off the caller's dispatcher. It is not cancellable: a session that
+ * Android already accepted must still be recorded by the caller.
+ */
+internal suspend fun <T> blockingIo(block:()->T):T=withContext(Dispatchers.IO+NonCancellable){block()}
+
+/** Lets one install handoff run at a time; a second approval while one runs is refused. */
+internal class InstallHandoffGate {
+    private val busy=java.util.concurrent.atomic.AtomicBoolean(false)
+    suspend fun <T> runExclusive(block:suspend()->T):T?{
+        if(!busy.compareAndSet(false,true))return null
+        try{return block()}finally{busy.set(false)}
+    }
+}
+
+/**
  * Where an update goes when the process died while its APK was being staged into a PackageInstaller
  * session. No installer result will ever arrive for it, so the person gets a retry, or the server a failure.
  */
@@ -69,6 +85,7 @@ internal fun interruptedStagingState(state:UpdateUiState,stagedFileExists:Boolea
 /** The state of a verified update whose installation waits for Takeover playback to end. */
 internal fun takeoverDelayedState(state:UpdateUiState,now:Instant):UpdateUiState =
     state.copy(state="ready",message="Installation delayed by takeover playback",permissionRequired=false,installReady=true,maintenanceAt=now.toString())
+
 
 internal enum class ScheduledInstallGate { Proceed, Cancelled }
 
@@ -98,6 +115,7 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Default)
     private var maintenanceJob:Job?=null
     private val listeners=java.util.concurrent.CopyOnWriteArrayList<(UpdateUiState)->Unit>()
+    private val handoff=InstallHandoffGate()
     /** Observes every persisted update state. The production ViewModel shows the approval UI from this. */
     fun addListener(listener:(UpdateUiState)->Unit){listeners+=listener}
     fun removeListener(listener:(UpdateUiState)->Unit){listeners-=listener}
@@ -189,22 +207,20 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
         if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,changed.deploymentId,changed.state,changed.downloadedBytes,if(changed.permissionRequired)"required" else "granted",error=if(changed.state=="failed")changed.errorCode?:"installer_failed" else "")}
         return changed
     }
-    /**
-     * Starts the system installer for a ready update and reports the handoff. Null when the installer refused to start.
-     * Takeover can begin after the update reached its approval screen, so it is checked again here;
-     * the update then waits for Takeover to end and asks for approval again.
-     */
-    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState?{
+    /** Starts the system installer after checking for active Takeover playback. */
+    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState?=handoff.runExclusive{
         if(takeoverActive()){
             val delayed=delayForTakeover(server,credential,state,takeoverActive)
             if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"ready",state.downloadedBytes,"granted","delayed_by_takeover")}
-            return delayed
+            return@runExclusive delayed
         }
-        if(!install(state))return null
+        announce(state.copy(state="installing",message="Preparing the update for Android",installReady=false))
+        if(!install(state)){announce(state);return@runExclusive null}
+
         val installing=state.copy(state="installing",message="Complete installation in the Android prompt")
         persist(installing)
         if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"installing",state.downloadedBytes,"granted","system_installer_started")}
-        return installing
+        installing
     }
     private fun delayForTakeover(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState{
         val delayed=takeoverDelayedState(state,Instant.now())
@@ -213,7 +229,8 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
         if(server!=null&&credential!=null)scheduleMaintenance(server,credential,delayed,takeoverActive){}
         return delayed
     }
-    fun permissionGranted(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState? {
+    suspend fun permissionGranted(server:String?,credential:String?,state:UpdateUiState,takeoverActive:()->Boolean):UpdateUiState? {
+
         if((Build.VERSION.SDK_INT>=26&&!app.packageManager.canRequestPackageInstalls())||!state.permissionRequired)return null
         if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT)&&takeoverActive())return delayForTakeover(server,credential,state,takeoverActive)
         val next=if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT))state.copy(state="installing",message="Installing verified player update",permissionRequired=false,installReady=false) else state.copy(state="waiting_for_user",message="This Android version requires local installer approval",permissionRequired=false,installReady=true)
@@ -251,7 +268,10 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
         store.edit().clear().apply()
         onState(state.copy(state="cancelled",message="Update deployment was cancelled",installReady=false,permissionRequired=false,maintenanceAt=null))
     }
-    fun install(state:UpdateUiState):Boolean{
+    /** Verifies the staged APK and copies it into a PackageInstaller session on the I/O dispatcher. */
+    suspend fun install(state:UpdateUiState):Boolean=blockingIo{installBlocking(state)}
+
+    private fun installBlocking(state:UpdateUiState):Boolean{
         val persisted=state.exactPath?.let(::File)?:return false
         val apk=if(!state.releaseId.isNullOrBlank()&&!state.artifactId.isNullOrBlank()){
             val selected=selectExactStagedArtifact(updateDirectory(),state.releaseId,state.artifactId)?:return false
@@ -309,5 +329,6 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
         val certificate=signatures?.firstOrNull()?.toByteArray()?:throw IllegalStateException("installed_certificate_missing")
         return MessageDigest.getInstance("SHA-256").digest(certificate).joinToString(""){"%02x".format(it)}
     }
-    private fun persist(state:UpdateUiState){store.edit().putString("deployment",state.deploymentId).putString("new-version",state.newVersion).putString("state",state.state).putLong("downloaded",state.downloadedBytes).putLong("expected",state.expectedBytes).putBoolean("permission",state.permissionRequired).putBoolean("ready",state.installReady).apply{if(state.maintenanceAt==null)remove("maintenance-at") else putString("maintenance-at",state.maintenanceAt);if(state.errorCode==null)remove("error-code") else putString("error-code",state.errorCode);if(state.releaseId==null)remove("release-id") else putString("release-id",state.releaseId);if(state.artifactId==null)remove("artifact-id") else putString("artifact-id",state.artifactId);if(state.expectedSha256==null)remove("expected-sha256") else putString("expected-sha256",state.expectedSha256);if(state.expectedVersionCode==null)remove("expected-version-code") else putLong("expected-version-code",state.expectedVersionCode);if(state.exactPath==null)remove("exact-path") else putString("exact-path",state.exactPath)}.apply();listeners.forEach{runCatching{it(state)}}}
+    private fun persist(state:UpdateUiState){store.edit().putString("deployment",state.deploymentId).putString("new-version",state.newVersion).putString("state",state.state).putLong("downloaded",state.downloadedBytes).putLong("expected",state.expectedBytes).putBoolean("permission",state.permissionRequired).putBoolean("ready",state.installReady).apply{if(state.maintenanceAt==null)remove("maintenance-at") else putString("maintenance-at",state.maintenanceAt);if(state.errorCode==null)remove("error-code") else putString("error-code",state.errorCode);if(state.releaseId==null)remove("release-id") else putString("release-id",state.releaseId);if(state.artifactId==null)remove("artifact-id") else putString("artifact-id",state.artifactId);if(state.expectedSha256==null)remove("expected-sha256") else putString("expected-sha256",state.expectedSha256);if(state.expectedVersionCode==null)remove("expected-version-code") else putLong("expected-version-code",state.expectedVersionCode);if(state.exactPath==null)remove("exact-path") else putString("exact-path",state.exactPath)}.apply();announce(state)}
+    private fun announce(state:UpdateUiState){listeners.forEach{runCatching{it(state)}}}
 }
