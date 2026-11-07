@@ -273,4 +273,51 @@ describe("LiveStreamDialog", () => {
     ).toContain("/session-2/mjpeg");
     expect(screen.queryByText("Stream unavailable")).toBeNull();
   });
+  it("uses the preview orientation immediately and follows the actual MJPEG frame dimensions", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "session-portrait",
+              screenId: "screen-1",
+              active: true,
+              expiresAt: "2026-07-30T12:00:15Z",
+              frameIntervalMillis: 125,
+              maxWidth: 640,
+              maxHeight: 640,
+              maxFrameBytes: 102400,
+            },
+          }),
+          { status: 201 },
+        ),
+      )
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    render(
+      <LiveStreamDialog
+        open
+        screenId="screen-1"
+        screenName="Portrait"
+        csrfToken="csrf"
+        initialWidth={360}
+        initialHeight={640}
+        onClose={() => undefined}
+      />,
+    );
+
+    const image = await screen.findByAltText("Live Tilecast output from Portrait");
+    const frame = image.parentElement;
+    expect(frame?.style.aspectRatio).toBe("360 / 640");
+    expect(frame?.style.width).toBe("min(100%, 39.38dvh)");
+
+    Object.defineProperties(image, {
+      naturalWidth: { configurable: true, value: 540 },
+      naturalHeight: { configurable: true, value: 960 },
+    });
+    fireEvent.load(image);
+    expect(frame?.style.aspectRatio).toBe("540 / 960");
+    expect(screen.getByText("Live")).toBeTruthy();
+  });
+
 });

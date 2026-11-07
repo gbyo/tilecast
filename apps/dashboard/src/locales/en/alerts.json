@@ -258,7 +258,7 @@
     "waitingFrame": "Waiting for the first frame.",
     "liveBadge": "Live",
     "targetLine": "Targeting <strong>{{target}}</strong>. Actual refresh depends on the player and network.",
-    "targetValue": "{{fps}} FPS · {{width}}×{{height}}",
+    "targetValue": "{{fps}} FPS · up to {{width}}×{{height}}",
     "privacyNote": "This stream is relayed only while this window is open. Frames are never saved to snapshots, live preview, Activity, or backups.",
     "stopWatching": "Stop watching"
   }

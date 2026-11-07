@@ -6,6 +6,7 @@ import { ApiError } from "../api/errors";
 import type { WireLiveStreamSession } from "../api/domains/screens";
 import { endLiveStreamSession } from "../api/liveStreams";
 import { presentationPath } from "../native-presentation/openNativePresentation";
+import { livePreviewFrameStyle } from "./livePreviewFrameStyle";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -45,15 +46,20 @@ export function LiveStreamViewer({
   screenId,
   screenName,
   csrfToken,
+  initialWidth,
+  initialHeight,
 }: {
   enabled?: boolean;
   screenId: string;
   screenName: string;
   csrfToken: string;
+  initialWidth?: number | null;
+  initialHeight?: number | null;
 }) {
   const { t } = useTranslation(["alerts", "common"]);
   const [session, setSession] = useState<WireLiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<LiveStreamViewerError | null>(null);
   const [streamAttempt, setStreamAttempt] = useState(0);
   const sessionRef = useRef<WireLiveStreamSession | null>(null);
@@ -126,6 +132,7 @@ export function LiveStreamViewer({
       transportRetryCount.current = 0;
       setSession(next);
       setPlaying(false);
+      setFrameSize(null);
       setError(null);
       scheduleRenewal(renew);
     };
@@ -278,7 +285,10 @@ export function LiveStreamViewer({
 
   return (
     <>
-      <div className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]">
+      <div
+        className="relative mx-auto grid max-w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]"
+        style={livePreviewFrameStyle(frameSize?.width ?? initialWidth, frameSize?.height ?? initialHeight)}
+      >
         {session ? (
           <img
             key={`${session.id}:${streamAttempt}`}
@@ -287,7 +297,15 @@ export function LiveStreamViewer({
               streamAttempt ? `?retry=${streamAttempt}` : ""
             }`}
             alt={t("liveStream.imageAlt", { name: screenName })}
-            onLoad={() => {
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth > 0 && naturalHeight > 0) {
+                setFrameSize((previous) =>
+                  previous?.width === naturalWidth && previous?.height === naturalHeight
+                    ? previous
+                    : { width: naturalWidth, height: naturalHeight },
+                );
+              }
               if (transportRetryTimer.current !== null) {
                 window.clearTimeout(transportRetryTimer.current);
                 transportRetryTimer.current = null;
@@ -372,12 +390,16 @@ export function LiveStreamDialog({
   screenId,
   screenName,
   csrfToken,
+  initialWidth,
+  initialHeight,
   onClose,
 }: {
   open: boolean;
   screenId: string;
   screenName: string;
   csrfToken: string;
+  initialWidth?: number | null;
+  initialHeight?: number | null;
   onClose: () => void;
 }) {
   const { t } = useTranslation(["alerts", "common"]);
@@ -388,7 +410,7 @@ export function LiveStreamDialog({
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="w-[min(920px,calc(100vw-2rem))] max-w-none">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[min(920px,calc(100vw-2rem))] max-w-none overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {t("liveStream.title", { name: screenName })}
@@ -400,6 +422,8 @@ export function LiveStreamDialog({
           screenId={screenId}
           screenName={screenName}
           csrfToken={csrfToken}
+          initialWidth={initialWidth}
+          initialHeight={initialHeight}
         />
         <DialogFooter>
           <Button onClick={onClose}>{t("liveStream.stopWatching")}</Button>

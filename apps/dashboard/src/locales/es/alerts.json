@@ -267,7 +267,7 @@
     "waitingFrame": "Esperando el primer fotograma.",
     "liveBadge": "En vivo",
     "targetLine": "Objetivo: <strong>{{target}}</strong>. La frecuencia real depende del reproductor y la red.",
-    "targetValue": "{{fps}} FPS · {{width}}×{{height}}",
+    "targetValue": "{{fps}} FPS · hasta {{width}}×{{height}}",
     "privacyNote": "Esta transmisión se retransmite solo mientras esta ventana está abierta. Los fotogramas nunca se guardan en capturas, vista previa, Actividad ni copias de seguridad.",
     "stopWatching": "Deja de mirar"
   }
