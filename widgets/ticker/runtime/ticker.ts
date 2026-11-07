@@ -151,7 +151,10 @@ export function parseTickerConfig(value: unknown): ConfigResult<TickerConfig> {
     textScale < 25 ||
     textScale > 500
   ) {
-    return { ok: false, problem: "textScale must be an integer from 25 to 500" };
+    return {
+      ok: false,
+      problem: "textScale must be an integer from 25 to 500",
+    };
   }
   const direction = raw["direction"] ?? "left";
   if (!TICKER_DIRECTIONS.includes(direction as never)) {
