@@ -15,10 +15,12 @@ const (
 	LeaseDuration     = 15 * time.Second
 	FrameInterval     = 125 * time.Millisecond
 	MaxFrameBytes     = 100 * 1024
+	// The axes have independent bounds: 16:9 captures stay 640x360,
+	// while portrait captures can be 360x640 without a rotated/cropped frame.
 	MaxWidth          = 640
-	MaxHeight         = 360
+	MaxHeight         = 640
 	EdgeMaxWidth      = 960
-	EdgeMaxHeight     = 540
+	EdgeMaxHeight     = 960
 	EdgeFrameInterval = 100 * time.Millisecond
 	frameHeader       = 33
 

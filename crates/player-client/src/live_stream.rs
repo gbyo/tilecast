@@ -11,8 +11,9 @@
 //! stale data is never intentionally emitted. An inactive, expired,
 //! malformed, or incomplete session fails closed to no streaming.
 //!
-//! Bounds mirror the server maximum: 960x540, 100 KiB, 100 ms target
-//! interval (about 8 FPS). Server numbers are never trusted for allocations
+//! Bounds mirror the server maximum: 960 on either axis (portrait or
+//! landscape), 100 KiB, 100 ms target interval (up to 10 FPS). Server numbers
+//! are never trusted for allocations
 //! or timing: dimensions and byte limits are clamped to the local maximums,
 //! and the capture cadence has a local lower bound.
 
@@ -21,7 +22,7 @@ use serde_json::Value;
 /// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
 pub const MAX_WIDTH: u32 = 960;
 /// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
-pub const MAX_HEIGHT: u32 = 540;
+pub const MAX_HEIGHT: u32 = 960;
 /// Local maximum encoded frame bytes (the server's `MaxFrameBytes`).
 pub const MAX_FRAME_BYTES: usize = 100 * 1024;
 /// Lower bound for the capture cadence: a faster server interval never speeds
@@ -195,7 +196,9 @@ mod tests {
         let jpeg = [0xFF, 0xD8, 0x01, 0xFF, 0xD9];
         assert!(encode_live_stream_frame(&session_id, 1, 0, 360, &jpeg).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 961, 360, &jpeg).is_none());
-        assert!(encode_live_stream_frame(&session_id, 1, 640, 541, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 640, 961, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 360, 640, &jpeg).is_some());
+        assert!(encode_live_stream_frame(&session_id, 1, 540, 960, &jpeg).is_some());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, b"GIF89a").is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0xFF]).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0x01, 0x02]).is_none());

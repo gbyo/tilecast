@@ -29,7 +29,7 @@ failure is retried automatically before Studio falls back to the manual
 
 Changing Studio language does not restart the live-stream lease.
 
-The default is 8 frames per second at no more than 640×360. Updated Edge players explicitly request a 960×540 at 10 FPS profile via their authenticated player session poll. Other players retain the legacy limits. Capture, JPEG
+The default is 8 frames per second, with independent per-axis bounds of 640×640 so a 16:9 screen may capture at 640×360 landscape or 360×640 portrait. Updated Edge players explicitly request up to 960×960 at 10 FPS via their authenticated player session poll (960×540 landscape or 540×960 portrait). Older clients may still enforce their previous 640×360 or 960×540 local limits until updated. Capture, JPEG
 encoding, player performance, and network latency can lower the actual frame
 rate. Each frame is limited to 100 KiB; real signage frames are usually much
 smaller, but the hard theoretical payload ceiling is about 6.4 Mbit/s while the

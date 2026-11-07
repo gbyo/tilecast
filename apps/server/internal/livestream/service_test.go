@@ -157,7 +157,7 @@ func TestEdgeProfileOptInAndLegacyBounds(t *testing.T) {
 	screenID := uuid.New()
 	service := NewService(nil)
 	initial := service.Start(screenID)
-	if initial.MaxWidth != 640 || initial.MaxHeight != 360 || initial.FrameIntervalMillis != 125 {
+	if initial.MaxWidth != 640 || initial.MaxHeight != 640 || initial.FrameIntervalMillis != 125 {
 		t.Fatalf("unexpected default profile: %+v", initial)
 	}
 	unchanged := service.SelectProfile(screenID, false)
@@ -165,7 +165,7 @@ func TestEdgeProfileOptInAndLegacyBounds(t *testing.T) {
 		t.Fatalf("legacy request changed session: %+v", unchanged)
 	}
 	upgraded := service.SelectProfile(screenID, true)
-	if upgraded.ID != initial.ID || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 540 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 {
+	if upgraded.ID != initial.ID || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 960 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 {
 		t.Fatalf("bad negotiated profile: %+v", upgraded)
 	}
 	jpeg := []byte{0xff, 0xd8, 1, 0xff, 0xd9}
@@ -179,5 +179,31 @@ func TestEdgeProfileOptInAndLegacyBounds(t *testing.T) {
 	legacy := service.Start(other)
 	if err := service.Publish(other, legacy.ID, Frame{CapturedAt: time.Now(), Width: 960, Height: 540, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("unnegotiated high resolution accepted: %v", err)
+	}
+}
+
+func TestPortraitFramesUseOrientationIndependentBounds(t *testing.T) {
+	service := NewService(nil)
+	screenID := uuid.New()
+	session := service.Start(screenID)
+	jpeg := []byte{0xff, 0xd8, 1, 0xff, 0xd9}
+	now := time.Now().UTC()
+
+	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: now, Width: 360, Height: 640, JPEG: jpeg}); err != nil {
+		t.Fatalf("portrait default frame rejected: %v", err)
+	}
+	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: now, Width: 360, Height: 641, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("default height limit not enforced: %v", err)
+	}
+
+	high := service.SelectProfile(screenID, true)
+	if high.MaxWidth != 960 || high.MaxHeight != 960 {
+		t.Fatalf("high profile cannot fit portrait: %+v", high)
+	}
+	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: now, Width: 540, Height: 960, JPEG: jpeg}); err != nil {
+		t.Fatalf("portrait high-res frame rejected: %v", err)
+	}
+	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: now, Width: 540, Height: 961, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("high profile height limit not enforced: %v", err)
 	}
 }
