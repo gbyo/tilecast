@@ -253,7 +253,10 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
       }
       .label {
         flex: none;
-        font-size: calc(clamp(10px, min(4.5cqh, 3cqw), 72px) * var(--tc-ticker-text-scale, 1));
+        font-size: calc(
+          clamp(10px, min(4.5cqh, 3cqw), 72px) *
+            var(--tc-ticker-text-scale, 1)
+        );
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -287,7 +290,10 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
         animation-direction: reverse;
       }
       .item {
-        font-size: calc(clamp(12px, min(6cqh, 4cqw), 110px) * var(--tc-ticker-text-scale, 1));
+        font-size: calc(
+          clamp(12px, min(6cqh, 4cqw), 110px) *
+            var(--tc-ticker-text-scale, 1)
+        );
         font-weight: 600;
         line-height: 1.3;
       }
