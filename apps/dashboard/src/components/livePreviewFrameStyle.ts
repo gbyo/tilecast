@@ -19,7 +19,8 @@ export function livePreviewFrameStyle(
     height > 0;
   const frameWidth = valid ? width : 16;
   const frameHeight = valid ? height : 9;
-  const viewportWidth = Math.round((frameWidth / frameHeight) * maxViewportHeight * 100) / 100;
+  const viewportWidth =
+    Math.round((frameWidth / frameHeight) * maxViewportHeight * 100) / 100;
 
   return {
     aspectRatio: `${frameWidth} / ${frameHeight}`,

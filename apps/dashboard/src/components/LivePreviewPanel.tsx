@@ -203,7 +203,11 @@ export function LivePreviewPanel({
       <CardContent className="min-w-0">
         <div
           className="relative mx-auto grid max-w-full overflow-hidden rounded-xl border border-border bg-[#080b0f]"
-          style={livePreviewFrameStyle(preview.data?.width, preview.data?.height, 55)}
+          style={livePreviewFrameStyle(
+            preview.data?.width,
+            preview.data?.height,
+            55,
+          )}
         >
           {!imageLoadFailed &&
           (state === "live" || state === "stale") &&

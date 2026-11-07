@@ -59,7 +59,10 @@ export function LiveStreamViewer({
   const { t } = useTranslation(["alerts", "common"]);
   const [session, setSession] = useState<WireLiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
+  const [frameSize, setFrameSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [error, setError] = useState<LiveStreamViewerError | null>(null);
   const [streamAttempt, setStreamAttempt] = useState(0);
   const sessionRef = useRef<WireLiveStreamSession | null>(null);
@@ -287,7 +290,10 @@ export function LiveStreamViewer({
     <>
       <div
         className="relative mx-auto grid max-w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]"
-        style={livePreviewFrameStyle(frameSize?.width ?? initialWidth, frameSize?.height ?? initialHeight)}
+        style={livePreviewFrameStyle(
+          frameSize?.width ?? initialWidth,
+          frameSize?.height ?? initialHeight,
+        )}
       >
         {session ? (
           <img
@@ -301,7 +307,8 @@ export function LiveStreamViewer({
               const { naturalWidth, naturalHeight } = event.currentTarget;
               if (naturalWidth > 0 && naturalHeight > 0) {
                 setFrameSize((previous) =>
-                  previous?.width === naturalWidth && previous?.height === naturalHeight
+                  previous?.width === naturalWidth &&
+                  previous?.height === naturalHeight
                     ? previous
                     : { width: naturalWidth, height: naturalHeight },
                 );
@@ -373,7 +380,7 @@ export function LiveStreamViewer({
                 : t("liveStream.targetValue", {
                     fps: 8,
                     width: 640,
-                    height: 360,
+                    height: 640,
                   }),
             }}
             components={{ strong: <strong /> }}

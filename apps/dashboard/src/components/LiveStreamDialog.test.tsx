@@ -306,7 +306,9 @@ describe("LiveStreamDialog", () => {
       />,
     );
 
-    const image = await screen.findByAltText("Live Tilecast output from Portrait");
+    const image = await screen.findByAltText(
+      "Live Tilecast output from Portrait",
+    );
     const frame = image.parentElement;
     expect(frame?.style.aspectRatio).toBe("360 / 640");
     expect(frame?.style.width).toBe("min(100%, 39.38dvh)");
@@ -319,5 +321,4 @@ describe("LiveStreamDialog", () => {
     expect(frame?.style.aspectRatio).toBe("540 / 960");
     expect(screen.getByText("Live")).toBeTruthy();
   });
-
 });
