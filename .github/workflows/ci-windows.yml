@@ -42,6 +42,8 @@ jobs:
           node-version: 22
       - name: Validate affected-area graph
         run: node --test scripts/ci/affected.test.mjs
+      - name: Validate conformance engine process handling
+        run: node --test packages/player-runtime/conformance/engine-process.test.mjs
       - name: Classify changed paths
         id: paths
         env:
@@ -162,9 +164,6 @@ jobs:
             --out "$RUNNER_TEMP/conformance" \
             --windows-runner "$PWD/target/debug/tilecast-runtime-conformance.exe"
       - name: Electron reference engine
-        env:
-          # The .bin shim is a .cmd file; run the executable directly.
-          TILECAST_ELECTRON: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
         run: |
           node packages/player-runtime/conformance/run.mjs --engine electron \
             --out "$RUNNER_TEMP/conformance"
