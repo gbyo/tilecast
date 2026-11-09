@@ -36,7 +36,10 @@ export function projectZoneWidget(
       dataSources: ctx.dataSources,
     });
     if (!remoteWeb) {
-      if (widget.provider === "website" && widget.presentation?.kind === "web") {
+      if (
+        widget.provider === "website" &&
+        widget.presentation?.kind === "web"
+      ) {
         throw new UnresolvedWebsiteUrlError();
       }
       throw new Error("Layout Widget remote web projection failed");
