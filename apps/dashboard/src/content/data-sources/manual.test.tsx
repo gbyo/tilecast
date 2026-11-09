@@ -206,20 +206,3 @@ describe("Manual Table simple list mode", () => {
     expect(document.querySelector("#manual-cell-0-room")).toHaveValue("101");
   });
 });
-
-
-// Temporary diagnostics: print the repository Prettier output in CI to isolate
-// a formatting-only failure. Remove this probe after applying its output.
-it("TILECAST_PRETTIER_PROBE", async () => {
-  const { readFile } = await import("node:fs/promises");
-  const { resolve } = await import("node:path");
-  const prettier = await import("prettier");
-  const filename = resolve(process.cwd(), "src/content/data-sources/manual.tsx");
-  const source = await readFile(filename, "utf8");
-  const config = await prettier.resolveConfig(filename);
-  const formatted = await prettier.format(source, {
-    ...config,
-    filepath: filename,
-  });
-  console.log("TILECAST_PRETTIER_START\\n" + formatted + "TILECAST_PRETTIER_END");
-});
