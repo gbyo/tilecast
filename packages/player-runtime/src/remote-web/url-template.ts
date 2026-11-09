@@ -63,12 +63,7 @@ export function resolveWebsiteUrl(
 
   const select = (key: string): string | undefined => {
     if (Object.prototype.hasOwnProperty.call(values, key)) return values[key];
-    if (
-      !key.startsWith("data.") ||
-      !data ||
-      data.unavailable ||
-      data.hidden
-    ) {
+    if (!key.startsWith("data.") || !data || data.unavailable || data.hidden) {
       return undefined;
     }
     const path = key.slice(5);
@@ -121,11 +116,7 @@ export function resolveWebsiteUrl(
     }
     url.search = params.toString();
     const result = url.toString();
-    if (
-      result.length > 2048 ||
-      result.includes("{") ||
-      result.includes("}")
-    ) {
+    if (result.length > 2048 || result.includes("{") || result.includes("}")) {
       return null;
     }
     return result;

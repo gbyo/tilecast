@@ -170,18 +170,3 @@ describe("the shipped localized definitions", () => {
     },
   );
 });
-
-
-// Temporary formatter diagnostics for the URL resolver; remove after CI.
-it("TILECAST_URL_PRETTIER_PROBE", async () => {
-  const { readFile } = await import("node:fs/promises");
-  const { resolve } = await import("node:path");
-  const prettier = await import("prettier");
-  for (const name of ["url-template.ts", "url-template.test.ts"]) {
-    const filename = resolve(process.cwd(), "../../packages/player-runtime/src/remote-web", name);
-    const source = await readFile(filename, "utf8");
-    const config = await prettier.resolveConfig(filename);
-    const formatted = await prettier.format(source, { ...config, filepath: filename });
-    console.log("TILECAST_URL_PRETTIER_START_" + name + "\\n" + formatted + "TILECAST_URL_PRETTIER_END_" + name);
-  }
-});
