@@ -992,6 +992,7 @@ impl Candidate {
     ) -> Result<(ProjectionContext, Vec<ContentRef>), ManifestError> {
         let mut manifest = serde_json::Map::new();
         for key in [
+            "screenId",
             "assets",
             "playlist",
             "directFallbackPlaylist",
