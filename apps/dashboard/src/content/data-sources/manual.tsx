@@ -118,6 +118,18 @@ export function ManualDataSourceEditor({
     configuration.rows.every(
       (row) => !/[\r\n]/.test(row.values[textColumn.key] ?? ""),
     );
+  const tableListItems = canUseSimpleList
+    ? textListItems(
+        configuration.rows
+          .map((row) => row.values[textColumn.key] ?? "")
+          .join("\n"),
+      )
+    : [];
+  const tableListInvalid =
+    tableListItems.length > maximumManualRows ||
+    tableListItems.some(
+      (line) => Array.from(line).length > maximumManualTextLength,
+    );
   const listItems = textListItems(textListDraft);
   const listTooMany = listItems.length > maximumManualRows;
   const listTooLong = listItems.some(
@@ -304,9 +316,9 @@ export function ManualDataSourceEditor({
             type="button"
             variant={entryMode === "list" ? "default" : "outline"}
             aria-pressed={entryMode === "list"}
-            disabled={!canUseSimpleList}
+            disabled={!canUseSimpleList || tableListInvalid}
             onClick={() => {
-              if (!canUseSimpleList) return;
+              if (!canUseSimpleList || tableListInvalid) return;
               setTextListDraft(
                 configuration.rows
                   .map((row) => row.values[textColumn.key] ?? "")
@@ -621,7 +633,15 @@ export function ManualDataSourceEditor({
             rows={10}
             disabled={readOnly}
             aria-invalid={listInvalid}
-            aria-describedby="manual-text-list-hint"
+            aria-describedby={
+              [
+                "manual-text-list-hint",
+                listTooMany ? "manual-text-list-too-many" : "",
+                listTooLong ? "manual-text-list-too-long" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
+            }
             onChange={(event) => changeTextList(event.target.value)}
           />
           <FieldDescription id="manual-text-list-hint">
@@ -633,12 +653,20 @@ export function ManualDataSourceEditor({
             })}
           </p>
           {listTooMany && (
-            <p role="alert" className="text-sm text-destructive">
+            <p
+              id="manual-text-list-too-many"
+              role="alert"
+              className="text-sm text-destructive"
+            >
               {t("dataSources.manual.textListTooMany")}
             </p>
           )}
           {listTooLong && (
-            <p role="alert" className="text-sm text-destructive">
+            <p
+              id="manual-text-list-too-long"
+              role="alert"
+              className="text-sm text-destructive"
+            >
               {t("dataSources.manual.textListTooLong")}
             </p>
           )}
