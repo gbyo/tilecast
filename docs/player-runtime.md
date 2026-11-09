@@ -367,6 +367,7 @@ npm run build --workspace @tilecast/player-runtime   # dist/runtime, dist/node, 
 ```
 
 `dist/runtime` is the artifact every host serves: `index.html`, `runtime.js` (one classic script with Lit and XState bundled), `runtime.css`, the logo, the font subsets and `runtime-manifest.json` (every file with its size and SHA-256). The Linux release check (`scripts/verify-linux-player-release.mjs`) and `apps/edge/renderer-wpe/assemble-runtime.sh` verify the packaged files against that manifest.
+
 ## Direct Layout lifetime
 
 The Linux Electron host projects a directly assigned or scheduled Layout as a
