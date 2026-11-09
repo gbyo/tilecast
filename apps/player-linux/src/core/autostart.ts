@@ -32,6 +32,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { logger } from "./log";
@@ -48,6 +49,7 @@ export const UNIT_NAME = "tilecast-player.service";
  * host-tool view as a display-manager or SSH-launched player.
  */
 export const MANAGED_PLAYER_PATH = "/usr/local/bin:/usr/bin:/bin";
+const DEBIAN_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
 
 /**
  * Marker written into every generated unit. `remove` requires it, so a unit an
@@ -137,6 +139,8 @@ export interface AutostartDeps {
     /** Server URL supplied by environment rather than persisted setup. */
     serverUrl: string | null;
     logLevel: string | null;
+    /** Explicit CA bundle or the system bundle available on this host. */
+    extraCaCerts?: string | null;
   };
   /** Run a command to completion. Must not throw for a non-zero exit. */
   run(command: string, args: string[]): Promise<CommandOutput>;
@@ -220,6 +224,7 @@ export function renderUnit(input: UnitRenderInput): string {
     // state directory and present itself as an unpaired screen.
     ["TILECAST_DATA_DIR", environment.dataDirectory],
     ["TILECAST_SERVER_URL", environment.serverUrl],
+    ["NODE_EXTRA_CA_CERTS", environment.extraCaCerts ?? null],
     ["DISPLAY", environment.display],
     ["WAYLAND_DISPLAY", environment.waylandDisplay],
   ];
@@ -366,10 +371,15 @@ export class AutostartInstaller {
    */
   async repairLegacyGeneratedUnit(): Promise<boolean> {
     const existing = await this.deps.readFile(this.unitPath());
+    const missingCaTrust =
+      Boolean(this.deps.environment.extraCaCerts) &&
+      !/^Environment=NODE_EXTRA_CA_CERTS=/m.test(existing ?? "");
     if (
       existing === null ||
       !existing.includes(GENERATED_MARKER) ||
-      (hasFuseIndependentLaunch(existing) && hasManagedPlayerPath(existing)) ||
+      (hasFuseIndependentLaunch(existing) &&
+        hasManagedPlayerPath(existing) &&
+        !missingCaTrust) ||
       !this.deps.appImagePath
     ) {
       return false;
@@ -378,13 +388,25 @@ export class AutostartInstaller {
     try {
       const target =
         this.targetFromUnit(existing) ?? (await this.chooseTarget());
+      // A CA-only repair must preserve operator additions to a generated unit
+      // (for example, legacy Intel GPU tuning) rather than re-rendering it.
+      const caOnly =
+        missingCaTrust &&
+        hasFuseIndependentLaunch(existing) &&
+        hasManagedPlayerPath(existing) &&
+        /^\[Service\]$/m.test(existing);
       await this.deps.writeFile(
         this.unitPath(),
-        renderUnit({
-          appImagePath: this.deps.appImagePath,
-          target,
-          environment: this.deps.environment,
-        }),
+        caOnly
+          ? existing.replace(
+              /^\[Service\]$/m,
+              `[Service]\nEnvironment=${unitQuote(`NODE_EXTRA_CA_CERTS=${this.deps.environment.extraCaCerts}`)}`,
+            )
+          : renderUnit({
+              appImagePath: this.deps.appImagePath,
+              target,
+              environment: this.deps.environment,
+            }),
       );
       const reload = await this.deps.run("systemctl", [
         "--user",
@@ -714,6 +736,9 @@ export function systemAutostartDeps(
       serverUrl:
         effective?.serverUrl ?? environment["TILECAST_SERVER_URL"] ?? null,
       logLevel: environment["TILECAST_LOG_LEVEL"] ?? null,
+      extraCaCerts:
+        environment["NODE_EXTRA_CA_CERTS"] ||
+        (existsSync(DEBIAN_CA_BUNDLE) ? DEBIAN_CA_BUNDLE : null),
     },
     // Resolves for a non-zero exit as well: a failed probe is an answer
     // ("not enabled", "no user manager"), not an exception.

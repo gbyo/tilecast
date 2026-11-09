@@ -8,6 +8,16 @@
 
 ## Reliability and power
 
+If the legacy Linux Player keeps showing the server-address screen after the
+address is saved, check `curl -fsS https://SERVER/api/v1/system/identity` and
+the player user-unit log. `curl` can trust a private CA from the Debian system
+store while Electron's Node HTTP client still uses bundled roots. Install the
+issuing CA in the host trust store; the server-provided unit passes
+`/etc/ssl/certs/ca-certificates.crt` as `NODE_EXTRA_CA_CERTS` at process start.
+Restart the player service after changing trust. A manually launched AppImage
+needs the same variable in its launch environment. Never disable TLS
+verification or trust a certificate fetched over the unverified connection.
+
 - **Zero-Touch Readiness says Needs setup or Partially ready:** inspect every safeguard on the screen’s Reliability tab. Accessibility and install permission require local Android approval. Open them from the local maintenance menu. Boot launch is confirmed only after a healthy foreground return. Cached fallback requires fully prepared downloadable content. Playback continues while a safeguard is missing.
 - **Android TV shows Connect to Tilecast Server and Searching this network…:** multicast discovery did not find a server. The Player continues to search. Select **Enter server address** and type the Studio address. A bare private address such as `192.168.1.50:8080` uses HTTP.
 - **A canary update paused:** review the safe rollout reason. Tilecast pauses for explicit failure, safe mode, or a missed reconnect; it does not continue to held screens automatically after a bad canary.

@@ -94,6 +94,9 @@ func TestServedPlayerUnitIncludesManagedHostToolPath(t *testing.T) {
 		) {
 			t.Fatal("served player unit does not define the managed host-tool PATH")
 		}
+		if !strings.Contains(recorder.Body.String(), "Environment=NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt") {
+			t.Fatal("served player unit does not load the Debian system CA bundle")
+		}
 	})
 }
 

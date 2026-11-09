@@ -13,6 +13,7 @@ The Tilecast Server installer uses the newest AppImage Player release cached and
 
 - Use a 64-bit x86_64 Linux computer with a graphical desktop session on X11 or Wayland.
 - Make sure the computer can reach Tilecast Server at the address in `TILECAST_PUBLIC_URL`.
+- For a private or self-signed HTTPS certificate, install the issuing CA in the Linux system trust store before installing the Player. The certificate must also match the server hostname. Do not copy the CA private key to the Player.
 - Sign in to Studio as an Owner to prepare the Linux release.
 
 The server-provided installer requires root for installation. It installs the AppImage under an unprivileged kiosk account. The default account is the one that invoked `sudo`; pass `--user` to select another account.
@@ -44,6 +45,8 @@ curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --user signa
 ```
 
 The installer checks the downloaded release checksum, installs the AppImage and user service, and sets the server address in the service. By default, it also tries optional AirPlay and Presentation Network setup. A failed optional setup does not prevent the Player from pairing.
+
+On Debian-family hosts, the installed service passes the system CA bundle to Electron's Node HTTP client. A CA added with `update-ca-certificates` is therefore trusted by both `curl` and the Player after the service restarts. A manually launched AppImage can use `NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt` in its launch environment. This does not bypass certificate verification or trust a new self-signed certificate automatically.
 
 If you do not need these capabilities, skip them when running the installer.
 

@@ -132,6 +132,7 @@ describe("renderUnit", () => {
         dataDirectory: "/srv/tilecast-state",
         serverUrl: "https://signage.example.org",
         logLevel: "debug",
+        extraCaCerts: "/etc/ssl/certs/ca-certificates.crt",
       },
     });
     expect(unit).toContain(GENERATED_MARKER);
@@ -147,6 +148,9 @@ describe("renderUnit", () => {
       "Environment=TILECAST_SERVER_URL=https://signage.example.org",
     );
     expect(unit).toContain("Environment=TILECAST_LOG_LEVEL=debug");
+    expect(unit).toContain(
+      "Environment=NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
+    );
     expect(unit).toContain("WantedBy=graphical-session.target");
     expect(unit).toContain("PartOf=graphical-session.target");
   });
@@ -270,6 +274,23 @@ describe("AutostartInstaller.repairLegacyGeneratedUnit", () => {
     );
     expect(h.runs).toContainEqual(["systemctl", ["--user", "daemon-reload"]]);
   });
+
+  it("adds host CA trust to an older generated unit", async () => {
+    const h = harness({
+      files: {
+        [UNIT_PATH]: `${GENERATED_MARKER}\n[Service]\nExecStart=${APP_IMAGE} --appimage-extract-and-run\nEnvironment=PATH=${MANAGED_PLAYER_PATH}\nEnvironment=TILECAST_DISABLE_GPU=1\n[Install]\nWantedBy=default.target\n`,
+      },
+      environment: { extraCaCerts: "/etc/ssl/certs/ca-certificates.crt" },
+    });
+
+    expect(await new AutostartInstaller(h.d).repairLegacyGeneratedUnit()).toBe(
+      true,
+    );
+    expect(h.files.get(UNIT_PATH)).toContain(
+      "Environment=NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
+    );
+    expect(h.files.get(UNIT_PATH)).toContain("Environment=TILECAST_DISABLE_GPU=1");
+  });
 });
 
 describe("AutostartInstaller.install", () => {
@@ -364,6 +385,7 @@ describe("systemAutostartDeps", () => {
         DISPLAY: ":0",
         HOME: "/home/kiosk",
         TILECAST_SERVER_URL: "",
+        NODE_EXTRA_CA_CERTS: "/srv/trust/private-ca.pem",
       },
       {
         dataDirectory: "/srv/tilecast-state",
@@ -375,6 +397,7 @@ describe("systemAutostartDeps", () => {
     expect(deps.environment.display).toBe(":0");
     expect(deps.environment.dataDirectory).toBe("/srv/tilecast-state");
     expect(deps.environment.serverUrl).toBe("https://signage.example.org");
+    expect(deps.environment.extraCaCerts).toBe("/srv/trust/private-ca.pem");
   });
 });
 
