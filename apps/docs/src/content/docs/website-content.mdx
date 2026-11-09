@@ -36,7 +36,9 @@ In **Content → Widgets → Website**, enter a URL such as:
 https://example.org/display?screen={screen.id}&date={date}&room={data.room}&rooms={data.json}
 ```
 
-- `{screen.id}`: the current screen's manifest ID.
+- `{screen.id}`: the current screen's Tilecast UUID. Each screen resolves its own
+  value, including when screens share one Layout. This is not the screen's name,
+  IP address or hardware installation ID.
 - `{date}`, `{time}`, `{datetime}`: the Player's local wall-clock date
   (`YYYY-MM-DD`), time (`HH:mm:ss`), or combined value.
 - `{data.FIELD}`: the named field of the first record in the selected Data Source,
@@ -61,6 +63,16 @@ that stays active across a date change may need to be reactivated to get a new
 date parameter. The site must be able to parse the query values it receives.
 Do not transmit credentials or confidential data through URL parameters,
 which may be recorded by web servers and proxies.
+
+## Check Website size on Android
+
+Start with **Style → Zoom** at **100%**. Android Players use the Website's pixel
+size at this setting; a TV's display density must not add another zoom factor.
+If a page becomes enlarged after a Player update while its saved zoom is
+unchanged, check the Player version before changing the Layout to compensate.
+
+The Layout controls the Website zone's size. The target site still controls
+its own minimum width and responsive design, so test it in the actual zone.
 
 ## Add a Canva design
 

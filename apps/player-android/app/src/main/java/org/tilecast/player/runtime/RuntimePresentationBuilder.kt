@@ -128,6 +128,9 @@ object RuntimePresentationBuilder {
                 PROJECTION_MANIFEST_KEYS.forEach { key ->
                     raw[key]?.let { put(key, it) }
                 }
+                // Website widgets in Layouts resolve {screen.id} in Runtime,
+                // rather than through the legacy Kotlin Website item path.
+                put("screenId", manifest.screenId)
             }
             putJsonArray("media") {
                 manifest.assets
