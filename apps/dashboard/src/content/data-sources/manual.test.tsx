@@ -207,7 +207,8 @@ describe("Manual Table simple list mode", () => {
   });
 });
 
-\n// Temporary diagnostics: print the repository Prettier output in CI to isolate
+
+// Temporary diagnostics: print the repository Prettier output in CI to isolate
 // a formatting-only failure. Remove this probe after applying its output.
 it("TILECAST_PRETTIER_PROBE", async () => {
   const { readFile } = await import("node:fs/promises");
