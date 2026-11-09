@@ -81,13 +81,22 @@ describe("Website URL variables", () => {
     expect(url.pathname).toBe("/100%/x");
     expect(url.searchParams.get("room")).toBe("Кабинет & 3");
   });
-  it("fails closed on missing data, unknown token, and unsafe placement", () => {
-    expect(resolveWebsiteUrl("https://{screen.id}.org/?x=1", context)).toBeNull();
-    expect(resolveWebsiteUrl("https://example.org/{date}", context)).toBeNull();
-    expect(resolveWebsiteUrl("https://example.org/?x={unknown}", context)).toBeNull();
-    expect(
-      resolveWebsiteUrl("https://example.org/?x={data.room:99}", context),
-    ).toBeNull();
-    expect(resolveWebsiteUrl("https://example.org/?{date}=1", context)).toBeNull();
-  });
+  it(
+    "fails closed on missing data, unknown token, and unsafe placement",
+    () => {
+      expect(
+        resolveWebsiteUrl("https://{screen.id}.org/?x=1", context),
+      ).toBeNull();
+      expect(resolveWebsiteUrl("https://example.org/{date}", context)).toBeNull();
+      expect(
+        resolveWebsiteUrl("https://example.org/?x={unknown}", context),
+      ).toBeNull();
+      expect(
+        resolveWebsiteUrl("https://example.org/?x={data.room:99}", context),
+      ).toBeNull();
+      expect(
+        resolveWebsiteUrl("https://example.org/?{date}=1", context),
+      ).toBeNull();
+    },
+  );
 });
