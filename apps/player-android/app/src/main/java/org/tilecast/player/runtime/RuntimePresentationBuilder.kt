@@ -254,7 +254,10 @@ object RuntimePresentationBuilder {
             val config = runCatching { json.decodeFromJsonElement<WebsiteSourceConfig>(widget.configuration) }.getOrNull()
                 ?: return BuiltRuntimeItem(unresolvableItem(resolved), false)
             return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
-                url = config.url,
+                url = WebsiteUrlVariables.resolve(
+                    config.url, manifest.screenId, dataSourceId = config.dataSourceId,
+                    sources = manifest.dataSources,
+                ) ?: return BuiltRuntimeItem(unresolvableItem(resolved), false),
                 allowedHosts = config.allowedHosts,
                 javascriptEnabled = config.javascriptEnabled,
                 domStorageEnabled = config.domStorageEnabled,
@@ -283,7 +286,9 @@ object RuntimePresentationBuilder {
         }
         if (website != null) {
             return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
-                url = website.url,
+                url = WebsiteUrlVariables.resolve(
+                    website.url, manifest.screenId,
+                ) ?: return BuiltRuntimeItem(unresolvableItem(resolved), false),
                 allowedHosts = website.allowedHosts,
                 javascriptEnabled = website.javascriptEnabled,
                 domStorageEnabled = website.domStorageEnabled,

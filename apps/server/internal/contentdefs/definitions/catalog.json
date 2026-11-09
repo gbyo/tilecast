@@ -22,6 +22,17 @@
             "ui": { "section": "content", "order": 1 }
           },
           {
+            "key": "dataSourceId",
+            "label": "Data Source",
+            "labelKey": "definitions:website.fields.dataSourceId.label",
+            "description": "Optional source for query parameters using {data.FIELD} or {data.json}.",
+            "descriptionKey": "definitions:website.fields.dataSourceId.description",
+            "control": "data_source",
+            "acceptedDataSourceKinds": ["records", "object"],
+            "default": "",
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
             "key": "backgroundColor",
             "label": "Background color",
             "labelKey": "definitions:website.fields.backgroundColor.label",
@@ -222,6 +233,7 @@
         ]
       },
       "defaultConfiguration": {
+        "dataSourceId": "",
         "backgroundColor": "#0E141B",
         "zoomPercent": 100,
         "scrollX": 0,

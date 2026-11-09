@@ -135,6 +135,14 @@ func (s *Service) normalizeWebsite(ctx context.Context, in WebsiteInput) (Websit
 	in.Name = strings.TrimSpace(in.Name)
 	in.Description = strings.TrimSpace(in.Description)
 	in.URL = strings.TrimSpace(in.URL)
+	in.DataSourceID = strings.TrimSpace(in.DataSourceID)
+	if in.DataSourceID != "" {
+		id, parseErr := uuid.Parse(in.DataSourceID)
+		if parseErr != nil || id == uuid.Nil {
+			return in, errors.New("website dataSourceId must be a valid UUID")
+		}
+		in.DataSourceID = id.String()
+	}
 	if len(in.Name) < 1 || len(in.Name) > 180 {
 		return in, errors.New("name must be between 1 and 180 characters")
 	}
