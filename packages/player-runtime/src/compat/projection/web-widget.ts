@@ -29,7 +29,10 @@ export function remoteWebForWidget(
   widget: ManifestWidget,
   assets: ManifestAsset[],
   at: Date,
-  context?: { screenId: string; dataSources: ReadonlyMap<string, ManifestDataSource> },
+  context?: {
+    screenId: string;
+    dataSources: ReadonlyMap<string, ManifestDataSource>;
+  },
 ): RuntimeRemoteWebSpecV1 | null {
   if (widget.provider === "youtube") {
     const config = widget.configuration ?? {};

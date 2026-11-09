@@ -158,7 +158,7 @@
       "dataSourceId": {
         "label": "Источник данных",
         "description": "Необязательно. Укажите {data.room} для значения поля room первой записи, {data.room:1} для второй, {data.json} для всех записей JSON. В адресе также доступны {screen.id}, {date}, {time} и {datetime}."
-},
+      },
       "backgroundColor": {
         "label": "Цвет фона",
         "description": "Отображается за страницей, пока она загружается."

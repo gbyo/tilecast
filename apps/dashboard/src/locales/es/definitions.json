@@ -158,7 +158,7 @@
       "dataSourceId": {
         "label": "Fuente de datos",
         "description": "Opcional. Usa {data.room} para el campo room del primer registro, {data.room:1} para el segundo o {data.json} para todos los registros en JSON. También: {screen.id}, {date}, {time}, {datetime}."
-},
+      },
       "backgroundColor": {
         "label": "Color de fondo",
         "description": "Se muestra detrás de la página mientras se carga."
