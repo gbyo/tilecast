@@ -171,7 +171,8 @@ describe("the shipped localized definitions", () => {
   );
 });
 
-\n// Temporary formatter diagnostics for the URL resolver; remove after CI.
+
+// Temporary formatter diagnostics for the URL resolver; remove after CI.
 it("TILECAST_URL_PRETTIER_PROBE", async () => {
   const { readFile } = await import("node:fs/promises");
   const { fileURLToPath } = await import("node:url");
