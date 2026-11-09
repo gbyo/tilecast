@@ -25,7 +25,7 @@
             "key": "dataSourceId",
             "label": "Data Source",
             "labelKey": "definitions:website.fields.dataSourceId.label",
-            "description": "Optional source for query parameters using {data.FIELD} or {data.json}.",
+            "description": "Optional. Use {data.room} for the first record's room field, {data.room:1} for the second, or {data.json} for all records as JSON. Also available: {screen.id}, {date}, {time}, {datetime}.",
             "descriptionKey": "definitions:website.fields.dataSourceId.description",
             "control": "data_source",
             "acceptedDataSourceKinds": ["records", "object"],

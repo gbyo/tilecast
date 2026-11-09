@@ -57,7 +57,10 @@ describe("Website URL variables", () => {
         context,
       )!,
     );
-    expect(url.searchParams.getAll("room")).toEqual(["Кабинет & 3", "Актовый зал"]);
+    expect(url.searchParams.getAll("room")).toEqual([
+      "Кабинет & 3",
+      "Актовый зал",
+    ]);
   });
   it("passes JSON without injecting new query parameters", () => {
     const resolved = new URL(
@@ -69,7 +72,14 @@ describe("Website URL variables", () => {
     ]);
   });
   it("handles a malformed percent sequence in a path without throwing", () => {
-    expect(resolveWebsiteUrl("https://example.org/100%/x?room={data.room}", context)).toBe("https://example.org/100%/x?room=%D0%9A%D0%B0%D0%B1%D0%B8%D0%BD%D0%B5%D1%82+%26+3");
+    const resolved = resolveWebsiteUrl(
+      "https://example.org/100%/x?room={data.room}",
+      context,
+    );
+    expect(resolved).not.toBeNull();
+    const url = new URL(resolved!);
+    expect(url.pathname).toBe("/100%/x");
+    expect(url.searchParams.get("room")).toBe("Кабинет & 3");
   });
   it("fails closed on missing data, unknown token, and unsafe placement", () => {
     expect(resolveWebsiteUrl("https://{screen.id}.org/?x=1", context)).toBeNull();

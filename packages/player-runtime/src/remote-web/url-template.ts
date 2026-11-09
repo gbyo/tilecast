@@ -45,7 +45,10 @@ export function resolveWebsiteUrl(
   ) {
     return null;
   }
-  if (/[{}]|%7[bd]/i.test(url.pathname) || /[{}]|%7[bd]/i.test(url.hash)) {
+  if (
+    /[{}]|%7[bd]/i.test(url.pathname) ||
+    /[{}]|%7[bd]/i.test(url.hash)
+  ) {
     return null;
   }
 
