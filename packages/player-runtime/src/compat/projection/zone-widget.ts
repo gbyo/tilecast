@@ -24,7 +24,10 @@ export function projectZoneWidget(
   zoneHeight: number,
 ): ZoneWidgetProjection {
   if (isRemoteWebWidget(widget)) {
-    const remoteWeb = remoteWebForWidget(widget, ctx.manifest.assets, ctx.at);
+    const remoteWeb = remoteWebForWidget(widget, ctx.manifest.assets, ctx.at, {
+      screenId: ctx.manifest.screenId,
+      dataSources: ctx.dataSources,
+    });
     if (!remoteWeb)
       throw new Error("Layout Widget remote web projection failed");
     return { kind: "remote-web", remoteWeb };

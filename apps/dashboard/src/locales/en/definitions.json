@@ -152,6 +152,10 @@
         "label": "Web address",
         "description": "The public page to show. Use HTTPS; plain HTTP works only for private addresses when this installation allows it."
       },
+      "dataSourceId": {
+        "label": "Data Source",
+        "description": "Optional. Use {data.room} for the first record's room field, {data.room:1} for the second, or {data.json} for all records as JSON. Also available: {screen.id}, {date}, {time}, {datetime}."
+},
       "backgroundColor": {
         "label": "Background color",
         "description": "Shown behind the page while it loads."

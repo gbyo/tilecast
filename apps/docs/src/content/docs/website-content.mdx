@@ -24,6 +24,44 @@ The editor previews the page in a browser frame. Some sites refuse to appear ins
 
 The Website App appears in the Media library's **Websites** filter and in the content picker. Add it to a Playlist as fullscreen content or place it in a Layout with other content.
 
+## Pass dynamic parameters to a Website
+
+A Website Widget may send values to the target site's URL query parameters.
+One Website Widget can be assigned to many screens and use each screen's ID
+without duplicating the Widget.
+
+In **Content → Widgets → Website**, enter a URL such as:
+
+```text
+https://example.org/display?screen={screen.id}&date={date}&room={data.room}&rooms={data.json}
+```
+
+- `{screen.id}`: the current screen's manifest ID.
+- `{date}`, `{time}`, `{datetime}`: the Player's local wall-clock date
+  (`YYYY-MM-DD`), time (`HH:mm:ss`), or combined value.
+- `{data.FIELD}`: the named field of the first record in the selected Data Source,
+  or a field of its object dataset.
+- `{data.FIELD:1}`: the same field of the **second** record (zero-based index).
+- `{data.values}`: JSON array containing the first field from each record.
+- `{data.json}`: JSON array of all records or the source's single object.
+
+To use `data.*`, select a saved **Data Source** in the Website editor.
+A manually entered text-list Data Source also works: its typed records are
+used to construct the JSON array.
+
+Substitution applies **only to query parameter values**. The domain, scheme,
+path, query parameter names and allowed hosts cannot be parameterized. Values
+are URL-encoded automatically. When a required variable is unknown, a Data
+Source is unavailable, or the resolved URL would exceed 2,048 characters,
+Tilecast refuses to load that address rather than exposing an unresolved
+template. Static Website URLs remain unchanged.
+
+Dynamic values are evaluated when content is projected or activated; a page
+that stays active across a date change may need to be reactivated to get a new
+date parameter. The site must be able to parse the query values it receives.
+Do not transmit credentials or confidential data through URL parameters,
+which may be recorded by web servers and proxies.
+
 ## Add a Canva design
 
 <Steps>
