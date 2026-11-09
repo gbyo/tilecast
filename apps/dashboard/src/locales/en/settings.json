@@ -1171,7 +1171,7 @@
     "loading": "Loading backups…",
     "loadError": "Backups could not be loaded.",
     "title": "Installation backups",
-    "description": "Full backups include the database, media files, thumbnails, variants, and cached player updates.",
+    "description": "Full backups include the database, media files, thumbnails, and variants. Cached player updates are fetched again when needed.",
     "queuing": "Queuing…",
     "create": "Create backup",
     "lastSuccessful": "Last successful backup:",
