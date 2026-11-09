@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -237,12 +238,44 @@ func TestLinuxGitHubReleaseSyncAndCache(t *testing.T) {
 	if !bytes.Equal(cached, artifact) || size != int64(len(artifact)) || hash != manifest.ArtifactSHA256 || cachedFamily != FamilyElectronLinux {
 		t.Fatalf("cached artifact mismatch: bytes=%q size=%d hash=%q family=%q", cached, size, hash, cachedFamily)
 	}
+	for _, failure := range []struct {
+		name    string
+		body    []byte
+		readErr error
+		message string
+	}{
+		{"interrupted", artifact[:3], io.ErrUnexpectedEOF, "download interrupted"},
+		{"storage", artifact[:3], &os.PathError{Op: "write", Path: "/private/update-store", Err: errors.New("disk full")}, "could not be saved"},
+		{"truncated", artifact[:3], nil, "size verification failed"},
+		{"corrupt", bytes.Repeat([]byte("x"), len(artifact)), nil, "SHA-256 verification failed"},
+	} {
+		t.Run(failure.name, func(t *testing.T) {
+			provider.artifacts["linux-appimage"] = failure.body
+			provider.readErr = failure.readErr
+			if err := service.Cache(ctx, releaseID); err == nil || !strings.Contains(err.Error(), failure.message) {
+				t.Fatalf("cache error = %v, want %q", err, failure.message)
+			}
+			if _, err := os.Stat(path + ".part"); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("failed download left a partial artifact: %v", err)
+			}
+			preserved, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(preserved, artifact) {
+				t.Fatalf("failed download changed the verified artifact: %v", err)
+			}
+		})
+	}
+	provider.artifacts["linux-appimage"] = artifact
+	provider.readErr = nil
+	if err := service.Cache(ctx, releaseID); err != nil {
+		t.Fatalf("retry after failed downloads: %v", err)
+	}
 }
 
 type integrationProvider struct {
 	result    ProviderResult
 	downloads map[string][]byte
 	artifacts map[string][]byte
+	readErr   error
 }
 
 func (p *integrationProvider) Releases(context.Context, string) (ProviderResult, error) {
@@ -262,12 +295,20 @@ func (p *integrationProvider) Open(_ context.Context, rawURL string) (*http.Resp
 	if !ok {
 		return nil, errors.New("asset not found")
 	}
+	var body io.Reader = bytes.NewReader(value)
+	if p.readErr != nil {
+		body = io.MultiReader(body, releaseReadError{p.readErr})
+	}
 	return &http.Response{
 		StatusCode:    http.StatusOK,
 		ContentLength: int64(len(value)),
-		Body:          io.NopCloser(bytes.NewReader(value)),
+		Body:          io.NopCloser(body),
 	}, nil
 }
+
+type releaseReadError struct{ err error }
+
+func (r releaseReadError) Read([]byte) (int, error) { return 0, r.err }
 
 // A Tilecast Edge GitHub release carries one signed envelope and archive per
 // architecture. Each becomes its own release of the edge family, with the

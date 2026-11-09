@@ -137,6 +137,13 @@ deployment as `failed` so that the operator can retry it.
 
 Drafts, arbitrary repositories, arbitrary asset names/URLs, invalid signatures, downgrades, incompatible SDK declarations, checksum mismatches, invalid APK signatures, and signing-certificate mismatches are rejected. A verified APK is streamed to a temporary file beneath `/data/updates`, checked, and atomically renamed. Players download only from their paired Tilecast server using authenticated range requests.
 
+GitHub metadata requests have a 30-second total timeout. Asset downloads use a
+separate 15-minute total timeout and retain the caller's cancellation and the
+same redirect allowlist. An interrupted stream is a download error, not a
+checksum mismatch. Cache errors distinguish interrupted downloads, local save
+failures, size mismatches, and SHA-256 mismatches. Every failure removes the
+partial file and keeps any previously verified artifact.
+
 ## Permanent signing keys
 
 Create the Android key once and preserve secure offline backups:
