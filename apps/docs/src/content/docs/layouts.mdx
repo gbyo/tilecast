@@ -9,6 +9,8 @@ import darkScreenshot from "../../assets/screenshots/layout-editor-dark.png";
 
 A **Layout** places content in fixed areas on a canvas. Use one to combine, for example, a notice, a live schedule, and a Playlist zone on one screen. You can use a published Layout as fullscreen content or add it to a Playlist.
 
+When you assign a Layout directly to a screen, it stays mounted until the assignment or schedule changes. Videos and Playlist zones inside it run on their own clocks. A Layout placed in the screen's main Playlist follows that Playlist item's duration instead.
+
 import { Steps } from "@astrojs/starlight/components";
 
 <Screenshot
