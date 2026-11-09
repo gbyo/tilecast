@@ -35,7 +35,12 @@ export function projectZoneWidget(
       screenId: ctx.manifest.screenId,
       dataSources: ctx.dataSources,
     });
-    if (!remoteWeb) throw new UnresolvedWebsiteUrlError();
+    if (!remoteWeb) {
+      if (widget.provider === "website" && widget.presentation?.kind === "web") {
+        throw new UnresolvedWebsiteUrlError();
+      }
+      throw new Error("Layout Widget remote web projection failed");
+    }
     return { kind: "remote-web", remoteWeb };
   }
   const payload =
