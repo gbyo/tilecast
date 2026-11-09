@@ -9,7 +9,7 @@
  * a grossly invalid document returns null to retain the active presentation.
  */
 
-import { projectZoneWidget } from "./zone-widget";
+import { projectZoneWidget, UnresolvedWebsiteUrlError } from "./zone-widget";
 import {
   formatValue,
   resolveRegionalFormatting,
@@ -419,7 +419,13 @@ function buildZoneItems(
           defaultImageDurationMsForPlayback(playback),
         ),
       );
-      const projected = projectZoneWidget(widget, ctx, placement.height);
+      let projected: ReturnType<typeof projectZoneWidget>;
+      try {
+        projected = projectZoneWidget(widget, ctx, placement.height);
+      } catch (error) {
+        if (error instanceof UnresolvedWebsiteUrlError) continue;
+        throw error;
+      }
       items.push({
         id: item.id,
         durationMs: settings.durationMs,
