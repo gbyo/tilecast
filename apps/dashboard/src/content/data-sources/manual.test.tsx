@@ -114,7 +114,9 @@ describe("Manual Table simple list mode", () => {
     expect(screen.getByText("Entries: 3/200")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
     expect(document.querySelector("#manual-cell-0-title")).toHaveValue("First");
-    expect(document.querySelector("#manual-cell-1-title")).toHaveValue("Second");
+    expect(document.querySelector("#manual-cell-1-title")).toHaveValue(
+      "Second",
+    );
     expect(document.querySelector("#manual-cell-2-title")).toHaveValue("Third");
     fireEvent.click(screen.getByRole("button", { name: "Save Data Source" }));
 
@@ -155,7 +157,9 @@ describe("Manual Table simple list mode", () => {
       },
     });
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByRole("button", { name: "Save Data Source" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save Data Source" }),
+    ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Table" })).toBeDisabled();
     expect(
       screen.getByText("A list can contain at most 200 non-empty lines."),
@@ -165,10 +169,14 @@ describe("Manual Table simple list mode", () => {
     expect(
       screen.getByText("Each list entry must be at most 500 characters."),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Save Data Source" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save Data Source" }),
+    ).toBeDisabled();
 
     fireEvent.change(input, { target: { value: "Valid\nAgain" } });
-    expect(screen.getByRole("button", { name: "Save Data Source" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Save Data Source" }),
+    ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Table" })).toBeEnabled();
   });
 

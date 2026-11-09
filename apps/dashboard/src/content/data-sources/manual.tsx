@@ -132,13 +132,17 @@ export function ManualDataSourceEditor({
       items.length > maximumManualRows ||
       items.some((line) => Array.from(line).length > maximumManualTextLength)
     ) return;
-    setConfiguration((current) => ({
-      ...current,
-      rows: items.map((value, index) => ({
-        id: current.rows[index]?.id ?? crypto.randomUUID(),
-        values: { [current.columns[0].key]: value },
-      })),
-    }));
+    setConfiguration((current) => {
+      const column = current.columns[0];
+      if (!column) return current;
+      return {
+        ...current,
+        rows: items.map((value, index) => ({
+          id: current.rows[index]?.id ?? crypto.randomUUID(),
+          values: { [column.key]: value },
+        })),
+      };
+    });
   };
 
   useEffect(() => {
@@ -338,7 +342,9 @@ export function ManualDataSourceEditor({
                     id={`manual-column-key-${index}`}
                     value={column.key}
                     disabled={readOnly}
-                    onChange={(event) => renameColumnKey(index, event.target.value)}
+                    onChange={(event) =>
+                      renameColumnKey(index, event.target.value)
+                    }
                   />
                 </Field>
                 <Field>
@@ -474,7 +480,9 @@ export function ManualDataSourceEditor({
                 >
                   {configuration.columns.map((column) => (
                     <Field key={column.key}>
-                      <FieldLabel htmlFor={`manual-cell-${rowIndex}-${column.key}`}>
+                      <FieldLabel
+                        htmlFor={`manual-cell-${rowIndex}-${column.key}`}
+                      >
                         {column.label}
                       </FieldLabel>
                       {column.type === "boolean" ? (
@@ -520,7 +528,10 @@ export function ManualDataSourceEditor({
                           </SelectTrigger>
                           <SelectContent>
                             {booleanCellOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
                                 {t(option.labelKey)}
                               </SelectItem>
                             ))}
