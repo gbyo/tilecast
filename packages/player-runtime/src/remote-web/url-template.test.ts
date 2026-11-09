@@ -68,6 +68,9 @@ describe("Website URL variables", () => {
       { room: "Актовый зал" },
     ]);
   });
+  it("handles a malformed percent sequence in a path without throwing", () => {
+    expect(resolveWebsiteUrl("https://example.org/100%/x?room={data.room}", context)).toBe("https://example.org/100%/x?room=%D0%9A%D0%B0%D0%B1%D0%B8%D0%BD%D0%B5%D1%82+%26+3");
+  });
   it("fails closed on missing data, unknown token, and unsafe placement", () => {
     expect(resolveWebsiteUrl("https://{screen.id}.org/?x=1", context)).toBeNull();
     expect(resolveWebsiteUrl("https://example.org/{date}", context)).toBeNull();
