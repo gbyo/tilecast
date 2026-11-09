@@ -54,7 +54,7 @@ func TestWebsiteWidgetDeclaresDataSourceDependency(t *testing.T) {
 	catalog := MustLoad()
 	source := uuid.New()
 	raw, _ := json.Marshal(map[string]string{
-		"url": "https://example.com/?room={data.room}",
+		"url":          "https://example.com/?room={data.room}",
 		"dataSourceId": source.String(),
 	})
 	if got := catalog.WidgetDataSourceIDs("website", raw); !reflect.DeepEqual(got, []uuid.UUID{source}) {
