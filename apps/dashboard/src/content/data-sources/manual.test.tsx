@@ -93,7 +93,7 @@ describe("Manual Table simple list mode", () => {
   it("pastes a multiline list into ordinary Manual Table rows", async () => {
     const create = vi
       .spyOn(api, "createDataSource")
-      .mockResolvedValue(saved as never);
+      .mockResolvedValue(saved);
     render(
       <QueryClientProvider client={setup()}>
         <ManualDataSourceEditor
