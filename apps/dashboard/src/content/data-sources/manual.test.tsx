@@ -212,9 +212,9 @@ describe("Manual Table simple list mode", () => {
 // a formatting-only failure. Remove this probe after applying its output.
 it("TILECAST_PRETTIER_PROBE", async () => {
   const { readFile } = await import("node:fs/promises");
-  const { fileURLToPath } = await import("node:url");
+  const { resolve } = await import("node:path");
   const prettier = await import("prettier");
-  const filename = fileURLToPath(new URL("./manual.tsx", import.meta.url));
+  const filename = resolve(process.cwd(), "src/content/data-sources/manual.tsx");
   const source = await readFile(filename, "utf8");
   const config = await prettier.resolveConfig(filename);
   const formatted = await prettier.format(source, {
