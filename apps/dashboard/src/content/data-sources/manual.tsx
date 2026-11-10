@@ -143,8 +143,7 @@ export function ManualDataSourceEditor({
     if (
       items.length > maximumManualRows ||
       items.some((line) => Array.from(line).length > maximumManualTextLength)
-    )
-      return;
+    ) return;
     setConfiguration((current) => {
       const column = current.columns[0];
       if (!column) return current;
