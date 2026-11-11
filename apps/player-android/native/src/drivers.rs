@@ -304,11 +304,8 @@ impl Drivers {
             let signals = self.link.signals.clone();
             let shutdown = self.link.shutdown.clone();
             let commands = runtime.spawn(async move {
-                // Crash recovery first: an interrupted command re-runs or
-                // settles before any new delivery is fetched.
-                if coordinator.recover().await.is_err() {
-                    return;
-                }
+                // `run_commands` settles interrupted commands, retrying a
+                // state-store failure, before it fetches any delivery.
                 let wake = signals.command_wake.clone();
                 core.run_commands(&coordinator, server, &wake, &shutdown, |outcome| {
                     if outcome == player_core::PassOutcome::CredentialRejected {
