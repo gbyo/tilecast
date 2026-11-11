@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveWebsiteUrl } from "./url-template";
+import { resolveWebsiteClockUrl, resolveWebsiteUrl } from "./url-template";
 import type { ManifestDataSource } from "../compat/projection/content-types";
 
 const at = new Date(2026, 10, 7, 9, 5, 4);
@@ -31,6 +31,24 @@ describe("Website URL variables", () => {
   it("leaves old URLs unchanged", () => {
     const original = "https://example.org/x?x=%26&x=2";
     expect(resolveWebsiteUrl(original, context)).toBe(original);
+  });
+  it("defers clock tokens until the Website actually mounts", () => {
+    const template = "https://example.org/display?room={data.room}&t={time}";
+    const first = resolveWebsiteUrl(template, { ...context, deferClock: true });
+    const later = resolveWebsiteUrl(template, {
+      ...context,
+      at: new Date(at.getTime() + 30_000),
+      deferClock: true,
+    });
+    // Reprojection on the selection cadence must not change this item.
+    expect(later).toBe(first);
+    expect(first).toContain("%7Btime%7D");
+    const mounted = resolveWebsiteClockUrl(
+      first!,
+      new Date(at.getTime() + 45_000),
+    );
+    expect(new URL(mounted!).searchParams.get("t")).toBe("09:05:49");
+    expect(new URL(mounted!).searchParams.get("room")).toBe("Кабинет & 3");
   });
   it("resolves screen and wall clock values", () => {
     const resolved = resolveWebsiteUrl(

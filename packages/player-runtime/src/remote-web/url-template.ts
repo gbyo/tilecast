@@ -11,6 +11,8 @@ export interface WebsiteUrlContext {
   at: Date;
   dataSourceId?: string;
   dataSources?: ReadonlyMap<string, ManifestDataSource>;
+  /** Resolve date/time placeholders only when the Website surface mounts. */
+  deferClock?: boolean;
 }
 
 const TOKEN = /\{([a-zA-Z][a-zA-Z0-9_.:-]*)\}/g;
@@ -58,9 +60,9 @@ export function resolveWebsiteUrl(
   const data = source ? normalizeSource(source, context.at) : null;
   const values: Record<string, string> = {
     "screen.id": context.screenId,
-    date,
-    time,
-    datetime,
+    date: context.deferClock ? "{date}" : date,
+    time: context.deferClock ? "{time}" : time,
+    datetime: context.deferClock ? "{datetime}" : datetime,
   };
 
   const select = (key: string): string | undefined => {
@@ -125,4 +127,17 @@ export function resolveWebsiteUrl(
   } catch {
     return null;
   }
+}
+
+/**
+ * Expand only the clock placeholders intentionally deferred by the Website
+ * projector. This is called when a Website surface is mounted, not whenever
+ * the projector periodically refreshes the Playlist.
+ */
+export function resolveWebsiteClockUrl(url: string, at: Date): string | null {
+  if (!Number.isFinite(at.getTime())) return null;
+  const values = dateParts(at);
+  return url.replace(/%7B(date|time|datetime)%7D/gi, (_token, key: string) =>
+    encodeURIComponent(values[key as keyof typeof values]),
+  );
 }

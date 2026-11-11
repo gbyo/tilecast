@@ -65,8 +65,14 @@ export function remoteWebForWidget(
       at,
       dataSourceId: typeof dataSourceId === "string" ? dataSourceId : undefined,
       dataSources: context.dataSources,
+      deferClock: true,
     });
-    return url ? specFromWebDescriptor({ ...web, url }) : null;
+    if (!url) return null;
+    const spec = specFromWebDescriptor({ ...web, url });
+    if (spec?.content.kind === "page" && /\{(?:date|time|datetime)\}/.test(web.url)) {
+      spec.content.clockTemplate = true;
+    }
+    return spec;
   }
   return null;
 }
