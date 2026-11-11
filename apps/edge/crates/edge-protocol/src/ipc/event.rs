@@ -329,6 +329,33 @@ pub struct PreviewRequest {
     pub max_bytes: u32,
 }
 
+/// Starts the renderer's persistent Watch Live H.264 encoder of the
+/// presented output. The daemon sends it only while an H.264 lease is
+/// active and the screen is not protected; a new start replaces any
+/// running encoder.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveEncoderStart {
+    #[serde(with = "canonical_uuid")]
+    pub stream_id: uuid::Uuid,
+    /// A Watch Live profile ID such as `h264-540p15`.
+    pub profile: ShortToken,
+    pub max_width: u32,
+    pub max_height: u32,
+    pub fps: u32,
+    pub bitrate: u32,
+    pub keyframe_interval: u32,
+}
+
+/// Stops (`live_encoder.stop`) or asks for an early IDR from
+/// (`live_encoder.keyframe`) one encoder stream.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveEncoderStream {
+    #[serde(with = "canonical_uuid")]
+    pub stream_id: uuid::Uuid,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RendererShutdown {
@@ -576,6 +603,76 @@ pub enum PreviewOutcome {
     },
 }
 
+/// Largest base64 Watch Live access unit (a 512 KiB H.264 access unit).
+pub const MAX_LIVE_CHUNK_BASE64_CHARS: usize = 512 * 1024 * 4 / 3 + 4;
+
+/// One complete H.264 Annex B access unit. A keyframe carries SPS and PPS
+/// before its IDR slice.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveChunk {
+    #[serde(with = "canonical_uuid")]
+    pub stream_id: uuid::Uuid,
+    pub timestamp_micros: u64,
+    pub width: u32,
+    pub height: u32,
+    pub keyframe: bool,
+    pub data_base64: String,
+    /// Time to acquire and copy the presented buffer for this frame.
+    #[serde(default)]
+    pub capture_micros: Option<u32>,
+    /// Time from encoder input to this output.
+    #[serde(default)]
+    pub encode_micros: Option<u32>,
+    /// Raw frames dropped because the encoder was busy since the last chunk.
+    #[serde(default)]
+    pub dropped_frames: Option<u32>,
+}
+
+impl LiveChunk {
+    pub fn within_limits(&self) -> bool {
+        self.data_base64.len() <= MAX_LIVE_CHUNK_BASE64_CHARS && self.width <= 1920 && self.height <= 1080
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveEncoderStatus {
+    Started,
+    Failed,
+    Stopped,
+}
+
+/// The renderer's encoder lifecycle for one stream. `code` is a stable token.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveEncoderState {
+    #[serde(with = "canonical_uuid")]
+    pub stream_id: uuid::Uuid,
+    pub state: LiveEncoderStatus,
+    pub code: ShortToken,
+    /// The GStreamer element in use, such as `vah264lpenc`.
+    #[serde(default)]
+    pub encoder: Option<ShortToken>,
+}
+
+/// What the renderer's runtime encoder probe found: the H.264 Watch Live
+/// profiles a working encoder actually negotiated, best first, and the
+/// element that will encode them. Empty when no H.264 encoder works.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveCapabilities {
+    #[serde(deserialize_with = "live_profiles")]
+    pub profiles: Vec<ShortToken>,
+    #[serde(default)]
+    pub encoder: Option<ShortToken>,
+    pub hardware: bool,
+}
+
+fn live_profiles<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<ShortToken>, D::Error> {
+    bounded_vec(d, 8)
+}
+
 /// Largest base64 preview payload (a 2 MiB JPEG).
 pub const MAX_PREVIEW_BASE64_CHARS: usize = 2 * 1024 * 1024 * 4 / 3 + 4;
 
@@ -719,6 +816,9 @@ pub enum Event {
     Identify(Identify),
     RendererCommand(RendererCommand),
     PreviewRequest(PreviewRequest),
+    LiveEncoderStart(LiveEncoderStart),
+    LiveEncoderStop(LiveEncoderStream),
+    LiveEncoderKeyframe(LiveEncoderStream),
     RendererShutdown(RendererShutdown),
     CaptureSet(CaptureSet),
 
@@ -729,6 +829,9 @@ pub enum Event {
     ItemError(ItemError),
     RendererHealth(RendererHealth),
     PreviewResult(PreviewResult),
+    LiveChunk(LiveChunk),
+    LiveEncoderState(LiveEncoderState),
+    LiveCapabilities(LiveCapabilities),
     RendererCommandResult(RendererCommandResult),
     ShutdownAck(ShutdownAck),
     AudioLevel(AudioLevel),
@@ -792,6 +895,9 @@ events! {
     Identify => "presentation.identify", DaemonToClient, [Renderer];
     RendererCommand => "renderer.command", DaemonToClient, [Renderer];
     PreviewRequest => "preview.request", DaemonToClient, [Renderer];
+    LiveEncoderStart => "live_encoder.start", DaemonToClient, [Renderer];
+    LiveEncoderStop => "live_encoder.stop", DaemonToClient, [Renderer];
+    LiveEncoderKeyframe => "live_encoder.keyframe", DaemonToClient, [Renderer];
     RendererShutdown => "renderer.shutdown", DaemonToClient, [Renderer];
     CaptureSet => "capture.set", DaemonToClient, [SessionBridge];
 
@@ -802,6 +908,9 @@ events! {
     ItemError => "renderer.item_error", ClientToDaemon, [Renderer];
     RendererHealth => "renderer.health", ClientToDaemon, [Renderer];
     PreviewResult => "renderer.preview", ClientToDaemon, [Renderer];
+    LiveChunk => "renderer.live_chunk", ClientToDaemon, [Renderer];
+    LiveEncoderState => "renderer.live_encoder", ClientToDaemon, [Renderer];
+    LiveCapabilities => "renderer.live_capabilities", ClientToDaemon, [Renderer];
     RendererCommandResult => "renderer.command_result", ClientToDaemon, [Renderer];
     ShutdownAck => "renderer.shutdown_ack", ClientToDaemon, [Renderer];
     AudioLevel => "audio.level", ClientToDaemon, [SessionBridge];

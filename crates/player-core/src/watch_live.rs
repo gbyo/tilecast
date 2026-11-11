@@ -97,8 +97,9 @@ pub struct EncoderSample {
     pub backlog: u32,
 }
 
+/// What a sink hands Core. Public so host adapters can test their routing.
 #[derive(Debug)]
-pub(crate) enum SinkEvent {
+pub enum SinkEvent {
     Chunk { sequence: u64, chunk: EncodedVideoChunk },
     Sample(EncoderSample),
     Failed(&'static str),
@@ -127,7 +128,9 @@ pub struct EncodedChunkSink {
 const SINK_CAPACITY: usize = 8;
 
 impl EncodedChunkSink {
-    pub(crate) fn new(sequence: Arc<AtomicU64>) -> (Self, mpsc::Receiver<SinkEvent>) {
+    /// A sink and Core's receiving end. Core creates one per encoder; hosts
+    /// use it only in tests of their own routing.
+    pub fn new(sequence: Arc<AtomicU64>) -> (Self, mpsc::Receiver<SinkEvent>) {
         let (events, receiver) = mpsc::channel(SINK_CAPACITY);
         let shared = Arc::new(SinkShared {
             sequence,

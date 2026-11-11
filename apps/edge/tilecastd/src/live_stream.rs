@@ -16,9 +16,22 @@ impl player_core::LiveStreamHost for DaemonContext {
         presentation_protected(self).await
     }
     fn watch_live_capabilities(&self) -> player_core::WatchLiveCapabilities {
-        // Edge captures the presented WPE buffer, which is large enough for
-        // the 960x540 MJPEG profile on every supported renderer.
-        player_core::WatchLiveCapabilities::new([player_core::WatchLiveProfile::Mjpeg540p10])
+        // MJPEG 960x540 from the presented WPE buffer, plus whatever H.264
+        // profiles the renderer's encoder probe actually negotiated.
+        self.live_encoders.capabilities()
+    }
+    async fn start_live_encoder(
+        &self,
+        config: player_core::EncoderConfig,
+        sink: player_core::EncodedChunkSink,
+    ) -> Result<Box<dyn player_core::LiveEncoder>, player_core::CaptureError> {
+        let session = {
+            let engine = self.presentation.lock().await;
+            let current = engine.current().ok_or(player_core::CaptureError::NothingShown)?;
+            current.renderer_metadata.capture_state.check(false)?;
+            engine.ready_session().ok_or(player_core::CaptureError::RendererNotReady)?
+        };
+        self.live_encoders.start(session, config, sink)
     }
     fn now(&self) -> edge_protocol::Timestamp {
         DaemonContext::now(self)

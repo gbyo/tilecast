@@ -37,6 +37,8 @@ disconnect (TcHost *host, const char *reason)
   /* host->payload is freed by the read callback, which always runs (with
    * G_IO_ERROR_CANCELLED) after cancellation. */
   host->welcomed = FALSE;
+  /* An encoder stream belongs to the daemon session that started it. */
+  tc_live_encoder_stop_all (host);
   /* Pending page requests will never be answered by this session. */
   GHashTableIter iter;
   gpointer key, value;
@@ -193,6 +195,7 @@ handle_payload (TcHost *host)
 #endif
       if (host->runtime_ready)
         tc_protocol_send_ready (host);
+      tc_live_encoder_welcomed (host);
       return;
     }
     if (g_strcmp0 (type, "rejected") == 0) {

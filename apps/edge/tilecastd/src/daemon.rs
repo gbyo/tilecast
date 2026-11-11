@@ -139,6 +139,8 @@ pub struct DaemonContext {
     /// Renderer captures waiting for the renderer's answer, shared by
     /// periodic Live Preview and Watch Live (one capture in flight).
     pub capture: crate::capture::CaptureBroker,
+    /// The renderer's Watch Live H.264 encoder session and probed profiles.
+    pub live_encoders: crate::live_encoder::LiveEncoders,
     /// Periodic Live Preview health (its renderer-fault suspension only).
     pub preview_health: crate::preview::PreviewHealth,
     /// Wakes the preview coordinator when a capture is requested.
@@ -466,6 +468,7 @@ impl Daemon {
             activity,
             report_wake: tokio::sync::Notify::new(),
             capture: crate::capture::CaptureBroker::default(),
+            live_encoders: crate::live_encoder::LiveEncoders::default(),
             preview_health: crate::preview::PreviewHealth::default(),
             preview_wake: tokio::sync::Notify::new(),
             live_stream_wake: tokio::sync::Notify::new(),
