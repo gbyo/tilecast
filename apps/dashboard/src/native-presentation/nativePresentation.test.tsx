@@ -679,7 +679,11 @@ describe("the presentation page", () => {
     expect(
       await screen.findByAltText("Live Tilecast output from Lobby"),
     ).toBeInTheDocument();
-    expect(mocks.api.startLiveStream).toHaveBeenCalledWith("screen-1", "csrf");
+    // jsdom has no WebCodecs: the viewer offers the MJPEG profiles only.
+    expect(mocks.api.startLiveStream).toHaveBeenCalledWith("screen-1", "csrf", [
+      "mjpeg-540p10",
+      "mjpeg-360p8",
+    ]);
     await waitFor(() =>
       expect(host.ofType("presentation/update")).toContainEqual({
         presentationId: "p-1",

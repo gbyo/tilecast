@@ -9,7 +9,38 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { H264StreamOptions } from "../live-stream/h264Stream";
 import { LiveStreamDialog } from "./LiveStreamDialog";
+
+// jsdom has no WebCodecs, so the default answer is MJPEG only. A test that
+// needs an H.264-capable browser sets `offered` and drives the stream mock.
+const webCodecs = vi.hoisted(() => ({
+  offered: null as string[] | null,
+  streams: [] as { options: H264StreamOptions; stopped: boolean }[],
+}));
+vi.mock("../live-stream/h264Support", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../live-stream/h264Support")>();
+  return {
+    ...actual,
+    acceptedProfiles: () =>
+      Promise.resolve(webCodecs.offered ?? ["mjpeg-540p10", "mjpeg-360p8"]),
+  };
+});
+vi.mock("../live-stream/h264Stream", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../live-stream/h264Stream")>();
+  return {
+    ...actual,
+    startH264Stream: (options: H264StreamOptions) => {
+      const stream = { options, stopped: false };
+      webCodecs.streams.push(stream);
+      return () => {
+        stream.stopped = true;
+      };
+    },
+  };
+});
 
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -27,6 +58,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  webCodecs.offered = null;
+  webCodecs.streams = [];
 });
 
 describe("LiveStreamDialog", () => {
@@ -272,5 +305,189 @@ describe("LiveStreamDialog", () => {
         .getAttribute("src"),
     ).toContain("/session-2/mjpeg");
     expect(screen.queryByText("Stream unavailable")).toBeNull();
+  });
+
+  it("offers only MJPEG without WebCodecs and treats an older server as MJPEG", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "session-old-server",
+              screenId: "screen-1",
+              active: true,
+              expiresAt: "2026-07-30T12:00:15Z",
+              frameIntervalMillis: 100,
+              maxWidth: 960,
+              maxHeight: 540,
+              maxFrameBytes: 102400,
+            },
+          }),
+          { status: 201 },
+        ),
+      )
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    render(
+      <LiveStreamDialog
+        open
+        screenId="screen-1"
+        screenName="Lobby"
+        csrfToken="csrf"
+        onClose={() => undefined}
+      />,
+    );
+    const image = await screen.findByAltText("Live Tilecast output from Lobby");
+    expect(image.tagName).toBe("IMG");
+    const start = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(start?.body as string)).toEqual({
+      acceptProfiles: ["mjpeg-540p10", "mjpeg-360p8"],
+    });
+    expect(screen.getByText("10 FPS · 960×540 · MJPEG")).toBeTruthy();
+  });
+
+  it("negotiates H.264, plays it, and falls back to MJPEG when decoding fails", async () => {
+    webCodecs.offered = [
+      "h264-720p15",
+      "h264-540p15",
+      "h264-540p10",
+      "mjpeg-540p10",
+      "mjpeg-360p8",
+    ];
+    const base = {
+      screenId: "screen-1",
+      active: true,
+      expiresAt: "2026-07-30T12:00:15Z",
+      maxFrameBytes: 524288,
+      frameSequence: 0,
+      profileGeneration: 0,
+    };
+    const negotiating = {
+      ...base,
+      id: "session-h264",
+      transport: "mjpeg",
+      frameIntervalMillis: 125,
+      maxWidth: 640,
+      maxHeight: 360,
+    };
+    const selected = {
+      ...negotiating,
+      profile: "h264-720p15",
+      transport: "h264",
+      codec: "avc1.42e01f",
+      frameIntervalMillis: 67,
+      maxWidth: 1280,
+      maxHeight: 720,
+      targetBitrate: 1500000,
+    };
+    const fallback = {
+      ...base,
+      id: "session-mjpeg",
+      profile: "mjpeg-540p10",
+      transport: "mjpeg",
+      frameIntervalMillis: 100,
+      maxWidth: 960,
+      maxHeight: 540,
+      maxFrameBytes: 102400,
+    };
+    const requests: { method: string; url: string; body: unknown }[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const method = init?.method ?? "GET";
+      const href =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      const url = new URL(href, "http://localhost").pathname;
+      const text = typeof init?.body === "string" ? init.body : "";
+      requests.push({ method, url, body: text ? JSON.parse(text) : null });
+      if (method === "DELETE")
+        return Promise.resolve(new Response(null, { status: 204 }));
+      if (url.endsWith("/renew")) {
+        const id = url.split("/")[6];
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: id === "session-h264" ? selected : fallback,
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      const starts = requests.filter(
+        (entry) => entry.method === "POST" && !entry.url.endsWith("/renew"),
+      );
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: starts.length === 1 ? negotiating : fallback,
+          }),
+          { status: 201 },
+        ),
+      );
+    });
+
+    render(
+      <LiveStreamDialog
+        open
+        screenId="screen-1"
+        screenName="Lobby"
+        csrfToken="csrf"
+        onClose={() => undefined}
+      />,
+    );
+    expect(
+      await screen.findByText(/Choosing the best stream format/),
+    ).toBeTruthy();
+    expect(requests[0]?.body).toEqual({ acceptProfiles: webCodecs.offered });
+
+    // The Player chose H.264 720p15: the viewer renders a canvas.
+    const canvas = await screen.findByRole(
+      "img",
+      { name: "Live Tilecast output from Lobby" },
+      { timeout: 3000 },
+    );
+    expect(canvas.tagName).toBe("CANVAS");
+    expect(webCodecs.streams).toHaveLength(1);
+    const stream = webCodecs.streams[0]!;
+    expect(stream.options.url).toBe(
+      "/api/v1/screens/screen-1/live-stream/session-h264/h264",
+    );
+    expect(stream.options.sessionId).toBe("session-h264");
+    act(() => stream.options.callbacks.onFirstFrame());
+    expect(screen.getByText("Live")).toBeTruthy();
+    expect(
+      screen.getByText("15 FPS · 1280×720 · H.264 (about 1.5 Mbit/s)"),
+    ).toBeTruthy();
+
+    // Decoding fails for good: the lease restarts offering MJPEG only.
+    act(() => stream.options.callbacks.onDecoderFailed());
+    const image = await waitFor(
+      () => {
+        const element = screen.getByAltText("Live Tilecast output from Lobby");
+        expect(element.tagName).toBe("IMG");
+        return element;
+      },
+      { timeout: 3000 },
+    );
+    expect(image.getAttribute("src")).toBe(
+      "/api/v1/screens/screen-1/live-stream/session-mjpeg/mjpeg",
+    );
+    expect(stream.stopped).toBe(true);
+    await waitFor(() =>
+      expect(requests).toContainEqual(
+        expect.objectContaining({
+          method: "DELETE",
+          url: "/api/v1/screens/screen-1/live-stream/session-h264",
+        }),
+      ),
+    );
+    const restart = requests.filter(
+      (entry) => entry.method === "POST" && !entry.url.endsWith("/renew"),
+    )[1];
+    expect(restart?.body).toEqual({
+      acceptProfiles: ["mjpeg-540p10", "mjpeg-360p8"],
+    });
   });
 });
