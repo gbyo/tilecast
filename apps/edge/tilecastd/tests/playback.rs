@@ -3049,6 +3049,10 @@ async fn a_full_disk_or_store_fails_preparation_and_keeps_playing() {
     assert!(reason.is_some_and(|r| !r.is_empty()), "the reserve floor is a typed failure");
     assert!(shows(&renderer.last().unwrap(), &first));
     assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
+    wait_until("the preparation failure reaches the heartbeat", || async {
+        heartbeat(&player.context).await["lastSynchronizationError"].is_string()
+    })
+    .await;
     let heartbeat = heartbeat(&player.context).await;
     assert!(heartbeat["lastSynchronizationError"].is_string());
     assert_eq!(heartbeat["availableStorageBytes"], json!(player.context.config.cas.reserved_free_bytes));

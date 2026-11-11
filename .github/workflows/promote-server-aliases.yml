@@ -1,0 +1,101 @@
+name: Promote Server image aliases
+
+# Moves the Server image aliases (stable, latest, beta) for a release that is
+# already published. release.yml does this as its last job, but a published
+# release can only be resumed from its tagged commit, so a promotion that failed
+# there cannot pick up a fix made to main afterward. This workflow runs the
+# promotion from main instead. It builds nothing and publishes nothing.
+#
+#   Actions > Promote Server image aliases > Run workflow > choose main
+#
+# It decides with the same rules as release.yml: release_plan.py names the
+# aliases the release still owns, the digest comes from the published release's
+# tilecast-release.json, and promote-server-aliases.sh is the last guard. An
+# alias never moves backwards. Run it again after it succeeds and it moves
+# nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published release version without the leading v, for example 1.0.0
+        required: true
+        type: string
+
+# One promotion at a time, and never beside a release run that may promote too.
+concurrency:
+  group: tilecast-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve the published release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
+      digest: ${{ steps.aliases.outputs.digest }}
+      aliases: ${{ steps.aliases.outputs.aliases }}
+    steps:
+      # The promotion script is trusted code, so it only runs from main.
+      - name: Require main
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "Run this workflow from main, not $GITHUB_REF." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - name: Validate the version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/release_version.py tag "v$RELEASE_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Resolve the aliases and the image digest
+        id: aliases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName,isDraft,isPrerelease > "$RUNNER_TEMP/releases.json"
+          if ! jq -e --arg tag "$TAG" 'any(.[]; .tagName == $tag and (.isDraft | not))' "$RUNNER_TEMP/releases.json" > /dev/null; then
+            echo "$TAG is not a published release. Publish it with release.yml first." >&2
+            exit 1
+          fi
+          python3 scripts/release/release_plan.py --tag "$TAG" --releases "$RUNNER_TEMP/releases.json" > "$RUNNER_TEMP/plan.json"
+          jq . "$RUNNER_TEMP/plan.json"
+          gh release download "$TAG" --pattern tilecast-release.json --dir "$RUNNER_TEMP/published"
+          digest="$(jq -er '[.components[] | select(.id == "server" and .status == "available") | .digest][0]' "$RUNNER_TEMP/published/tilecast-release.json")"
+          aliases="$(jq -c '[.aliases | to_entries[] | select(.value) | .key]' "$RUNNER_TEMP/plan.json")"
+          {
+            echo "aliases=$aliases"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### $TAG"
+            echo "Image: \`$digest\`"
+            echo "Aliases due: \`$aliases\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    name: promote
+    needs: resolve
+    if: ${{ needs.resolve.outputs.aliases != '[]' }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/server-release.yml
+    with:
+      stage: promote
+      version: ${{ needs.resolve.outputs.version }}
+      channel: ${{ needs.resolve.outputs.channel }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      aliases: ${{ needs.resolve.outputs.aliases }}
