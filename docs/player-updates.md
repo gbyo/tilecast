@@ -213,6 +213,8 @@ Select **Prepare artifact** on a verified GitHub artifact to cache it.
 During caching, Studio polls every second and shows actual downloaded bytes
 against the signed artifact size.
 Studio uses a slower interval when no artifact is downloading.
+If the download times out, the server records a cache failure.
+Select **Prepare artifact** again to retry the download.
 The release detail shows notes, verification state, cache state, and active use.
 Technical details include the artifact name, hash, and signature state.
 Cache removal requires confirmation.
