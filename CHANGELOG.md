@@ -25,7 +25,7 @@ Dates are the dates of the release tags.
 
 ### Highlights
 
-- **Watch Live on Edge** supports H.264 at up to 720p and 15 frames per second when the browser supports WebCodecs and Studio is in a secure context. Watch Live falls back to MJPEG when H.264 is unavailable ([#1895](https://github.com/gbyo/tilecast/pull/1895)).
+- **Watch Live on Edge** supports H.264 at up to 720p and 15 frames per second with a compatible encoder and a browser that can decode the stream through WebCodecs in a secure context. Watch Live falls back to MJPEG when H.264 is unavailable ([#1895](https://github.com/gbyo/tilecast/pull/1895)).
 - **Studio object actions** use more consistent context and overflow menus across content libraries, the Layout editor, the playlist timeline, schedules, and Forms ([#1700](https://github.com/gbyo/tilecast/pull/1700)).
 
 ### Players
