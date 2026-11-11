@@ -3792,7 +3792,10 @@ async fn explicit_download_beyond_cache_fails_preparation_visibly() {
     assert_eq!(reason.as_deref(), Some("media_cache_too_small"));
     assert!(player.stage(&binding, Stage::Pending).await.is_none());
     assert!(player.stage(&binding, Stage::Active).await.is_none());
-    assert_eq!(heartbeat(&player.context).await["lastSynchronizationError"], "media_cache_too_small");
+    wait_until("cache capacity error in the heartbeat", || async {
+        heartbeat(&player.context).await["lastSynchronizationError"] == "media_cache_too_small"
+    })
+    .await;
     renderer.stop();
     player.stop().await;
 }

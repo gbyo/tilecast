@@ -84,6 +84,18 @@ class PromoteAliases(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.tags(), {"stable": NEW, "latest": NEW, "beta": NEW})
 
+    def test_stable_replaces_the_legacy_main_image_at_latest(self):
+        self.set_state(versions={OLD: "main"})
+        result = self.promote(aliases=("latest",))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.tags(), {"stable": OLD, "latest": NEW, "beta": OLD})
+
+    def test_an_unversioned_build_cannot_replace_the_legacy_latest_image(self):
+        self.set_state(versions={OLD: "main", NEW: "development"})
+        result = self.promote(aliases=("latest",))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.tags()["latest"], OLD)
+
     def test_a_beta_release_moves_only_beta(self):
         result = self.promote(aliases=("beta",), channel="beta")
         self.assertEqual(result.returncode, 0, result.stderr)
