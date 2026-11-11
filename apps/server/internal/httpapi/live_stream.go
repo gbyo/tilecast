@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
 )
@@ -76,7 +77,28 @@ func (s *server) playerLiveStreamSession(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid_request", "The Watch Live profile list is invalid.")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": s.liveStreams.SelectProfile(principal.ScreenID, profiles)})
+	degraded, ok := playerLiveStreamDegradation(r)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid_request", "The Watch Live degradation is invalid.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": s.liveStreams.SelectProfile(principal.ScreenID, profiles, degraded)})
+}
+
+// playerLiveStreamDegradation reads the optional degradedSession and
+// degradedProfile pair: the Player could not sustain that profile for that
+// session.
+func playerLiveStreamDegradation(r *http.Request) (*livestream.Degradation, bool) {
+	query := r.URL.Query()
+	session, profile := query.Get("degradedSession"), query.Get("degradedProfile")
+	if session == "" && profile == "" {
+		return nil, true
+	}
+	sessionID, err := uuid.Parse(session)
+	if err != nil || len(profile) == 0 || len(profile) > 32 {
+		return nil, false
+	}
+	return &livestream.Degradation{SessionID: sessionID, Profile: profile}, true
 }
 
 // playerLiveStreamProfiles reads the Player's repeated `profile` query

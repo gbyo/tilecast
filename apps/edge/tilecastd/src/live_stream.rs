@@ -2,8 +2,6 @@
 use crate::daemon::DaemonContext;
 use std::sync::Arc;
 
-pub use player_core::LiveFrame;
-
 #[async_trait::async_trait]
 impl player_core::LiveStreamHost for DaemonContext {
     async fn capture_live_frame(
@@ -17,14 +15,16 @@ impl player_core::LiveStreamHost for DaemonContext {
     async fn presentation_protected(&self) -> bool {
         presentation_protected(self).await
     }
-    fn supports_540p10_watch_live(&self) -> bool {
-        true
+    fn watch_live_capabilities(&self) -> player_core::WatchLiveCapabilities {
+        // Edge captures the presented WPE buffer, which is large enough for
+        // the 960x540 MJPEG profile on every supported renderer.
+        player_core::WatchLiveCapabilities::new([player_core::WatchLiveProfile::Mjpeg540p10])
     }
     fn now(&self) -> edge_protocol::Timestamp {
         DaemonContext::now(self)
     }
-    fn live_frames(&self) -> &tokio::sync::watch::Sender<Option<LiveFrame>> {
-        &self.live_frames
+    fn live_outbox(&self) -> &player_core::LiveOutbox {
+        &self.live_outbox
     }
 }
 

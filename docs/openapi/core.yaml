@@ -3130,6 +3130,18 @@ paths:
             type: array
             maxItems: 16
             items: { type: string, maxLength: 32 }
+        - name: degradedSession
+          in: query
+          required: false
+          description: >-
+            With degradedProfile, the session this Player could not sustain
+            degradedProfile for. The server then selects a lower profile for
+            that session only; a hint for another session is ignored.
+          schema: { type: string, format: uuid }
+        - name: degradedProfile
+          in: query
+          required: false
+          schema: { type: string, maxLength: 32 }
         - name: captureProfile
           in: query
           required: false

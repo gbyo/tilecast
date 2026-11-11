@@ -105,7 +105,7 @@ func TestSelectionCorpus(t *testing.T) {
 			if len(player) == 1 && player[0] == "legacy:edge-540p10" {
 				player = LegacyEdgeProfiles()
 			}
-			selected := service.SelectProfile(screenID, player)
+			selected := service.SelectProfile(screenID, player, nil)
 			if selected.Profile != testCase.Selected {
 				t.Fatalf("selected %q, want %q", selected.Profile, testCase.Selected)
 			}
@@ -198,7 +198,7 @@ func h264Session(t *testing.T, service *Service, screenID uuid.UUID, profiles ..
 	t.Helper()
 	viewer := []string{ProfileH264720p15, ProfileH264540p15, ProfileH264540p10, ProfileMJPEG540p10, ProfileMJPEG360p8}
 	service.Start(screenID, viewer)
-	selected := service.SelectProfile(screenID, profiles)
+	selected := service.SelectProfile(screenID, profiles, nil)
 	if selected.Transport != TransportH264 {
 		t.Fatalf("expected H.264, got %+v", selected)
 	}
@@ -394,12 +394,12 @@ func TestProfileMismatchAndDowngradeNeverUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-	if again := service.SelectProfile(screenID, all); again.Profile != ProfileH264720p15 || again.ProfileGeneration != 0 {
+	if again := service.SelectProfile(screenID, all, nil); again.Profile != ProfileH264720p15 || again.ProfileGeneration != 0 {
 		t.Fatalf("an unchanged poll changed the session: %+v", again)
 	}
 
 	// The Player degrades: it stops listing 720p for this session.
-	degraded := service.SelectProfile(screenID, all[1:])
+	degraded := service.SelectProfile(screenID, all[1:], nil)
 	if degraded.Profile != ProfileH264540p15 || degraded.ProfileGeneration != 1 || degraded.MaxWidth != 960 {
 		t.Fatalf("downgrade did not select 540p15: %+v", degraded)
 	}
@@ -412,11 +412,11 @@ func TestProfileMismatchAndDowngradeNeverUpgrade(t *testing.T) {
 		t.Fatalf("a chunk for the old profile was accepted after the change: %v", err)
 	}
 	// Listing 720p again never upgrades the same session.
-	if again := service.SelectProfile(screenID, all); again.Profile != ProfileH264540p15 || again.ProfileGeneration != 1 {
+	if again := service.SelectProfile(screenID, all, nil); again.Profile != ProfileH264540p15 || again.ProfileGeneration != 1 {
 		t.Fatalf("session upgraded: %+v", again)
 	}
 	// Degrading out of H.264 lands on MJPEG.
-	mjpeg := service.SelectProfile(screenID, all[3:])
+	mjpeg := service.SelectProfile(screenID, all[3:], nil)
 	if mjpeg.Profile != ProfileMJPEG540p10 || mjpeg.Transport != TransportMJPEG || mjpeg.Codec != "" || mjpeg.ProfileGeneration != 2 || mjpeg.MaxFrameBytes != MaxFrameBytes {
 		t.Fatalf("downgrade to MJPEG: %+v", mjpeg)
 	}
@@ -461,5 +461,34 @@ func TestH264EndsWithTheSession(t *testing.T) {
 	service.mu.Unlock()
 	if remaining != 0 {
 		t.Fatalf("expired session kept its GOP in memory")
+	}
+}
+
+func TestDegradationHintAppliesOnlyToItsSession(t *testing.T) {
+	service := NewService(nil)
+	screenID := uuid.New()
+	all := []string{ProfileH264720p15, ProfileH264540p15, ProfileH264540p10, ProfileMJPEG540p10, ProfileMJPEG360p8}
+	session := h264Session(t, service, screenID, all...)
+	stale := &Degradation{SessionID: uuid.New(), Profile: ProfileH264720p15}
+	if kept := service.SelectProfile(screenID, all, stale); kept.Profile != ProfileH264720p15 {
+		t.Fatalf("a hint for another session lowered this one: %+v", kept)
+	}
+	hint := &Degradation{SessionID: session.ID, Profile: ProfileH264720p15}
+	if lowered := service.SelectProfile(screenID, all, hint); lowered.Profile != ProfileH264540p15 || lowered.ProfileGeneration != 1 {
+		t.Fatalf("hint ignored: %+v", lowered)
+	}
+	hint.Profile = ProfileH264540p10
+	if lowered := service.SelectProfile(screenID, all, hint); lowered.Profile != ProfileMJPEG540p10 || lowered.Transport != TransportMJPEG {
+		t.Fatalf("degrading out of 540p10 must land on MJPEG: %+v", lowered)
+	}
+	hint.Profile = ProfileMJPEG360p8
+	if floor := service.SelectProfile(screenID, all, hint); floor.Profile != ProfileMJPEG360p8 {
+		t.Fatalf("the legacy profile is the floor: %+v", floor)
+	}
+	// A replacement session probes the best profile again even if the
+	// Player's first poll still carries the old session's hint.
+	fresh := service.Start(screenID, all)
+	if probed := service.SelectProfile(screenID, all, &Degradation{SessionID: session.ID, Profile: ProfileH264720p15}); probed.ID != fresh.ID || probed.Profile != ProfileH264720p15 {
+		t.Fatalf("a stale hint lowered a new lease: %+v", probed)
 	}
 }

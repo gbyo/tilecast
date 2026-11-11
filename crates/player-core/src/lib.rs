@@ -5,6 +5,7 @@ mod capture;
 mod commands;
 mod configuration;
 mod display;
+mod live_outbox;
 mod live_stream;
 mod manifest_content;
 mod manifest_report;
@@ -36,6 +37,7 @@ mod server_driver;
 mod server_link;
 mod supervisor;
 mod telemetry;
+pub mod watch_live;
 
 pub use activity::{
     Clocks as ActivityClocks, Event as ActivityEvent, ItemInfo as ActivityItem, Persisted as PersistedActivity,
@@ -56,7 +58,8 @@ pub use display::{
     PowerOutcome as DisplayPowerOutcome, PowerReport as DisplayPowerReport, parse as parse_display_action,
     parse_policy as parse_display_policy, power_outcome as display_power_outcome,
 };
-pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
+pub use live_outbox::{LiveOutbox, MAX_QUEUED_BYTES, MAX_QUEUED_CHUNKS, Offer, OutboxItem};
+pub use live_stream::{Degradation, LiveFrame, LiveStreamApi, LiveStreamHost, drive_live_stream};
 pub use manifest_content::{
     MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, PreparedContent,
     manifest_pin_holder, stream_claims,
@@ -102,6 +105,7 @@ pub use pairing::{
     PairingOutcome, PairingStatus, PhoneRelay, PhoneSetupView, SetupRelay,
 };
 pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
+pub use player_client::live_stream::{WatchLiveCapabilities, WatchLiveProfile, WatchLiveTransport};
 pub use plugin_events::{
     EventSource, MAX_EVENT_PAYLOAD_BYTES, MAX_EVENT_PAYLOAD_DEPTH, MAX_EVENT_PAYLOAD_VALUES,
     MAX_PENDING_EVENTS_PER_PLUGIN, PLUGIN_EVENT_MESSAGE_TYPE, PluginEvent, PluginEventError, validate_event_payload,
@@ -147,6 +151,10 @@ pub use server_link::{
 pub use supervisor::{Expectation, HealAction, ProgressEvidence, SupervisorConfig, is_content_evidence};
 use supervisor::{SupervisorState, is_meaningful};
 pub use telemetry::{TELEMETRY_INTERVAL, TelemetryGauges, TelemetryHost, TelemetryTick};
+pub use watch_live::{
+    DowngradeMonitor, EncodedChunkSink, EncodedVideoChunk, EncoderConfig, EncoderSample, LiveEncoder,
+    fit_encoder_dimensions,
+};
 
 use player_state::StateDb;
 use player_types::time::SharedClock;

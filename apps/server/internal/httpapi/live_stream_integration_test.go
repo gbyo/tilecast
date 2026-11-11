@@ -88,7 +88,7 @@ func TestLiveStreamH264ChunksRelayWithoutPersistence(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		env.server.liveStreams = livestream.NewService(env.server.devices)
 		session := env.server.liveStreams.Start(env.screenID, []string{livestream.ProfileH264540p15})
-		env.server.liveStreams.SelectProfile(env.screenID, []string{livestream.ProfileH264540p15})
+		env.server.liveStreams.SelectProfile(env.screenID, []string{livestream.ProfileH264540p15}, nil)
 		subscription, cancelSubscription, err := env.server.liveStreams.SubscribeH264(env.screenID, session.ID)
 		if err != nil {
 			t.Fatal(err)

@@ -163,7 +163,7 @@ func TestLegacyPlayersKeepTheirMJPEGBounds(t *testing.T) {
 		t.Fatalf("unexpected default profile: %+v", initial)
 	}
 	// An older Edge Player names the retired 540p10 query on every poll.
-	upgraded := service.SelectProfile(screenID, LegacyEdgeProfiles())
+	upgraded := service.SelectProfile(screenID, LegacyEdgeProfiles(), nil)
 	if upgraded.ID != initial.ID || upgraded.Profile != ProfileMJPEG540p10 || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 540 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 || upgraded.Codec != "" {
 		t.Fatalf("bad negotiated profile: %+v", upgraded)
 	}
@@ -176,7 +176,7 @@ func TestLegacyPlayersKeepTheirMJPEGBounds(t *testing.T) {
 	}
 	other := uuid.New()
 	legacy := service.Start(other, nil)
-	if selected := service.SelectProfile(other, nil); selected.Profile != ProfileMJPEG360p8 {
+	if selected := service.SelectProfile(other, nil, nil); selected.Profile != ProfileMJPEG360p8 {
 		t.Fatalf("a Player that says nothing got %+v", selected)
 	}
 	if err := service.Publish(other, legacy.ID, Frame{CapturedAt: time.Now(), Width: 960, Height: 540, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {

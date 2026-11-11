@@ -17550,6 +17550,9 @@ export interface operations {
       query?: {
         /** @description Watch Live profile IDs this Player can produce now, repeated. Omit it to retain the legacy 640x360 at 8 FPS MJPEG profile. Unknown IDs are ignored. */
         profile?: string[];
+        /** @description With degradedProfile, the session this Player could not sustain degradedProfile for. The server then selects a lower profile for that session only; a hint for another session is ignored. */
+        degradedSession?: string;
+        degradedProfile?: string;
         /**
          * @deprecated
          * @description Retired opt-in of older Edge Players. edge-540p10 means the profiles mjpeg-540p10 and mjpeg-360p8.

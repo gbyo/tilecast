@@ -44,6 +44,13 @@ type Notifier interface {
 	Notify(screenID uuid.UUID, message map[string]any) bool
 }
 
+// Degradation is a Player's statement that it could not sustain Profile
+// for the session SessionID.
+type Degradation struct {
+	SessionID uuid.UUID
+	Profile   string
+}
+
 // Session is the lease both Studio and the Player read. Until the Player
 // first reconciles, Profile is empty and the limits are the legacy profile.
 type Session struct {
@@ -170,7 +177,11 @@ func (s *Service) Start(screenID uuid.UUID, viewerProfiles []string) Session {
 // keeps it while the Player still lists it and otherwise moves down: a
 // session never upgrades. A change bumps ProfileGeneration, drops buffered
 // H.264, and ends every relay request.
-func (s *Service) SelectProfile(screenID uuid.UUID, playerProfiles []string) Session {
+//
+// degraded, when it names this session, says the Player could not sustain
+// that profile: the session moves below it. A hint for another session (a
+// replaced one) is ignored, so it never lowers a new lease.
+func (s *Service) SelectProfile(screenID uuid.UUID, playerProfiles []string, degraded *Degradation) Session {
 	s.mu.Lock()
 	active := s.activeLocked(screenID)
 	if active == nil {
@@ -180,6 +191,11 @@ func (s *Service) SelectProfile(screenID uuid.UUID, playerProfiles []string) Ses
 	ceiling := active.profileRank
 	if ceiling < 0 {
 		ceiling = 0
+	}
+	if degraded != nil && degraded.SessionID == active.ID {
+		if _, rank, ok := profileByID(degraded.Profile); ok && rank+1 > ceiling {
+			ceiling = rank + 1
+		}
 	}
 	profile, rank := selectProfile(active.viewerProfiles, NormalizeProfiles(playerProfiles), ceiling)
 	changed := rank != active.profileRank

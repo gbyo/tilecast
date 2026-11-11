@@ -13,7 +13,7 @@ use anyhow::Context as _;
 use player_cas::{ContentStore, LruByDomain, StorePolicy};
 use player_client::AuthenticatedServer;
 use player_core::{
-    ActivityHandle, LiveFrame, PairingCoordinator, PlayerCore, ServerLinkState, ServerRelationship,
+    ActivityHandle, PairingCoordinator, PlayerCore, ServerLinkState, ServerRelationship,
     SharedManifestPreparationStatus,
 };
 use player_state::repo::{binding, cas, daemon as daemon_repo};
@@ -84,7 +84,7 @@ pub struct DaemonContext {
     pub report_wake: tokio::sync::Notify,
     /// Wakes Watch Live when its lease changes.
     pub live_stream_wake: tokio::sync::Notify,
-    pub live_frames: tokio::sync::watch::Sender<Option<LiveFrame>>,
+    pub live_outbox: player_core::LiveOutbox,
     /// What manifest preparation is doing, for status and heartbeat.
     pub preparation: SharedManifestPreparationStatus,
     pub link_state: std::sync::Mutex<ServerLinkState>,
@@ -246,7 +246,6 @@ pub async fn build_with_sealer(
     let (activity, activity_signals) = ActivityHandle::channel();
     let (command_server, _) = tokio::sync::watch::channel(None);
     let (sync_done, _) = tokio::sync::watch::channel((0, false));
-    let (live_frames, _) = tokio::sync::watch::channel(None);
     let mut presentation = crate::presentation::PresentationEngine::new(
         std::sync::Arc::new(std::sync::Mutex::new(crate::media::MediaRegistry::new())),
         player_core::SupervisorConfig::default(),
@@ -275,7 +274,7 @@ pub async fn build_with_sealer(
         preview_wake: tokio::sync::Notify::new(),
         report_wake: tokio::sync::Notify::new(),
         live_stream_wake: tokio::sync::Notify::new(),
-        live_frames,
+        live_outbox: player_core::LiveOutbox::default(),
         preparation: SharedManifestPreparationStatus::default(),
         link_state: std::sync::Mutex::new(ServerLinkState::Unbound),
         last_server_contact: std::sync::Mutex::new(None),

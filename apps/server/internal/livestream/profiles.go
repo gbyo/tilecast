@@ -118,6 +118,9 @@ func selectProfile(viewer, player []string, ceilingRank int) (Profile, int) {
 		}
 		return false
 	}
+	if ceilingRank >= len(Profiles) {
+		ceilingRank = len(Profiles) - 1
+	}
 	for rank, profile := range Profiles {
 		if rank < ceilingRank {
 			continue

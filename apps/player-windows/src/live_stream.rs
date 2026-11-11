@@ -10,8 +10,6 @@ use player_types::Timestamp;
 
 use crate::daemon::DaemonContext;
 
-pub use player_core::LiveFrame;
-
 #[async_trait::async_trait]
 impl player_core::LiveStreamHost for DaemonContext {
     async fn capture_live_frame(
@@ -28,8 +26,8 @@ impl player_core::LiveStreamHost for DaemonContext {
     fn now(&self) -> Timestamp {
         DaemonContext::now(self)
     }
-    fn live_frames(&self) -> &tokio::sync::watch::Sender<Option<LiveFrame>> {
-        &self.live_frames
+    fn live_outbox(&self) -> &player_core::LiveOutbox {
+        &self.live_outbox
     }
 }
 

@@ -144,7 +144,7 @@ func TestH264RelayEndpoint(t *testing.T) {
 	server := httptest.NewServer(liveStreamTestRouter(s, screenID))
 	defer server.Close()
 	session := service.Start(screenID, []string{livestream.ProfileH264540p15, livestream.ProfileMJPEG360p8})
-	if selected := service.SelectProfile(screenID, []string{livestream.ProfileH264540p15}); selected.Profile != livestream.ProfileH264540p15 {
+	if selected := service.SelectProfile(screenID, []string{livestream.ProfileH264540p15}, nil); selected.Profile != livestream.ProfileH264540p15 {
 		t.Fatalf("selected %+v", selected)
 	}
 	send := func(sequence uint64, keyframe bool) {
@@ -198,7 +198,7 @@ func TestH264RelayEndpoint(t *testing.T) {
 		t.Fatalf("third record %+v", third)
 	}
 	// A downgrade to MJPEG ends the H.264 request.
-	service.SelectProfile(screenID, []string{livestream.ProfileMJPEG360p8})
+	service.SelectProfile(screenID, []string{livestream.ProfileMJPEG360p8}, nil)
 	if _, err := io.ReadAll(response.Body); err != nil {
 		t.Fatalf("relay did not end cleanly: %v", err)
 	}

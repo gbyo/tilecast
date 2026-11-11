@@ -13952,6 +13952,10 @@ type GetPlayerLiveStreamSessionParams struct {
 	// Profile Watch Live profile IDs this Player can produce now, repeated. Omit it to retain the legacy 640x360 at 8 FPS MJPEG profile. Unknown IDs are ignored.
 	Profile *[]string `form:"profile,omitempty" json:"profile,omitempty"`
 
+	// DegradedSession With degradedProfile, the session this Player could not sustain degradedProfile for. The server then selects a lower profile for that session only; a hint for another session is ignored.
+	DegradedSession *openapi_types.UUID `form:"degradedSession,omitempty" json:"degradedSession,omitempty"`
+	DegradedProfile *string             `form:"degradedProfile,omitempty" json:"degradedProfile,omitempty"`
+
 	// CaptureProfile Retired opt-in of older Edge Players. edge-540p10 means the profiles mjpeg-540p10 and mjpeg-360p8.
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CaptureProfile *GetPlayerLiveStreamSessionParamsCaptureProfile `form:"captureProfile,omitempty" json:"captureProfile,omitempty"`
@@ -40530,6 +40534,30 @@ func NewGetPlayerLiveStreamSessionRequest(server string, params *GetPlayerLiveSt
 		if params.Profile != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "profile", *params.Profile, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DegradedSession != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "degradedSession", *params.DegradedSession, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DegradedProfile != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "degradedProfile", *params.DegradedProfile, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
