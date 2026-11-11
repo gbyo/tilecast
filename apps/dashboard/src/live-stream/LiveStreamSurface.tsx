@@ -28,7 +28,10 @@ export function MjpegSurface({
       src={url}
       alt={alt}
       onLoad={(event) => {
-        events.onFrameSize?.(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
+        events.onFrameSize?.(
+          event.currentTarget.naturalWidth,
+          event.currentTarget.naturalHeight,
+        );
         events.onPlaying();
       }}
       onError={() => events.onTransportEnded("error")}

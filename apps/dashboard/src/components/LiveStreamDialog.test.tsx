@@ -491,7 +491,7 @@ describe("LiveStreamDialog", () => {
     });
   });
 
-  it("preserves portrait preview bounds and tracks the decoded MJPEG frame", async () => {
+  it("preserves portrait frame bounds", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         new Response(
@@ -536,5 +536,4 @@ describe("LiveStreamDialog", () => {
     fireEvent.load(image);
     expect(viewport?.style.aspectRatio).toBe("360 / 640");
   });
-
 });

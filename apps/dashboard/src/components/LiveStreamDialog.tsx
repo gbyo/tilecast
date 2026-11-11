@@ -88,7 +88,10 @@ export function LiveStreamViewer({
   const { t } = useTranslation(["alerts", "common"]);
   const [session, setSession] = useState<WireLiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
+  const [frameSize, setFrameSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [error, setError] = useState<LiveStreamViewerError | null>(null);
   const [streamAttempt, setStreamAttempt] = useState(0);
   // After a decoder failure this viewer offers MJPEG only, for as long as

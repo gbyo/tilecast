@@ -51,7 +51,7 @@ export const WATCH_LIVE_PROFILES: readonly WatchLiveProfile[] = [
     code: 0,
     transport: "mjpeg",
     maxWidth: 960,
-    maxHeight: 540,
+    maxHeight: 960,
     fps: 10,
   },
   {
@@ -59,7 +59,7 @@ export const WATCH_LIVE_PROFILES: readonly WatchLiveProfile[] = [
     code: 0,
     transport: "mjpeg",
     maxWidth: 640,
-    maxHeight: 360,
+    maxHeight: 640,
     fps: 8,
   },
 ];

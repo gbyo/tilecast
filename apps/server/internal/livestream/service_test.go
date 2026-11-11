@@ -184,7 +184,6 @@ func TestLegacyPlayersKeepTheirMJPEGBounds(t *testing.T) {
 	}
 }
 
-
 // Portrait bounds are independent of landscape orientation.
 func TestPortraitMjpegProfilesPreserveFullFrame(t *testing.T) {
 	screenID := uuid.New()
