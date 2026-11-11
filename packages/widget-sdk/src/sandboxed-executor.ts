@@ -15,7 +15,7 @@
  * negative/security fixtures proving why they are unsuitable; no
  * production Player path may select them.
  *
- * Open follow-ups, recorded in `docs/widget-sandbox-spike.md`:
+ * Open follow-ups, recorded in `docs/records/widget-sandbox-spike.md`:
  *
  * - The frame bootstrap is a template string. A built frame entry
  *   would let both sides share the SDK's event and revision helpers
@@ -64,7 +64,7 @@ import {
  * Blob and srcdoc documents inherit the embedding context's policy,
  * so they only execute where that policy already permits the frame's
  * inline scripts; the Browser instead navigates its grants and takes
- * the sandbox from the response (see docs/widget-sandbox-spike.md).
+ * the sandbox from the response (see docs/records/widget-sandbox-spike.md).
  * `srcdoc` stays a harness negative proof: it inherits the parent
  * CSP, whose `script-src 'self'` can never match the frame's opaque
  * origin.

@@ -1,7 +1,7 @@
 # Native Player Core readiness review
 
 **Status: stage 12 qualification ledger; evidence is scoped to its recorded commits and test environments.** The review does not authorize a general production Edge rollout or create a macOS app. Check the latest release and per-hardware evidence before interpreting any historical stage as current qualification.
-The governing contract is [`player-core.md`](player-core.md).
+The governing contract is [`player-core.md`](../player-core.md).
 
 ## Ownership audit
 
@@ -129,7 +129,7 @@ Stage 12 changes need their own checks and selected qualification.
 
 No stage is complete while its selected checks are pending or failing.
 Physical WPE, display hardware, and power-cycle qualification remain the
-existing M11 work recorded in [`tilecast-edge-next.md`](tilecast-edge-next.md).
+existing M11 work recorded in [`tilecast-edge-next.md`](../tilecast-edge-next.md).
 
 ## Remaining macOS platform work
 

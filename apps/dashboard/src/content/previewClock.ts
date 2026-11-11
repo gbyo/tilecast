@@ -1,6 +1,6 @@
 /**
  * The preview clock behind V2 Widget previews
- * (docs/widgets-v2-authoring-and-first-wave.md).
+ * (docs/widget-authoring.md, Preview capabilities).
  *
  * A Widget keeps time with `context.clock` and nothing else, so the
  * existing preview-time control drives the real Widget by swapping this

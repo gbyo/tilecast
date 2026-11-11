@@ -6,10 +6,9 @@ provider in the release catalog. The machine-readable table is
 (`apps/server/internal/contentdefs/catalog_decisions_test.go`) compares
 that table with the release catalog.
 
-This document completes
-[Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md)
-§14 PR 9. It follows [Widgets V2](widgets-v2.md) and the
-[content extension model](content-extension-model.md).
+This document is the binding provider-to-component compatibility catalog. It
+follows [Widgets V2](widgets-v2.md), [Widget authoring](widget-authoring.md),
+and the [extension architecture](content-extension-model.md).
 
 ## 1. Rules
 

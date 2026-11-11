@@ -3,7 +3,7 @@
 ## Linux Edge renderer and live preview diagnosis
 
 - **Preview unavailable while playback continues:** inspect the Edge `renderer.preview` capability and daemon/renderer diagnostics. Edge can suspend still previews after renderer stalls to protect playback. Reloading Studio does not establish whether a capture reached the renderer. See [Live previews](live-previews.md).
-- **Renderer fails following migration or update:** review the [Edge 0.2.1 sandbox findings](tilecast-edge-sandbox-review.md) and [Edge architecture](tilecast-edge.md). WPE requires its own bubblewrap sandbox and the validated runtime-library closure. Do not use Linux Legacy Electron flags or disable WebKit's sandbox.
+- **Renderer fails following migration or update:** review the [Edge 0.2.1 sandbox findings](records/edge/0.2.1-sandbox-review.md) and [Edge architecture](tilecast-edge.md). WPE requires its own bubblewrap sandbox and the validated runtime-library closure. Do not use Linux Legacy Electron flags or disable WebKit's sandbox.
 - **Remote production display:** collect read-only status and logs first. Do not issue exploratory restarts, credential replacements, or rollbacks without an understood recovery path and physical-access plan.
 
 ## Reliability and power

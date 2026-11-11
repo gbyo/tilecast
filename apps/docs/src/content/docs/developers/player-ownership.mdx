@@ -50,9 +50,9 @@ Watch Live lease, cadence, and frame coordination also run in Core. Edge owns
 wire command results; Core correlates pending commands and owns timeout,
 disconnect, and startup Website data-clear retry policy. Edge also owns
 media transport, its expiry clock, display-sleep policy, cursor configuration,
-and socket delivery. Stage 8 completion requires selected qualification for
-the final code commit. The renderer extraction's qualification ledger is in
-[PR #1224](https://github.com/gbyo/tilecast/pull/1224).
+and socket delivery. Current changes must pass the checks selected by the
+owning platform and shared contracts; historical extraction PRs are not current
+qualification evidence.
 
 | Your change                                                                                                 | Implementation owner                            |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
@@ -65,9 +65,9 @@ the final code commit. The renderer extraction's qualification ledger is in
 For example, a command redelivery fix belongs in shared native behavior. A
 CEC adapter fix stays in Edge. A transition changes Player Runtime. A manifest
 field starts with the manifest schema and its consumers.
-The [native-host readiness review](https://github.com/gbyo/tilecast/blob/main/docs/player-core-readiness.md)
-records the architecture audit, current qualification, and remaining platform
-work for a future macOS host.
+The [native-host readiness record](https://github.com/gbyo/tilecast/blob/main/docs/records/player-core-readiness.md)
+preserves the extraction audit and dated qualification evidence. Use current
+platform documentation and CI for present release readiness.
 
 ## Check the boundary
 

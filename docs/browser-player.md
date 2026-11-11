@@ -194,7 +194,7 @@ The document runs at an opaque origin and completes the production handshake.
 The shell policy allows same-origin frame navigations on any scheme.
 Navigations carry no client, so the grant capability and its active-trusted state authorize them.
 `fetch()` and media keep the client authorization roundtrip.
-See [Widget sandbox spike](widget-sandbox-spike.md) for the measured behavior.
+See [Widget sandbox spike](records/widget-sandbox-spike.md) for the measured behavior.
 
 ## Installation identity
 

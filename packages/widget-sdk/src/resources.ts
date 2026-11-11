@@ -33,7 +33,7 @@ export interface WidgetField {
   readonly currency?: string;
   /**
    * Optional semantic role from the shared vocabulary
-   * (docs/widgets-v2-authoring-and-first-wave.md §4). Domain Widgets
+   * (docs/widget-authoring.md, Semantic field roles). Domain Widgets
    * match roles first when mapping source fields to slots.
    */
   readonly role?: string;
