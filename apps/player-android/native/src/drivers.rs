@@ -236,7 +236,7 @@ impl Drivers {
                     link.renderer_engine.clone(),
                     link.renderer_broker,
                     clock.clone(),
-                    signals.live_frames.clone(),
+                    Arc::clone(&signals.live_outbox),
                 )),
                 engine: link.renderer_engine,
                 clock,
@@ -291,7 +291,7 @@ impl Drivers {
                         sync_request: &signals.sync_request,
                         sync_done: &signals.sync_done,
                         live_stream_wake: &signals.live_stream_wake,
-                        live_frames: &signals.live_frames,
+                        live_outbox: &signals.live_outbox,
                         status_due: &signals.status_due,
                     },
                 })

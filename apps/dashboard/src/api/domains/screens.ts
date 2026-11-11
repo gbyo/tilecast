@@ -144,11 +144,21 @@ export function listScreenSnapshots(
  */
 export type WirePreviewSession = components["schemas"]["PreviewSession"];
 export type WireScreenPreview = components["schemas"]["ScreenPreviewMetadata"];
-export type WireLiveStreamSession =
-  components["schemas"]["LiveStreamSession"] & {
-    /** In-memory health hints added by the live-stream service. */
+/**
+ * An older server omits the negotiation fields (`transport`, `profile`,
+ * `profileGeneration`): its relay is always MJPEG.
+ */
+export type WireLiveStreamSession = Omit<
+  components["schemas"]["LiveStreamSession"],
+  "transport" | "profileGeneration" | "frameSequence"
+> &
+  Partial<
+    Pick<
+      components["schemas"]["LiveStreamSession"],
+      "transport" | "profileGeneration" | "frameSequence"
+    >
+  > & {
     lastFrameAt?: string | null;
-    frameSequence?: number;
   };
 
 export function renewScreenPreview(
@@ -174,12 +184,18 @@ export function screenPreviewImageUrl(id: string, version: string): string {
   return `/api/v1/screens/${id}/preview/image?v=${encodeURIComponent(version)}`;
 }
 
+/**
+ * `acceptProfiles` lists the Watch Live profiles this viewer can consume;
+ * the server never selects one outside it.
+ */
 export function startLiveStream(
   screenId: string,
   csrfToken: string,
+  acceptProfiles: string[],
 ): Promise<WireLiveStreamSession> {
   return apiPost("/api/v1/screens/{id}/live-stream", {
     params: { path: { id: screenId } },
+    body: { acceptProfiles },
     csrfToken,
   });
 }
@@ -201,6 +217,17 @@ export function screenLiveStreamUrl(
   sessionId: string,
 ): string {
   return `/api/v1/screens/${screenId}/live-stream/${sessionId}/mjpeg`;
+}
+
+/**
+ * H.264 relay URL. The stream is read incrementally from `fetch().body`
+ * (a streaming read the typed transport does not provide).
+ */
+export function screenLiveStreamH264Url(
+  screenId: string,
+  sessionId: string,
+): string {
+  return `/api/v1/screens/${screenId}/live-stream/${sessionId}/h264`;
 }
 
 export function listPendingPairings(): Promise<{

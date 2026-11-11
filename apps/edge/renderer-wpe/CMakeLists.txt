@@ -23,7 +23,7 @@ pkg_check_modules(WPE REQUIRED IMPORTED_TARGET
   wpe-platform-headless-2.0>=2.54)
 pkg_check_modules(JSONGLIB REQUIRED IMPORTED_TARGET json-glib-1.0)
 pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-2.0 gio-unix-2.0)
-pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0)
+pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
 pkg_check_modules(DRM REQUIRED IMPORTED_TARGET libdrm>=2.4.112)
 
 add_library(tilecast-validate STATIC src/validate.c)
@@ -51,6 +51,7 @@ add_executable(tilecast-renderer-wpe
   src/main.c
   src/drm-probe.c
   src/preview.c
+  src/live-encoder.c
   src/ipc.c
   src/protocol.c
   src/schemes.c

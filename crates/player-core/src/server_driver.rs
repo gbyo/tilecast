@@ -1,6 +1,6 @@
 //! Native server socket ownership, fallback contact, and reconciliation cadence.
 use crate::{
-    ActivityEvent, ConfigurationCoordinator, ConfigurationHost, Dependencies, LiveFrame, ManifestCoordinator,
+    ActivityEvent, ConfigurationCoordinator, ConfigurationHost, Dependencies, LiveOutbox, ManifestCoordinator,
     ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestSyncError, ManifestWorkerHost,
     NativeConfiguration, ServerBackoff as Backoff, ServerLinkState as LinkState, ServerLinkState, ServerRelationship,
     SharedManifestPreparationStatus,
@@ -57,7 +57,7 @@ pub struct ServerLinkSignals<'a> {
     pub sync_request: &'a AtomicU64,
     pub sync_done: &'a watch::Sender<(u64, bool)>,
     pub live_stream_wake: &'a Notify,
-    pub live_frames: &'a watch::Sender<Option<LiveFrame>>,
+    pub live_outbox: &'a LiveOutbox,
     pub status_due: &'a AtomicBool,
 }
 
@@ -134,7 +134,6 @@ pub(crate) async fn drive_server_link<H: ServerLinkHost>(
         Some(ManifestPreparationCoordinator::new(dependencies.clone(), context.signals.preparation.clone()));
     let shutdown = context.shutdown;
     let mut link = Link { preparation, ..Link::default() };
-    let mut live_frames = context.signals.live_frames.subscribe();
     loop {
         if let Some(preparation) = &mut link.preparation {
             preparation.reap().await;
@@ -200,34 +199,26 @@ pub(crate) async fn drive_server_link<H: ServerLinkHost>(
                     link.config_dirty = true;
                     break;
                 }
-                changed = live_frames.changed() => {
-                    // The latest Watch Live frame, if any. A newer frame
-                    // supersedes an unsent older one: a slow network drops
-                    // frames instead of queueing video. The socket stays
-                    // owned here; the producer never touches it.
-                    if changed.is_err() {
-                        // The frame source is gone for good: retire this arm
-                        // instead of polling the closed channel. (Unreachable
-                        // in practice; the sender lives in the shared daemon
-                        // context this task itself holds.)
-                        std::future::pending::<()>().await;
+                item = context.signals.live_outbox.next() => {
+                    // The next Watch Live message: the newest JPEG, or the
+                    // next H.264 access unit in order. The outbox bounds
+                    // what waits here; the socket stays owned here and the
+                    // producers never touch it.
+                    //
+                    // Re-check the privacy boundary at the actual send
+                    // point. A message may have been queued before setup,
+                    // pairing, or safe mode became active while the socket
+                    // was disconnected or backpressured.
+                    if context.host.presentation_protected().await {
+                        context.signals.live_outbox.clear();
                         continue;
                     }
-                    let frame: Option<LiveFrame> =
-                        live_frames.borrow_and_update().as_ref().cloned();
-                    if let Some(frame) = frame {
-                        // Re-check the privacy boundary at the actual send
-                        // point. A frame may have been queued before setup,
-                        // pairing, or safe mode became active while the
-                        // socket was disconnected or backpressured.
-                        if context.host.presentation_protected().await {
-                            crate::clear_live_frame(context.signals.live_frames, frame.session_id);
-                            continue;
-                        }
-                        if socket.send_live_stream_frame(frame.frame).await.is_err() {
-                            socket_lost(&context, &mut link);
-                            break;
-                        }
+                    let session_id = item.session_id();
+                    if socket.send_live_stream_frame(item.into_bytes()).await.is_err() {
+                        // A lost access unit breaks every later delta.
+                        context.signals.live_outbox.delivery_failed(session_id);
+                        socket_lost(&context, &mut link);
+                        break;
                     }
                 }
                 received = tokio::time::timeout(remaining, socket.next_event()) => {
@@ -667,7 +658,7 @@ mod push_tests {
         let (command_server, _) = watch::channel(None);
         let sync_request = AtomicU64::new(0);
         let (sync_done, _) = watch::channel((0, false));
-        let (live_frames, _) = watch::channel(None);
+        let live_outbox = LiveOutbox::default();
         let status_due = AtomicBool::new(false);
         let shutdown = CancellationToken::new();
         let host = Host(Arc::new(AtomicUsize::new(0)));
@@ -686,7 +677,7 @@ mod push_tests {
                 sync_request: &sync_request,
                 sync_done: &sync_done,
                 live_stream_wake: &live_stream_wake,
-                live_frames: &live_frames,
+                live_outbox: &live_outbox,
                 status_due: &status_due,
             },
             user_agent: "test",
@@ -746,7 +737,7 @@ mod push_tests {
         let (command_server, _) = watch::channel(None);
         let sync_request = AtomicU64::new(0);
         let (sync_done, _) = watch::channel((0, false));
-        let (live_frames, _) = watch::channel(None);
+        let live_outbox = LiveOutbox::default();
         let status_due = AtomicBool::new(false);
         let shutdown = CancellationToken::new();
         let rejections = Arc::new(AtomicUsize::new(0));
@@ -766,7 +757,7 @@ mod push_tests {
                 sync_request: &sync_request,
                 sync_done: &sync_done,
                 live_stream_wake: &live_stream_wake,
-                live_frames: &live_frames,
+                live_outbox: &live_outbox,
                 status_due: &status_due,
             },
             user_agent: "test",

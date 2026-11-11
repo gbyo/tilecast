@@ -1,0 +1,8 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 4,
+    "event": "renderer.live_capabilities",
+    "data": { "profiles": ["H.264 720p"], "hardware": true }
+  }
+}

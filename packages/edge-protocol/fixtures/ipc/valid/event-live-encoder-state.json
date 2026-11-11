@@ -1,0 +1,13 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 11,
+    "event": "renderer.live_encoder",
+    "data": {
+      "streamId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d",
+      "state": "started",
+      "code": "ok",
+      "encoder": "vah264lpenc"
+    }
+  }
+}
