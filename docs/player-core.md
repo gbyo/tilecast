@@ -101,7 +101,11 @@ shared Player crate. Edge retains temporary repository reexports for its callers
 
 CAS trusts bytes only after size and SHA-256 verification. Preserve immutable
 objects, partial downloads, resume, pins, eviction, limits, corruption detection,
-and crash reconciliation. Define `SpaceProbe::available_bytes(path)` in CAS.
+and crash reconciliation. Before Core downloads required media and Widget
+bundles, it rejects different sizes for the same digest. Claims with the same
+digest and size share one download.
+
+Define `SpaceProbe::available_bytes(path)` in CAS.
 Edge supplies statvfs. Audit secure object opening on each host. A portable
 adapter must preserve link and regular-file checks.
 The shared CAS is implemented in `crates/player-cas`. Linux free-space providers

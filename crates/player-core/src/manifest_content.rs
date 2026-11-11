@@ -5,7 +5,7 @@ use player_cas::{BlobSource, CasError, ContentStore, FetchError, FetchObserver, 
 use player_client::AuthenticatedServer;
 use player_state::repo::cas::{Domain, SourceKind};
 use player_types::Sha256Digest;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 /// What preparation settled on: verified CAS digests to pin, plus videos
@@ -350,7 +350,7 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
     candidate: &NativeManifest,
 ) -> Result<PreparedContent, ManifestPreparationError> {
     let threshold = store.download_threshold_bytes();
-    let mut digests = BTreeSet::new();
+    let mut sizes = BTreeMap::new();
     let mut seen_stream = BTreeSet::new();
     let mut streams = Vec::new();
     let mut downloads = Vec::new();
@@ -361,8 +361,18 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
             }
             continue;
         }
-        if digests.insert(asset.digest) {
-            downloads.push(asset.clone());
+        match sizes.insert(asset.digest, asset.size_bytes) {
+            Some(size) if size != asset.size_bytes => return Err(ManifestPreparationError::SizeMismatch),
+            Some(_) => {}
+            None => downloads.push(asset.clone()),
+        }
+    }
+    let mut bundles = Vec::new();
+    for bundle in &candidate.required_bundles {
+        match sizes.insert(bundle.digest, bundle.size_bytes) {
+            Some(size) if size != bundle.size_bytes => return Err(ManifestPreparationError::SizeMismatch),
+            Some(_) => {}
+            None => bundles.push(bundle.clone()),
         }
     }
     // Required media and bundles download up to the configured number at a
@@ -374,8 +384,6 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
         .buffer_unordered(limit)
         .try_collect::<Vec<()>>()
         .await?;
-    let bundles: Vec<ManifestBundle> =
-        candidate.required_bundles.iter().filter(|bundle| digests.insert(bundle.digest)).cloned().collect();
     stream::iter(bundles.into_iter().map(|bundle| async move { fetch_required_bundle(store, plan, &bundle).await }))
         .buffer_unordered(limit)
         .try_collect::<Vec<()>>()
@@ -387,14 +395,14 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
             source: SourceKind::Origin,
         };
         fetch_frame_object(store, plan, frame.digest, frame.size_bytes, &frame.download_path, meta).await?;
-        digests.insert(frame.digest);
+        sizes.insert(frame.digest, frame.size_bytes);
     }
-    for digest in &digests {
+    for digest in sizes.keys() {
         if store.verified_path(digest).await?.is_none() {
             return Err(ManifestPreparationError::Missing);
         }
     }
-    Ok(PreparedContent { verified: digests.into_iter().collect(), streams })
+    Ok(PreparedContent { verified: sizes.into_keys().collect(), streams })
 }
 
 #[cfg(test)]
@@ -637,6 +645,41 @@ mod tests {
         let (asset, variant) = asset_ids(600);
         let manifest = candidate(vec![video_asset(asset, variant, digest, 13)], vec![item(asset, variant, "download")]);
         assert!(matches!(manifest.verify_content(&store).await.unwrap_err(), ManifestPreparationError::Missing));
+    }
+
+    #[tokio::test]
+    async fn prepare_checks_sizes_before_deduplicating_downloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let bytes = b"shared object".to_vec();
+        let digest = Sha256Digest::of(&bytes);
+        let size = bytes.len() as u64;
+        let (asset, variant) = asset_ids(700);
+        let mut manifest =
+            candidate(vec![video_asset(asset, variant, digest, size)], vec![item(asset, variant, "download")]);
+        let plan = StaticPlan { files: [(digest, bytes)].into_iter().collect(), calls: Mutex::new(vec![]) };
+
+        let mut duplicate = manifest.required_downloads[0].clone();
+        duplicate.size_bytes += 1;
+        manifest.required_downloads.push(duplicate);
+        assert!(matches!(manifest.prepare_content(&store, &plan).await, Err(ManifestPreparationError::SizeMismatch)));
+        manifest.required_downloads.pop();
+
+        manifest.required_bundles.push(ManifestBundle {
+            package_id: "acme.athletics".into(),
+            package_digest: Sha256Digest::of(b"package"),
+            digest,
+            size_bytes: size + 1,
+            download_path: "/api/v1/player/packages/acme.athletics/widgets/scoreboard".into(),
+        });
+        assert!(matches!(manifest.prepare_content(&store, &plan).await, Err(ManifestPreparationError::SizeMismatch)));
+        assert!(plan.calls.lock().unwrap().is_empty());
+
+        manifest.required_bundles[0].size_bytes = size;
+        let prepared = manifest.prepare_content(&store, &plan).await.unwrap();
+        assert_eq!(prepared.verified, vec![digest]);
+        assert_eq!(*plan.calls.lock().unwrap(), vec![digest]);
+        assert_eq!(manifest.verify_content(&store).await.unwrap(), prepared.verified);
     }
 
     fn frame_candidate(frame: &Sha256Digest, package: &Sha256Digest, size: u64) -> NativeManifest {
