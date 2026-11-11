@@ -41,10 +41,10 @@ If the stream connection ends, select **Retry stream** in the window to reconnec
 
 Watch live picks the best format that the Player, your browser, and the server all support. The target line in the window shows what it chose.
 
-| Format | Size and rate | When it is used |
-| ------ | ------------- | --------------- |
-| H.264 | Up to 1280 × 720 at 15 frames per second, or 960 × 540 at 15 or 10 | Players with a working H.264 encoder (Tilecast Edge today) and a browser with WebCodecs |
-| MJPEG | 960 × 540 at 10, or 640 × 360 at 8 | Every other Player, and browsers without WebCodecs |
+| Format | Size and rate                                                      | When it is used                                                                         |
+| ------ | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| H.264  | Up to 1280 × 720 at 15 frames per second, or 960 × 540 at 15 or 10 | Players with a working H.264 encoder (Tilecast Edge today) and a browser with WebCodecs |
+| MJPEG  | 960 × 540 at 10, or 640 × 360 at 8                                 | Every other Player, and browsers without WebCodecs                                      |
 
 H.264 needs a secure connection: open Studio over HTTPS (or on `localhost`). Over plain HTTP the browser cannot decode H.264, so Watch live uses MJPEG. If H.264 stops working in your browser, Watch live switches to MJPEG by itself.
 

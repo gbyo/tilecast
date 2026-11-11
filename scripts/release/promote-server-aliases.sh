@@ -71,6 +71,7 @@ if [ -z "$new_version" ]; then
   echo "The image $digest carries no version annotation, so its place in the release order cannot be proven." >&2
   exit 1
 fi
+python3 "$here/release_version.py" tag "v$new_version" > /dev/null
 for alias in "${aliases[@]}"; do
   current=$("$docker" buildx imagetools inspect "$image:$alias" --format '{{json .Manifest}}' 2>/dev/null | jq -r '.digest // ""' 2>/dev/null || true)
   if [ -z "$current" ] || [ "$current" = "$digest" ]; then
@@ -78,6 +79,10 @@ for alias in "${aliases[@]}"; do
   fi
   current_version=$(version_of "$image@$current")
   if [ -z "$current_version" ]; then
+    continue
+  fi
+  # Before coordinated releases, latest pointed to an image stamped main.
+  if [ "$alias" = latest ] && [ "$current_version" = main ]; then
     continue
   fi
   order=$(python3 "$here/release_version.py" compare "$current_version" "$new_version" 2>/dev/null || echo invalid)
