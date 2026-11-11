@@ -712,6 +712,14 @@ test("the phone setup relay has its own lane", () => {
   assert.equal(vectors.setup_relay, true);
 });
 
+test("the Watch Live fixture selects the server, Studio and Player Core", () => {
+  const result = affected([
+    "packages/player-contracts/fixtures/watch-live.json",
+  ]);
+  for (const area of ["server", "dashboard", "player_core"])
+    assert.equal(result[area], true, area);
+});
+
 test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {
   assert.ok(areas.includes("browser_player"));
   assert.deepEqual(selected(["apps/player-web/src/application.ts"]), [

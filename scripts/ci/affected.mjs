@@ -206,6 +206,12 @@ const rules = [
     /^packages\/player-contracts\/player-capabilities\.json$/,
     ["browser_player", "server", "player_core"],
   ],
+  // The Watch Live profile and TCLS v2 vectors are replayed by the server's
+  // relay, Studio's WebCodecs parser and Player Core's live-stream client.
+  [
+    /^packages\/player-contracts\/fixtures\/watch-live\.json$/,
+    ["server", "dashboard", "player_core"],
+  ],
   // The iOS app's navigation icons are generated from Studio's icon mapping.
   [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
   // Studio and the iOS app both run the native bridge contract's fixtures.
