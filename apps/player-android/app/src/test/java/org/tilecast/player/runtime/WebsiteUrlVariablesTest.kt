@@ -72,6 +72,8 @@ class WebsiteUrlVariablesTest {
     }
 
     @Test fun staticUrlIsUnchangedAndUnknownValuesFailClosed() {
+        val encodedJson = "https://example.org/?payload=%7B%22room%22%3A%22101%22%7D"
+        assertEquals(encodedJson, WebsiteUrlVariables.resolve(encodedJson, "screen-1"))
         val static = "https://example.org/x?q=1&room=%26"
         assertEquals(static, WebsiteUrlVariables.resolve(static, "screen-1"))
         assertNull(WebsiteUrlVariables.resolve("https://example.org/?x={missing}", "s"))

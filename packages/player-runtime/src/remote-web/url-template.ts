@@ -30,7 +30,9 @@ export function resolveWebsiteUrl(
   template: string,
   context: WebsiteUrlContext,
 ): string | null {
-  if (!template.includes("{") && !/%7b/i.test(template)) return template;
+  // Encoded braces in an ordinary URL (for example a JSON query value) are
+  // literal data, not a template opt-in. Only author-written braces expand.
+  if (!template.includes("{")) return template;
   if (!Number.isFinite(context.at.getTime())) return null;
   let url: URL;
   try {

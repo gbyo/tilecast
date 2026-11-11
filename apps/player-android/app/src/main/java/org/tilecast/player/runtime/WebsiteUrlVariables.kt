@@ -30,7 +30,8 @@ internal object WebsiteUrlVariables {
         dataSourceId: String? = null,
         sources: List<ManifestDataSource> = emptyList(),
     ): String? {
-        if (!template.contains("{") && !template.contains("%7B", ignoreCase = true)) return template
+        // An encoded JSON value is static URL data, not a template token.
+        if (!template.contains("{")) return template
         val beforeQuery = template.substringBefore('?')
         val fragment = template.substringAfter('#', "")
         if (beforeQuery.contains('{') || beforeQuery.contains('}') ||

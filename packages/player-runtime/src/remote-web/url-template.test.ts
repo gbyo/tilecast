@@ -24,6 +24,10 @@ const context = {
 };
 
 describe("Website URL variables", () => {
+  it("preserves static encoded JSON query values", () => {
+    const original = "https://example.org/?payload=%7B%22room%22%3A%22101%22%7D";
+    expect(resolveWebsiteUrl(original, context)).toBe(original);
+  });
   it("leaves old URLs unchanged", () => {
     const original = "https://example.org/x?x=%26&x=2";
     expect(resolveWebsiteUrl(original, context)).toBe(original);
