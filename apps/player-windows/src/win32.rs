@@ -505,185 +505,645 @@ mod imp {
         pub pixels: Vec<u8>,
     }
 
-    /// Captures the final composed output of the player's own window with
-    /// Windows Graphics Capture: the DWM frame, including the trusted
-    /// Runtime view and every remote host layer. Capturing the process's
-    /// own window needs no picker and shows no consent UI or border.
+    /// A persistent Windows Graphics Capture session of the player's own
+    /// window: the DWM frame, including the trusted Runtime view and every
+    /// remote host layer. Capturing the process's own window needs no
+    /// picker and shows no consent UI or border.
     ///
-    /// Runs on a blocking thread (never the UI thread): it initializes its
-    /// own multithreaded COM apartment, builds a throwaway D3D11 device
-    /// and capture session, waits one frame, and reads the pixels back
-    /// through a staging texture. Failures are static codes the capture
-    /// broker maps to semantic capture errors.
+    /// Opened and used on one blocking thread (never the UI thread): it
+    /// initializes its own multithreaded COM apartment, a D3D11 device, and
+    /// a two-buffer frame pool. Frame arrival notifications are bounded to
+    /// one, so a compositor running faster than the reader never queues
+    /// anything. Failures are static codes the callers map to semantic
+    /// capture errors.
+    pub struct WindowCapture {
+        session: windows::Graphics::Capture::GraphicsCaptureSession,
+        pool: windows::Graphics::Capture::Direct3D11CaptureFramePool,
+        device: windows::Win32::Graphics::Direct3D11::ID3D11Device,
+        context: windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
+        arrived: std::sync::mpsc::Receiver<()>,
+        size: windows::Graphics::SizeInt32,
+        _apartment: Apartment,
+    }
+
+    struct Apartment;
+    impl Drop for Apartment {
+        fn drop(&mut self) {
+            // SAFETY: balances the RoInitialize in WindowCapture::open on
+            // this thread.
+            unsafe { windows::Win32::System::WinRT::RoUninitialize() };
+        }
+    }
+
+    impl Drop for WindowCapture {
+        fn drop(&mut self) {
+            let _ = self.session.Close();
+            let _ = self.pool.Close();
+        }
+    }
+
+    impl std::fmt::Debug for WindowCapture {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.debug_struct("WindowCapture").finish_non_exhaustive()
+        }
+    }
+
+    impl WindowCapture {
+        pub fn open(window: *mut std::ffi::c_void) -> Result<Self, &'static str> {
+            use windows::Foundation::TypedEventHandler;
+            use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem};
+            use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
+            use windows::Graphics::DirectX::DirectXPixelFormat;
+            use windows::Win32::Foundation::{HMODULE, HWND};
+            use windows::Win32::Graphics::Direct3D::{
+                D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP, D3D_FEATURE_LEVEL_11_0,
+            };
+            use windows::Win32::Graphics::Direct3D11::{
+                D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION, D3D11CreateDevice, ID3D11Device,
+                ID3D11DeviceContext, ID3D11Multithread,
+            };
+            use windows::Win32::Graphics::Dxgi::{IDXGIAdapter, IDXGIDevice};
+            use windows::Win32::System::WinRT::Direct3D11::CreateDirect3D11DeviceFromDXGIDevice;
+            use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemInterop;
+            use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize};
+            use windows::core::Interface as _;
+
+            // SAFETY: this blocking thread has no apartment yet, or an MTA
+            // the Media Foundation session made (RoInitialize then succeeds
+            // with S_FALSE); the guard balances it.
+            unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.map_err(|_| "com_init")?;
+            let apartment = Apartment;
+
+            let levels = [D3D_FEATURE_LEVEL_11_0];
+            let mut device: Option<ID3D11Device> = None;
+            let mut context: Option<ID3D11DeviceContext> = None;
+            for driver in [D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP] {
+                // SAFETY: null adapter and module select the default device;
+                // BGRA support is what the capture pool requires; the
+                // out-slots are valid for the call.
+                let status = unsafe {
+                    D3D11CreateDevice(
+                        None::<&IDXGIAdapter>,
+                        driver,
+                        HMODULE(std::ptr::null_mut()),
+                        D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+                        Some(&levels),
+                        D3D11_SDK_VERSION,
+                        Some(&mut device),
+                        None,
+                        Some(&mut context),
+                    )
+                };
+                if status.is_ok() && device.is_some() && context.is_some() {
+                    break;
+                }
+                device = None;
+                context = None;
+            }
+            let (device, context) = device.zip(context).ok_or("no_d3d_device")?;
+            let multithread: ID3D11Multithread = context.cast().map_err(|_| "no_d3d_device")?;
+            // SAFETY: the immediate context outlives the call. The previous
+            // protection state does not matter: this device only captures.
+            unsafe {
+                let _ = multithread.SetMultithreadProtected(true);
+            }
+            let dxgi: IDXGIDevice = device.cast().map_err(|_| "no_d3d_device")?;
+            // SAFETY: the DXGI device is a live D3D11 device.
+            let direct: IDirect3DDevice = unsafe { CreateDirect3D11DeviceFromDXGIDevice(&dxgi) }
+                .map_err(|_| "no_d3d_device")?
+                .cast()
+                .map_err(|_| "no_d3d_device")?;
+
+            // SAFETY: `window` is the UI thread's live main window; the
+            // capture item only reads composed frames from it.
+            let interop: IGraphicsCaptureItemInterop =
+                windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()
+                    .map_err(|_| "capture_item")?;
+            let item: GraphicsCaptureItem =
+                unsafe { interop.CreateForWindow(HWND(window)) }.map_err(|_| "capture_item")?;
+            let size = item.Size().map_err(|_| "capture_item")?;
+            if size.Width <= 0 || size.Height <= 0 {
+                return Err("capture_item");
+            }
+            let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
+                &direct,
+                DirectXPixelFormat::B8G8R8A8UIntNormalized,
+                2,
+                size,
+            )
+            .map_err(|_| "capture_item")?;
+            let session = pool.CreateCaptureSession(&item).map_err(|_| "capture_item")?;
+            // The cursor is hidden while signage runs; leaving it out of
+            // frames is best-effort, never a capture failure.
+            let _ = session.SetIsCursorCaptureEnabled(false);
+            let (arrived_tx, arrived) = std::sync::mpsc::sync_channel::<()>(1);
+            let handler = TypedEventHandler::new(move |_pool, _args| {
+                let _ = arrived_tx.try_send(());
+                Ok(())
+            });
+            let _token = pool.FrameArrived(&handler).map_err(|_| "capture_item")?;
+            session.StartCapture().map_err(|_| "capture_item")?;
+            Ok(Self { session, pool, device, context, arrived, size, _apartment: apartment })
+        }
+
+        /// The newest composed frame, waiting up to `timeout` for one.
+        /// `Ok(None)`: the window did not change in that time.
+        pub fn next(&mut self, timeout: std::time::Duration) -> Result<Option<CapturedBgra>, &'static str> {
+            use windows::Win32::Graphics::Direct3D11::{
+                D3D11_CPU_ACCESS_READ, D3D11_MAP_READ, D3D11_MAPPED_SUBRESOURCE, D3D11_TEXTURE2D_DESC,
+                D3D11_USAGE_STAGING, ID3D11Resource, ID3D11Texture2D,
+            };
+            use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
+            use windows::Win32::System::WinRT::Direct3D11::IDirect3DDxgiInterfaceAccess;
+            use windows::core::Interface as _;
+
+            if self.arrived.recv_timeout(timeout).is_err() {
+                return Ok(None);
+            }
+            // Drain to the newest frame; older ones go back to the pool.
+            let mut newest = None;
+            while let Ok(frame) = self.pool.TryGetNextFrame() {
+                newest = Some(frame);
+            }
+            let Some(frame) = newest else { return Ok(None) };
+            let content = frame.ContentSize().map_err(|_| "no_frame")?;
+            let surface = frame.Surface().map_err(|_| "no_frame")?;
+            let access: IDirect3DDxgiInterfaceAccess = surface.cast().map_err(|_| "readback")?;
+            // SAFETY: the surface comes from a D3D11 frame pool.
+            let texture: ID3D11Texture2D = unsafe { access.GetInterface() }.map_err(|_| "readback")?;
+            let mut desc: D3D11_TEXTURE2D_DESC = unsafe { std::mem::zeroed() };
+            // SAFETY: the description out-slot is valid for the call.
+            unsafe {
+                texture.GetDesc(&mut desc);
+            }
+            if desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM || desc.SampleDesc.Count != 1 {
+                return Err("readback");
+            }
+            let (width, height) =
+                (content.Width.clamp(0, self.size.Width) as u32, content.Height.clamp(0, self.size.Height) as u32);
+            // A resize racing the capture shrinks the valid region to the
+            // texture the pool actually produced.
+            let (width, height) = (width.min(desc.Width), height.min(desc.Height));
+            if width == 0 || height == 0 || width > 8192 || height > 8192 {
+                return Err("readback");
+            }
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
+            desc.MiscFlags = 0;
+            let mut staging: Option<ID3D11Texture2D> = None;
+            // SAFETY: the description is the validated pool format; the
+            // out-slot is valid for the call.
+            unsafe { self.device.CreateTexture2D(&desc, None, Some(&mut staging)) }.map_err(|_| "readback")?;
+            let staging = staging.ok_or("readback")?;
+            let source: ID3D11Resource = texture.cast().map_err(|_| "readback")?;
+            let target: ID3D11Resource = staging.cast().map_err(|_| "readback")?;
+            // SAFETY: both resources are live textures of one description.
+            unsafe {
+                self.context.CopyResource(&target, &source);
+            }
+            let mut mapped: D3D11_MAPPED_SUBRESOURCE = unsafe { std::mem::zeroed() };
+            // SAFETY: the staging texture is CPU-readable; the map out-slot
+            // is valid for the call.
+            unsafe { self.context.Map(&target, 0, D3D11_MAP_READ, 0, Some(&mut mapped)) }
+                .map_err(|_| "readback")?;
+            let row_pitch = mapped.RowPitch as usize;
+            let row_len = width as usize * 4;
+            if mapped.pData.is_null() || row_pitch < row_len {
+                // SAFETY: balances the Map above.
+                unsafe {
+                    self.context.Unmap(&target, 0);
+                }
+                return Err("readback");
+            }
+            let mut pixels = vec![0u8; row_len * height as usize];
+            // SAFETY: the mapped region holds `height` rows of at least
+            // `row_pitch` bytes; each copied row is the validated `row_len`.
+            unsafe {
+                for (row, chunk) in pixels.chunks_exact_mut(row_len).enumerate() {
+                    let from = mapped.pData.add(row * row_pitch) as *const u8;
+                    chunk.copy_from_slice(std::slice::from_raw_parts(from, row_len));
+                }
+                self.context.Unmap(&target, 0);
+            }
+            Ok(Some(CapturedBgra { width, height, pixels }))
+        }
+    }
+
+    /// One still capture for preview and MJPEG Watch Live: a session that
+    /// lives for one frame.
     pub fn capture_window_bgra(
         window: *mut std::ffi::c_void,
         timeout: std::time::Duration,
     ) -> Result<CapturedBgra, &'static str> {
-        use windows::Foundation::TypedEventHandler;
-        use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem};
-        use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
-        use windows::Graphics::DirectX::DirectXPixelFormat;
-        use windows::Win32::Foundation::{HMODULE, HWND};
-        use windows::Win32::Graphics::Direct3D::{
-            D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP, D3D_FEATURE_LEVEL_11_0,
-        };
-        use windows::Win32::Graphics::Direct3D11::{
-            D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAP_READ, D3D11_MAPPED_SUBRESOURCE,
-            D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING, D3D11CreateDevice, ID3D11Device,
-            ID3D11DeviceContext, ID3D11Multithread, ID3D11Resource, ID3D11Texture2D,
-        };
-        use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
-        use windows::Win32::Graphics::Dxgi::{IDXGIAdapter, IDXGIDevice};
-        use windows::Win32::System::WinRT::Direct3D11::{
-            CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess,
-        };
-        use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemInterop;
-        use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize, RoUninitialize};
-        use windows::core::Interface as _;
+        WindowCapture::open(window)?.next(timeout)?.ok_or("no_frame")
+    }
 
-        struct Apartment;
-        impl Drop for Apartment {
-            fn drop(&mut self) {
-                // SAFETY: balances the RoInitialize below on this thread.
-                unsafe { RoUninitialize() };
+    /// Media Foundation for one thread: an MTA plus MFStartup, undone on
+    /// drop. Every MF object below lives and dies on that thread.
+    pub struct MfSession(());
+
+    impl std::fmt::Debug for MfSession {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("MfSession")
+        }
+    }
+
+    impl MfSession {
+        pub fn start() -> Result<Self, &'static str> {
+            use windows::Win32::Media::MediaFoundation::{MF_VERSION, MFSTARTUP_LITE, MFStartup};
+            use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize};
+            // SAFETY: a fresh blocking thread; balanced in Drop (or here on
+            // failure).
+            if unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }.is_err() {
+                return Err("com_init");
             }
-        }
-
-        // SAFETY: the blocking thread has no COM apartment yet; the guard
-        // balances it before the pooled thread is reused.
-        unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.map_err(|_| "com_init")?;
-        let _apartment = Apartment;
-
-        let levels = [D3D_FEATURE_LEVEL_11_0];
-        let mut device: Option<ID3D11Device> = None;
-        let mut context: Option<ID3D11DeviceContext> = None;
-        for driver in [D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP] {
-            // SAFETY: null adapter and module select the default device;
-            // BGRA support is what the capture pool requires; the out-slots
-            // are valid for the call.
-            let status = unsafe {
-                D3D11CreateDevice(
-                    None::<&IDXGIAdapter>,
-                    driver,
-                    HMODULE(std::ptr::null_mut()),
-                    D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-                    Some(&levels),
-                    D3D11_SDK_VERSION,
-                    Some(&mut device),
-                    None,
-                    Some(&mut context),
-                )
-            };
-            if status.is_ok() && device.is_some() && context.is_some() {
-                break;
+            // SAFETY: COM is initialized on this thread.
+            if unsafe { MFStartup(MF_VERSION, MFSTARTUP_LITE) }.is_err() {
+                // SAFETY: balances the CoInitializeEx above.
+                unsafe { CoUninitialize() };
+                return Err("media_foundation");
             }
-            device = None;
-            context = None;
+            Ok(Self(()))
         }
-        let (device, context) = device.zip(context).ok_or("no_d3d_device")?;
-        let multithread: ID3D11Multithread = context.cast().map_err(|_| "no_d3d_device")?;
-        // SAFETY: the immediate context outlives the call. The previous
-        // protection state does not matter: this device only captures.
-        unsafe {
-            let _ = multithread.SetMultithreadProtected(true);
-        }
-        let dxgi: IDXGIDevice = device.cast().map_err(|_| "no_d3d_device")?;
-        // SAFETY: the DXGI device is a live D3D11 device.
-        let direct: IDirect3DDevice = unsafe { CreateDirect3D11DeviceFromDXGIDevice(&dxgi) }
-            .map_err(|_| "no_d3d_device")?
-            .cast()
-            .map_err(|_| "no_d3d_device")?;
+    }
 
-        // SAFETY: `window` is the UI thread's live main window; the capture
-        // item only reads composed frames from it.
-        let interop: IGraphicsCaptureItemInterop =
-            windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>().map_err(|_| "capture_item")?;
-        let item: GraphicsCaptureItem = unsafe { interop.CreateForWindow(HWND(window)) }.map_err(|_| "capture_item")?;
-        let size = item.Size().map_err(|_| "capture_item")?;
-        if size.Width <= 0 || size.Height <= 0 {
-            return Err("capture_item");
-        }
-        let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
-            &direct,
-            DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            2,
-            size,
-        )
-        .map_err(|_| "capture_item")?;
-        let session = pool.CreateCaptureSession(&item).map_err(|_| "capture_item")?;
-        // The cursor is hidden while signage runs; leaving it out of
-        // frames is best-effort, never a capture failure.
-        let _ = session.SetIsCursorCaptureEnabled(false);
-        let (arrived_tx, arrived_rx) = std::sync::mpsc::channel::<()>();
-        let arrived = TypedEventHandler::new(move |_pool, _args| {
-            let _ = arrived_tx.send(());
-            Ok(())
-        });
-        let _token = pool.FrameArrived(&arrived).map_err(|_| "capture_item")?;
-        session.StartCapture().map_err(|_| "capture_item")?;
-        arrived_rx.recv_timeout(timeout).map_err(|_| "no_frame")?;
-        let frame = pool.TryGetNextFrame().map_err(|_| "no_frame")?;
-        let content = frame.ContentSize().map_err(|_| "no_frame")?;
-        let surface = frame.Surface().map_err(|_| "no_frame")?;
-        let access: IDirect3DDxgiInterfaceAccess = surface.cast().map_err(|_| "readback")?;
-        // SAFETY: the surface comes from a D3D11 frame pool.
-        let texture: ID3D11Texture2D = unsafe { access.GetInterface() }.map_err(|_| "readback")?;
-        let mut desc: D3D11_TEXTURE2D_DESC = unsafe { std::mem::zeroed() };
-        // SAFETY: the description out-slot is valid for the call.
-        unsafe {
-            texture.GetDesc(&mut desc);
-        }
-        if desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM || desc.SampleDesc.Count != 1 {
-            return Err("readback");
-        }
-        let (width, height) = (content.Width.clamp(0, size.Width) as u32, content.Height.clamp(0, size.Height) as u32);
-        // A resize racing the capture shrinks the valid region to the
-        // texture the pool actually produced.
-        let (width, height) = (width.min(desc.Width), height.min(desc.Height));
-        if width == 0 || height == 0 || width > 8192 || height > 8192 {
-            return Err("readback");
-        }
-        desc.Usage = D3D11_USAGE_STAGING;
-        desc.BindFlags = 0;
-        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
-        desc.MiscFlags = 0;
-        let mut staging: Option<ID3D11Texture2D> = None;
-        // SAFETY: the description is the validated pool format; the
-        // out-slot is valid for the call.
-        unsafe { device.CreateTexture2D(&desc, None, Some(&mut staging)) }.map_err(|_| "readback")?;
-        let staging = staging.ok_or("readback")?;
-        let source: ID3D11Resource = texture.cast().map_err(|_| "readback")?;
-        let target: ID3D11Resource = staging.cast().map_err(|_| "readback")?;
-        // SAFETY: both resources are live textures of one description.
-        unsafe {
-            context.CopyResource(&target, &source);
-        }
-        let mut mapped: D3D11_MAPPED_SUBRESOURCE = unsafe { std::mem::zeroed() };
-        // SAFETY: the staging texture is CPU-readable; the map out-slot is
-        // valid for the call.
-        unsafe { context.Map(&target, 0, D3D11_MAP_READ, 0, Some(&mut mapped)) }.map_err(|_| "readback")?;
-        let row_pitch = mapped.RowPitch as usize;
-        let row_len = width as usize * 4;
-        if mapped.pData.is_null() || row_pitch < row_len {
-            // SAFETY: balances the Map above.
+    impl Drop for MfSession {
+        fn drop(&mut self) {
+            // SAFETY: balances MFStartup and CoInitializeEx in start, on
+            // the same thread; every MF object of this thread is gone.
             unsafe {
-                context.Unmap(&target, 0);
+                let _ = windows::Win32::Media::MediaFoundation::MFShutdown();
+                windows::Win32::System::Com::CoUninitialize();
             }
-            return Err("readback");
         }
-        let mut pixels = vec![0u8; row_len * height as usize];
-        // SAFETY: the mapped region holds `height` rows of at least
-        // `row_pitch` bytes; each copied row is the validated `row_len`.
+    }
+
+    /// One H.264 encoder MFT that accepts NV12.
+    pub struct MfCandidate {
+        pub name: String,
+        pub hardware: bool,
+        activate: windows::Win32::Media::MediaFoundation::IMFActivate,
+    }
+
+    impl std::fmt::Debug for MfCandidate {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.debug_struct("MfCandidate").field("name", &self.name).field("hardware", &self.hardware).finish()
+        }
+    }
+
+    /// The NV12 → H.264 encoder MFTs, hardware first in the system's
+    /// merit order. Needs an [`MfSession`] on this thread.
+    pub fn enumerate_encoders() -> Result<Vec<MfCandidate>, &'static str> {
+        use windows::Win32::Media::MediaFoundation::{
+            IMFActivate, MFMediaType_Video, MFT_CATEGORY_VIDEO_ENCODER, MFT_ENUM_FLAG_ASYNCMFT,
+            MFT_ENUM_FLAG_HARDWARE, MFT_ENUM_FLAG_SORTANDFILTER, MFT_ENUM_FLAG_SYNCMFT,
+            MFT_ENUM_HARDWARE_URL_Attribute, MFT_FRIENDLY_NAME_Attribute, MFT_REGISTER_TYPE_INFO, MFTEnumEx,
+            MFVideoFormat_H264, MFVideoFormat_NV12,
+        };
+        let input = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_NV12 };
+        let output = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_H264 };
+        let mut list: *mut Option<IMFActivate> = std::ptr::null_mut();
+        let mut count = 0u32;
+        // SAFETY: the type infos outlive the call; MFTEnumEx allocates
+        // `list` with CoTaskMemAlloc and writes `count` entries.
         unsafe {
-            for (row, chunk) in pixels.chunks_exact_mut(row_len).enumerate() {
-                let from = mapped.pData.add(row * row_pitch) as *const u8;
-                chunk.copy_from_slice(std::slice::from_raw_parts(from, row_len));
-            }
-            context.Unmap(&target, 0);
+            MFTEnumEx(
+                MFT_CATEGORY_VIDEO_ENCODER,
+                MFT_ENUM_FLAG_HARDWARE | MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_ASYNCMFT | MFT_ENUM_FLAG_SORTANDFILTER,
+                Some(&input),
+                Some(&output),
+                &mut list,
+                &mut count,
+            )
         }
-        let _ = session.Close();
-        let _ = pool.Close();
-        Ok(CapturedBgra { width, height, pixels })
+        .map_err(|_| "encoder_enumeration")?;
+        let mut candidates = Vec::new();
+        if list.is_null() {
+            return Ok(candidates);
+        }
+        for index in 0..count as usize {
+            // SAFETY: `list` holds `count` initialized entries; each is
+            // moved out exactly once.
+            let Some(activate) = (unsafe { std::ptr::read(list.add(index)) }) else { continue };
+            let string = |key| -> Option<String> {
+                let mut value = windows::core::PWSTR::null();
+                let mut length = 0u32;
+                // SAFETY: the out-slots are valid; the string is freed
+                // below with CoTaskMemFree.
+                unsafe { activate.GetAllocatedString(key, &mut value, &mut length) }.ok()?;
+                // SAFETY: GetAllocatedString returned a NUL-terminated string.
+                let text = unsafe { value.to_string() }.ok();
+                unsafe { CoTaskMemFree(Some(value.0 as *const _)) };
+                text
+            };
+            let hardware = string(&MFT_ENUM_HARDWARE_URL_Attribute).is_some();
+            let name = string(&MFT_FRIENDLY_NAME_Attribute)
+                .unwrap_or_else(|| if hardware { "hardware".into() } else { "software".into() });
+            let name: String = name.chars().filter(|c| c.is_ascii_graphic() || *c == ' ').take(64).collect();
+            candidates.push(MfCandidate { name, hardware, activate });
+        }
+        // SAFETY: every entry was moved out above; the array itself is
+        // CoTaskMem.
+        unsafe { CoTaskMemFree(Some(list as *const _)) };
+        Ok(candidates)
+    }
+
+    fn variant_u32(value: u32) -> windows::Win32::System::Variant::VARIANT {
+        let mut variant = windows::Win32::System::Variant::VARIANT::default();
+        // SAFETY: a zeroed VARIANT; writing the tag and its matching field.
+        unsafe {
+            let inner = &mut *variant.Anonymous.Anonymous;
+            inner.vt = windows::Win32::System::Variant::VT_UI4;
+            inner.Anonymous.ulVal = value;
+        }
+        variant
+    }
+
+    fn variant_bool(value: bool) -> windows::Win32::System::Variant::VARIANT {
+        let mut variant = windows::Win32::System::Variant::VARIANT::default();
+        // SAFETY: a zeroed VARIANT; writing the tag and its matching field.
+        unsafe {
+            let inner = &mut *variant.Anonymous.Anonymous;
+            inner.vt = windows::Win32::System::Variant::VT_BOOL;
+            inner.Anonymous.boolVal = windows::Win32::Foundation::VARIANT_BOOL::from(value);
+        }
+        variant
+    }
+
+    /// A configured Media Foundation H.264 encoder of one size: low
+    /// latency, Baseline, CBR, no B-frames, an IDR every `fps` frames.
+    pub struct MfH264Encoder {
+        transform: windows::Win32::Media::MediaFoundation::IMFTransform,
+        events: Option<windows::Win32::Media::MediaFoundation::IMFMediaEventGenerator>,
+        codec: Option<windows::Win32::Media::MediaFoundation::ICodecAPI>,
+        output_bytes: u32,
+        provides_samples: bool,
+        input_credits: u32,
+        fps: u32,
+        frame_bytes: usize,
+        parameter_sets: Option<Vec<u8>>,
+    }
+
+    impl std::fmt::Debug for MfH264Encoder {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.debug_struct("MfH264Encoder").finish_non_exhaustive()
+        }
+    }
+
+    impl Drop for MfH264Encoder {
+        fn drop(&mut self) {
+            use windows::Win32::Media::MediaFoundation::{MFT_MESSAGE_COMMAND_FLUSH, MFT_MESSAGE_NOTIFY_END_STREAMING};
+            // SAFETY: plain messages to a live transform on its thread.
+            unsafe {
+                let _ = self.transform.ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
+                let _ = self.transform.ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
+            }
+        }
+    }
+
+    impl MfH264Encoder {
+        pub fn new(candidate: &MfCandidate, width: u32, height: u32, fps: u32, bitrate: u32) -> Result<Self, &'static str> {
+            use windows::Win32::Media::MediaFoundation::{
+                CODECAPI_AVEncCommonMeanBitRate, CODECAPI_AVEncCommonRateControlMode,
+                CODECAPI_AVEncMPVDefaultBPictureCount, CODECAPI_AVEncMPVGOPSize, CODECAPI_AVLowLatencyMode,
+                ICodecAPI, IMFMediaEventGenerator, IMFTransform, MF_MT_AVG_BITRATE, MF_MT_FRAME_RATE,
+                MF_MT_FRAME_SIZE, MF_MT_INTERLACE_MODE, MF_MT_MAJOR_TYPE, MF_MT_MPEG_SEQUENCE_HEADER,
+                MF_MT_MPEG2_PROFILE, MF_MT_PIXEL_ASPECT_RATIO, MF_MT_SUBTYPE, MF_TRANSFORM_ASYNC,
+                MF_TRANSFORM_ASYNC_UNLOCK, MFCreateMediaType, MFMediaType_Video, MFT_MESSAGE_NOTIFY_BEGIN_STREAMING,
+                MFT_MESSAGE_NOTIFY_START_OF_STREAM, MFT_OUTPUT_STREAM_CAN_PROVIDE_SAMPLES,
+                MFT_OUTPUT_STREAM_PROVIDES_SAMPLES, MFVideoFormat_H264, MFVideoFormat_NV12,
+                MFVideoInterlace_Progressive, eAVEncCommonRateControlMode_CBR, eAVEncH264VProfile_Base,
+            };
+            use windows::core::Interface as _;
+            if width == 0 || height == 0 || width % 2 != 0 || height % 2 != 0 || fps == 0 {
+                return Err("encoder_config");
+            }
+            // SAFETY: activation of an enumerated MFT on this MF thread.
+            let transform: IMFTransform = unsafe { candidate.activate.ActivateObject() }.map_err(|_| "encoder_activate")?;
+            // SAFETY: attribute reads and writes on the live transform.
+            let events = unsafe {
+                match transform.GetAttributes() {
+                    Ok(attributes) if attributes.GetUINT32(&MF_TRANSFORM_ASYNC).unwrap_or(0) == 1 => {
+                        attributes.SetUINT32(&MF_TRANSFORM_ASYNC_UNLOCK, 1).map_err(|_| "encoder_unlock")?;
+                        Some(transform.cast::<IMFMediaEventGenerator>().map_err(|_| "encoder_events")?)
+                    }
+                    _ => None,
+                }
+            };
+            let codec = transform.cast::<ICodecAPI>().ok();
+            if let Some(codec) = &codec {
+                // Best effort: an encoder without one of these still has to
+                // pass the probe's Baseline keyframe check.
+                // SAFETY: each VARIANT outlives its call.
+                unsafe {
+                    let _ = codec.SetValue(&CODECAPI_AVLowLatencyMode, &variant_bool(true));
+                    let _ = codec.SetValue(&CODECAPI_AVEncCommonRateControlMode, &variant_u32(eAVEncCommonRateControlMode_CBR.0 as u32));
+                    let _ = codec.SetValue(&CODECAPI_AVEncCommonMeanBitRate, &variant_u32(bitrate));
+                    let _ = codec.SetValue(&CODECAPI_AVEncMPVGOPSize, &variant_u32(fps));
+                    let _ = codec.SetValue(&CODECAPI_AVEncMPVDefaultBPictureCount, &variant_u32(0));
+                }
+            }
+            let size = (u64::from(width) << 32) | u64::from(height);
+            let rate = (u64::from(fps) << 32) | 1;
+            // SAFETY: new media types configured with plain values, then
+            // handed to the transform.
+            unsafe {
+                let output = MFCreateMediaType().map_err(|_| "encoder_type")?;
+                output.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video).map_err(|_| "encoder_type")?;
+                output.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_H264).map_err(|_| "encoder_type")?;
+                output.SetUINT32(&MF_MT_AVG_BITRATE, bitrate).map_err(|_| "encoder_type")?;
+                output.SetUINT64(&MF_MT_FRAME_SIZE, size).map_err(|_| "encoder_type")?;
+                output.SetUINT64(&MF_MT_FRAME_RATE, rate).map_err(|_| "encoder_type")?;
+                output.SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1u64 << 32) | 1).map_err(|_| "encoder_type")?;
+                output
+                    .SetUINT32(&MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive.0 as u32)
+                    .map_err(|_| "encoder_type")?;
+                output.SetUINT32(&MF_MT_MPEG2_PROFILE, eAVEncH264VProfile_Base.0 as u32).map_err(|_| "encoder_type")?;
+                transform.SetOutputType(0, &output, 0).map_err(|_| "encoder_output_type")?;
+                let input = MFCreateMediaType().map_err(|_| "encoder_type")?;
+                input.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video).map_err(|_| "encoder_type")?;
+                input.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_NV12).map_err(|_| "encoder_type")?;
+                input.SetUINT64(&MF_MT_FRAME_SIZE, size).map_err(|_| "encoder_type")?;
+                input.SetUINT64(&MF_MT_FRAME_RATE, rate).map_err(|_| "encoder_type")?;
+                input.SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1u64 << 32) | 1).map_err(|_| "encoder_type")?;
+                input
+                    .SetUINT32(&MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive.0 as u32)
+                    .map_err(|_| "encoder_type")?;
+                transform.SetInputType(0, &input, 0).map_err(|_| "encoder_input_type")?;
+            }
+            // SAFETY: stream info and messages on the configured transform.
+            let (info, parameter_sets) = unsafe {
+                let info = transform.GetOutputStreamInfo(0).map_err(|_| "encoder_info")?;
+                transform.ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0).map_err(|_| "encoder_start")?;
+                transform.ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0).map_err(|_| "encoder_start")?;
+                let parameter_sets = transform.GetOutputCurrentType(0).ok().and_then(|current| {
+                    let length = current.GetBlobSize(&MF_MT_MPEG_SEQUENCE_HEADER).ok()?;
+                    if length == 0 || length > 4096 {
+                        return None;
+                    }
+                    let mut blob = vec![0u8; length as usize];
+                    current.GetBlob(&MF_MT_MPEG_SEQUENCE_HEADER, &mut blob, None).ok()?;
+                    Some(blob)
+                });
+                (info, parameter_sets)
+            };
+            let provides = (MFT_OUTPUT_STREAM_PROVIDES_SAMPLES.0 | MFT_OUTPUT_STREAM_CAN_PROVIDE_SAMPLES.0) as u32;
+            Ok(Self {
+                transform,
+                events,
+                codec,
+                output_bytes: info.cbSize.max(width * height * 3 / 2).min(4 * 1024 * 1024),
+                provides_samples: info.dwFlags & provides != 0,
+                input_credits: 0,
+                fps,
+                frame_bytes: (width * height * 3 / 2) as usize,
+                parameter_sets,
+            })
+        }
+
+        pub fn parameter_sets(&self) -> Option<Vec<u8>> {
+            self.parameter_sets.clone()
+        }
+
+        /// Encodes one NV12 frame; returns the access units that are ready
+        /// as (Annex B bytes, keyframe, time in 100 ns).
+        pub fn encode(&mut self, nv12: &[u8], timestamp_hns: i64, force_keyframe: bool) -> Result<Vec<(Vec<u8>, bool, i64)>, &'static str> {
+            use windows::Win32::Media::MediaFoundation::{
+                CODECAPI_AVEncVideoForceKeyFrame, METransformHaveOutput, METransformNeedInput, MF_EVENT_FLAG_NO_WAIT,
+                MFCreateMemoryBuffer, MFCreateSample,
+            };
+            if nv12.len() != self.frame_bytes {
+                return Err("encoder_input");
+            }
+            if force_keyframe && let Some(codec) = &self.codec {
+                // SAFETY: the VARIANT outlives the call.
+                unsafe {
+                    let _ = codec.SetValue(&CODECAPI_AVEncVideoForceKeyFrame, &variant_u32(1));
+                }
+            }
+            // SAFETY: a new system-memory sample filled within its bounds.
+            let sample = unsafe {
+                let buffer = MFCreateMemoryBuffer(nv12.len() as u32).map_err(|_| "encoder_buffer")?;
+                let mut data: *mut u8 = std::ptr::null_mut();
+                buffer.Lock(&mut data, None, None).map_err(|_| "encoder_buffer")?;
+                std::ptr::copy_nonoverlapping(nv12.as_ptr(), data, nv12.len());
+                buffer.Unlock().map_err(|_| "encoder_buffer")?;
+                buffer.SetCurrentLength(nv12.len() as u32).map_err(|_| "encoder_buffer")?;
+                let sample = MFCreateSample().map_err(|_| "encoder_sample")?;
+                sample.AddBuffer(&buffer).map_err(|_| "encoder_sample")?;
+                sample.SetSampleTime(timestamp_hns).map_err(|_| "encoder_sample")?;
+                sample.SetSampleDuration(10_000_000 / i64::from(self.fps)).map_err(|_| "encoder_sample")?;
+                sample
+            };
+            let mut units = Vec::new();
+            let Some(events) = self.events.clone() else {
+                // A synchronous MFT: input, then every output it has.
+                // SAFETY: ProcessInput on the configured transform.
+                unsafe { self.transform.ProcessInput(0, &sample, 0) }.map_err(|_| "encoder_input")?;
+                while let Some(unit) = self.pull_output()? {
+                    units.push(unit);
+                }
+                return Ok(units);
+            };
+            // An asynchronous (usually hardware) MFT: input only after
+            // METransformNeedInput, output after METransformHaveOutput.
+            let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+            let mut submitted = false;
+            let settle = std::time::Instant::now() + std::time::Duration::from_millis(1000 / u64::from(self.fps) / 2);
+            loop {
+                if !submitted && self.input_credits > 0 {
+                    self.input_credits -= 1;
+                    // SAFETY: ProcessInput after the MFT asked for input.
+                    unsafe { self.transform.ProcessInput(0, &sample, 0) }.map_err(|_| "encoder_input")?;
+                    submitted = true;
+                }
+                // SAFETY: a non-blocking event read.
+                match unsafe { events.GetEvent(MF_EVENT_FLAG_NO_WAIT) } {
+                    Ok(event) => {
+                        // SAFETY: reading the type of a live event.
+                        let kind = unsafe { event.GetType() }.map_err(|_| "encoder_event")?;
+                        if kind == METransformNeedInput.0 as u32 {
+                            self.input_credits += 1;
+                        } else if kind == METransformHaveOutput.0 as u32
+                            && let Some(unit) = self.pull_output()?
+                        {
+                            units.push(unit);
+                        }
+                    }
+                    Err(_) => {
+                        let now = std::time::Instant::now();
+                        if submitted && (!units.is_empty() || now >= settle) {
+                            return Ok(units);
+                        }
+                        if now >= deadline {
+                            return if submitted { Ok(units) } else { Err("encoder_stalled") };
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                }
+            }
+        }
+
+        fn pull_output(&mut self) -> Result<Option<(Vec<u8>, bool, i64)>, &'static str> {
+            use windows::Win32::Media::MediaFoundation::{
+                MF_E_TRANSFORM_NEED_MORE_INPUT, MF_E_TRANSFORM_STREAM_CHANGE, MFCreateMemoryBuffer, MFCreateSample,
+                MFSampleExtension_CleanPoint, MFT_OUTPUT_DATA_BUFFER,
+            };
+            let provided = if self.provides_samples {
+                None
+            } else {
+                // SAFETY: a new output sample of the size the MFT asked for.
+                unsafe {
+                    let buffer = MFCreateMemoryBuffer(self.output_bytes).map_err(|_| "encoder_buffer")?;
+                    let sample = MFCreateSample().map_err(|_| "encoder_sample")?;
+                    sample.AddBuffer(&buffer).map_err(|_| "encoder_sample")?;
+                    Some(sample)
+                }
+            };
+            let mut output = [MFT_OUTPUT_DATA_BUFFER {
+                dwStreamID: 0,
+                pSample: std::mem::ManuallyDrop::new(provided),
+                dwStatus: 0,
+                pEvents: std::mem::ManuallyDrop::new(None),
+            }];
+            let mut status = 0u32;
+            // SAFETY: one output buffer for stream 0.
+            let result = unsafe { self.transform.ProcessOutput(0, &mut output, &mut status) };
+            // SAFETY: each ManuallyDrop field is taken exactly once.
+            let (sample, _events) = unsafe {
+                (std::mem::ManuallyDrop::take(&mut output[0].pSample), std::mem::ManuallyDrop::take(&mut output[0].pEvents))
+            };
+            match result {
+                Err(error) if error.code() == MF_E_TRANSFORM_NEED_MORE_INPUT => return Ok(None),
+                Err(error) if error.code() == MF_E_TRANSFORM_STREAM_CHANGE => {
+                    // SAFETY: renegotiating the output type the MFT offers.
+                    unsafe {
+                        let offered = self.transform.GetOutputAvailableType(0, 0).map_err(|_| "encoder_output_type")?;
+                        self.transform.SetOutputType(0, &offered, 0).map_err(|_| "encoder_output_type")?;
+                    }
+                    return Ok(None);
+                }
+                Err(_) => return Err("encoder_output"),
+                Ok(()) => {}
+            }
+            let Some(sample) = sample else { return Ok(None) };
+            // SAFETY: reading a contiguous copy of the encoded sample.
+            unsafe {
+                let buffer = sample.ConvertToContiguousBuffer().map_err(|_| "encoder_output")?;
+                let mut data: *mut u8 = std::ptr::null_mut();
+                let mut length = 0u32;
+                buffer.Lock(&mut data, None, Some(&mut length)).map_err(|_| "encoder_output")?;
+                let bytes = if data.is_null() { Vec::new() } else { std::slice::from_raw_parts(data, length as usize).to_vec() };
+                let _ = buffer.Unlock();
+                let clean = sample.GetUINT32(&MFSampleExtension_CleanPoint).unwrap_or(0) == 1;
+                let time = sample.GetSampleTime().unwrap_or(0);
+                if bytes.is_empty() {
+                    return Ok(None);
+                }
+                Ok(Some((bytes, clean, time)))
+            }
+        }
     }
 
     /// The current package full name when this process runs from its
