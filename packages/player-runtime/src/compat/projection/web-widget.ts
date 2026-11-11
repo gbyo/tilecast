@@ -58,7 +58,8 @@ export function remoteWebForWidget(
     if (widget.provider !== "website" || !web?.url || !context) {
       return specFromWebDescriptor(web);
     }
-    const dataSourceId = widget.configuration?.["dataSourceId"];
+    // v13+ manifests omit authored configuration; use the compiled descriptor.
+    const dataSourceId = web.dataSourceId ?? widget.configuration?.["dataSourceId"];
     const url = resolveWebsiteUrl(web.url, {
       screenId: context.screenId,
       at,

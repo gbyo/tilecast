@@ -375,3 +375,29 @@ func presentationNodeCapability(nodeType string) string {
 		return ""
 	}
 }
+
+// Manifest v13+ omits raw Widget configuration. Keep the source identifier on
+// the compiled Web descriptor, including its JSON representation.
+func TestWebsiteCompilerCarriesDataSourceID(t *testing.T) {
+	catalog := contentdefs.MustLoad()
+	definition, ok := catalog.Widget("website")
+	if !ok { t.Fatal("website definition is missing") }
+	const sourceID = "4f589a71-6e9d-4db9-b91d-a244c6a9c351"
+	raw, err := json.Marshal(map[string]any{
+		"url": "https://example.com/screen?room={data.room}",
+		"dataSourceId": sourceID,
+	})
+	if err != nil { t.Fatal(err) }
+	presentation, err := compileDefinitionPresentation(definition, raw)
+	if err != nil { t.Fatal(err) }
+	if presentation.Web == nil || presentation.Web.DataSourceID != sourceID {
+		t.Fatalf("Website Data Source lost during compilation: %#v", presentation.Web)
+	}
+	wire, err := json.Marshal(presentation)
+	if err != nil { t.Fatal(err) }
+	var decoded WidgetPresentation
+	if err = json.Unmarshal(wire, &decoded); err != nil { t.Fatal(err) }
+	if decoded.Web == nil || decoded.Web.DataSourceID != sourceID {
+		t.Fatalf("Website Data Source lost on manifest wire: %#v", decoded.Web)
+	}
+}

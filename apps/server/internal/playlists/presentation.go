@@ -167,6 +167,7 @@ type PresentationCondition struct {
 type WebSandboxPresentation struct {
 	Mode                  string     `json:"mode"`
 	URL                   string     `json:"url,omitempty"`
+	DataSourceID          string     `json:"dataSourceId,omitempty"`
 	BundleID              string     `json:"bundleId,omitempty"`
 	EntryPoint            string     `json:"entryPoint,omitempty"`
 	IntegritySHA256       string     `json:"integritySha256,omitempty"`
@@ -529,6 +530,9 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 		OnlineOnly: true, FallbackBehavior: fallback, LoadTimeoutSeconds: timeout,
 		Lifecycle: lifecycle, WarmSeconds: spec.WarmSeconds,
 	}
+	if definition.ID == "website" {
+		descriptor.DataSourceID, _ = configuration["dataSourceId"].(string)
+	}
 	if spec.ReloadIntervalField != "" {
 		interval := intValue(configuration[spec.ReloadIntervalField], 0)
 		if interval >= 30 && interval <= 86400 {
@@ -709,7 +713,7 @@ func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP 
 		SchemaVersion: PresentationSchemaVersion, Kind: "web",
 		RequiredCapabilities: map[string]int{"web.remote": 1},
 		Web: &WebSandboxPresentation{
-			Mode: "remote", URL: rawURL, AllowedHosts: hosts, ExternalNetworkAccess: true, OnlineOnly: true,
+			Mode: "remote", URL: rawURL, DataSourceID: stringValue(c, "dataSourceId", ""), AllowedHosts: hosts, ExternalNetworkAccess: true, OnlineOnly: true,
 			FallbackBehavior: stringValue(c, "failureBehavior", "placeholder"), LoadTimeoutSeconds: timeout,
 			Lifecycle: lifecycle, WarmSeconds: min(intValue(c["warmSeconds"], 0), 300),
 		},

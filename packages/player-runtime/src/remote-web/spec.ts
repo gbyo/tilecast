@@ -170,6 +170,7 @@ export function specFromWebsite(
 export interface WebDescriptor {
   mode?: string;
   url?: string;
+  dataSourceId?: string;
   allowedHosts?: string[];
   onlineOnly?: boolean;
   fallbackBehavior?: string;
