@@ -256,9 +256,12 @@
     "unavailable": "Stream unavailable",
     "connecting": "Connecting to player…",
     "waitingFrame": "Waiting for the first frame.",
+    "negotiating": "Choosing the best stream format for this player and browser.",
     "liveBadge": "Live",
     "targetLine": "Targeting <strong>{{target}}</strong>. Actual refresh depends on the player and network.",
-    "targetValue": "{{fps}} FPS · up to {{width}}×{{height}}",
+    "targetNegotiating": "the best format both sides support",
+    "targetValueH264": "{{fps}} FPS · {{width}}×{{height}} · H.264 (about {{megabits}} Mbit/s)",
+    "targetValueMjpeg": "{{fps}} FPS · {{width}}×{{height}} · MJPEG",
     "privacyNote": "This stream is relayed only while this window is open. Frames are never saved to snapshots, live preview, Activity, or backups.",
     "stopWatching": "Stop watching"
   }

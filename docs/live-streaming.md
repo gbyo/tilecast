@@ -1,14 +1,16 @@
-# Ephemeral live streaming
+# Ephemeral live streaming (Watch Live)
 
 Tilecast Studio can open a temporary, video-like view of an online Player from
 the screen detail page. This is a separate transport from both the 20-second
-[live preview](live-previews.md) and [snapshot history](snapshots.md).
+[live preview](live-previews.md) and [snapshot history](snapshots.md). Live
+preview stays a JPEG capture. Watch Live uses H.264 when the Player, the
+Studio browser, and the server all support it, and MJPEG otherwise.
 
 ## Lifecycle
 
 Pressing **Watch live** creates one in-memory session for the screen. The
-session has a 15-second lease that Studio renews every seven seconds while the
-dialog remains open. Closing the dialog explicitly ends the session. The lease
+session has a 15-second lease that Studio renews every three seconds while the
+dialog stays open. Closing the dialog explicitly ends the session. The lease
 is the backstop when a browser disappears without running cleanup.
 
 Only one live-stream session is active per screen. Starting another replaces
@@ -19,56 +21,284 @@ newer viewer.
 
 The server tracks only two in-memory health hints for the active session: the
 arrival time of the last accepted frame and a monotonically increasing frame
-sequence. Studio observes those hints during lease renewal. A healthy renewal
-does not wake the Player; if accepted frames stop for five seconds, the server
-sends a rate-limited session-change nudge and Studio reconnects the MJPEG
-relay with bounded exponential backoff. A lost session after expiry or a
-server restart is recreated with bounded backoff. A transient MJPEG connection
-failure is retried automatically before Studio falls back to the manual
-**Retry stream** action.
+count. Studio observes those hints during lease renewal. A healthy renewal
+does not wake the Player. If accepted frames stop for five seconds, the server
+sends a rate-limited session-change nudge and Studio reconnects the relay with
+bounded exponential backoff. A lost session after expiry or a server restart
+is recreated with bounded backoff. A transient relay failure is retried
+automatically before Studio shows the manual **Retry stream** action. The
+same rules apply to the MJPEG and the H.264 relay.
 
 Changing Studio language does not restart the live-stream lease.
 
-The default is 8 frames per second, with independent per-axis bounds of 640×640 so a 16:9 screen may capture at 640×360 landscape or 360×640 portrait. Updated Edge players explicitly request up to 960×960 at 10 FPS via their authenticated player session poll (960×540 landscape or 540×960 portrait). Older clients may still enforce their previous 640×360 or 960×540 local limits until updated. Capture, JPEG
-encoding, player performance, and network latency can lower the actual frame
-rate. Each frame is limited to 100 KiB; real signage frames are usually much
-smaller, but the hard theoretical payload ceiling is about 6.4 Mbit/s while the
-dialog is open.
+## Profiles
+
+A session uses one profile from a closed vocabulary. The order is the
+preference order:
+
+| Profile        | Transport | Maximum size | Frame rate | Initial encoder target |
+| -------------- | --------- | -----------: | ---------: | ---------------------: |
+| `h264-720p15`  | H.264     |     1280×720 |     15 FPS |             1.5 Mbit/s |
+| `h264-540p15`  | H.264     |      960×540 |     15 FPS |             900 kbit/s |
+| `h264-540p10`  | H.264     |      960×540 |     10 FPS |             700 kbit/s |
+| `mjpeg-540p10` | MJPEG     |      960×960 |     10 FPS |  up to 100 KiB a frame |
+| `mjpeg-360p8`  | MJPEG     |      640×640 |      8 FPS |  up to 100 KiB a frame |
+
+MJPEG maximum dimensions bound width and height independently to retain a portrait frame: 360×640 or 540×960 fits without forced 16:9 cropping. Typical landscape frames still fit 640×360 and 960×540. H.264 profiles keep their existing bounds and negotiation.
+
+The bitrates are initial encoder targets, not contract rates. Capture,
+encoding, Player load, and network latency can lower the actual frame rate.
+`packages/player-contracts/fixtures/watch-live.json` is the source of truth.
+The server (`internal/livestream`), `player-client`, and Studio
+(`src/live-stream`) test against it.
+
+H.264 profiles are Constrained Baseline, 8-bit 4:2:0, with no B-frames, an
+IDR about once a second, and no audio. The WebCodecs codec string is
+`avc1.42e01f` (level 3.1, which covers 1280×720 at 15 FPS).
+
+## Negotiation
+
+Three parties take part, and the server selects:
+
+1. **Studio** lists the profiles it can consume in the start request:
+   `POST /api/v1/screens/{id}/live-stream` with
+   `{"acceptProfiles": [...]}`. A request without a body (an older Studio)
+   means MJPEG only. Studio lists an H.264 profile only when
+   `window.isSecureContext` is true, `VideoDecoder` exists, and
+   `VideoDecoder.isConfigSupported()` accepts `avc1.42e01f` at that
+   profile's size. This is feature detection, never user-agent sniffing.
+2. **The Player** lists the profiles it can produce now on its authoritative
+   session poll: `GET /api/v1/player/live-stream-session?profile=...`,
+   repeated, at most 16 values. A poll without `profile` (an older Player)
+   gets the legacy `mjpeg-360p8` profile. The retired
+   `captureProfile=edge-540p10` query means `mjpeg-540p10`. A newer Player
+   sends both, so an older server keeps its 960×540 MJPEG.
+3. **The server** selects the first profile in preference order that both
+   lists contain. When they share nothing, it selects `mjpeg-360p8`.
+
+Until the Player first polls, the session has no `profile` and carries the
+legacy limits. A Studio that offered H.264 waits for the choice and renews
+every 500 ms meanwhile. After selection, the session that Studio and the
+Player read names the `profile`, `transport` (`h264` or `mjpeg`), `codec`
+(H.264 only), `frameIntervalMillis`, `maxWidth`, `maxHeight`,
+`maxFrameBytes`, `targetBitrate` (H.264 only), and `profileGeneration`.
+Studio's target line shows the selected profile.
+
+Compatibility:
+
+- An older Studio with a newer server gets MJPEG.
+- A newer Studio without WebCodecs gets MJPEG.
+- A newer Studio with an older Player gets MJPEG.
+- A newer Player with an older server never sends TCLS version 2. The Player
+  encodes H.264 only when the session explicitly selects an H.264 profile
+  with transport `h264` and codec `avc1.42e01f`. An inconsistent H.264
+  session fails closed to no streaming.
+
+## Runtime downgrade
+
+Watch Live is subordinate to playback. Core measures each H.264 stream in
+memory only: output frames, capture time, encode time, frames dropped before
+encoding, missed frame slots, and outbox resyncs. After a three-second
+warm-up it judges five-second windows. A window is unsustainable when output
+is below 60% of the profile frame rate, when 30% of frames missed their slot
+or overran the frame budget, or when the outbox resynchronized twice. Two
+consecutive unsustainable windows (hysteresis) degrade the session one
+level: `720p15 → 540p15 → 540p10 → MJPEG`. An encoder that fails to start or
+reports a failure degrades at once.
+
+To degrade, Core stops the encoder first. Its next poll carries
+`degradedSession` and `degradedProfile`. The server then selects a lower
+profile for that session only, increments `profileGeneration`, drops the
+buffered GOP, and ends every relay request. Studio renews, sees the new
+profile, and reconnects with the right transport. A degraded session never
+upgrades again. A hint for another (replaced) session is ignored, and a new
+session probes the best profile again. The server rejects data for any
+profile other than the selected one: TCLS version 2 carries its profile code,
+and TCLS version 1 is accepted only while the session is MJPEG.
+
+## Wire formats
+
+### TCLS version 1 (MJPEG, unchanged)
+
+One JPEG frame per binary message on the Player's authenticated WebSocket:
+`TCLS`, version 1, the 16-byte session UUID, u64 capture time in milliseconds,
+u16 width, u16 height (33 bytes), then the complete JPEG. Every frame is at
+most 100 KiB. The server checks the header, lease, profile bounds, and JPEG
+markers.
+
+### TCLS version 2 (H.264)
+
+One complete H.264 Annex B access unit per binary message, after a fixed
+48-byte big-endian header:
+
+| Offset | Size | Field                                               |
+| -----: | ---: | --------------------------------------------------- |
+|      0 |    4 | `TCLS`                                              |
+|      4 |    1 | version `2`                                         |
+|      5 |    1 | profile code (1 720p15, 2 540p15, 3 540p10)         |
+|      6 |    1 | flags: bit 0 keyframe; other bits must be zero      |
+|      7 |    1 | reserved, zero                                      |
+|      8 |   16 | session UUID                                        |
+|     24 |    8 | sequence, increasing within a session               |
+|     32 |    8 | presentation timestamp in microseconds              |
+|     40 |    2 | width (even, at least 16, within the profile)       |
+|     42 |    2 | height (even, at least 16, within the profile)      |
+|     44 |    4 | access-unit length (must equal the remaining bytes) |
+
+An access unit is at most 512 KiB. Every keyframe carries SPS and PPS before
+its IDR slice, so a decoder can start at any keyframe without an earlier
+configuration message. The server performs a light Annex B scan, not a
+decode: the unit starts with a start code, NAL headers are well formed, a
+keyframe has SPS and PPS before its IDR, and a delta unit has a non-IDR slice
+and no IDR slice. Sequence numbers must increase and timestamps must not go
+backwards. A delta after a sequence gap depends on a frame the server never
+saw, so the server refuses deltas until the next keyframe. A delta cannot
+change the dimensions. The server never transcodes. The WebSocket read limit
+is one TCLS version 2 message plus 1 KiB.
+
+## Backpressure and GOP model
+
+A slow Studio or network must never build an unbounded queue or affect
+playback. JPEG frames are independent, so any stale JPEG can be dropped.
+H.264 P-frames depend on every frame since their IDR, so dropping is
+dependency-aware at every stage:
+
+- **Host encoder to Core.** Hosts push access units into a bounded
+  eight-entry sink. A full sink drops the unit, refuses deltas until the next
+  keyframe, and asks the encoder for one. Every pushed unit takes a sequence
+  number, so a drop is a visible gap downstream. Hosts drop raw frames
+  before encoding when the encoder is busy.
+- **Core to WebSocket.** The Watch Live outbox holds the newest JPEG, or the
+  H.264 units in order, at most 30 units and 2 MiB. On overflow it clears the
+  dependent GOP, waits for a keyframe, and asks the encoder for one. A
+  keyframe supersedes unsent deltas. A send that fails or times out loses a
+  unit the server needed, so the outbox waits for a keyframe again. The
+  WebSocket stays single-owner in Core's server link; encoders never see it.
+- **Server to Studio.** The server keeps only the current decodable GOP, at
+  most 90 units and 4 MiB, for viewers that join. A GOP over the bound stops
+  buffering for joiners (they wait for the next keyframe) but still reaches
+  connected viewers. Each viewer has its own queue of at most 45 units and
+  3 MiB. Overflow clears it and the viewer resumes at the next keyframe. A
+  joining viewer starts at the buffered IDR or waits for the next one, never
+  in the middle of a dependency chain. A connection that accepts no bytes for
+  ten seconds is closed.
+- **Studio.** Studio decodes the newest data only. If the decoder has more
+  than six frames queued, Studio skips to the next keyframe. Only the newest
+  decoded frame is painted, and every `VideoFrame` is closed promptly.
+
+## Studio transport
+
+The MJPEG relay is `multipart/x-mixed-replace`, shown in an `<img>`.
+
+The H.264 relay, `GET /api/v1/screens/{id}/live-stream/{sessionId}/h264`, is
+`application/vnd.tilecast.live-h264`. Each record is a big-endian u32 length
+followed by one TCLS version 2 packet exactly as the Player sent it. The
+first record is always a keyframe. Studio reads the response incrementally
+from `fetch().body`, parses records across any read boundary, and decodes
+with WebCodecs `VideoDecoder` (`optimizeForLatency: true`). Each unit becomes
+an `EncodedVideoChunk` of type `key` or `delta` with the protocol timestamp.
+Frames are drawn to a canvas. The response ends when the session ends or
+its profile changes; Studio then renews and reconnects.
+
+Fallback: if WebCodecs is missing, the decoder cannot be configured, or
+decoding fails three times in one stream, Studio ends the session and starts
+a new one that offers MJPEG only, for as long as the viewer stays open. The
+MJPEG endpoint stays. The native iOS presentation route renders the same
+viewer.
+
+## Platforms
+
+| Player                | Watch Live                                                                      |
+| --------------------- | ------------------------------------------------------------------------------- |
+| Tilecast Edge         | H.264 when its encoder probe finds a working encoder; otherwise `mjpeg-540p10`. |
+| Windows native Player | `mjpeg-360p8`. H.264 through Media Foundation is a separate change.             |
+| Android Player        | `mjpeg-360p8`. H.264 through MediaCodec is a separate change.                   |
+| Linux Legacy          | `mjpeg-360p8`, unchanged. Linux Legacy (Electron) does not get H.264.           |
+
+### Edge encoder
+
+The WPE renderer owns the presented WPE buffer and already uses GStreamer.
+It probes encoders at runtime on a worker thread, in this order:
+`vah264lpenc`, `vah264enc`, `openh264enc`. Each installed candidate must
+encode real frames into a Constrained Baseline keyframe with SPS, PPS, and an
+IDR slice. A VA-API encoder that passes at 1280×720 advertises `h264-720p15`
+and below. A software encoder (OpenH264) starts at `h264-540p15`. When no
+candidate passes, the renderer advertises no H.264 profile and Watch Live
+uses MJPEG. The probe result reaches `tilecastd` as
+`renderer.live_capabilities`, and the renderer logs it once, for example
+`live-encoder: H.264 Watch Live uses openh264enc (software, up to 540p15)`.
+Edge uses the GStreamer plugins that the Edge release carries, so the
+encoders available depend on them and on the host's VA-API drivers.
+Tilecast does not add `plugins-ugly` or x264.
+
+`tilecastd` sends `live_encoder.start` only while an H.264 lease is active
+and the screen is not protected, `live_encoder.keyframe` after a resync, and
+`live_encoder.stop` the moment the lease ends, is replaced, degrades, or the
+screen becomes protected. The renderer keeps one GStreamer pipeline per
+stream (`appsrc ! videoconvert ! videoscale ! encoder ! h264parse ! appsink`).
+A frame-rate timer copies the presented buffer, or reuses the last copy when
+nothing new was presented. At most two raw frames wait for the encoder;
+more are dropped and counted. A copy that takes more than a quarter of the
+frame interval skips the next frames, so Watch Live never takes more than
+about a quarter of the main loop. Conversion and encoding run on GStreamer
+threads. `h264parse config-interval=-1` writes SPS and PPS before every IDR.
+VA-API runs with CBR, no B-frames, and one reference frame. OpenH264 runs in
+screen-content mode, low complexity, with bitrate control and a GOP of one
+second. Each access unit reaches `tilecastd` as `renderer.live_chunk`.
+
+Hardware qualification: the e2e image has OpenH264 only. VA-API encoders
+(`vah264lpenc`, `vah264enc`) and the 720p profile need a physical Edge
+device to qualify. Until then, treat a hardware encoder's 720p advertisement
+as probed, not qualified.
 
 ## Transport and storage boundary
 
-The Player sends each JPEG as a binary message on its existing
-device-authenticated WebSocket. A small fixed header carries the session UUID,
-capture time, width, and height. The server validates that header, the active
-lease, dimensions, size, and complete JPEG markers.
-
-The server relays only the newest available frame to an authenticated Studio
-request as `multipart/x-mixed-replace`. Slow viewers drop intermediate frames
-instead of building a queue.
-
 The live-stream service has no database dependency:
 
-- frames and sessions exist only in process memory;
-- frames never enter `screen_previews` or `screen_snapshots`;
-- frames do not appear in Activity, audit metadata, logs, or backups;
+- frames, access units, GOPs, and sessions exist only in process memory;
+- they never enter `screen_previews` or `screen_snapshots`;
+- they do not appear in Activity, proof-of-play, audit metadata, logs, or
+  backups, and never enter SQLite or the content store on a Player;
 - a server restart ends every stream;
 - Player restart and browser disconnect are safe because the lease expires.
+
+Downgrade metrics are in memory and are not persisted.
 
 ## Security and protected states
 
 Studio start, renew, and stop operations require the dashboard session, CSRF
-token, and access to the selected screen. The MJPEG response requires the same
-dashboard session and screen scope. The Player side uses only the permanent
-device credential and its already-authenticated WebSocket.
+token, and access to the selected screen. Both relay responses require the
+same dashboard session and screen scope, and send `Cache-Control: no-store,
+private`, `X-Content-Type-Options: nosniff`, and `X-Accel-Buffering: no`.
+The Player side uses only the permanent device credential and its
+already-authenticated WebSocket. There is no public stream URL and no
+permanent stream token. The renderer and page processes never receive a
+credential.
+
+Pairing, setup, local administration, maintenance, update approval,
+identify, safe mode, and other protected states do not produce live frames.
+Core checks the protected state before an encoder starts, while it runs, and
+again before each access unit leaves for the outbox. The socket owner checks
+again before each send. Entering a protected state stops the encoder and
+discards in-flight output; leaving it starts a new encoder at a keyframe.
 
 Android captures only Tilecast's activity window and its visible video
-surfaces. Linux uses the same bounded framebuffer/window capture policy as live
-preview. Pairing, local administration, maintenance, update
-approval, identify, safe mode, and other protected states do not produce live
-frames.
+surfaces. Edge and Windows capture the final output of the Player itself.
+Tilecast does not use `MediaProjection`, WebRTC, STUN, TURN, HLS, DASH, a
+transcoder, public stream URLs, or a proprietary relay.
 
-Tilecast does not use `MediaProjection`, WebRTC, a TURN service, public stream
-URLs, or a proprietary relay.
+## Troubleshooting
+
+- **Studio shows MJPEG on a capable Edge screen.** Check the renderer log
+  for the `live-encoder:` probe line. "no working H.264 encoder" means no
+  candidate passed. Check that Studio runs in a secure context (HTTPS or
+  `localhost`): plain HTTP disables WebCodecs.
+- **The profile drops during a session.** The Player could not sustain it.
+  `tilecastd` logs `profile_degraded` with a reason (`output_fps`,
+  `frame_deadline`, `transport_resync`, `encoder_start`, or
+  `encoder_failed`). The next session starts at the best profile again.
+- **The stream freezes briefly and recovers.** A backpressure resync dropped
+  a GOP; the stream resumes at the next keyframe, within about a second.
 
 ## Endpoints
 
@@ -78,8 +308,9 @@ Studio:
 - `POST /api/v1/screens/{id}/live-stream/{sessionId}/renew`
 - `DELETE /api/v1/screens/{id}/live-stream/{sessionId}`
 - `GET /api/v1/screens/{id}/live-stream/{sessionId}/mjpeg`
+- `GET /api/v1/screens/{id}/live-stream/{sessionId}/h264`
 
 Paired Player:
 
 - `GET /api/v1/player/live-stream-session`
-- binary `TCLS` version 1 frames on `/api/v1/player/socket`
+- binary `TCLS` version 1 and version 2 messages on `/api/v1/player/socket`

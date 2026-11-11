@@ -163,6 +163,9 @@ impl IpcHandler for DaemonIpc {
             Event::RendererCommandResult(result) => {
                 self.context.renderer_commands.complete(result);
             }
+            Event::LiveChunk(chunk) => self.context.live_encoders.chunk(chunk),
+            Event::LiveEncoderState(state) => self.context.live_encoders.state(&state),
+            Event::LiveCapabilities(report) => self.context.live_encoders.set_capabilities(&report),
             Event::PreviewResult(result) => {
                 if result.within_limits() {
                     self.context.capture.complete(result.request_id, result.result);
@@ -256,6 +259,7 @@ impl IpcHandler for DaemonIpc {
             }
             self.context.presentation.lock().await.renderer_disconnected(session.id());
             self.context.renderer_commands.renderer_disconnected();
+            self.context.live_encoders.renderer_disconnected();
             crate::capabilities::refresh(&self.context).await;
         }
     }

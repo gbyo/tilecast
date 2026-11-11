@@ -89,6 +89,13 @@ object TcMediaBridge {
         }.getOrNull()
     }
 
+    /** WebView applies the request's Range offset to this stream itself.
+     * Keep the prefix for that seek, but retain EOF at the requested end.
+     * Pre-seeking the response body applies the offset twice on Chromium.
+     */
+    fun openWebViewStream(resolved: ResolvedMedia): InputStream? =
+        openStream(resolved.copy(offset = 0, contentLength = resolved.offset + resolved.contentLength))
+
     private class BoundedInputStream(
         input: InputStream,
         private var remaining: Long,
@@ -129,7 +136,7 @@ object TcMediaBridge {
                 null,
             )
         }
-        val stream = openStream(resolved) ?: return null
+        val stream = openWebViewStream(resolved) ?: return null
         return WebResourceResponse(
             resolved.mimeType, null,
             resolved.statusCode, resolved.reason,

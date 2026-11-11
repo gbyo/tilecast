@@ -333,8 +333,8 @@ that the published inventory records, never the version tag, and never a build.
 Only `stable`, `latest`, and `beta` can move, and only a Stable release can move
 `stable` and `latest`. A failed or incomplete release never moves an alias.
 
-`latest` currently names a build from before this process and `stable` does not
-exist. The first Stable release creates `stable` and moves `latest`.
+A Stable release can replace the legacy `latest` image with version annotation
+`main`. This image came from before coordinated releases.
 
 ## Player update discovery
 

@@ -1,0 +1,12 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 4,
+    "event": "renderer.live_capabilities",
+    "data": {
+      "profiles": ["h264-540p15", "h264-540p10"],
+      "encoder": "openh264enc",
+      "hardware": false
+    }
+  }
+}

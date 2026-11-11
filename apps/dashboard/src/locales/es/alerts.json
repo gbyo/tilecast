@@ -265,9 +265,12 @@
     "unavailable": "Transmisión no disponible",
     "connecting": "Conectando al reproductor…",
     "waitingFrame": "Esperando el primer fotograma.",
+    "negotiating": "Eligiendo el mejor formato de transmisión para este reproductor y navegador.",
     "liveBadge": "En vivo",
     "targetLine": "Objetivo: <strong>{{target}}</strong>. La frecuencia real depende del reproductor y la red.",
-    "targetValue": "{{fps}} FPS · hasta {{width}}×{{height}}",
+    "targetNegotiating": "el mejor formato que admiten ambos lados",
+    "targetValueH264": "{{fps}} FPS · {{width}}×{{height}} · H.264 (unos {{megabits}} Mbit/s)",
+    "targetValueMjpeg": "{{fps}} FPS · {{width}}×{{height}} · MJPEG",
     "privacyNote": "Esta transmisión se retransmite solo mientras esta ventana está abierta. Los fotogramas nunca se guardan en capturas, vista previa, Actividad ni copias de seguridad.",
     "stopWatching": "Deja de mirar"
   }

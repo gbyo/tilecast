@@ -236,7 +236,7 @@ impl Drivers {
                     link.renderer_engine.clone(),
                     link.renderer_broker,
                     clock.clone(),
-                    signals.live_frames.clone(),
+                    Arc::clone(&signals.live_outbox),
                 )),
                 engine: link.renderer_engine,
                 clock,
@@ -291,7 +291,7 @@ impl Drivers {
                         sync_request: &signals.sync_request,
                         sync_done: &signals.sync_done,
                         live_stream_wake: &signals.live_stream_wake,
-                        live_frames: &signals.live_frames,
+                        live_outbox: &signals.live_outbox,
                         status_due: &signals.status_due,
                     },
                 })
@@ -304,11 +304,8 @@ impl Drivers {
             let signals = self.link.signals.clone();
             let shutdown = self.link.shutdown.clone();
             let commands = runtime.spawn(async move {
-                // Crash recovery first: an interrupted command re-runs or
-                // settles before any new delivery is fetched.
-                if coordinator.recover().await.is_err() {
-                    return;
-                }
+                // `run_commands` settles interrupted commands, retrying a
+                // state-store failure, before it fetches any delivery.
                 let wake = signals.command_wake.clone();
                 core.run_commands(&coordinator, server, &wake, &shutdown, |outcome| {
                     if outcome == player_core::PassOutcome::CredentialRejected {

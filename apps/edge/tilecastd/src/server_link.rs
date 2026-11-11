@@ -167,7 +167,7 @@ pub async fn run(context: Arc<DaemonContext>) {
             sync_request: &context.sync_request,
             sync_done: &context.sync_done,
             live_stream_wake: &context.live_stream_wake,
-            live_frames: &context.live_frames,
+            live_outbox: &context.live_outbox,
             status_due: &context.status_due,
         },
     })

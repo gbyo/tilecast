@@ -27,7 +27,7 @@ use player_cas::ContentStore;
 use player_cas::space::SpaceProbe as _;
 use player_client::AuthenticatedServer;
 use player_core::{
-    ActivityEvent, ActivityHandle, ActivitySignal, ConfigurationHost, LiveFrame, NativeConfiguration, ServerLinkState,
+    ActivityEvent, ActivityHandle, ActivitySignal, ConfigurationHost, NativeConfiguration, ServerLinkState,
     SharedManifestPreparationStatus,
 };
 use player_state::StateDb;
@@ -65,7 +65,7 @@ pub struct LinkSignals {
     pub sync_request: Arc<AtomicU64>,
     pub sync_done: watch::Sender<(u64, bool)>,
     pub live_stream_wake: Arc<Notify>,
-    pub live_frames: watch::Sender<Option<LiveFrame>>,
+    pub live_outbox: Arc<player_core::LiveOutbox>,
     pub status_due: Arc<AtomicBool>,
     pub manifest_item_boundary: Arc<AtomicBool>,
     /// The selection gate in force, published by the selection driver:
@@ -111,7 +111,7 @@ impl Default for LinkSignals {
             sync_request: Arc::new(AtomicU64::new(0)),
             sync_done: watch::Sender::new((0, false)),
             live_stream_wake: Arc::new(Notify::new()),
-            live_frames: watch::Sender::new(None),
+            live_outbox: Arc::default(),
             status_due: Arc::new(AtomicBool::new(false)),
             manifest_item_boundary: Arc::new(AtomicBool::new(false)),
             gate: Arc::new(Mutex::new(None)),

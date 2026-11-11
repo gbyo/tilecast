@@ -2794,13 +2794,27 @@ paths:
     post:
       operationId: startLiveStream
       description: >-
-        Start a live MJPEG relay session for a screen. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+        Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: header
           name: X-CSRF-Token
           required: true
           schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                acceptProfiles:
+                  type: array
+                  maxItems: 16
+                  description: >-
+                    Watch Live profile IDs the viewer can consume. Unknown IDs are ignored.
+                  items: { type: string, maxLength: 32 }
       responses:
         "201":
           description: Live stream session started
@@ -2817,7 +2831,7 @@ paths:
     post:
       operationId: renewLiveStream
       description: >-
-        Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+        Renew a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: path
@@ -2845,7 +2859,7 @@ paths:
     delete:
       operationId: endLiveStream
       description: >-
-        End a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+        End a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: path
@@ -2881,6 +2895,28 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this screen }
         "404": { description: Live stream session not found }
+        "409": { description: The session's selected profile is not MJPEG }
+  /api/v1/screens/{id}/live-stream/{sessionId}/h264:
+    get:
+      operationId: watchLiveStreamH264
+      description: >-
+        Watch an H.264 Watch Live session. Each record is a big-endian u32 length followed by one TCLS version 2 packet (one Annex B access unit). The first record is a keyframe with its SPS and PPS. The response ends when the session ends or its profile changes. Requires an authenticated dashboard user with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Length-prefixed TCLS version 2 stream
+          content:
+            application/vnd.tilecast.live-h264:
+              schema: { type: string, format: binary }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+        "404": { description: Live stream session not found }
+        "409": { description: The session's selected profile is not H.264 }
   /api/v1/player/live-stream-session:
     get:
       operationId: getPlayerLiveStreamSession
@@ -2888,11 +2924,33 @@ paths:
         Read the screen's current live stream session, if any. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       parameters:
-        - name: captureProfile
+        - name: profile
+          in: query
+          required: false
+          style: form
+          explode: true
+          description: >-
+            Watch Live profile IDs this Player can produce now, repeated. Omit it to retain the legacy 640x360 at 8 FPS MJPEG profile. Unknown IDs are ignored.
+          schema:
+            type: array
+            maxItems: 16
+            items: { type: string, maxLength: 32 }
+        - name: degradedSession
           in: query
           required: false
           description: >-
-            Optional Watch Live capture profile supported by this Player. Omit it to retain the legacy 640x360 at 8 FPS profile.
+            With degradedProfile, the session this Player could not sustain degradedProfile for. The server then selects a lower profile for that session only; a hint for another session is ignored.
+          schema: { type: string, format: uuid }
+        - name: degradedProfile
+          in: query
+          required: false
+          schema: { type: string, maxLength: 32 }
+        - name: captureProfile
+          in: query
+          required: false
+          deprecated: true
+          description: >-
+            Retired opt-in of older Edge Players. edge-540p10 means the profiles mjpeg-540p10 and mjpeg-360p8.
           schema:
             type: string
             enum: [edge-540p10]
@@ -12252,16 +12310,45 @@ components:
           maxWidth,
           maxHeight,
           maxFrameBytes,
+          transport,
+          profileGeneration,
+          frameSequence,
         ]
       properties:
         id: { type: string, format: uuid }
         screenId: { type: string, format: uuid }
         active: { type: boolean }
         expiresAt: { type: string, format: date-time }
+        profile:
+          type: string
+          description: >-
+            Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
+          enum:
+            [h264-720p15, h264-540p15, h264-540p10, mjpeg-540p10, mjpeg-360p8]
+        transport: { type: string, enum: [h264, mjpeg] }
+        codec:
+          type: string
+          description: WebCodecs codec string of an H.264 profile.
+        profileGeneration:
+          type: integer
+          minimum: 0
+          description: Increases each time the session degrades to a lower profile.
         frameIntervalMillis: { type: integer, minimum: 0 }
         maxWidth: { type: integer, minimum: 0 }
         maxHeight: { type: integer, minimum: 0 }
         maxFrameBytes: { type: integer, minimum: 0 }
+        targetBitrate:
+          type: integer
+          minimum: 0
+          description: Initial H.264 encoder target in bits per second.
+        lastFrameAt:
+          type: string
+          format: date-time
+          description: In-memory arrival time of the last accepted frame.
+        frameSequence:
+          type: integer
+          minimum: 0
+          description: In-memory count of accepted frames.
     SystemStatus:
       type: object
       additionalProperties: false
