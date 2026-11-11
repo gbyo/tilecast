@@ -55,7 +55,12 @@ export function remoteWebForWidget(
   }
   if (widget.presentation?.kind === "web") {
     const web = widget.presentation.web as WebDescriptor | null | undefined;
-    if (widget.provider !== "website" || !web?.url || !context) {
+    if (
+      widget.provider !== "website" ||
+      !web?.url ||
+      !web.urlTemplatesEnabled ||
+      !context
+    ) {
       return specFromWebDescriptor(web);
     }
     // v13+ manifests omit authored configuration; use the compiled descriptor.

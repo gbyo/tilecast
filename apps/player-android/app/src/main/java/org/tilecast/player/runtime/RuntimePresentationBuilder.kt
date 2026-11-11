@@ -257,10 +257,10 @@ object RuntimePresentationBuilder {
             val config = runCatching { json.decodeFromJsonElement<WebsiteSourceConfig>(widget.configuration) }.getOrNull()
                 ?: return BuiltRuntimeItem(unresolvableItem(resolved), false)
             return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
-                url = WebsiteUrlVariables.resolve(
+                url = (if (config.urlTemplatesEnabled) WebsiteUrlVariables.resolve(
                     config.url, manifest.screenId, dataSourceId = config.dataSourceId,
                     sources = manifest.dataSources,
-                ) ?: return BuiltRuntimeItem(unresolvableItem(resolved), false),
+                ) else config.url) ?: return BuiltRuntimeItem(unresolvableItem(resolved), false),
                 allowedHosts = config.allowedHosts,
                 javascriptEnabled = config.javascriptEnabled,
                 domStorageEnabled = config.domStorageEnabled,

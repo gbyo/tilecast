@@ -386,10 +386,14 @@ func TestWebsiteCompilerCarriesDataSourceID(t *testing.T) {
 	raw, err := json.Marshal(map[string]any{
 		"url": "https://example.com/screen?room={data.room}",
 		"dataSourceId": sourceID,
+		"urlTemplatesEnabled": true,
 	})
 	if err != nil { t.Fatal(err) }
 	presentation, err := compileDefinitionPresentation(definition, raw)
 	if err != nil { t.Fatal(err) }
+	if presentation.RequiredCapabilities["web.remote"] != 3 {
+		t.Fatalf("URL template requires web.remote v3: %#v", presentation.RequiredCapabilities)
+	}
 	if presentation.Web == nil || presentation.Web.DataSourceID != sourceID {
 		t.Fatalf("Website Data Source lost during compilation: %#v", presentation.Web)
 	}

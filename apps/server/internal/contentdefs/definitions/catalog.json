@@ -33,6 +33,16 @@
             "ui": { "section": "content", "order": 2 }
           },
           {
+            "key": "urlTemplatesEnabled",
+            "label": "Enable URL variables",
+            "labelKey": "definitions:website.fields.urlTemplatesEnabled.label",
+            "description": "Substitute screen, date, time and selected Data Source values only on compatible Players.",
+            "descriptionKey": "definitions:website.fields.urlTemplatesEnabled.description",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "content", "order": 3 }
+          },
+          {
             "key": "backgroundColor",
             "label": "Background color",
             "labelKey": "definitions:website.fields.backgroundColor.label",

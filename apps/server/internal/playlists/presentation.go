@@ -168,6 +168,7 @@ type WebSandboxPresentation struct {
 	Mode                  string     `json:"mode"`
 	URL                   string     `json:"url,omitempty"`
 	DataSourceID          string     `json:"dataSourceId,omitempty"`
+	URLTemplatesEnabled   bool       `json:"urlTemplatesEnabled,omitempty"`
 	BundleID              string     `json:"bundleId,omitempty"`
 	EntryPoint            string     `json:"entryPoint,omitempty"`
 	IntegritySHA256       string     `json:"integritySha256,omitempty"`
@@ -532,6 +533,10 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 	}
 	if definition.ID == "website" {
 		descriptor.DataSourceID, _ = configuration["dataSourceId"].(string)
+		descriptor.URLTemplatesEnabled, _ = configuration["urlTemplatesEnabled"].(bool)
+		if !descriptor.URLTemplatesEnabled && strings.Contains(webURL, "{") {
+			return nil, errors.New("enable URL variables before using Website placeholders")
+		}
 	}
 	if spec.ReloadIntervalField != "" {
 		interval := intValue(configuration[spec.ReloadIntervalField], 0)
@@ -539,9 +544,16 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 			descriptor.Reload = &WebReload{Mode: "periodic", IntervalSeconds: interval}
 		}
 	}
+	capabilities := make(map[string]int, len(definition.RequiredCapabilities))
+	for name, version := range definition.RequiredCapabilities {
+		capabilities[name] = version
+	}
+	if descriptor.URLTemplatesEnabled {
+		capabilities["web.remote"] = 3
+	}
 	return &WidgetPresentation{
 		SchemaVersion: definition.PresentationSchemaVersion, Kind: "web",
-		RequiredCapabilities: definition.RequiredCapabilities, Web: descriptor,
+		RequiredCapabilities: capabilities, Web: descriptor,
 	}, nil
 }
 
@@ -709,11 +721,18 @@ func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP 
 	if lifecycle != "keep_warm" {
 		lifecycle = "destroy_on_hide"
 	}
+	requiredVersion := 1
+	if provider == "website" && c["urlTemplatesEnabled"] == true {
+		requiredVersion = 3
+	}
+	if provider == "website" && requiredVersion == 1 && strings.Contains(rawURL, "{") {
+		return nil, errors.New("enable URL variables before using Website placeholders")
+	}
 	return &WidgetPresentation{
 		SchemaVersion: PresentationSchemaVersion, Kind: "web",
-		RequiredCapabilities: map[string]int{"web.remote": 1},
+		RequiredCapabilities: map[string]int{"web.remote": requiredVersion},
 		Web: &WebSandboxPresentation{
-			Mode: "remote", URL: rawURL, DataSourceID: stringValue(c, "dataSourceId", ""), AllowedHosts: hosts, ExternalNetworkAccess: true, OnlineOnly: true,
+			Mode: "remote", URL: rawURL, DataSourceID: stringValue(c, "dataSourceId", ""), URLTemplatesEnabled: c["urlTemplatesEnabled"] == true, AllowedHosts: hosts, ExternalNetworkAccess: true, OnlineOnly: true,
 			FallbackBehavior: stringValue(c, "failureBehavior", "placeholder"), LoadTimeoutSeconds: timeout,
 			Lifecycle: lifecycle, WarmSeconds: min(intValue(c["warmSeconds"], 0), 300),
 		},

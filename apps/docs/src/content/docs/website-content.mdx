@@ -30,7 +30,7 @@ A Website Widget may send values to the target site's URL query parameters.
 One Website Widget can be assigned to many screens and use each screen's ID
 without duplicating the Widget.
 
-In **Content → Widgets → Website**, enter a URL such as:
+In **Content → Widgets → Website**, enable **URL variables** explicitly, then enter a URL such as:
 
 ```text
 https://example.org/display?screen={screen.id}&date={date}&room={data.room}&rooms={data.json}
@@ -58,9 +58,9 @@ Source is unavailable, or the resolved URL would exceed 2,048 characters,
 Tilecast refuses to load that address rather than exposing an unresolved
 template. Static Website URLs remain unchanged.
 
-Dynamic values are evaluated when content is projected or activated; a page
-that stays active across a date change may need to be reactivated to get a new
-date parameter. The site must be able to parse the query values it receives.
+URL variables require an updated Player reporting `web.remote@3`. Older Players that report `web.remote@1` or `web.remote@2` are rejected during compatibility checks for variable-enabled Websites; ordinary static Websites continue to work. Upgrade Android, Edge, Windows and Linux Players before assigning URL variables.
+
+Date and time values are resolved when the Website starts playing, not when the Playlist is first projected. This keeps a changing clock token from restarting a preceding Playlist item. A page already open retains its URL until the next activation. The site must be able to parse the query values it receives.
 Do not transmit credentials or confidential data through URL parameters,
 which may be recorded by web servers and proxies.
 

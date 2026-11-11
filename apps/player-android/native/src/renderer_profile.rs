@@ -25,7 +25,7 @@ pub const COMPONENT_PRESENTATION_SCHEMAS: &[u32] = &[2];
 
 /// The declarative capability the remote web host provides.
 pub const WEB_REMOTE_CAPABILITY: &str = "web.remote";
-pub const WEB_REMOTE_VERSION: u32 = 2;
+pub const WEB_REMOTE_VERSION: u32 = 3;
 
 /// The Widget frame execution ABI capability every downloaded Widget uses.
 pub const EXTERNAL_WIDGET_RUNTIME_CAPABILITY: &str = "widget.external-runtime";

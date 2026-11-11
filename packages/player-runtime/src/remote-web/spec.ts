@@ -171,6 +171,7 @@ export interface WebDescriptor {
   mode?: string;
   url?: string;
   dataSourceId?: string;
+  urlTemplatesEnabled?: boolean;
   allowedHosts?: string[];
   onlineOnly?: boolean;
   fallbackBehavior?: string;

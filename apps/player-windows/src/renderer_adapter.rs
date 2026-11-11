@@ -42,7 +42,7 @@ pub mod profile {
     /// The `web.remote` declarative capability: remote web in isolated
     /// host-layer child views, shown through the renderer's remote web
     /// surface.
-    pub const WEB_RUNTIME_VERSION: u32 = 2;
+    pub const WEB_RUNTIME_VERSION: u32 = 3;
 
     /// Presentation schemas the runtime renders: 1 (declarative and web),
     /// 2 (first-class Widget components), and 3 (component empty policy).
@@ -582,7 +582,7 @@ mod tests {
         assert!(profile::FEATURES.contains(&"remote-web-v1"));
         assert!(profile::FEATURES.contains(&"website"));
         assert!(profile::FEATURES.contains(&"youtube"));
-        assert_eq!(profile::WEB_RUNTIME_VERSION, 2);
+        assert_eq!(profile::WEB_RUNTIME_VERSION, 3);
         let web_remote = player_types::bounded::ShortToken::new("web.remote").expect("test fixture");
         packaged_profile()
             .check(&player_core::RendererRequirement::Declarative { name: web_remote, version: 2 })
