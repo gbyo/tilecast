@@ -1964,7 +1964,10 @@ export class PlayerRuntime {
       if (layoutItem) {
         return {
           state: "playing",
-          items: [layoutItem],
+          // A directly assigned Layout has no item boundary. Its zones own
+          // their playback clocks; rebuilding the canvas at the generic
+          // 30-second Layout fallback restarts videos halfway through.
+          items: [{ ...layoutItem, durationMs: null }],
           takeover: false,
           generation: this.generation,
         };
