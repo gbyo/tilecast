@@ -49,7 +49,10 @@ describe("Linux Layout presentation lifetime", () => {
     );
     const internal = runtime as unknown as {
       activeManifest: Manifest;
-      buildPresentation: () => { state: string; items?: { durationMs: number | null }[] };
+      buildPresentation: () => {
+        state: string;
+        items?: { durationMs: number | null }[];
+      };
     };
     internal.activeManifest = manifest();
     const direct = internal.buildPresentation();
@@ -61,18 +64,20 @@ describe("Linux Layout presentation lifetime", () => {
       id: "playlist-1",
       revision: 1,
       name: "Main",
-      items: [{
-        id: "item-1",
-        assetId: "",
-        assetType: "layout",
-        layoutId: "hall",
-        durationMs: 45_000,
-        fitMode: "contain",
-        transition: "none",
-        audioEnabled: false,
-        volume: 0,
-        deliveryPolicy: "download",
-      }],
+      items: [
+        {
+          id: "item-1",
+          assetId: "",
+          assetType: "layout",
+          layoutId: "hall",
+          durationMs: 45_000,
+          fitMode: "contain",
+          transition: "none",
+          audioEnabled: false,
+          volume: 0,
+          deliveryPolicy: "download",
+        },
+      ],
     });
     expect(internal.buildPresentation().items?.[0].durationMs).toBe(45_000);
   });
