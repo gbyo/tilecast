@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol), Stage 3 (UxPlay in the release), Stage 4 (the renderer relay, the `tcpresent` source, and the Runtime view), and Stage 5 (the `tilecastd` session) are implemented. AirPlay on Edge is not available until Stage 6 records hardware evidence.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol), Stage 3 (UxPlay in the release), Stage 4 (the renderer relay, the `tcpresent` source, and the Runtime view), Stage 5 (the `tilecastd` session), and the Stage 6 documentation are implemented. The Stage 6 hardware qualification is open. AirPlay on Edge is not available until Stage 6 records hardware evidence.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -236,7 +236,9 @@ Stage 5 joins through `PresentationNetwork::join_for_session`. It uses the exist
 
 The credential path does not change. `tilecastd` fetches the credential only to install a profile, and it never stores it.
 
-A new Edge installation (not a migration) does not install `tilecast-networkd`. The operator runs the Server-published `install-presentation-network.sh`. The script grants its socket group to the `tilecast` account by default, so it works for Edge without change. The public install page for Edge must say so when Stage 6 merges.
+A new Edge installation (not a migration) does not install `tilecast-networkd`. The operator runs the Server-published `install-presentation-network.sh`. The public install page for Edge says so (Stage 6).
+
+**Change from the first version of this amendment (Stage 6).** The first version said that the script grants its socket group to the `tilecast` account by default. That is true only when root runs the script directly. The script uses `SUDO_USER` first, so `curl … | sudo bash` grants the group to the administrator who ran `sudo`, and `tilecastd` cannot reach the helper. The Edge install page therefore gives `--user tilecast`. The script does not change.
 
 ## 9. Discovery
 
