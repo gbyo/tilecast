@@ -449,7 +449,7 @@ describe("LiveStreamDialog", () => {
       { timeout: 3000 },
     );
     expect(canvas.tagName).toBe("CANVAS");
-    expect(webCodecs.streams).toHaveLength(1);
+    await waitFor(() => expect(webCodecs.streams).toHaveLength(1));
     const stream = webCodecs.streams[0]!;
     expect(stream.options.url).toBe(
       "/api/v1/screens/screen-1/live-stream/session-h264/h264",
