@@ -4123,7 +4123,7 @@ async fn an_airplay_receiver_that_fails_to_start_leaves_nothing_behind() {
 fn stored(state: SessionState, expires_in_ms: i64) -> ExternalPresentation {
     ExternalPresentation {
         session_id: AIRPLAY_SESSION.into(),
-        receiver_name: "Lobby".into(),
+        receiver_name: "Lobby 'North' 'A'".into(),
         pin: "7319".into(),
         device_id: "02:5a:00:00:00:01".into(),
         profile: "720p30".into(),
