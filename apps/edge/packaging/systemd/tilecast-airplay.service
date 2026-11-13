@@ -1,0 +1,55 @@
+# The Tilecast Edge AirPlay supervisor (docs/tilecast-edge-airplay.md §4.1),
+# started by its socket when tilecastd connects and gone when that
+# connection closes. It is the only Edge process that starts a program, and
+# it starts only the release's bin/uxplay, with a fixed argument vector and
+# no shell. UxPlay parses network input from AirPlay senders on the LAN, so
+# this unit is the sandbox around it
+# (docs/tilecast-edge-airplay-threat-review.md §3).
+#
+# The session PIN and device ID exist on disk only in a 0600 file in the
+# private runtime directory, and only until UxPlay has read them.
+[Unit]
+Description=Tilecast Edge AirPlay supervisor
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-airplay-threat-review.md
+Requires=tilecast-airplay.socket
+After=tilecast-airplay.socket avahi-daemon.service dbus.service
+
+[Service]
+Type=simple
+User=tilecast-airplay
+Group=tilecast-airplay
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-airplay serve
+# No uxplay process may outlive the supervisor, even after SIGKILL.
+KillMode=control-group
+TimeoutStopSec=10s
+UMask=0077
+# The session directory: the -rc file and UxPlay's GStreamer registry.
+RuntimeDirectory=tilecast-airplay-session
+RuntimeDirectoryMode=0700
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+InaccessiblePaths=-/var/lib/tilecast-edge -/run/tilecast-edge-update -/run/tilecast -/run/tilecast-web -/run/tilecast-edge
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+# AF_UNIX: the control socket and the system D-Bus (avahi-daemon).
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native

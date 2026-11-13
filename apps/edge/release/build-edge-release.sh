@@ -69,7 +69,8 @@ ctest --test-dir /cache/bridge --output-on-failure
 # 3. The Rust binaries, without the integration-test feature.
 export CARGO_TARGET_DIR=/cache/cargo RUSTFLAGS="--remap-path-prefix=/src=. --remap-path-prefix=/opt/cargo=cargo"
 (cd /src && cargo build --release --locked --message-format=json-render-diagnostics \
-  -p tilecastd -p tilecastctl -p tilecast-edge-migrate -p tilecast-edge-update) > /cache/edge-rust-artifacts.jsonl
+  -p tilecastd -p tilecastctl -p tilecast-edge-migrate -p tilecast-edge-update -p tilecast-airplay) \
+  > /cache/edge-rust-artifacts.jsonl
 if grep -q TILECAST_MIGRATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-migrate" ||
   grep -q TILECAST_UPDATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-update"; then
   echo "a release root tool was built with the integration-test feature" >&2

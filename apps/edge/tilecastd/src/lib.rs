@@ -31,9 +31,12 @@
 //! * [`legacy_import`], [`legacy_compat`] — the `import-legacy` and
 //!   `check-legacy-compat` migration steps.
 //! * [`self_test`] — the release self-test host.
+//! * [`airplay_receiver`] — the typed client for the AirPlay supervisor
+//!   `tilecast-airplay`.
 
 pub mod activation;
 pub mod activity;
+pub mod airplay_receiver;
 pub mod capabilities;
 pub mod capture;
 pub mod command_handlers;

@@ -88,13 +88,13 @@ These are deliberately outside Edge 1. They must not become requirements of Edge
 
 [`tilecast-edge-future.md`](tilecast-edge-future.md) records which of these may return in Edge 1.5 or Edge 2, and under which conditions.
 
-An AirPlay receiver was outside Edge 1 until 2026-11-13. [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) is a proposed amendment that adds a single-screen receiver in a separate unprivileged process. The amendment does not change this document until its Stage 2 merges. Group AirPlay stays outside Edge.
+An AirPlay receiver was outside Edge 1 until 2026-11-13. The amendment [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) adds a single-screen receiver in a separate unprivileged process (§4.5). Group AirPlay stays outside Edge.
 
 ## 4. Processes and privilege
 
 ### 4.1 `tilecastd`
 
-`tilecastd` is the durable player process. It runs as the fixed unprivileged `tilecast` account under the system unit `tilecast-edge.service`. It never runs as root and starts no other processes.
+`tilecastd` is the durable player process. It runs as the fixed unprivileged `tilecast` account under the system unit `tilecast-edge.service`. It never runs as root and starts no other processes. The AirPlay supervisor (§4.5) is the only Edge process that starts a program.
 
 It owns:
 
@@ -127,7 +127,7 @@ Display control and input use udev rules and group membership, not root. The ude
 
 A new root operation needs a written threat-boundary review before it is added.
 
-The proposed AirPlay amendment ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md)) adds no root operation. It adds an unprivileged, socket-activated receiver unit with its own review, [`tilecast-edge-airplay-threat-review.md`](tilecast-edge-airplay-threat-review.md).
+The AirPlay amendment ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md)) adds no root operation. It adds an unprivileged, socket-activated receiver unit with its own review, [`tilecast-edge-airplay-threat-review.md`](tilecast-edge-airplay-threat-review.md) (§4.5).
 
 M10 adds one root helper, `tilecast-edge-update`, with a written review in [`tilecast-edge-update-threat-review.md`](tilecast-edge-update-threat-review.md). It has five fixed operations (`stage`, `activate`, `confirm`, `rollback`, `status`) on a socket that only `tilecast-edge.service` may use, no network, no device credential, and no path, unit or command input. §15 describes it.
 
@@ -161,6 +161,18 @@ The bridge:
 The Noise Meter plugin is retired and its native capture path is removed: no microphone opens, no audio level crosses Edge IPC, and the daemon reports no audio capabilities. Legacy `noiseMeter` heartbeat fields are accepted and ignored by the server.
 
 The bridge is optional. A missing user session or bridge never stops playback and never fails a migration. The installer checks only that the units are installed and enabled.
+
+### 4.5 AirPlay supervisor (amendment, 2026-11-13)
+
+The AirPlay amendment ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md)) adds a fourth Edge process, `tilecast-airplay`. It runs the single-screen AirPlay receiver.
+
+- It runs as the system account `tilecast-airplay` in `tilecast-airplay.service`. The account is in no other group.
+- `tilecast-airplay.socket` starts it when `tilecastd` connects to `/run/tilecast-airplay/control.sock`. It serves only the `tilecast` account in `tilecast-edge.service`, with the same peer check as the update helper.
+- It is the only Edge process that starts a program. It starts only the release's `bin/uxplay`, with a fixed argument vector and no shell.
+- It receives no device credential and no Presentation Network secret. It owns no durable state and has no server connection.
+- UxPlay never draws to the display. It forwards the stream over loopback RTP, and the renderer shows it.
+
+The threat-boundary review is [`tilecast-edge-airplay-threat-review.md`](tilecast-edge-airplay-threat-review.md).
 
 ## 5. Filesystem layout
 

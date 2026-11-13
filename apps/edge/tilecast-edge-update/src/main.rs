@@ -57,7 +57,7 @@ fn main() -> ExitCode {
 
 #[cfg(target_os = "linux")]
 mod linux_main {
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::process::ExitCode;
     use std::time::Duration;
 
@@ -75,11 +75,7 @@ mod linux_main {
     const LOCK_WAIT: Duration = Duration::from_secs(300);
 
     fn tilecast_uid() -> Option<u32> {
-        let bytes = edge_platform::fs::read_regular(Path::new("/etc/passwd"), 4 * 1024 * 1024).ok()??;
-        String::from_utf8_lossy(&bytes).lines().find_map(|line| {
-            let fields: Vec<&str> = line.split(':').collect();
-            (fields.len() == 7 && fields[0] == "tilecast").then(|| fields[2].parse().ok())?
-        })
+        edge_platform::peer::account_uid("tilecast")
     }
 
     fn crash_point() -> Option<CrashPoint> {

@@ -17,6 +17,7 @@ members = [
     "apps/edge/tilecastctl",
     "apps/edge/tilecast-edge-migrate",
     "apps/edge/tilecast-edge-update",
+    "apps/edge/tilecast-airplay",
     "apps/player-android/native",
     "apps/player-windows",
     "packages/package-guest-sdk",
@@ -35,6 +36,7 @@ default-members = [
     "apps/edge/tilecastctl",
     "apps/edge/tilecast-edge-migrate",
     "apps/edge/tilecast-edge-update",
+    "apps/edge/tilecast-airplay",
 ]
 
 [workspace.package]

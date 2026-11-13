@@ -44,6 +44,7 @@ pub const REQUIRED_FILES: &[&str] = &[
     "bin/tilecast-web-renderer-wpe",
     "bin/tilecast-edge-migrate",
     "bin/tilecast-edge-update",
+    "bin/tilecast-airplay",
     "bin/tilecast-session-bridge",
     "lib/gstreamer-1.0/libgsttcmedia.so",
     "share/tilecast/renderer-web/index.html",
@@ -77,6 +78,8 @@ pub const UNITS: &[&str] = &[
     "tilecast-edge-import.service",
     "tilecast-edge-update.service",
     "tilecast-edge-update.socket",
+    "tilecast-airplay.service",
+    "tilecast-airplay.socket",
 ];
 
 #[derive(Debug, thiserror::Error)]

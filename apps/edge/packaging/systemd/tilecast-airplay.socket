@@ -1,0 +1,20 @@
+# The Tilecast Edge AirPlay supervisor's socket
+# (docs/tilecast-edge-airplay.md §4.1). tilecastd holds one connection here
+# for an AirPlay session. The group lets the tilecast account connect; the
+# supervisor then refuses every process that is not in tilecast-edge.service,
+# so the renderer and the session bridge, which run as the same account,
+# cannot use it.
+#
+# tilecast-edge.service pulls this socket in with Wants=, so no installer
+# has to enable it: an update installs units but enables nothing new.
+[Unit]
+Description=Tilecast Edge AirPlay supervisor socket
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-airplay-threat-review.md
+
+[Socket]
+ListenStream=/run/tilecast-airplay/control.sock
+SocketUser=root
+SocketGroup=tilecast
+SocketMode=0660
+DirectoryMode=0755
+Accept=no

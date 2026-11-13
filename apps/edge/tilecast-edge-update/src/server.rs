@@ -24,44 +24,24 @@ use crate::updater::{UpdateError, Updater};
 pub const IDLE_EXIT: Duration = Duration::from_secs(60);
 const READ_TIMEOUT: Duration = Duration::from_secs(10);
 const LOCK_WAIT: Duration = Duration::from_secs(300);
-/// The one control group whose processes may send requests.
-pub const DAEMON_CGROUP: &str = "/system.slice/tilecast-edge.service";
+pub use edge_platform::peer::{DAEMON_CGROUP, cgroup_is};
 
 /// Decides whether a connected peer may send requests.
 pub trait PeerPolicy: Send + Sync {
     fn allow(&self, stream: &UnixStream) -> Result<(), &'static str>;
 }
 
-/// The production policy: the tilecast account, from the daemon's unit.
+/// The production policy: the tilecast account, from the daemon's unit
+/// ([`edge_platform::peer`]).
 #[derive(Debug, Clone)]
 pub struct DaemonOnly {
     pub tilecast_uid: u32,
 }
 
-#[cfg(target_os = "linux")]
 impl PeerPolicy for DaemonOnly {
     fn allow(&self, stream: &UnixStream) -> Result<(), &'static str> {
-        let credentials = rustix::net::sockopt::socket_peercred(stream).map_err(|_| "peer_unknown")?;
-        if credentials.uid.as_raw() != self.tilecast_uid {
-            return Err("peer_not_allowed");
-        }
-        let cgroup = std::fs::read_to_string(format!("/proc/{}/cgroup", credentials.pid.as_raw_nonzero()))
-            .map_err(|_| "peer_unknown")?;
-        if cgroup_is(&cgroup, DAEMON_CGROUP) { Ok(()) } else { Err("peer_not_allowed") }
+        edge_platform::peer::allow_daemon(stream, self.tilecast_uid)
     }
-}
-
-#[cfg(not(target_os = "linux"))]
-impl PeerPolicy for DaemonOnly {
-    fn allow(&self, _stream: &UnixStream) -> Result<(), &'static str> {
-        Err("peer_not_allowed")
-    }
-}
-
-/// Whether `/proc/<pid>/cgroup` text places the process exactly in `group`
-/// on the unified hierarchy.
-pub fn cgroup_is(text: &str, group: &str) -> bool {
-    text.lines().any(|line| line.strip_prefix("0::") == Some(group))
 }
 
 fn response_for(error: &UpdateError) -> HelperResponse {
@@ -205,19 +185,6 @@ pub async fn serve<H: UpdateHost>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn only_the_daemon_unit_control_group_is_allowed() {
-        assert!(cgroup_is("0::/system.slice/tilecast-edge.service\n", DAEMON_CGROUP));
-        for other in [
-            "0::/system.slice/tilecast-renderer.service\n",
-            "0::/user.slice/user-999.slice/user@999.service/app.slice/tilecast-session-bridge.service\n",
-            "0::/system.slice/tilecast-edge.service/child\n",
-            "1:name=systemd:/system.slice/tilecast-edge.service\n",
-        ] {
-            assert!(!cgroup_is(other, DAEMON_CGROUP), "{other}");
-        }
-    }
 
     #[test]
     fn oversized_base64_is_refused_before_decoding() {
