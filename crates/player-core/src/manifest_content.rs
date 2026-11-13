@@ -519,6 +519,68 @@ mod tests {
         }
     }
 
+    /// Counts actual in-flight source opens instead of just inspecting policy.
+    #[derive(Default)]
+    struct TransferCount {
+        active: std::sync::atomic::AtomicUsize,
+        peak: std::sync::atomic::AtomicUsize,
+    }
+
+    struct CountedSource {
+        bytes: Vec<u8>,
+        count: Arc<TransferCount>,
+    }
+
+    #[async_trait::async_trait]
+    impl BlobSource for CountedSource {
+        fn kind(&self) -> player_cas::SourceKind {
+            player_cas::SourceKind::Local
+        }
+
+        fn label(&self) -> String {
+            "counted".into()
+        }
+
+        async fn open(
+            &self,
+            _digest: &Sha256Digest,
+            size: u64,
+            _offset: u64,
+        ) -> Result<player_cas::SourceStream, player_cas::SourceError> {
+            use std::sync::atomic::Ordering;
+            let active = self.count.active.fetch_add(1, Ordering::SeqCst) + 1;
+            self.count.peak.fetch_max(active, Ordering::SeqCst);
+            tokio::time::sleep(std::time::Duration::from_millis(40)).await;
+            self.count.active.fetch_sub(1, Ordering::SeqCst);
+            use futures_util::stream::StreamExt as _;
+            let body = futures_util::stream::iter([Ok::<_, player_cas::SourceError>(
+                bytes::Bytes::from(self.bytes.clone()),
+            )]).boxed();
+            Ok(player_cas::SourceStream { start: 0, total_length: Some(size), body })
+        }
+    }
+
+    struct CountedPlan {
+        files: HashMap<Sha256Digest, Vec<u8>>,
+        count: Arc<TransferCount>,
+    }
+
+    impl ManifestSourcePlan for CountedPlan {
+        async fn sources(
+            &self,
+            digest: Sha256Digest,
+            _size: u64,
+            _origin_path: &str,
+        ) -> Result<Vec<Arc<dyn BlobSource>>, ManifestPreparationError> {
+            let bytes = self.files.get(&digest).cloned().ok_or(ManifestPreparationError::Missing)?;
+            Ok(vec![Arc::new(CountedSource { bytes, count: self.count.clone() })])
+        }
+
+        fn observer(&self, _digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>> {
+            None
+        }
+    }
+
     fn video_asset(asset: uuid::Uuid, variant: uuid::Uuid, digest: Sha256Digest, size: u64) -> serde_json::Value {
         serde_json::json!({
             "assetId": asset, "variantId": variant, "sha256": digest.to_hex(),
@@ -685,6 +747,43 @@ mod tests {
         assert_eq!(prepared.verified, vec![digest]);
         assert_eq!(*plan.calls.lock().unwrap(), vec![digest]);
         assert_eq!(manifest.verify_content(&store).await.unwrap(), prepared.verified);
+    }
+
+    #[tokio::test]
+    async fn concurrent_limit_applies_to_media_and_bundles_together() {
+        use std::sync::atomic::Ordering;
+        for (limit, expected_peak) in [(1u8, 1usize), (2, 2), (8, 8)] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = test_store(dir.path(), 1 << 20).await;
+            store.set_download_concurrency(Some(limit));
+            let mut assets = Vec::new();
+            let mut items = Vec::new();
+            let mut files = HashMap::new();
+            for n in 0..7u128 {
+                let bytes = format!("media-{n}").into_bytes();
+                let digest = Sha256Digest::of(&bytes);
+                files.insert(digest, bytes.clone());
+                let (asset, variant) = asset_ids(1000 + n * 2);
+                assets.push(image_asset(asset, variant, digest, bytes.len() as u64));
+                items.push(item(asset, variant, "download"));
+            }
+            let mut manifest = candidate(assets, items);
+            let bundle_bytes = b"widget-bundle".to_vec();
+            let bundle_digest = Sha256Digest::of(&bundle_bytes);
+            manifest.required_bundles.push(ManifestBundle {
+                package_id: "acme.example".into(),
+                package_digest: Sha256Digest::of(b"package"),
+                digest: bundle_digest,
+                size_bytes: bundle_bytes.len() as u64,
+                download_path: "/api/v1/player/packages/acme.example/widgets/test".into(),
+            });
+            files.insert(bundle_digest, bundle_bytes);
+            let count = Arc::new(TransferCount::default());
+            let plan = CountedPlan { files, count: count.clone() };
+            let prepared = manifest.prepare_content(&store, &plan).await.unwrap();
+            assert_eq!(prepared.verified.len(), 8);
+            assert_eq!(count.peak.load(Ordering::SeqCst), expected_peak, "limit {limit}");
+        }
     }
 
     fn frame_candidate(frame: &Sha256Digest, package: &Sha256Digest, size: u64) -> NativeManifest {
