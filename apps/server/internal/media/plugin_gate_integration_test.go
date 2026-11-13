@@ -302,3 +302,107 @@ func TestRefreshWorkerLeavesMissingPluginSourcesInert(t *testing.T) {
 		}
 	})
 }
+
+const packageWidgetProvider = "acme.kiosk.siren"
+
+// packageWidgetCatalog is pluginWidgetCatalog's Widget moved into an
+// external package's namespace and source.
+func packageWidgetCatalog(t *testing.T) *contentdefs.Catalog {
+	t.Helper()
+	configVersion := 3
+	definition := contentdefs.WidgetDefinition{
+		ID: packageWidgetProvider, Version: 1, ConfigVersion: &configVersion, APIVersion: 1,
+		Source: contentdefs.PackageSource("acme.kiosk", "1.0.0", "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+		Name:   "Siren", Description: "Siren.", Category: "Essentials", Icon: "layout",
+		Runtime: "native",
+		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
+			{Key: "title", Label: "Title", Control: "text", MaxLength: 80, Default: "Siren"},
+		}},
+		DefaultConfiguration:      map[string]any{"title": "Siren"},
+		PresentationSchemaVersion: 1,
+		RequiredCapabilities:      map[string]int{"content.text": 1},
+		EmptyStateBehavior:        "text",
+		Compatibility:             &contentdefs.Compatibility{Fallback: "none"},
+		Component: &contentdefs.ComponentSpec{
+			Type: packageWidgetProvider, Version: 1, TagName: "tc-widget-acme-kiosk-siren",
+			Entrypoint:     "./runtime/index.ts",
+			ConfigTemplate: json.RawMessage(`{"title":{"$config":"title","default":""}}`),
+			Empty:          "render",
+		},
+	}
+	base := contentdefs.MustLoad()
+	catalog, err := base.WithExternal([]contentdefs.WidgetDefinition{definition}, nil)
+	if err != nil {
+		t.Fatalf("build package Widget catalog: %v", err)
+	}
+	return catalog
+}
+
+// fakePackageGate stands in for the installer, which depends on media.
+type fakePackageGate struct {
+	available bool
+	failure   error
+	calls     *[]string
+}
+
+func (g fakePackageGate) LockPackageContribution(_ context.Context, _ pgx.Tx, packageID, kind, contributionID, digest string) (bool, error) {
+	if g.calls != nil {
+		*g.calls = append(*g.calls, packageID+"|"+kind+"|"+contributionID+"|"+digest)
+	}
+	return g.available, g.failure
+}
+
+func packageWidgetInput() WidgetInput {
+	raw, _ := json.Marshal(map[string]any{"title": "Siren test"})
+	return WidgetInput{Provider: packageWidgetProvider, Name: "Siren", Description: "Siren.", Configuration: raw}
+}
+
+func TestCreatePackageWidgetRevalidatesContributionInTransaction(t *testing.T) {
+	withPluginGateDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, service *Service, userID uuid.UUID) {
+		service.SetContentDefinitions(packageWidgetCatalog(t))
+		countRows := func() int {
+			var count int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM widgets WHERE provider=$1`, packageWidgetProvider).Scan(&count); err != nil {
+				t.Fatal(err)
+			}
+			return count
+		}
+		refused := func(label string) {
+			t.Helper()
+			_, err := service.CreateWidget(ctx, userID, packageWidgetInput())
+			var unavailable *PluginUnavailableError
+			if !errors.As(err, &unavailable) || !unavailable.Package || unavailable.PluginID != "acme.kiosk" {
+				t.Fatalf("%s: err = %#v, want a package PluginUnavailableError", label, err)
+			}
+			if n := countRows(); n != 0 {
+				t.Fatalf("%s left %d Widget rows", label, n)
+			}
+		}
+
+		refused("no gate wired")
+
+		service.SetPackageSourceGate(fakePackageGate{available: false})
+		refused("package removed or contribution dropped")
+
+		failure := errors.New("lock timeout")
+		service.SetPackageSourceGate(fakePackageGate{failure: failure})
+		_, err := service.CreateWidget(ctx, userID, packageWidgetInput())
+		var unavailable *PluginUnavailableError
+		if !errors.Is(err, failure) || errors.As(err, &unavailable) {
+			t.Fatalf("gate failure = %#v, want the lock error and not an unavailable provider", err)
+		}
+
+		var calls []string
+		service.SetPackageSourceGate(fakePackageGate{available: true, calls: &calls})
+		if _, err := service.CreateWidget(ctx, userID, packageWidgetInput()); err != nil {
+			t.Fatalf("create with an installed package: %v", err)
+		}
+		if n := countRows(); n != 1 {
+			t.Fatalf("created %d Widget rows, want 1", n)
+		}
+		want := "acme.kiosk|widget|" + packageWidgetProvider + "|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		if len(calls) != 1 || calls[0] != want {
+			t.Fatalf("gate calls = %v, want [%s]", calls, want)
+		}
+	})
+}

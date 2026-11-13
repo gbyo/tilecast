@@ -2,6 +2,7 @@ package installer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -167,4 +168,35 @@ func pluralize(count int, singular, plural string) string {
 		return singular
 	}
 	return plural
+}
+
+// LockPackageContribution is the content-creation gate for package-owned
+// Widgets and Data Sources. Inside the caller's transaction it share-locks
+// the installation row, which Remove, Activate, and Rollback lock for update
+// before they count persisted content, and then rechecks the contribution.
+// Either the lifecycle change commits first and creation sees the package
+// gone, replaced, or without the contribution, or creation commits first and
+// the lifecycle change counts the new row as content in use.
+//
+// An empty digest skips the activation comparison. A non-empty digest must
+// still be the installed activation, so a definition resolved from a
+// replaced activation is refused.
+func (s *Service) LockPackageContribution(ctx context.Context, tx pgx.Tx, packageID, kind, contributionID, digest string) (bool, error) {
+	var installed string
+	err := tx.QueryRow(ctx, `SELECT digest FROM installed_packages WHERE package_id=$1 FOR SHARE`, packageID).Scan(&installed)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if digest != "" && digest != installed {
+		return false, nil
+	}
+	var present bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM installed_package_contributions
+		WHERE package_id=$1 AND kind=$2 AND contribution_id=$3)`, packageID, kind, contributionID).Scan(&present); err != nil {
+		return false, err
+	}
+	return present, nil
 }
