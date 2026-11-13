@@ -249,6 +249,7 @@ static void
 on_present_relay (gboolean ok, gpointer data)
 {
   TcHost *host = data;
+  /* Only a relay that was asked to run can fail. */
   if (!ok)
     tc_protocol_send_health (host, "degraded", "external_presentation_unavailable");
   tc_protocol_deliver_activation (host);
@@ -288,9 +289,10 @@ handle_activate (TcHost *host, JsonObject *data, JsonNode *data_node)
                          : NULL;
   /* The Runtime mounts tcpresent://session/<id> as soon as it sees the
    * activation, so the relay must run first: the sender's only keyframe
-   * arrives when it connects. */
+   * arrives when it connects. The relay calls on_present_relay exactly once
+   * for this request (at once when there is nothing to start), and that
+   * delivers the activation. */
   tc_present_relay_set (host->present, source, on_present_relay, host);
-  tc_protocol_deliver_activation (host);
 }
 
 void

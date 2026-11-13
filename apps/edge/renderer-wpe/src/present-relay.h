@@ -29,7 +29,8 @@ void tc_present_relay_free (TcPresentRelay *relay);
 
 /* Relays the session `source_id` (64 lowercase hex), or stops for NULL. A
  * request for the ID that already runs changes nothing. `ready` is called
- * once, unless a later call replaces the request first. */
+ * exactly once, unless a later call replaces the request first: at once when
+ * there is nothing to start, otherwise when the grant check answered. */
 void tc_present_relay_set (TcPresentRelay *relay, const char *source_id, TcPresentRelayReady ready, gpointer data);
 
 /* A grant check for a requested relay has not answered yet. */
