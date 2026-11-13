@@ -68,6 +68,19 @@ def env():
                 PATH="/target/cargo-home/bin:/opt/cargo/bin:" + os.environ.get("PATH", "/usr/bin:/bin"))
 
 
+def stage_uxplay_inputs():
+    """The files stage-release.py takes from a UxPlay build, with the test
+    stand-in as the program. These tests install and migrate; they never start
+    UxPlay, and the real build is checked by the release build."""
+    directory = os.path.join(WORK, "uxplay")
+    os.makedirs(directory, exist_ok=True)
+    shutil.copyfile(os.path.join(EDGE, "tilecast-airplay", "tests", "fake-uxplay"), os.path.join(directory, "uxplay"))
+    for name, text in (("pin", "1.73.7\n0\n0\n"), ("UxPlay-1.73.7.tar.gz", ""), ("LICENSE", "test stand-in\n")):
+        with open(os.path.join(directory, name), "w") as handle:
+            handle.write(text)
+    return directory
+
+
 def user_systemctl(*argv, check=True):
     return subprocess.run(["systemctl", "--user", f"--machine={KIOSK}@.host", *argv], check=check,
                           capture_output=True, text=True)
@@ -266,8 +279,9 @@ def setup():
         "--web-renderer", os.path.join(WEB_BUILD, "tilecast-web-renderer-wpe"),
         "--session-bridge", os.path.join(BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", RUNTIME,
+        "--uxplay-dir", stage_uxplay_inputs(),
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci")
-    key = os.path.join(WORK, "release-key.pem")
+    key =os.path.join(WORK, "release-key.pem")
     run("openssl", "genpkey", "-algorithm", "ed25519", "-out", key)
     public = subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-outform", "DER"], check=True,
                             capture_output=True).stdout[-32:]
