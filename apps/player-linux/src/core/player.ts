@@ -2769,7 +2769,7 @@ export class PlayerRuntime {
         // widget.<type> stays generated from Widget manifests by widgetctl.
         ...WIDGET_COMPONENT_CAPABILITIES,
       },
-      webRuntimeVersion: 2,
+      webRuntimeVersion: 3,
       webBundleLimitBytes: 20 * 1024 * 1024,
       uptimeSeconds: Math.floor((Date.now() - this.startedAt) / 1_000),
       playbackState: this.playbackState,

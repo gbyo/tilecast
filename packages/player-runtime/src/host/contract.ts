@@ -156,6 +156,8 @@ export type RemoteWebCookiePolicyV1 =
 export interface RemoteWebPageContentV1 {
   kind: "page";
   url: string;
+  /** Only the trusted runtime expands deferred clock tokens on mount. */
+  clockTemplate?: boolean;
   /** Exact host names; the host refuses main-frame documents elsewhere. */
   allowedHosts: string[];
   javascriptEnabled: boolean;

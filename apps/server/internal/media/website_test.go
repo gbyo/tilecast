@@ -95,3 +95,26 @@ func TestWebsiteSettingsLimits(t *testing.T) {
 		t.Fatal("accepted zoom")
 	}
 }
+
+func TestWebsiteQueryVariableAndDataSourceValidation(t *testing.T) {
+	s := websiteService(false)
+	in := validWebsite()
+	in.URL = "https://example.com/screen?screen={screen.id}&date={date}&list={data.json}"
+	in.DataSourceID = "00000000-0000-4000-8000-000000000001"
+	got, err := s.normalizeWebsite(context.Background(), in)
+	if err != nil {
+		t.Fatalf("valid template was rejected: %v", err)
+	}
+	if got.DataSourceID != in.DataSourceID {
+		t.Errorf("data source not persisted: %q", got.DataSourceID)
+	}
+	if got.URL != in.URL {
+		t.Errorf("template was changed during normalization: %q", got.URL)
+	}
+	for _, bad := range []string{"invalid-id", "00000000-0000-0000-0000-000000000000"} {
+		in.DataSourceID = bad
+		if _, err := s.normalizeWebsite(context.Background(), in); err == nil {
+			t.Errorf("invalid dataSourceId accepted: %q", bad)
+		}
+	}
+}

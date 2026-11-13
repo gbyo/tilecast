@@ -34,6 +34,7 @@ import { HostRemoteWebSurface } from "./remote-web-surface";
 import { WebviewWebsiteSurface } from "./website-surface";
 import type { RemoteWebPort } from "../remote-web/port";
 import { remoteWebSpecOf } from "../remote-web/spec";
+import { resolveWebsiteClockUrl } from "../remote-web/url-template";
 import type { RuntimeItem } from "../host/contract";
 import { WidgetSurface } from "./widget-surface";
 import { ComponentWidgetSurface } from "./component-widget-surface";
@@ -324,9 +325,23 @@ export class Stage {
       sink,
       animationScale: this.options.animationScale,
     };
+    const original = remoteWebSpecOf(item);
+    // Materialize volatile clock values only as this Website is mounted.
+    // Periodic projection can no longer restart a preceding long image.
+    let spec = original;
+    if (original?.content.kind === "page" && original.content.clockTemplate) {
+      const url = resolveWebsiteClockUrl(
+        original.content.url,
+        new Date(this.options.clock.wallNow()),
+      );
+      if (!url) return null;
+      spec = {
+        ...original,
+        content: { ...original.content, url, clockTemplate: false },
+      };
+    }
     switch (this.options.capabilities.remoteWeb) {
       case "host-view": {
-        const spec = remoteWebSpecOf(item);
         const port = this.options.remoteWeb;
         if (!spec || !port) return null;
         return new HostRemoteWebSurface({
@@ -337,7 +352,13 @@ export class Stage {
         });
       }
       case "electron-webview":
-        return new WebviewWebsiteSurface(item, env, mount);
+        return new WebviewWebsiteSurface(
+          spec && spec.content.kind === "page"
+            ? { ...item, src: spec.content.url, remoteWeb: spec }
+            : item,
+          env,
+          mount,
+        );
       default:
         return null;
     }

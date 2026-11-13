@@ -22,6 +22,27 @@
             "ui": { "section": "content", "order": 1 }
           },
           {
+            "key": "dataSourceId",
+            "label": "Data Source",
+            "labelKey": "definitions:website.fields.dataSourceId.label",
+            "description": "Optional. Use {data.room} for the first record's room field, {data.room:1} for the second, or {data.json} for all records as JSON. Also available: {screen.id}, {date}, {time}, {datetime}.",
+            "descriptionKey": "definitions:website.fields.dataSourceId.description",
+            "control": "data_source",
+            "acceptedDataSourceKinds": ["records", "object"],
+            "default": "",
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
+            "key": "urlTemplatesEnabled",
+            "label": "Enable URL variables",
+            "labelKey": "definitions:website.fields.urlTemplatesEnabled.label",
+            "description": "Substitute screen, date, time and selected Data Source values only on compatible Players.",
+            "descriptionKey": "definitions:website.fields.urlTemplatesEnabled.description",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "content", "order": 3 }
+          },
+          {
             "key": "backgroundColor",
             "label": "Background color",
             "labelKey": "definitions:website.fields.backgroundColor.label",
@@ -222,6 +243,7 @@
         ]
       },
       "defaultConfiguration": {
+        "dataSourceId": "",
         "backgroundColor": "#0E141B",
         "zoomPercent": 100,
         "scrollX": 0,

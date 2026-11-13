@@ -544,6 +544,7 @@ impl<'a> Projector<'a> {
     fn projection(&self, config: &WindowsPlayerConfig) -> Result<(Value, Vec<VerifiedContentRef>), ProjectionError> {
         let mut manifest = serde_json::Map::new();
         for key in [
+            "screenId",
             "assets",
             "playlist",
             "directFallbackPlaylist",

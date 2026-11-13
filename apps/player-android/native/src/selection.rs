@@ -806,6 +806,7 @@ fn projection(
 ) -> Result<(Value, Vec<ActivationContent>), ManifestError> {
     let mut manifest = Map::new();
     for key in [
+        "screenId",
         "assets",
         "playlist",
         "directFallbackPlaylist",
@@ -1512,6 +1513,7 @@ mod tests {
         assert_eq!(items[0]["widget"]["widgetAssetId"], WIDGET);
         let projection = resolved.projection.as_ref().expect("the runtime projects the Widget");
         assert_eq!(projection["schema"], 1);
+        assert_eq!(projection["manifest"]["screenId"], SCREEN);
         assert!(projection["manifest"]["widgets"].is_array());
         assert_eq!(projection["media"][0]["uri"], format!("tcmedia://variant/{ASSET}/{VARIANT}"));
         // The metadata names what the reference needs from the renderer.
@@ -1544,6 +1546,7 @@ mod tests {
         assert_eq!(items[0]["id"], format!("layout-{LAYOUT}"));
         assert_eq!(items[0]["kind"], "layout");
         assert!(resolved.projection.is_some());
+        assert_eq!(resolved.projection.as_ref().expect("projection")["manifest"]["screenId"], SCREEN);
     }
 
     const OTHER_PLAYLIST: &str = "8a3c5d17-2f40-4c7e-9f38-0b1d6a2e9c44";

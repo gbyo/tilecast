@@ -15,7 +15,8 @@ import {
   type WebDescriptor,
 } from "../../remote-web/spec";
 import { isAvailableAt } from "./content-availability";
-import type { ManifestWidget } from "./content-types";
+import { resolveWebsiteUrl } from "../../remote-web/url-template";
+import type { ManifestWidget, ManifestDataSource } from "./content-types";
 import type { ManifestAsset } from "./types";
 
 /** Whether the Widget needs a remote web surface (`web.remote`). */
@@ -28,6 +29,10 @@ export function remoteWebForWidget(
   widget: ManifestWidget,
   assets: ManifestAsset[],
   at: Date,
+  context?: {
+    screenId: string;
+    dataSources: ReadonlyMap<string, ManifestDataSource>;
+  },
 ): RuntimeRemoteWebSpecV1 | null {
   if (widget.provider === "youtube") {
     const config = widget.configuration ?? {};
@@ -49,9 +54,30 @@ export function remoteWebForWidget(
     );
   }
   if (widget.presentation?.kind === "web") {
-    return specFromWebDescriptor(
-      widget.presentation.web as WebDescriptor | null | undefined,
-    );
+    const web = widget.presentation.web as WebDescriptor | null | undefined;
+    if (
+      widget.provider !== "website" ||
+      !web?.url ||
+      !web.urlTemplatesEnabled ||
+      !context
+    ) {
+      return specFromWebDescriptor(web);
+    }
+    // v13+ manifests omit authored configuration; use the compiled descriptor.
+    const dataSourceId = web.dataSourceId ?? widget.configuration?.["dataSourceId"];
+    const url = resolveWebsiteUrl(web.url, {
+      screenId: context.screenId,
+      at,
+      dataSourceId: typeof dataSourceId === "string" ? dataSourceId : undefined,
+      dataSources: context.dataSources,
+      deferClock: true,
+    });
+    if (!url) return null;
+    const spec = specFromWebDescriptor({ ...web, url });
+    if (spec?.content.kind === "page" && /\{(?:date|time|datetime)\}/.test(web.url)) {
+      spec.content.clockTemplate = true;
+    }
+    return spec;
   }
   return null;
 }

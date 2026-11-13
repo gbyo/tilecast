@@ -49,3 +49,15 @@ func TestWidgetDataSourceIDsKeepRecipeAndLegacyContracts(t *testing.T) {
 		t.Fatalf("unrelated legacy fields became source dependencies: %v", got)
 	}
 }
+
+func TestWebsiteWidgetDeclaresDataSourceDependency(t *testing.T) {
+	catalog := MustLoad()
+	source := uuid.New()
+	raw, _ := json.Marshal(map[string]string{
+		"url":          "https://example.com/?room={data.room}",
+		"dataSourceId": source.String(),
+	})
+	if got := catalog.WidgetDataSourceIDs("website", raw); !reflect.DeepEqual(got, []uuid.UUID{source}) {
+		t.Fatalf("website source not projected into manifest: %v", got)
+	}
+}
