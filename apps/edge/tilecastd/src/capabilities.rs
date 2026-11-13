@@ -70,6 +70,7 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
     out.extend(crate::idle_inhibit::capability(idle, context.now()));
     let (helper, network) = context.network.status();
     out.extend(crate::presentation_network::capability(helper.as_ref(), &network, context.now()));
+    out.extend(crate::airplay::capability(context).await);
     out
 }
 

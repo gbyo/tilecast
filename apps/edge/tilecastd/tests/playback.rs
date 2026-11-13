@@ -777,6 +777,7 @@ impl FakeRenderer {
     async fn connect_with(socket: &Path, mode: Evidence, features: &[&str]) -> Self {
         let mut options = ClientOptions::new(Role::Renderer, "fake-renderer", "0.1.0");
         options.features = features.iter().map(|feature| ShortToken::new(*feature).unwrap()).collect();
+        let airplay = features.contains(&edge_protocol::ipc::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO);
         let client = Arc::new(IpcClient::connect(socket, options).await.unwrap());
         let log = Arc::new(Mutex::new(RendererLog::default()));
         let task = tokio::spawn({
@@ -790,7 +791,7 @@ impl FakeRenderer {
                     let Incoming::Event(_, event) = incoming else { return };
                     match event {
                         Event::RendererConfigure(_) => {
-                            let _ = client.send_event(ready()).await;
+                            let _ = client.send_event(if airplay { airplay_ready() } else { ready() }).await;
                         }
                         Event::PresentationActivate(activation) => {
                             let reference = ActivationRef {
@@ -948,6 +949,17 @@ fn ready() -> Event {
     })
 }
 
+/// `renderer.ready` of a renderer that relays AirPlay streams.
+fn airplay_ready() -> Event {
+    let Event::RendererReady(mut ready) = ready() else { unreachable!() };
+    ready.features.push(ShortToken::new(edge_protocol::ipc::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO).unwrap());
+    ready.external_presentation = Some(edge_protocol::ipc::event::ExternalPresentationDecoder {
+        decoder: ShortToken::new("avdec_h264").unwrap(),
+        hardware_decode: false,
+    });
+    Event::RendererReady(ready)
+}
+
 fn first_item(activation: &PresentationActivate) -> Option<(String, edge_protocol::ipc::presentation::ItemKind)> {
     match &activation.presentation {
         PresentationDocument::Playing { items, .. } => {
@@ -1097,6 +1109,7 @@ impl Harness {
         config.dev.hardware_dev_dir = Some(dir.join("hardware/dev"));
         config.dev.hardware_sys_dir = Some(dir.join("hardware/sys"));
         config.dev.networkd_socket = Some(dir.join("hardware/networkd.sock"));
+        config.dev.airplay_socket = Some(dir.join("airplay.sock"));
         config.dev.idle_inhibit = Some(false);
         config
     }
@@ -3871,6 +3884,390 @@ async fn unavailable_stream_keeps_the_committed_manifest() {
     assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 2);
     assert_eq!(harness.fake.served_full.load(Ordering::SeqCst), full_before, "no repair download is attempted");
     assert_eq!(renderer.activation_count(), activations, "the renderer is not re-driven");
+    renderer.stop();
+    player.stop().await;
+}
+
+// ------------------------------------------------------------ AirPlay Present (docs/tilecast-edge-airplay.md)
+
+use edge_protocol::airplay::{ControlEvent, ControlRequest, SessionId as AirplaySession, encode_line};
+use edge_state::repo::external_presentation::{self as airplay_store, ExternalPresentation, SessionState};
+
+const AIRPLAY_SESSION: &str = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+
+/// The `tilecast-airplay` supervisor over its real control socket and line
+/// protocol, with UxPlay faked: `probe`, `start` (answered `advertising`
+/// unless `refuse_start`), and `stop`. The test sends sender events.
+struct FakeSupervisor {
+    requests: Arc<Mutex<Vec<ControlRequest>>>,
+    current: Arc<Mutex<Option<tokio::sync::mpsc::UnboundedSender<ControlEvent>>>>,
+    refuse_start: Arc<AtomicBool>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl FakeSupervisor {
+    fn start(path: &Path) -> Self {
+        let _ = std::fs::remove_file(path);
+        let listener = tokio::net::UnixListener::bind(path).unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let current = Arc::new(Mutex::new(None));
+        let refuse_start = Arc::new(AtomicBool::new(false));
+        let task = tokio::spawn({
+            let (requests, current, refuse_start) = (requests.clone(), current.clone(), refuse_start.clone());
+            async move {
+                loop {
+                    let Ok((stream, _)) = listener.accept().await else { return };
+                    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ControlEvent>();
+                    *current.lock().unwrap() = Some(tx.clone());
+                    let (read, mut write) = stream.into_split();
+                    let (requests, refuse_start) = (requests.clone(), refuse_start.clone());
+                    tokio::spawn(async move {
+                        use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _};
+                        let mut lines = tokio::io::BufReader::new(read).lines();
+                        loop {
+                            tokio::select! {
+                                line = lines.next_line() => {
+                                    let Ok(Some(line)) = line else { return };
+                                    let request = ControlRequest::decode(line.as_bytes()).unwrap();
+                                    requests.lock().unwrap().push(request.clone());
+                                    let answer = match request {
+                                        ControlRequest::Probe {} => ControlEvent::ProbeResult {
+                                            uxplay_version: Some(SafeText::new("1.73.7").unwrap()),
+                                            avahi_available: true,
+                                            limitation: None,
+                                        },
+                                        ControlRequest::Start { session_id, .. } if refuse_start.load(Ordering::SeqCst) => {
+                                            ControlEvent::Failed { session_id, code: ShortToken::new("uxplay_start_failed").unwrap() }
+                                        }
+                                        ControlRequest::Start { session_id, .. } => ControlEvent::Advertising { session_id },
+                                        ControlRequest::Stop { session_id } => ControlEvent::Stopped { session_id },
+                                    };
+                                    let _ = tx.send(answer);
+                                }
+                                event = rx.recv() => {
+                                    let Some(event) = event else { return };
+                                    if write.write_all(&encode_line(&event).unwrap()).await.is_err() {
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+        Self { requests, current, refuse_start, task }
+    }
+
+    fn count(&self, kind: &str) -> usize {
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| match request {
+                ControlRequest::Start { .. } => kind == "start",
+                ControlRequest::Stop { .. } => kind == "stop",
+                ControlRequest::Probe {} => kind == "probe",
+            })
+            .count()
+    }
+
+    fn send(&self, event: ControlEvent) {
+        let _ = self.current.lock().unwrap().as_ref().unwrap().send(event);
+    }
+
+    fn session() -> AirplaySession {
+        AirplaySession::new(AIRPLAY_SESSION).unwrap()
+    }
+}
+
+impl Drop for FakeSupervisor {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+fn airplay_payload(expires_in_ms: i64) -> Value {
+    json!({
+        "provider": "airplay", "sessionId": AIRPLAY_SESSION, "role": "single", "phase": "start",
+        "targetType": "screen", "targetId": uuid::Uuid::new_v4().to_string(),
+        "gatewayScreenId": uuid::Uuid::new_v4().to_string(), "audioScreenId": "",
+        "receiverName": "-Lobby \"North\" 'A'", "pin": "7319", "deviceId": "02:5a:00:00:00:01",
+        "expiresAt": Timestamp::from_unix_millis(now_ms() + expires_in_ms).unwrap().to_string(),
+        "transport": "unicast", "videoPort": 42000, "audioPort": 42002, "destinations": [],
+        "multicastAddress": "", "profile": "720p30", "audioMode": "gateway_only"
+    })
+}
+
+fn external(activation: &PresentationActivate) -> Option<(bool, Option<String>)> {
+    match &activation.presentation {
+        PresentationDocument::ExternalPresentation { connected, source_id, session_id, receiver_name, .. } => {
+            assert_eq!(session_id.as_str(), AIRPLAY_SESSION);
+            assert_eq!(receiver_name.as_str(), "Lobby 'North' 'A'", "normalized for UxPlay's -rc file");
+            Some((*connected, source_id.as_ref().map(|id| id.as_str().to_owned())))
+        }
+        _ => None,
+    }
+}
+
+async fn command_result(harness: &Harness, id: &str) -> Value {
+    wait_for("the command result", || harness.fake.results_for(id).into_iter().next()).await
+}
+
+async fn airplay_row(player: &Player) -> Option<ExternalPresentation> {
+    player.context.db().unwrap().run(|c| airplay_store::get(c)).await.unwrap()
+}
+
+/// A renderer that relays AirPlay streams, after the committed presentation.
+async fn airplay_renderer(player: &Player, asset: &Asset) -> FakeRenderer {
+    let renderer = FakeRenderer::connect_with(
+        &player.socket,
+        Evidence::Auto,
+        &[edge_protocol::ipc::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO],
+    )
+    .await;
+    wait_for("the committed presentation", || renderer.last().filter(|a| shows(a, asset))).await;
+    renderer
+}
+
+/// Prepare, sender connect and disconnect, redelivery, and stop: the session
+/// outranks signage, holds a revocable stream grant, keeps its secrets out of
+/// the heartbeat, and a stop returns to the current signage.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn airplay_present_outranks_signage_and_a_stop_returns_to_it() {
+    let harness = Harness::new().await;
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    renderer.stop();
+    let renderer = airplay_renderer(&player, &asset).await;
+
+    let group = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), {
+        let mut payload = airplay_payload(3_600_000);
+        payload["role"] = json!("gateway");
+        payload
+    });
+    assert_eq!(command_result(&harness, &group).await["code"], "airplay_group_unsupported");
+
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    let result = command_result(&harness, &prepare).await;
+    assert_eq!((result["success"].as_bool(), result["code"].as_str()), (Some(true), Some("airplay_started")));
+    let ready = wait_for("the ready page", || renderer.last().filter(|a| external(a).is_some())).await;
+    let (connected, source) = external(&ready).unwrap();
+    assert!(!connected);
+    let source = source.expect("a stream grant for a renderer with the feature");
+    assert!(player.context.media_registry.lock().unwrap().present_active());
+    assert_eq!(supervisor.count("start"), 1);
+    assert_eq!(airplay_row(&player).await.unwrap().state, SessionState::Started);
+    let beat = heartbeat(&player.context).await;
+    assert_eq!(beat["externalPresentationState"], "waiting");
+    assert_eq!(beat["airplaySupported"], true);
+    assert_eq!(beat["airplayGroupSupported"], false);
+    assert_eq!(beat["airplayDecoder"], "avdec_h264");
+    assert_eq!(beat["airplayMaxProfile"], "720p30");
+    let text = beat.to_string();
+    assert!(!text.contains("7319") && !text.contains("02:5a:00"), "no secret in the heartbeat");
+
+    supervisor.send(ControlEvent::ClientConnected { session_id: FakeSupervisor::session() });
+    wait_for("the mirrored stream", || renderer.last().filter(|a| external(a) == Some((true, Some(source.clone())))))
+        .await;
+    supervisor.send(ControlEvent::ClientDisconnected { session_id: FakeSupervisor::session() });
+    wait_for("the ready page again", || renderer.last().filter(|a| external(a).is_some_and(|(c, _)| !c))).await;
+
+    // A redelivered prepare (a new delivery of the same session) changes nothing.
+    let again = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &again).await["code"], "airplay_started");
+    assert_eq!(supervisor.count("start"), 1, "no second UxPlay start");
+
+    let stop = harness.fake.offer("stop_airplay_session", uuid::Uuid::new_v4(), json!({"sessionId": AIRPLAY_SESSION}));
+    assert_eq!(command_result(&harness, &stop).await["code"], "airplay_stopped");
+    wait_for("signage again", || renderer.last().filter(|a| shows(a, &asset))).await;
+    assert!(!player.context.media_registry.lock().unwrap().present_active(), "the grant is revoked");
+    assert!(airplay_row(&player).await.is_none(), "the PIN and device ID are deleted with the row");
+    assert_eq!(supervisor.count("stop"), 1);
+    let beat = heartbeat(&player.context).await;
+    assert_eq!(beat["externalPresentationState"], "none");
+    assert_eq!(beat["externalPresentationSessionId"], AIRPLAY_SESSION);
+    let stop = harness.fake.offer("stop_airplay_session", uuid::Uuid::new_v4(), json!({"sessionId": AIRPLAY_SESSION}));
+    assert_eq!(command_result(&harness, &stop).await["code"], "airplay_already_stopped");
+    renderer.stop();
+    player.stop().await;
+}
+
+/// A receiver that cannot start ends the session and leaves no row.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_airplay_receiver_that_fails_to_start_leaves_nothing_behind() {
+    let harness = Harness::new().await;
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    renderer.stop();
+    let renderer = airplay_renderer(&player, &asset).await;
+    // No supervisor: the unit is not installed yet.
+    let missing = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    let result = command_result(&harness, &missing).await;
+    assert_eq!(result["code"], "airplay_not_ready");
+    assert!(result["message"].as_str().unwrap().contains("not installed yet"), "{result}");
+    assert_eq!(heartbeat(&player.context).await["airplaySupported"], false);
+
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    supervisor.refuse_start.store(true, Ordering::SeqCst);
+    let refused = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &refused).await["code"], "uxplay_start_failed");
+    assert!(airplay_row(&player).await.is_none());
+    assert!(!player.context.media_registry.lock().unwrap().present_active());
+    wait_for("signage", || renderer.last().filter(|a| shows(a, &asset))).await;
+    renderer.stop();
+    player.stop().await;
+}
+
+fn stored(state: SessionState, expires_in_ms: i64) -> ExternalPresentation {
+    ExternalPresentation {
+        session_id: AIRPLAY_SESSION.into(),
+        receiver_name: "Lobby".into(),
+        pin: "7319".into(),
+        device_id: "02:5a:00:00:00:01".into(),
+        profile: "720p30".into(),
+        audio_mode: "none".into(),
+        presentation_network_id: None,
+        expires_at_ms: now_ms() + expires_in_ms,
+        state,
+        stop_reason: matches!(state, SessionState::Stopping).then(|| "remote_stop".to_owned()),
+    }
+}
+
+/// Review rule 6: every durable transition, interrupted by a crash. A row
+/// written by prepare or start resumes; a stop that began finishes; an
+/// expired row is deleted; a killed daemon resumes its running session.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn airplay_sessions_resume_finish_or_expire_after_a_crash() {
+    for (state, expires_in_ms, resumes) in [
+        (SessionState::Prepared, 3_600_000, true),
+        (SessionState::Started, 3_600_000, true),
+        (SessionState::Stopping, 3_600_000, false),
+        (SessionState::Started, -1_000, false),
+    ] {
+        let harness = Harness::new().await;
+        let asset = Asset::new("lobby", "image/png");
+        let (player, renderer) = harness.committed(&asset, 3).await;
+        renderer.stop();
+        player.stop().await;
+        let row = stored(state, expires_in_ms);
+        let db = StateDb::open(harness.dir.path().join("state/state.db"), OpenOptions::default()).unwrap();
+        db.run_blocking(move |c| airplay_store::put(c, &row, now_ms())).unwrap();
+        drop(db);
+
+        let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+        let player = harness.start().await;
+        let renderer = FakeRenderer::connect_with(
+            &player.socket,
+            Evidence::Auto,
+            &[edge_protocol::ipc::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO],
+        )
+        .await;
+        if resumes {
+            wait_for("the resumed session", || renderer.last().filter(|a| external(a).is_some())).await;
+            assert_eq!(supervisor.count("start"), 1, "{state:?}");
+            wait_until("the resumed row", || async {
+                airplay_row(&player).await.is_some_and(|row| row.state == SessionState::Started)
+            })
+            .await;
+        } else {
+            wait_for("signage", || renderer.last().filter(|a| shows(a, &asset))).await;
+            wait_until("the row is gone", || async { airplay_row(&player).await.is_none() }).await;
+            assert_eq!(supervisor.count("start"), 0, "{state:?}");
+            assert!(renderer.last().is_some_and(|a| external(&a).is_none()));
+        }
+        renderer.stop();
+        player.stop().await;
+    }
+
+    // A daemon killed during a session resumes it from the row alone.
+    let harness = Harness::new().await;
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    let asset = Asset::new("lobby", "image/png");
+    harness.fake.add_asset(&asset, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&asset]));
+    let player = harness.start_killable(harness.config(), Environment::default()).await;
+    let renderer = airplay_renderer(&player, &asset).await;
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &prepare).await["code"], "airplay_started");
+    renderer.stop();
+    player.kill();
+    let player = harness.start().await;
+    let renderer = airplay_renderer_after_crash(&player).await;
+    wait_for("the resumed session", || renderer.last().filter(|a| external(a).is_some())).await;
+    assert_eq!(supervisor.count("start"), 2, "UxPlay starts again after the crash");
+    renderer.stop();
+    player.stop().await;
+}
+
+async fn airplay_renderer_after_crash(player: &Player) -> FakeRenderer {
+    FakeRenderer::connect_with(
+        &player.socket,
+        Evidence::Auto,
+        &[edge_protocol::ipc::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO],
+    )
+    .await
+}
+
+/// A takeover outranks AirPlay: it ends the session (UxPlay stopped, grant
+/// revoked, row deleted) and shows, and no new session starts under it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_takeover_ends_an_airplay_session_and_refuses_a_new_one() {
+    let harness = Harness::new().await;
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    renderer.stop();
+    let renderer = airplay_renderer(&player, &first).await;
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &prepare).await["code"], "airplay_started");
+    wait_for("the ready page", || renderer.last().filter(|a| external(a).is_some())).await;
+
+    let urgent = Asset::new("urgent", "image/png");
+    harness.fake.add_asset(&urgent, AssetMode::Serve);
+    let takeover_playlist = uuid::Uuid::new_v4().to_string();
+    harness.fake.set_manifest(with(manifest(harness.screen, 4, &[&first, &urgent]), |m| {
+        m["playlist"]["items"] = json!([first.item(uuid::Uuid::new_v4())]);
+        m["playlists"] = json!([{"id": takeover_playlist, "revision": 1, "name": "Alert",
+            "items": [urgent.item(uuid::Uuid::new_v4())]}]);
+        m["takeover"] = json!({"id": uuid::Uuid::new_v4().to_string(), "playlistId": takeover_playlist,
+            "activatedAt": Timestamp::from_unix_millis(now_ms() - 60_000).unwrap().to_string(),
+            "expiresAt": Timestamp::from_unix_millis(now_ms() + 3_600_000).unwrap().to_string()});
+    }));
+    player.push();
+    wait_for("the takeover", || renderer.last().filter(|a| shows(a, &urgent))).await;
+    wait_until("the session ended", || async { airplay_row(&player).await.is_none() }).await;
+    wait_until("UxPlay stopped", || async { supervisor.count("stop") == 1 }).await;
+    assert!(!player.context.media_registry.lock().unwrap().present_active());
+
+    let refused = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &refused).await["code"], "emergency_takeover_active");
+    assert_eq!(supervisor.count("start"), 1);
+    renderer.stop();
+    player.stop().await;
+}
+
+/// Expiry is enforced on the wall clock as well as the monotonic one: a
+/// clock correction past `expiresAt` ends the session at once.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_airplay_session_ends_when_the_wall_clock_passes_its_expiry() {
+    let harness = Harness::new().await;
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    let asset = Asset::new("lobby", "image/png");
+    harness.fake.add_asset(&asset, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&asset]));
+    let clock = Arc::new(SteppedClock::default());
+    let environment = Environment { clock: clock.clone(), ..Environment::default() };
+    let player = harness.start_killable(harness.config(), environment).await;
+    let renderer = airplay_renderer(&player, &asset).await;
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &prepare).await["code"], "airplay_started");
+    wait_for("the ready page", || renderer.last().filter(|a| external(a).is_some())).await;
+    clock.step(2 * 3_600_000);
+    wait_for("signage after expiry", || renderer.last().filter(|a| shows(a, &asset))).await;
+    wait_until("the session ended", || async { airplay_row(&player).await.is_none() }).await;
+    assert_eq!(supervisor.count("stop"), 1);
     renderer.stop();
     player.stop().await;
 }

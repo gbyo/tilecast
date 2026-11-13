@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol), Stage 3 (UxPlay in the release), and Stage 4 (the renderer relay, the `tcpresent` source, and the Runtime view) are implemented. Edge continues to answer the AirPlay commands with `unsupported_command` until Stage 5 merges, and AirPlay on Edge is not available until Stage 6 records hardware evidence.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol), Stage 3 (UxPlay in the release), Stage 4 (the renderer relay, the `tcpresent` source, and the Runtime view), and Stage 5 (the `tilecastd` session) are implemented. AirPlay on Edge is not available until Stage 6 records hardware evidence.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -184,6 +184,20 @@ The rules come from the Electron Player:
 
 Every durable transition (prepare, start, stop, expire, recover) needs a crash-point test (review rule 6).
 
+### 6.1 Implementation (Stage 5)
+
+The session lives in `apps/edge/tilecastd/src/airplay.rs`. One task owns it and the one `ReceiverConnection` of the session.
+
+- **Priority.** The offline activation loop of Player Core has a host hook, `OfflineActivationHost::external_presentation`. While it is true, Core shows the session through `show_external_presentation`. The session replaces the selection, the outside-hours surface, and the disabled surface. Core does not try a pending manifest: it suspends the trial, as it does under a policy surface. Only a takeover target outranks the session. Core then calls `yield_external_presentation`, and `tilecastd` stops the session with the reason `takeover`. A `prepare_airplay_session` during a takeover fails with `emergency_takeover_active`. Hosts without an external presentation keep the default, so the Windows and Android hosts do not change.
+- **Durable states.** `tilecastd` writes the row before each effect: `prepared` before the Presentation Network join and `start`; `started` after the supervisor reports `advertising`; `stopping`, with the reason, before UxPlay stops and the network is left. Then it deletes the row.
+- **Recovery.** At start, `tilecastd` reads the row. It finishes a `stopping` row and deletes an expired or invalid row. It resumes an unexpired `prepared` or `started` row: it connects, sends `start` again, and shows the ready page. If the supervisor cannot run the session, `tilecastd` stops it with `receiver_unavailable`. At start, the network task keeps a Presentation Network connection when the resumed row still uses it.
+- **Expiry.** The task stops the session when the monotonic deadline passes. It also stops the session when the wall clock passes `expiresAt` (checked each second), so a clock correction past the expiry ends the session at once.
+- **Redelivery.** A `prepare_airplay_session` for the running session is answered `airplay_started`, and UxPlay does not start again. A new `expiresAt` for the same session is stored in place. Another change to the same session (name, PIN, device ID, profile, audio, or network) stops it with `reconfigured` and starts it again. A `prepare` for another session stops the running one with `replaced`. `stop_airplay_session` for a session that does not run is answered `airplay_already_stopped`.
+- **Events.** `client_connected` and `client_disconnected` change `connected` and the screen. `failed` stops the session with the supervisor's code. `stopped`, `rejected`, and a lost connection stop it with `receiver_stopped` or `receiver_lost`.
+- **Screen.** The `external-presentation` document has the receiver name, the PIN (the ready page shows it), the expiry, `connected`, the Presentation Network state, and `sourceId` when the renderer advertises `external-presentation-video-v1`. `tilecastd` grants the stream again for each new renderer instance. A stop revokes the grant, and the activation loop evaluates signage at once.
+- **Receiver name.** Before `start`, `tilecastd` removes control characters, trims white space, removes leading `-` characters, cuts the name to 120 characters, and replaces `"` with `'` when both quote characters are present. If no character is left, the command fails with `airplay_prepare_failed`.
+- **Activity.** The Electron Player ends the presentation session with the reason `external_presentation`. That reason is not in the Activity terminal-reason vocabulary ([`activity-event-contract.md`](activity-event-contract.md)), and the Server does not accept it. Edge does not add it. The `external-presentation` document ends the presentation session with the reason that Edge sends for every other surface that is not content (`schedule_transition`). A contract change for AirPlay belongs to the owner of the Activity contract.
+
 ## 7. Commands and reports
 
 `tilecastd` replaces the `unsupported_command` branch for the three AirPlay commands (`apps/edge/tilecastd/src/command_handlers.rs`):
@@ -199,6 +213,15 @@ Heartbeat uses the existing `airplay*` fields (`apps/server/internal/devices/air
 - `airplayGroupSupported` is always false.
 - `airplayLimitation` names the first failed dependency in one sentence, in the Electron order, so that Studio can show it unchanged.
 
+**Change to the limitation text (Stage 5).** Most Electron sentences end with "Run the server's /install-airplay.sh installer as root." That remedy is wrong on Edge: the installer compiles UxPlay on the host, and Edge carries UxPlay in its release. Edge keeps the Electron sentences and order, and ends the UxPlay sentences with "Install a Tilecast Edge release that includes it." Edge adds sentences for dependencies that the Electron Player does not have:
+
+- The unit is not installed yet (the control socket is missing or nothing answers). This sentence is first, because no probe answer exists: "The AirPlay receiver service is not installed yet. It arrives with the next Tilecast Edge update."
+- In the place of the Electron GStreamer and decoder checks: the renderer is not connected, or it does not advertise `external-presentation-video-v1` with a decoder. The sentences are "The display renderer is not connected, so AirPlay video cannot be shown." and "No supported H.264 decoder was found; the display renderer cannot show AirPlay video."
+
+The Avahi sentence is the Electron sentence. A software decoder is a quality limitation, as on the Electron Player, with the sentence "Hardware H.264 decoding is unavailable; use 720p30 to limit CPU load." `airplayMaxProfile` is `1080p30` with a hardware decoder and `720p30` without one.
+
+The command results use the Electron codes: `airplay_started`, `airplay_not_ready` (with the limitation sentence), `airplay_prepare_failed` (a payload field is not valid), `emergency_takeover_active`, `airplay_stopped`, `airplay_already_stopped`, and `airplay_supported`. Edge adds `airplay_group_unsupported`. When a start fails, the result has the supervisor's code (for example `uxplay_start_failed`) or the code of the Presentation Network helper.
+
 The capability is `external_presentation.airplay`. The category already exists in `crates/player-types/src/capability.rs`. [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md) gets its row when Stage 5 merges.
 
 ## 8. Presentation Network binding
@@ -208,6 +231,8 @@ The Presentation Network client already exists (`apps/edge/tilecastd/src/present
 1. Before `start`, if the payload has `presentationNetworkId`, `tilecastd` activates that network through the existing connect path. The command fails with the helper's stable code if the connection fails.
 2. After stop, expiry, or failure, `tilecastd` deactivates the network and restores the radio state.
 3. If Ethernet stops being the default route, `tilecastd` stops the session and reports `ethernet_default_route_lost`.
+
+Stage 5 joins through `PresentationNetwork::join_for_session`. It uses the existing connect path, and the payload's `presentationNetworkId` must be the assignment of this player (`presentation_network_not_assigned` otherwise). The join checks the default route once. While the session runs, `tilecastd` checks the route again every 15 seconds. `leave_for_session` leaves the network and restores the radio state from the persisted record.
 
 The credential path does not change. `tilecastd` fetches the credential only to install a profile, and it never stores it.
 
@@ -259,7 +284,7 @@ Each stage is a separate pull request. Each pull request stacks on the one befor
 | 2     | `tilecast-airplay` crate, units, `sysusers.d` entry, `edge-protocol` messages and fixtures.                                                                                                 | A Rust and fixture test suite. An integration test with a fake `uxplay` under real systemd in the Linux image: peer refusal for the renderer cgroup, no orphan after `SIGKILL` of the supervisor, no PIN in argv or logs.                                                           |
 | 3     | Release bundling: build UxPlay 1.73.7 in `release/Dockerfile.builder`; `runtime_closure.py`; `system-baseline.txt` (avahi-daemon); SBOM, source, and notice.                                | `run-closure-check.sh` and `run-sandbox-check.sh` pass. `uxplay -v` reports 1.73.7 in the packaged sandbox. `-vrtp`, `-artp`, `-rc`, and `-pin` are confirmed in 1.73.7.                                                                                                            |
 | 4     | Renderer relay and `tcpresent` element, media-socket `present` grant, `renderer.ready` feature, Runtime external-presentation video view, capture exclusion. The latency spike comes first. | The recorded latency measurement (§5.3). The relay test with real loopback UDP and `unixfdsrc` (`tests/test_present_relay.c`). Media and IPC fixtures with Rust and C tests. Runtime unit tests for the capability gate. The headless end-to-end test moves to Stage 5 (see below). |
-| 5     | `tilecastd` session: command handlers, migration `0014`, priority in `presentation.rs`, Presentation Network binding, heartbeat, capability.                                                | Crash-point tests for every transition. A command redelivery test. A takeover-during-session test. `python3 scripts/ci/check-player-architecture.py`.                                                                                                                               |
+| 5     | `tilecastd` session: command handlers, migration `0014`, priority (a Player Core host hook, §6.1), Presentation Network binding, heartbeat, capability.                                     | Crash-point tests for every transition. A command redelivery test. A takeover-during-session test. The headless `airplay` scenario under systemd (`ci/run-airplay-e2e.sh`). `python3 scripts/ci/check-player-architecture.py`.                                                      |
 | 6     | Public documentation and qualification.                                                                                                                                                     | The manual procedure in [`airplay-present.md`](airplay-present.md) (single-screen steps) on Edge reference hardware with iPhone, iPad, and Mac senders, recorded in the qualification ledger.                                                                                       |
 
 **Change to the Stage 4 evidence.** The headless end-to-end test needs `tilecastd` to issue the grant and to project the `external-presentation` document. That is Stage 5. Stage 4 therefore records the latency measurement, which runs WebKit, the relay, and the `tcpresent` element with a synthetic RTP stream and a fake grant, and the component tests. Stage 5 adds the end-to-end scenario to `apps/edge/renderer-wpe/tests/e2e_headless.py`: a real `tilecastd`, the real supervisor with the fake UxPlay, synthetic RTP to 42000 and 42002, the Runtime showing the video, and capture excluded.

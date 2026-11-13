@@ -123,6 +123,7 @@ UxPlay registers its services with avahi-daemon through the system D-Bus. The un
 ## 10. Secrets
 
 - The PIN and the device ID never appear in a process argument, a log line, a heartbeat, audit metadata, or a fixture with a real value.
+- The PIN goes to the renderer in the `external-presentation` document, because the ready page shows it, as on the Electron Player. The device ID does not go to the renderer. `tilecastd` does not log the document's PIN: `AirplayPin` redacts itself in `Debug`, and the stored row redacts the PIN and the device ID in `Debug`. The Stage 5 tests check that the heartbeat has neither value, and the headless `airplay` scenario checks the journals of `tilecastd` and the supervisor.
 - The supervisor deletes the `-rc` file when UxPlay has opened its server sockets (it has read the file then), when the session ends, and when it starts. The file is created with `O_EXCL` and mode 0600, so a planted link is not followed.
 - UxPlay prints the PIN on its output when a sender starts pairing (`raop_handlers.h`). The supervisor never logs or forwards a line of UxPlay output. `ci/run-airplay-e2e.sh` checks that a test PIN and device ID are in no `/proc/*/cmdline` and nowhere in the journal, with a fake UxPlay that prints the PIN on both outputs.
 - `tilecastd` deletes the PIN and the device ID from SQLite when the session ends. The Server already clears them from the command row.
@@ -130,19 +131,19 @@ UxPlay registers its services with avahi-daemon through the system D-Bus. The un
 
 ## 11. Edge review rules
 
-| Rule                                                        | How the receiver meets it                                                                                          |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                       |
-| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                         |
-| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque ID (§8).   |
-| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.   |
-| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                             |
-| 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                              |
-| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                               |
-| 8. IPC change has fixtures and tests on both sides          | Stage 2: the control protocol. Stage 4: the media `present` request and the `external-presentation` document.      |
-| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive. |
-| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                         |
-| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.      |
+| Rule                                                        | How the receiver meets it                                                                                           |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                        |
+| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                          |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque ID (§8).    |
+| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.    |
+| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                              |
+| 6. Crash-point tests for durable transitions                | `tests/playback.rs` interrupts every session transition and resumes, finishes, or deletes the row (amendment §6.1). |
+| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                                |
+| 8. IPC change has fixtures and tests on both sides          | Stage 2: the control protocol. Stage 4: the media `present` request and the `external-presentation` document.       |
+| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive.  |
+| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                          |
+| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.       |
 
 ## 12. Residual risks
 

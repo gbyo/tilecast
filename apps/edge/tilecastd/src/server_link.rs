@@ -384,6 +384,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         crate::presentation_network::wired_interface_up(&sys)
     });
     crate::presentation_network::heartbeat(&mut heartbeat, helper.as_ref(), &network, wired);
+    crate::airplay::heartbeat(context, &mut heartbeat).await;
     heartbeat
 }
 

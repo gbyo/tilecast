@@ -22,6 +22,13 @@ exactly as an operator would. Scenarios:
              the 1 MiB test cache plays through origin range reads (never
              downloaded whole) with video progress evidence, and the
              heartbeat reports the stream-backed video
+  airplay    single-screen AirPlay Present (docs/tilecast-edge-airplay.md):
+             a real tilecastd in tilecast-edge.service, the real
+             tilecast-airplay supervisor under its socket unit with the fake
+             UxPlay, the renderer with WebKit's sandbox on, synthetic RTP to
+             127.0.0.1:42000/42002, the Runtime decoding the stream, capture
+             excluded, and signage back after the stop. Needs systemd as
+             PID 1: run it from apps/edge/ci/run-airplay-e2e.sh
 
 Usage: e2e_headless.py --bin-dir DIR --renderer PATH --runtime-dir DIR
                        [--web-helper PATH]
@@ -32,6 +39,7 @@ import hashlib
 import http.server
 import json
 import os
+import shutil
 import signal
 import sqlite3
 import subprocess
@@ -1312,6 +1320,260 @@ def scenario_widget(args):
             stack.stop()
 
 
+AIRPLAY_SESSION = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
+# Test-only values, distinctive enough to search for.
+AIRPLAY_PIN = "8264"
+AIRPLAY_DEVICE = "02:82:64:5a:6b:7c"
+AIRPLAY_WORK = "/var/tmp/tilecast-airplay-present-e2e"
+AIRPLAY_FAKE_CMD = "/run/tilecast-airplay-session/fake-uxplay.cmd"
+
+
+class AirplayState:
+    def __init__(self, installation, screen):
+        self.installation = installation
+        self.screen = screen
+        self.lock = threading.Lock()
+        self.commands = []
+        self.results = {}
+        self.heartbeats = []
+        self.previews = 0
+
+    def manifest(self):
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return {
+            "schemaVersion": 11, "manifestVersion": 1, "screenId": self.screen, "generatedAt": now,
+            "serverTime": now, "mode": "presentation", "assets": [],
+            "playlist": {"id": str(uuid.UUID(int=7)), "revision": 1, "name": "Lobby", "items": []},
+            "playlists": [], "schedules": [], "websites": [], "widgets": [], "dataSources": [], "plugins": [],
+            "layouts": [], "prefetchHorizonDays": 14, "activationGraceSeconds": 3600,
+        }
+
+    def offer(self, command_type, payload):
+        command_id = str(uuid.uuid4())
+        with self.lock:
+            self.commands.append({"id": command_id, "type": command_type, "idempotencyKey": str(uuid.uuid4()),
+                                  "payload": payload, "state": "delivered"})
+        return command_id
+
+    def result(self, command_id):
+        with self.lock:
+            return self.results.get(command_id)
+
+    def last_heartbeat(self):
+        with self.lock:
+            return self.heartbeats[-1] if self.heartbeats else {}
+
+
+class AirplayHandler(StreamHandler):
+    server_version = "TilecastAirplayFake/1"
+
+    @property
+    def state(self):
+        return self.server.airplay_state
+
+    def do_GET(self):  # noqa: N802
+        if self.path == "/api/v1/system/identity":
+            return self._send_json(200, {"data": {
+                "product": "tilecast", "installationId": self.state.installation,
+                "organizationName": "AirPlay Test", "apiVersion": "v1", "pairingEnabled": False,
+            }})
+        if not self._authorized():
+            return self._deny()
+        if self.path == "/api/v1/player/manifest":
+            return self._send_json(200, {"data": self.state.manifest()}, [("ETag", '"airplay-1"')])
+        if self.path == "/api/v1/player/config":
+            return self._send_json(200, {"data": {"schemaVersion": 1, "configRevision": 1}})
+        if self.path == "/api/v1/player/commands":
+            with self.state.lock:
+                items = [c for c in self.state.commands if c["state"] in ("delivered", "acknowledged")]
+            return self._send_json(200, {"data": {"items": items}})
+        if self.path == "/api/v1/player/preview-session":
+            return self._send_json(200, {"data": {"active": True, "captureIntervalSeconds": 5, "captureNow": True}})
+        if self.path == "/api/v1/player/live-stream-session":
+            return self._send_json(200, {"data": {"active": False}})
+        return self._send_json(404, {"error": {"code": "not_found", "message": "no such path"}})
+
+    def do_POST(self):  # noqa: N802
+        if self._authorized() and self.path.startswith("/api/v1/player/commands/"):
+            command_id, action = self.path[len("/api/v1/player/commands/"):].split("/", 1)
+            body = self._read_json()
+            with self.state.lock:
+                entry = next((c for c in self.state.commands if c["id"] == command_id), None)
+                if entry is None:
+                    return self._send_json(409, {"error": {"code": "command_expired", "message": "gone"}})
+                if action == "acknowledge" and entry["state"] == "delivered":
+                    entry["state"] = "acknowledged"
+                elif action == "result":
+                    entry["state"] = "succeeded" if body.get("success") else "failed"
+                    self.state.results[command_id] = body
+                return self._send_json(200, {"data": {"id": command_id, "state": entry["state"]}})
+        if self._authorized() and self.path == "/api/v1/player/preview":
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            self.rfile.read(length)
+            with self.state.lock:
+                self.state.previews += 1
+            self.send_response(204)
+            self.end_headers()
+            return None
+        if self._authorized() and self.path == "/api/v1/player/heartbeat":
+            payload = self._read_json()
+            with self.state.lock:
+                self.state.heartbeats.append(payload)
+            return self._send_json(200, {"data": {}})
+        return super().do_POST()
+
+
+def airplay_journal(unit):
+    return subprocess.run(["journalctl", "--no-pager", "-o", "cat", "-u", unit], capture_output=True,
+                          text=True, check=False).stdout
+
+
+def airplay_command(state, command_type, payload, timeout=90):
+    command_id = state.offer(command_type, payload)
+    return wait_for(f"{command_type} result", lambda: state.result(command_id), timeout=timeout)
+
+
+def airplay_fake(line):
+    with open(AIRPLAY_FAKE_CMD, "a", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+
+
+def scenario_airplay(args):
+    if os.geteuid() != 0 or not os.path.isdir("/run/systemd/system"):
+        raise AssertionError("the airplay scenario needs root and systemd as PID 1 (ci/run-airplay-e2e.sh)")
+    import importlib.util
+    helper = importlib.util.spec_from_file_location("airplay_e2e", "/src/apps/edge/ci/airplay_e2e.py")
+    airplay_e2e = importlib.util.module_from_spec(helper)
+    helper.loader.exec_module(airplay_e2e)
+    # The supervisor, its socket and service units, its account, and the
+    # fake UxPlay, exactly as the Stage 2 systemd test installs them.
+    airplay_e2e.setup()
+    sender_spec = importlib.util.spec_from_file_location(
+        "present_sender", "/src/apps/edge/renderer-wpe/spike/present-latency/sender.py")
+    sender = importlib.util.module_from_spec(sender_spec)
+    sender_spec.loader.exec_module(sender)
+
+    shutil.rmtree(AIRPLAY_WORK, ignore_errors=True)
+    os.makedirs(AIRPLAY_WORK)
+    installation, screen = str(uuid.uuid4()), str(uuid.uuid4())
+    state = AirplayState(installation, screen)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), AirplayHandler)
+    server.airplay_state = state
+    server_url = f"http://127.0.0.1:{server.server_address[1]}"
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    stack = Stack(args, AIRPLAY_WORK)
+    stack.start_daemon()
+    stack.stop()
+    inject_pairing(AIRPLAY_WORK, server_url, installation, screen)
+    video = os.path.join(AIRPLAY_WORK, "phases.h264")
+    subprocess.run([
+        "ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1280x720:r=30:d=4",
+        "-c:v", "libx264", "-profile:v", "baseline", "-tune", "zerolatency", "-g", "30",
+        "-x264-params", "repeat-headers=1", "-bsf:v", "h264_metadata=aud=insert", "-f", "h264", video,
+    ], check=True)
+    subprocess.run(["chown", "-R", "tilecast:tilecast", AIRPLAY_WORK], check=True)
+    for unit in ("tilecast-edge.service", "tilecast-renderer.service"):
+        subprocess.run(["systemctl", "stop", unit], check=False, capture_output=True)
+        subprocess.run(["systemctl", "reset-failed", unit], check=False, capture_output=True)
+    common = ["systemd-run", "--uid=tilecast", "--gid=tilecast", "--property=Type=exec", "--collect", "--quiet"]
+    subprocess.run(common + [
+        "--unit=tilecast-edge.service",
+        os.path.join(args.bin_dir, "tilecastd"), "--config", stack.config, "run",
+    ], check=True)
+    run_dir = os.path.join(AIRPLAY_WORK, "run")
+    wait_for("daemon socket", lambda: os.path.exists(stack.socket), timeout=60)
+    home = os.path.join(AIRPLAY_WORK, "renderer-home")
+    os.makedirs(home, exist_ok=True)
+    subprocess.run(["chown", "tilecast:tilecast", home], check=True)
+    # WebKit's bubblewrap sandbox stays on: the renderer's relay is the only
+    # way the web process, in its own network namespace, gets the stream.
+    subprocess.run(common + [
+        "--unit=tilecast-renderer.service", f"--setenv=HOME={home}", f"--setenv=XDG_CACHE_HOME={home}",
+        f"--setenv=XDG_RUNTIME_DIR={home}", "--setenv=GST_DEBUG=GST_STATES:4",
+        args.renderer, "--platform=headless", f"--socket={stack.socket}",
+        f"--media-socket={os.path.join(run_dir, 'media.sock')}", f"--runtime-dir={args.runtime_dir}",
+        f"--gst-plugin-dir={args.gst_plugin_dir}", "--headless-size=1280x720", "--console",
+    ], check=True)
+    try:
+        wait_for("a renderer with the AirPlay feature", lambda: (
+            state.last_heartbeat().get("airplaySupported") is True and state.last_heartbeat()), timeout=120)
+        heartbeat = state.last_heartbeat()
+        assert heartbeat["airplayGroupSupported"] is False, heartbeat
+        assert heartbeat.get("airplayDecoder"), heartbeat
+        print(f"airplay: supported with {heartbeat['airplayDecoder']}; group sessions refused")
+        wait_for("a preview of the signage", lambda: state.previews > 0, timeout=90)
+
+        expires = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 1800))
+        payload = {
+            "provider": "airplay", "sessionId": AIRPLAY_SESSION, "role": "single", "phase": "start",
+            "targetType": "screen", "targetId": screen, "gatewayScreenId": screen, "audioScreenId": screen,
+            "receiverName": "E2E Lobby", "pin": AIRPLAY_PIN, "deviceId": AIRPLAY_DEVICE, "expiresAt": expires,
+            "transport": "unicast", "videoPort": 42000, "audioPort": 42002, "destinations": [],
+            "multicastAddress": "", "profile": "720p30", "audioMode": "gateway_only",
+        }
+        result = airplay_command(state, "prepare_airplay_session", payload)
+        assert result["success"] and result["code"] == "airplay_started", result
+        wait_for("the relay", lambda: "present-relay: relaying (audio on)" in airplay_journal(
+            "tilecast-renderer.service"), timeout=30)
+        wait_for("the waiting session in the heartbeat", lambda: (
+            state.last_heartbeat().get("externalPresentationState") == "waiting"), timeout=60)
+        print("airplay: prepared; UxPlay advertises; the renderer relays the granted stream")
+
+        airplay_fake("mirroring")
+        wait_for("the connected session in the heartbeat", lambda: (
+            state.last_heartbeat().get("airplayConnected") is True), timeout=60)
+        previews = state.previews
+        stop = threading.Event()
+        threading.Thread(target=sender.audio_loop, args=(stop,), daemon=True).start()
+        out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        with open(video, "rb") as handle:
+            units = sender.access_units(handle.read())
+        started, sequence = time.monotonic(), 0
+        for index in range(30 * 12):
+            unit = units[index % len(units)]
+            delay = started + index / 30 - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+            payloads = sender.packetize(unit)
+            for number, chunk in enumerate(payloads):
+                header = sender.rtp_header(number == len(payloads) - 1, 96, sequence, index * 3000, 0x5A5A0001)
+                out.sendto(header + chunk, ("127.0.0.1", 42000))
+                sequence += 1
+        stop.set()
+        journal = airplay_journal("tilecast-renderer.service")
+        playing = [line for line in journal.splitlines() if "completed state change to PLAYING" in line]
+        assert any("tcpresentsrc" in line for line in playing), "the tcpresent source never played"
+        assert any("h264" in line and "dec" in line for line in playing), "no H.264 decoder ran in the Runtime"
+        print("airplay: the Runtime decoded the forwarded H.264 stream (WebKit sandbox on)")
+        assert state.previews == previews, "a preview was captured during the session"
+        print("airplay: no preview was captured while the session ran")
+
+        airplay_fake("disconnect")
+        wait_for("the ready page again", lambda: (
+            state.last_heartbeat().get("airplayConnected") is False
+            and state.last_heartbeat().get("externalPresentationState") == "waiting"), timeout=60)
+        result = airplay_command(state, "stop_airplay_session", {"sessionId": AIRPLAY_SESSION})
+        assert result["code"] == "airplay_stopped", result
+        wait_for("the stopped session in the heartbeat", lambda: (
+            state.last_heartbeat().get("externalPresentationState") == "none"), timeout=60)
+        wait_for("the relay stopped", lambda: "present-relay: stopped" in airplay_journal(
+            "tilecast-renderer.service"), timeout=30)
+        wait_for("previews again after the stop", lambda: state.previews > previews, timeout=90)
+        for unit in ("tilecast-edge.service", "tilecast-airplay.service"):
+            text = airplay_journal(unit)
+            assert AIRPLAY_PIN not in text and AIRPLAY_DEVICE not in text, f"a secret is in the {unit} journal"
+        print("airplay: stopped; signage and previews returned; no secret in the daemon or supervisor journal")
+    except Exception:
+        for unit in ("tilecast-edge.service", "tilecast-renderer.service", "tilecast-airplay.service"):
+            print(f"--- {unit}", file=sys.stderr)
+            print(airplay_journal(unit)[-6000:], file=sys.stderr)
+        raise
+    finally:
+        for unit in ("tilecast-renderer.service", "tilecast-edge.service"):
+            subprocess.run(["systemctl", "stop", unit], check=False, capture_output=True)
+        server.shutdown()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bin-dir", required=True)
@@ -1329,8 +1591,14 @@ def main():
         "website": scenario_website,
         "stream": scenario_stream,
         "widget": scenario_widget,
+        "airplay": scenario_airplay,
     }
-    selected = scenarios.values() if args.scenario == "all" else [scenarios[args.scenario]]
+    # `all` is the set the dev image can run; airplay needs systemd as PID 1.
+    selected = (
+        [scenario for name, scenario in scenarios.items() if name != "airplay"]
+        if args.scenario == "all"
+        else [scenarios[args.scenario]]
+    )
     for scenario in selected:
         scenario(args)
     print("e2e: all scenarios passed")

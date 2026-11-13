@@ -35,9 +35,6 @@ pub fn unsupported_reason(command_type: &str) -> Option<&'static str> {
         "power_assist_sleep" | "power_assist_wake" => {
             "Power Assist is an Android feature. Tilecast Edge controls the display through Display Control."
         }
-        "prepare_airplay_session" | "stop_airplay_session" | "test_airplay_support" => {
-            "AirPlay is not available on Tilecast Edge."
-        }
         "install_autostart" | "remove_autostart" => {
             "Tilecast Edge starts from its system service, which the installer manages."
         }
@@ -221,6 +218,9 @@ fn plan_for(command_type: &str) -> Plan {
         | "run_player_self_test"
         | "provision_presentation_network"
         | "test_presentation_network"
+        | "prepare_airplay_session"
+        | "stop_airplay_session"
+        | "test_airplay_support"
         | "install_player_update" => Plan::Run,
         kind if crate::display_control::COMMANDS.contains(&kind) => Plan::Run,
         other => Plan::Settle(CommandResult::failed(
@@ -320,6 +320,13 @@ impl Handlers for DaemonHandlers {
                 self.context.report_status_soon();
                 result
             }
+            "prepare_airplay_session" => self.context.airplay.prepare(&command.payload, now_ms).await,
+            "stop_airplay_session" => self.context.airplay.stop(&command.payload).await,
+            "test_airplay_support" => {
+                let result = self.context.airplay.test().await;
+                crate::capabilities::refresh(&self.context).await;
+                result
+            }
             kind if crate::display_control::COMMANDS.contains(&kind) => self.display(command).await,
             other => CommandResult::failed(
                 "unsupported_command",
@@ -377,6 +384,9 @@ mod tests {
             "run_player_self_test",
             "provision_presentation_network",
             "test_presentation_network",
+            "prepare_airplay_session",
+            "stop_airplay_session",
+            "test_airplay_support",
             "install_player_update",
         ] {
             assert_eq!(plan_for(command_type), Plan::Run, "{command_type} must reach run()");
@@ -385,7 +395,6 @@ mod tests {
             assert_eq!(plan_for(command_type), Plan::Run, "{command_type} must reach run()");
         }
         assert_eq!(plan_for("restart_player_process"), Plan::Disruptive);
-        assert!(matches!(plan_for("prepare_airplay_session"), Plan::Settle(_)));
         assert!(matches!(plan_for("no_such_command"), Plan::Settle(_)));
     }
 }

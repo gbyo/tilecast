@@ -329,6 +329,17 @@ impl player_core::OfflineActivationHost for Host {
             now_ms,
         );
     }
+    async fn external_presentation(&self) -> bool {
+        self.0.airplay.active()
+    }
+    async fn show_external_presentation(&self, time: player_core::ActivationTime) {
+        if let Some(document) = crate::airplay::document(&self.0).await {
+            show_policy(&self.0, document, Vec::new(), time.local_ms).await;
+        }
+    }
+    async fn yield_external_presentation(&self) {
+        self.0.airplay.yield_to_takeover();
+    }
     async fn activate(
         &self,
         native: &player_core::NativeManifest,

@@ -36,6 +36,7 @@
 
 pub mod activation;
 pub mod activity;
+pub mod airplay;
 pub mod airplay_receiver;
 pub mod capabilities;
 pub mod capture;
