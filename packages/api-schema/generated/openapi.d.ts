@@ -7685,17 +7685,8 @@ export interface components {
       active: boolean;
       /** Format: date-time */
       expiresAt: string;
-      /**
-       * @description Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
-       * @enum {string}
-       */
-      profile?:
-        | "h264-720p30"
-        | "h264-720p15"
-        | "h264-540p15"
-        | "h264-540p10"
-        | "mjpeg-540p10"
-        | "mjpeg-360p8";
+      /** @description Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile. */
+      profile?: string;
       /** @enum {string} */
       transport: "h264" | "mjpeg";
       /** @description WebCodecs codec string of an H.264 profile. */

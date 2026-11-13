@@ -2184,36 +2184,6 @@ func (e LayoutSummaryOrientation) Valid() bool {
 	}
 }
 
-// Defines values for LiveStreamSessionProfile.
-const (
-	H264540p10  LiveStreamSessionProfile = "h264-540p10"
-	H264540p15  LiveStreamSessionProfile = "h264-540p15"
-	H264720p15  LiveStreamSessionProfile = "h264-720p15"
-	H264720p30  LiveStreamSessionProfile = "h264-720p30"
-	Mjpeg360p8  LiveStreamSessionProfile = "mjpeg-360p8"
-	Mjpeg540p10 LiveStreamSessionProfile = "mjpeg-540p10"
-)
-
-// Valid indicates whether the value is a known member of the LiveStreamSessionProfile enum.
-func (e LiveStreamSessionProfile) Valid() bool {
-	switch e {
-	case H264540p10:
-		return true
-	case H264540p15:
-		return true
-	case H264720p15:
-		return true
-	case H264720p30:
-		return true
-	case Mjpeg360p8:
-		return true
-	case Mjpeg540p10:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LiveStreamSessionTransport.
 const (
 	H264  LiveStreamSessionTransport = "h264"
@@ -9092,7 +9062,7 @@ type LiveStreamSession struct {
 	MaxWidth      int        `json:"maxWidth"`
 
 	// Profile Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
-	Profile *LiveStreamSessionProfile `json:"profile,omitempty"`
+	Profile *string `json:"profile,omitempty"`
 
 	// ProfileGeneration Increases each time the session degrades to a lower profile.
 	ProfileGeneration int                `json:"profileGeneration"`
@@ -9102,9 +9072,6 @@ type LiveStreamSession struct {
 	TargetBitrate *int                       `json:"targetBitrate,omitempty"`
 	Transport     LiveStreamSessionTransport `json:"transport"`
 }
-
-// LiveStreamSessionProfile Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
-type LiveStreamSessionProfile string
 
 // LiveStreamSessionTransport defines model for LiveStreamSession.Transport.
 type LiveStreamSessionTransport string

@@ -12126,7 +12126,7 @@ components:
           description: >-
             Selected Watch Live profile. Absent until the Player first
             reconciles the lease; the limits are then the legacy profile.
-          enum:
+          x-extensible-enum:
             [
               h264-720p30,
               h264-720p15,
