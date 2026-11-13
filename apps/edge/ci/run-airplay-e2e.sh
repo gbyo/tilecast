@@ -27,7 +27,7 @@ for _ in $(seq 1 90); do
   sleep 1
 done
 docker exec "$name" python3 /src/apps/edge/ci/airplay_e2e.py
-docker exec "$name" bash -c '
+docker exec -e "E2E_DISABLE_WEBKIT_SANDBOX=${E2E_DISABLE_WEBKIT_SANDBOX:-}" "$name" bash -c '
 set -euo pipefail
 export CARGO_TARGET_DIR=/target/cargo CARGO_HOME=/target/cargo-home PATH=/opt/cargo/bin:$PATH
 export CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
