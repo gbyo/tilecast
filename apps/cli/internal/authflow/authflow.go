@@ -143,16 +143,21 @@ func WaitForCode(ctx context.Context, listener net.Listener, state string) (stri
 	results := make(chan outcome, 1)
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
+		var result outcome
 		if denied := query.Get("error"); denied != "" {
-			results <- outcome{err: fmt.Errorf("%w: %s", ErrAccessDenied, denied)}
+			result.err = fmt.Errorf("%w: %s", ErrAccessDenied, denied)
 		} else if query.Get("state") != state {
-			results <- outcome{err: ErrStateMismatch}
+			result.err = ErrStateMismatch
 		} else if query.Get("code") == "" {
-			results <- outcome{err: ErrNoCode}
+			result.err = ErrNoCode
 		} else {
-			results <- outcome{code: query.Get("code")}
+			result.code = query.Get("code")
 		}
 		_, _ = io.WriteString(w, "Tilecast authorization complete. You can close this tab and return to the terminal.")
+		select {
+		case results <- result:
+		default:
+		}
 	})}
 	go func() {
 		_ = server.Serve(listener)
@@ -162,6 +167,9 @@ func WaitForCode(ctx context.Context, listener net.Listener, state string) (stri
 	case <-ctx.Done():
 		return "", fmt.Errorf("wait for browser authorization: %w", ctx.Err())
 	case result := <-results:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
 		return result.code, result.err
 	}
 }

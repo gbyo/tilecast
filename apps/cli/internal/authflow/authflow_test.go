@@ -3,6 +3,7 @@ package authflow
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -163,7 +164,11 @@ func TestWaitForCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	body, err := io.ReadAll(response.Body)
 	response.Body.Close()
+	if err != nil || string(body) != "Tilecast authorization complete. You can close this tab and return to the terminal." {
+		t.Fatalf("callback response = %q, err = %v", body, err)
+	}
 	<-done
 	if waitErr != nil || code != "code-1" {
 		t.Fatalf("code = %q, err = %v", code, waitErr)
