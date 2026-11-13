@@ -464,6 +464,7 @@ def stage_tree(version, bin_dir, out):
         "--web-renderer", os.path.join(m.WEB_BUILD, "tilecast-web-renderer-wpe"),
         "--session-bridge", os.path.join(m.BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(m.RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", m.RUNTIME,
+        "--uxplay-dir", m.stage_uxplay_inputs(),
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci", stdout=subprocess.DEVNULL)
     # A marker in the daemon's unit, so the test can tell whose system files
     # are installed. The manifest entry follows it.
