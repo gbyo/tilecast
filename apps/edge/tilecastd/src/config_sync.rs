@@ -90,7 +90,12 @@ pub async fn install(context: &DaemonContext, config: Option<PlayerConfig>) {
     if let Some(cas) = &context.cas {
         cas.set_policy(store_policy(context, &effective));
         cas.set_automatic_threshold(effective.native.cache.automatic_threshold_bytes);
-        cas.set_download_concurrency(effective.native.cache.concurrent_downloads);
+        // Server policy may tighten but never loosen the local operator cap.
+        let operator_limit = context.config.cas.max_concurrent_downloads;
+        let server_limit = effective.native.cache.concurrent_downloads.map(usize::from);
+        let limit = server_limit.map_or(operator_limit, |limit| limit.min(operator_limit));
+        // The store setter is u8-sized; the operator setting allows 1..=16.
+        cas.set_download_concurrency(Some(limit as u8));
     }
     context.presentation.lock().await.apply_player_config(&context.config, &effective);
     context.manifest_wake.notify_one();
