@@ -300,4 +300,31 @@ describe("status-surface external presentation video", () => {
     expect(view.querySelector("video")).toBeNull();
     view.remove();
   });
+
+  it("shows the ready page when the stream cannot be opened, even with a sender connected", async () => {
+    const view = renderExternal({ sourceId: SOURCE, connected: true }, true);
+    await view.updateComplete;
+    const video = view.querySelector<HTMLVideoElement>("video");
+    expect(video).not.toBeNull();
+    expect(view.querySelector(".code")).toBeNull();
+
+    video?.dispatchEvent(new Event("error"));
+    await view.updateComplete;
+    expect(view.querySelector("video")).toBeNull();
+    expect(view.querySelector(".code")?.textContent).toBe("0000");
+
+    // The failure belongs to this source: a new session tries its stream again.
+    const next = "fedcba9876543210".repeat(4);
+    view.presentation = {
+      ...view.presentation!,
+      sourceId: next,
+      connected: false,
+    } as External;
+    await view.updateComplete;
+    await view.updateComplete;
+    expect(view.querySelector("video")?.getAttribute("src")).toBe(
+      `tcpresent://session/${next}`,
+    );
+    view.remove();
+  });
 });

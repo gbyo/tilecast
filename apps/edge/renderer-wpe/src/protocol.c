@@ -401,6 +401,14 @@ handle_event (TcHost *host, const char *name, JsonNode *data_node)
   } else if (g_strcmp0 (name, "presentation.clear") == 0 || g_strcmp0 (name, "presentation.identify") == 0
              || g_strcmp0 (name, "renderer.command") == 0 || g_strcmp0 (name, "sync.position") == 0) {
     const char *command = json_object_get_string_member_with_default (data, "command", "");
+    if (g_strcmp0 (name, "presentation.clear") == 0 && tc_present_relay_active (host->present)) {
+      /* The clear ends the external presentation. Stopping the relay makes a
+       * grant check that is still waiting drop its answer, so the activation
+       * that it would have delivered stays undelivered. The cached copy must
+       * not come back when the Runtime reloads. */
+      tc_present_relay_set (host->present, NULL, NULL, NULL);
+      g_clear_pointer (&host->current_activation_json, g_free);
+    }
     if (g_strcmp0 (name, "renderer.command") == 0 && g_strcmp0 (command, "reload") == 0) {
       tc_view_reload_runtime (host);
       return;

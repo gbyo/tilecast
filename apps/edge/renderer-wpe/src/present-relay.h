@@ -24,6 +24,13 @@ typedef struct _TcPresentRelay TcPresentRelay;
  * start: the grant was denied, a port was in use, or an element is missing. */
 typedef void (*TcPresentRelayReady) (gboolean ok, gpointer data);
 
+/* Called on the main context when a relay that ran has stopped and nothing
+ * replaces it: it is neither running nor waiting for a grant. The last frame
+ * that the display showed can hold mirrored pixels, so the host drops it. */
+typedef void (*TcPresentRelayStopped) (gpointer data);
+
+void tc_present_relay_on_stopped (TcPresentRelay *relay, TcPresentRelayStopped stopped, gpointer data);
+
 TcPresentRelay *tc_present_relay_new (const char *dir, const char *media_socket);
 void tc_present_relay_free (TcPresentRelay *relay);
 

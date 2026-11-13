@@ -113,7 +113,7 @@ WebKit starts the web process with `--unshare-net`, so the web process cannot re
 Preview, snapshot, and Watch Live must not capture the external-presentation surface. Two layers enforce this (amendment §5.4):
 
 - `tilecastd` treats the `external-presentation` state as protected (`CaptureState::ExternalPresentation`). It refuses a capture before it asks the renderer, and it discards a frame when the state changed during the capture.
-- The renderer refuses a preview with `external_presentation` while the relay runs or waits for its grant. Watch Live gets black frames, and the renderer does not read the presented pixels.
+- The renderer refuses a preview with `external_presentation` while the relay runs or waits for its grant. Watch Live gets black frames, and the renderer does not read the presented pixels. The renderer drops its last presented buffer when the relay stops, so a later capture cannot copy a mirrored frame.
 
 Stage 4 tests the daemon state with unit tests and the relay with real sockets. The Stage 5 end-to-end scenario tests the complete path with a running renderer.
 
