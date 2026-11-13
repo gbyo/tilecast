@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useScreenPreviewSession } from "./useScreenPreviewSession";
+import { livePreviewFrameStyle } from "./livePreviewFrameStyle";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
@@ -200,7 +201,14 @@ export function LivePreviewPanel({
       </CardHeader>
 
       <CardContent className="min-w-0">
-        <div className="relative grid aspect-video overflow-hidden rounded-xl border border-border bg-[#080b0f]">
+        <div
+          className="relative mx-auto grid max-w-full overflow-hidden rounded-xl border border-border bg-[#080b0f]"
+          style={livePreviewFrameStyle(
+            preview.data?.width,
+            preview.data?.height,
+            55,
+          )}
+        >
           {!imageLoadFailed &&
           (state === "live" || state === "stale") &&
           imageUrl ? (
@@ -293,6 +301,8 @@ export function LivePreviewPanel({
           screenId={screenId}
           screenName={screenName}
           csrfToken={csrfToken}
+          initialWidth={preview.data?.width}
+          initialHeight={preview.data?.height}
           onClose={() => setWatchingLive(false)}
         />
       )}

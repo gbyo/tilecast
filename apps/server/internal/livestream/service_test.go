@@ -159,12 +159,12 @@ func TestLegacyPlayersKeepTheirMJPEGBounds(t *testing.T) {
 	screenID := uuid.New()
 	service := NewService(nil)
 	initial := service.Start(screenID, nil)
-	if initial.MaxWidth != 640 || initial.MaxHeight != 360 || initial.FrameIntervalMillis != 125 || initial.Profile != "" || initial.Transport != TransportMJPEG {
+	if initial.MaxWidth != 640 || initial.MaxHeight != 640 || initial.FrameIntervalMillis != 125 || initial.Profile != "" || initial.Transport != TransportMJPEG {
 		t.Fatalf("unexpected default profile: %+v", initial)
 	}
 	// An older Edge Player names the retired 540p10 query on every poll.
 	upgraded := service.SelectProfile(screenID, LegacyEdgeProfiles(), nil)
-	if upgraded.ID != initial.ID || upgraded.Profile != ProfileMJPEG540p10 || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 540 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 || upgraded.Codec != "" {
+	if upgraded.ID != initial.ID || upgraded.Profile != ProfileMJPEG540p10 || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 960 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 || upgraded.Codec != "" {
 		t.Fatalf("bad negotiated profile: %+v", upgraded)
 	}
 	jpeg := []byte{0xff, 0xd8, 1, 0xff, 0xd9}
@@ -181,5 +181,23 @@ func TestLegacyPlayersKeepTheirMJPEGBounds(t *testing.T) {
 	}
 	if err := service.Publish(other, legacy.ID, Frame{CapturedAt: time.Now(), Width: 960, Height: 540, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("unnegotiated high resolution accepted: %v", err)
+	}
+}
+
+// Portrait bounds are independent of landscape orientation.
+func TestPortraitMjpegProfilesPreserveFullFrame(t *testing.T) {
+	screenID := uuid.New()
+	service := NewService(nil)
+	session := service.Start(screenID, nil)
+	jpeg := []byte{0xff, 0xd8, 0xff, 0xd9}
+	if session.MaxWidth != 640 || session.MaxHeight != 640 {
+		t.Fatalf("unexpected legacy bounds: %dx%d", session.MaxWidth, session.MaxHeight)
+	}
+	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: time.Now(), Width: 360, Height: 640, JPEG: jpeg}); err != nil {
+		t.Fatalf("portrait frame rejected: %v", err)
+	}
+	service.SelectProfile(screenID, []string{ProfileMJPEG540p10}, []string{ProfileMJPEG540p10})
+	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: time.Now(), Width: 540, Height: 960, JPEG: jpeg}); err != nil {
+		t.Fatalf("higher resolution portrait frame rejected: %v", err)
 	}
 }

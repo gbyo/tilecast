@@ -490,4 +490,50 @@ describe("LiveStreamDialog", () => {
       acceptProfiles: ["mjpeg-540p10", "mjpeg-360p8"],
     });
   });
+
+  it("preserves portrait frame bounds", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "portrait-session",
+              screenId: "screen-1",
+              active: true,
+              expiresAt: "2026-07-30T12:00:15Z",
+              frameIntervalMillis: 125,
+              maxWidth: 640,
+              maxHeight: 640,
+              maxFrameBytes: 102400,
+            },
+          }),
+          { status: 201 },
+        ),
+      )
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    render(
+      <LiveStreamDialog
+        open
+        screenId="screen-1"
+        screenName="Lobby"
+        csrfToken="csrf"
+        onClose={() => undefined}
+        initialWidth={1080}
+        initialHeight={1920}
+      />,
+    );
+    const image = await screen.findByAltText("Live Tilecast output from Lobby");
+    const viewport = image.parentElement;
+    expect(viewport?.style.aspectRatio).toBe("1080 / 1920");
+    Object.defineProperty(image, "naturalWidth", {
+      configurable: true,
+      value: 360,
+    });
+    Object.defineProperty(image, "naturalHeight", {
+      configurable: true,
+      value: 640,
+    });
+    fireEvent.load(image);
+    expect(viewport?.style.aspectRatio).toBe("360 / 640");
+  });
 });

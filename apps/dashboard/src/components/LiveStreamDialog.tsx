@@ -13,6 +13,7 @@ import {
 } from "../live-stream/LiveStreamSurface";
 import { MJPEG_PROFILE_IDS, profileById } from "../live-stream/protocol";
 import { presentationPath } from "../native-presentation/openNativePresentation";
+import { livePreviewFrameStyle } from "./livePreviewFrameStyle";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -74,15 +75,23 @@ export function LiveStreamViewer({
   screenId,
   screenName,
   csrfToken,
+  initialWidth,
+  initialHeight,
 }: {
   enabled?: boolean;
   screenId: string;
   screenName: string;
   csrfToken: string;
+  initialWidth?: number | null;
+  initialHeight?: number | null;
 }) {
   const { t } = useTranslation(["alerts", "common"]);
   const [session, setSession] = useState<WireLiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [frameSize, setFrameSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [error, setError] = useState<LiveStreamViewerError | null>(null);
   const [streamAttempt, setStreamAttempt] = useState(0);
   // After a decoder failure this viewer offers MJPEG only, for as long as
@@ -336,6 +345,9 @@ export function LiveStreamViewer({
 
   const surfaceEvents: SurfaceEvents = useMemo(
     () => ({
+      onFrameSize: (width, height) => {
+        if (width > 0 && height > 0) setFrameSize({ width, height });
+      },
       onPlaying: () => {
         if (transportRetryTimer.current !== null) {
           window.clearTimeout(transportRetryTimer.current);
@@ -373,9 +385,15 @@ export function LiveStreamViewer({
             ? t("liveStream.connectionEnded")
             : null;
 
+  const previewWidth = frameSize?.width ?? initialWidth ?? session?.maxWidth;
+  const previewHeight = frameSize?.height ?? initialHeight ?? session?.maxHeight;
+
   return (
     <>
-      <div className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]">
+      <div
+        className="relative grid w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]"
+        style={livePreviewFrameStyle(previewWidth, previewHeight)}
+      >
         {session && view === "h264" ? (
           <H264Surface
             key={`${session.id}:h264:${session.profileGeneration ?? 0}:${streamAttempt}`}
@@ -477,12 +495,16 @@ export function LiveStreamDialog({
   screenName,
   csrfToken,
   onClose,
+  initialWidth,
+  initialHeight,
 }: {
   open: boolean;
   screenId: string;
   screenName: string;
   csrfToken: string;
   onClose: () => void;
+  initialWidth?: number | null;
+  initialHeight?: number | null;
 }) {
   const { t } = useTranslation(["alerts", "common"]);
   return (
@@ -504,6 +526,8 @@ export function LiveStreamDialog({
           screenId={screenId}
           screenName={screenName}
           csrfToken={csrfToken}
+          initialWidth={initialWidth}
+          initialHeight={initialHeight}
         />
         <DialogFooter>
           <Button onClick={onClose}>{t("liveStream.stopWatching")}</Button>

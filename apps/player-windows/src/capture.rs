@@ -165,6 +165,14 @@ mod tests {
     }
 
     #[test]
+    fn keeps_the_full_portrait_frame_in_the_rotated_bounds() {
+        let frame = gradient(540, 960);
+        let (jpeg, width, height) = encode_jpeg_fit(&frame, 640, 640, 256 * 1024).expect("fits");
+        assert_eq!((width, height), (360, 640));
+        assert!(jpeg.starts_with(&[0xff, 0xd8]));
+    }
+
+    #[test]
     fn never_upscales() {
         let frame = gradient(320, 240);
         let (_, width, height) = encode_jpeg_fit(&frame, 960, 540, 256 * 1024).expect("fits");

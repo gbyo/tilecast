@@ -40,7 +40,7 @@
       "code": 0,
       "transport": "mjpeg",
       "maxWidth": 960,
-      "maxHeight": 540,
+      "maxHeight": 960,
       "fps": 10,
       "frameIntervalMillis": 100,
       "targetBitrate": 0
@@ -50,7 +50,7 @@
       "code": 0,
       "transport": "mjpeg",
       "maxWidth": 640,
-      "maxHeight": 360,
+      "maxHeight": 640,
       "fps": 8,
       "frameIntervalMillis": 125,
       "targetBitrate": 0

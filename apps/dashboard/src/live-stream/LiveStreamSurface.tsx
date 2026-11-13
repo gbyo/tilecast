@@ -4,6 +4,8 @@ import { startH264Stream, type H264StreamEnd } from "./h264Stream";
 export interface SurfaceEvents {
   /** The first frame is on screen. */
   onPlaying(): void;
+  /** Dimensions of the first decoded frame. */
+  onFrameSize?(width: number, height: number): void;
   /** The relay request failed or ended; the viewer renews and retries. */
   onTransportEnded(reason: H264StreamEnd | "error"): void;
   /** This browser cannot decode the stream; the viewer falls back to MJPEG. */
@@ -25,7 +27,13 @@ export function MjpegSurface({
       className="block size-full object-contain"
       src={url}
       alt={alt}
-      onLoad={() => events.onPlaying()}
+      onLoad={(event) => {
+        events.onFrameSize?.(
+          event.currentTarget.naturalWidth,
+          event.currentTarget.naturalHeight,
+        );
+        events.onPlaying();
+      }}
       onError={() => events.onTransportEnded("error")}
     />
   );
@@ -60,7 +68,10 @@ export function H264Surface({
       sessionId,
       canvas: target,
       callbacks: {
-        onFirstFrame: () => latestEvents.current.onPlaying(),
+        onFirstFrame: () => {
+          latestEvents.current.onFrameSize?.(target.width, target.height);
+          latestEvents.current.onPlaying();
+        },
         onEnded: (reason) => latestEvents.current.onTransportEnded(reason),
         onDecoderFailed: () => latestEvents.current.onDecoderFailed(),
       },

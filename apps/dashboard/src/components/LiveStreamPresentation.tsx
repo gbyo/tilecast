@@ -26,6 +26,10 @@ export function LiveStreamPresentation() {
     ...screenQueries.detail(screenId),
     enabled: Boolean(screenId),
   });
+  const preview = useQuery({
+    ...screenQueries.preview(screenId),
+    enabled: Boolean(screenId),
+  });
   const screenName =
     screen.data?.name ?? t("screens:livePreview.unnamedScreen");
   usePresentationChrome({
@@ -46,6 +50,8 @@ export function LiveStreamPresentation() {
           screenId={screenId}
           screenName={screenName}
           csrfToken={csrfToken}
+          initialWidth={preview.data?.width}
+          initialHeight={preview.data?.height}
         />
       ) : null}
       <Button onClick={() => presentation?.close()}>

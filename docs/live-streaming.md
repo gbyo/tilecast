@@ -41,8 +41,10 @@ preference order:
 | `h264-720p15`  | H.264     |     1280×720 |     15 FPS |             1.5 Mbit/s |
 | `h264-540p15`  | H.264     |      960×540 |     15 FPS |             900 kbit/s |
 | `h264-540p10`  | H.264     |      960×540 |     10 FPS |             700 kbit/s |
-| `mjpeg-540p10` | MJPEG     |      960×540 |     10 FPS |  up to 100 KiB a frame |
-| `mjpeg-360p8`  | MJPEG     |      640×360 |      8 FPS |  up to 100 KiB a frame |
+| `mjpeg-540p10` | MJPEG     |      960×960 |     10 FPS |  up to 100 KiB a frame |
+| `mjpeg-360p8`  | MJPEG     |      640×640 |      8 FPS |  up to 100 KiB a frame |
+
+MJPEG maximum dimensions bound width and height independently to retain a portrait frame: 360×640 or 540×960 fits without forced 16:9 cropping. Typical landscape frames still fit 640×360 and 960×540. H.264 profiles keep their existing bounds and negotiation.
 
 The bitrates are initial encoder targets, not contract rates. Capture,
 encoding, Player load, and network latency can lower the actual frame rate.

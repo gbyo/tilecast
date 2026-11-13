@@ -41,8 +41,8 @@ var Profiles = []Profile{
 	{ID: ProfileH264720p15, Code: 1, Transport: TransportH264, MaxWidth: 1280, MaxHeight: 720, FPS: 15, FrameInterval: 67 * time.Millisecond, TargetBitrate: 1_500_000},
 	{ID: ProfileH264540p15, Code: 2, Transport: TransportH264, MaxWidth: 960, MaxHeight: 540, FPS: 15, FrameInterval: 67 * time.Millisecond, TargetBitrate: 900_000},
 	{ID: ProfileH264540p10, Code: 3, Transport: TransportH264, MaxWidth: 960, MaxHeight: 540, FPS: 10, FrameInterval: 100 * time.Millisecond, TargetBitrate: 700_000},
-	{ID: ProfileMJPEG540p10, Transport: TransportMJPEG, MaxWidth: 960, MaxHeight: 540, FPS: 10, FrameInterval: 100 * time.Millisecond},
-	{ID: ProfileMJPEG360p8, Transport: TransportMJPEG, MaxWidth: 640, MaxHeight: 360, FPS: 8, FrameInterval: 125 * time.Millisecond},
+	{ID: ProfileMJPEG540p10, Transport: TransportMJPEG, MaxWidth: 960, MaxHeight: 960, FPS: 10, FrameInterval: 100 * time.Millisecond},
+	{ID: ProfileMJPEG360p8, Transport: TransportMJPEG, MaxWidth: 640, MaxHeight: 640, FPS: 8, FrameInterval: 125 * time.Millisecond},
 }
 
 // MaxProfileList bounds a viewer or Player profile list.
