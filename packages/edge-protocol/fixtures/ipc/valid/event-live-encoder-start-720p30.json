@@ -1,0 +1,16 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 42,
+    "event": "live_encoder.start",
+    "data": {
+      "streamId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d",
+      "profile": "h264-720p30",
+      "maxWidth": 1280,
+      "maxHeight": 720,
+      "fps": 30,
+      "bitrate": 2500000,
+      "keyframeInterval": 30
+    }
+  }
+}

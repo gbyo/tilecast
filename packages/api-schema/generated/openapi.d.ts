@@ -7690,6 +7690,7 @@ export interface components {
        * @enum {string}
        */
       profile?:
+        | "h264-720p30"
         | "h264-720p15"
         | "h264-540p15"
         | "h264-540p10"

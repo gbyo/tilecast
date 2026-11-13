@@ -2189,6 +2189,7 @@ const (
 	H264540p10  LiveStreamSessionProfile = "h264-540p10"
 	H264540p15  LiveStreamSessionProfile = "h264-540p15"
 	H264720p15  LiveStreamSessionProfile = "h264-720p15"
+	H264720p30  LiveStreamSessionProfile = "h264-720p30"
 	Mjpeg360p8  LiveStreamSessionProfile = "mjpeg-360p8"
 	Mjpeg540p10 LiveStreamSessionProfile = "mjpeg-540p10"
 )
@@ -2201,6 +2202,8 @@ func (e LiveStreamSessionProfile) Valid() bool {
 	case H264540p15:
 		return true
 	case H264720p15:
+		return true
+	case H264720p30:
 		return true
 	case Mjpeg360p8:
 		return true

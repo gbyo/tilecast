@@ -24,18 +24,24 @@
  *     requested.
  *
  * Encoder probe. Before advertising anything, the renderer instantiates
- * each candidate and encodes real frames at the profile size, then checks
- * that the first output is a Constrained Baseline keyframe with SPS, PPS and
- * an IDR slice. Order: vah264lpenc, vah264enc, openh264enc. A VA-API
- * encoder that passes at 1280x720 advertises h264-720p15 and below; a
- * software encoder starts at h264-540p15. Nothing passes: no H.264 profile,
- * and Watch Live stays on MJPEG. The probe runs once per renderer process on
- * a worker thread.
+ * each candidate and encodes real frames at a profile's size, frame rate and
+ * bitrate, then checks that the first output is a Constrained Baseline
+ * keyframe at level 3.1 or lower with SPS, PPS and an IDR slice. Order:
+ * vah264lpenc, vah264enc, openh264enc. A hardware encoder tries
+ * 1280x720@30 (advertising h264-720p30 and below), then 1280x720@15
+ * (h264-720p15 and below), then 960x540@15 (h264-540p15 and below). A
+ * software encoder only tries 960x540@15: 720p30 is hardware-only. Nothing
+ * passes: no H.264 profile, and Watch Live stays on MJPEG. The probe proves
+ * the encoder can start and make a restartable keyframe at the profile, not
+ * that capture, conversion and encoding sustain the frame rate: the runtime
+ * sustainability monitor in Player Core judges that and degrades. The probe
+ * runs once per renderer process on a worker thread.
  *
  * A stream failure is reported as renderer.live_encoder "failed" and never
  * affects playback. No frame, chunk or pixel is logged or stored.
  */
 #include "host.h"
+#include "live-profiles.h"
 #include "validate.h"
 
 #include <gst/app/gstappsink.h>
@@ -69,7 +75,8 @@ static const Candidate candidates[] = {
 static struct {
   gboolean done;
   const Candidate *candidate;
-  gboolean supports_720p;
+  /* The highest H.264 profile the candidate proved; NONE until it did. */
+  TcLiveTier tier;
 } probe;
 
 static TcHost *probe_host;
@@ -91,6 +98,9 @@ typedef struct {
   guint64 frame;
   gint in_flight; /* atomic */
   guint dropped;
+  /* Counts for the stream's end-of-life log line (no frame data). */
+  guint64 total_dropped;
+  guint64 total_delivered;
   guint skip;
   guint64 copied_generation;
   GBytes *last_pixels;
@@ -222,30 +232,10 @@ build_pipeline (const Candidate *candidate, GstElement *input, guint width, guin
   return pipeline;
 }
 
-/* NAL unit types of an Annex B access unit, in order, as a bit set of
- * "seen SPS", "seen PPS", "IDR after both". */
+/* One probe stage: real frames through the real pipeline at the stage's
+ * size, frame rate and bitrate. */
 static gboolean
-is_restartable_keyframe (const guint8 *data, gsize size)
-{
-  gboolean sps = FALSE, pps = FALSE;
-  for (gsize i = 0; i + 3 < size; i++) {
-    if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 1) {
-      guint type = data[i + 3] & 0x1f;
-      if (type == 7)
-        sps = TRUE;
-      else if (type == 8)
-        pps = TRUE;
-      else if (type == 5)
-        return sps && pps;
-      i += 2;
-    }
-  }
-  return FALSE;
-}
-
-/* One probe at one size: real frames through the real pipeline. */
-static gboolean
-probe_candidate (const Candidate *candidate, guint width, guint height, guint fps)
+probe_candidate (const Candidate *candidate, const TcLiveProbeStage *stage)
 {
   GstElement *source = gst_element_factory_make ("videotestsrc", NULL);
   if (source == NULL)
@@ -253,7 +243,8 @@ probe_candidate (const Candidate *candidate, guint width, guint height, guint fp
   g_object_set (source, "num-buffers", 4, NULL);
   gst_util_set_object_arg (G_OBJECT (source), "pattern", "ball");
   GstElement *encoder = NULL, *sink = NULL;
-  GstElement *pipeline = build_pipeline (candidate, source, width, height, fps, 900000, &encoder, &sink);
+  GstElement *pipeline =
+    build_pipeline (candidate, source, stage->width, stage->height, stage->fps, stage->bitrate, &encoder, &sink);
   if (pipeline == NULL)
     return FALSE;
   gboolean ok = FALSE;
@@ -264,7 +255,11 @@ probe_candidate (const Candidate *candidate, guint width, guint height, guint fp
       GstMapInfo map;
       if (buffer != NULL && !GST_BUFFER_FLAG_IS_SET (buffer, GST_BUFFER_FLAG_DELTA_UNIT)
           && gst_buffer_map (buffer, &map, GST_MAP_READ)) {
-        ok = map.size <= TC_LIVE_MAX_ACCESS_UNIT && is_restartable_keyframe (map.data, map.size);
+        guint level = 0;
+        ok = map.size <= TC_LIVE_MAX_ACCESS_UNIT && tc_live_is_restartable_keyframe (map.data, map.size)
+             && tc_live_sps_conforms (map.data, map.size, &level);
+        g_message ("live-encoder: %s %s probe %s (first access unit %" G_GSIZE_FORMAT " bytes, level_idc %u)",
+                   candidate->element, stage->name, ok ? "passed" : "failed validation", map.size, level);
         gst_buffer_unmap (buffer, &map);
       }
       gst_sample_unref (sample);
@@ -272,7 +267,15 @@ probe_candidate (const Candidate *candidate, guint width, guint height, guint fp
   }
   gst_element_set_state (pipeline, GST_STATE_NULL);
   gst_object_unref (pipeline);
+  if (!ok)
+    g_message ("live-encoder: %s did not qualify %s", candidate->element, stage->name);
   return ok;
+}
+
+static gboolean
+probe_stage (const TcLiveProbeStage *stage, gpointer user_data)
+{
+  return probe_candidate (user_data, stage);
 }
 
 static void
@@ -284,12 +287,9 @@ send_capabilities (TcHost *host)
   json_builder_begin_object (builder);
   json_builder_set_member_name (builder, "profiles");
   json_builder_begin_array (builder);
-  if (probe.candidate != NULL) {
-    if (probe.supports_720p)
-      json_builder_add_string_value (builder, "h264-720p15");
-    json_builder_add_string_value (builder, "h264-540p15");
-    json_builder_add_string_value (builder, "h264-540p10");
-  }
+  if (probe.candidate != NULL)
+    for (const char *const *id = tc_live_tier_profiles (probe.tier); *id != NULL; id++)
+      json_builder_add_string_value (builder, *id);
   json_builder_end_array (builder);
   if (probe.candidate != NULL) {
     json_builder_set_member_name (builder, "encoder");
@@ -313,12 +313,12 @@ probe_in_thread (GTask *task, gpointer source_object, gpointer task_data, GCance
       g_autoptr (GstElementFactory) factory = gst_element_factory_find (candidate->element);
       if (factory == NULL)
         continue;
-      /* Hardware encoders must prove 720p; software starts at 540p. */
-      if (candidate->hardware && probe_candidate (candidate, 1280, 720, 15)) {
+      /* Hardware encoders try 720p30, 720p15, then 540p15; software only
+       * 540p15. */
+      TcLiveTier tier = tc_live_qualify (candidate->hardware, probe_stage, (gpointer) candidate);
+      if (tier != TC_LIVE_TIER_NONE) {
         probe.candidate = candidate;
-        probe.supports_720p = TRUE;
-      } else if (probe_candidate (candidate, 960, 540, 15)) {
-        probe.candidate = candidate;
+        probe.tier = tier;
       } else {
         g_message ("live-encoder: %s is installed but did not produce a Constrained Baseline stream",
                    candidate->element);
@@ -337,7 +337,7 @@ on_probed (GObject *source, GAsyncResult *result, gpointer user_data)
   probe.done = TRUE;
   if (probe.candidate != NULL)
     g_message ("live-encoder: H.264 Watch Live uses %s (%s, up to %s)", probe.candidate->element,
-               probe.candidate->hardware ? "hardware" : "software", probe.supports_720p ? "720p15" : "540p15");
+               probe.candidate->hardware ? "hardware" : "software", tc_live_tier_name (probe.tier));
   else
     g_message ("live-encoder: no working H.264 encoder; Watch Live uses MJPEG");
   if (probe_host != NULL)
@@ -429,6 +429,7 @@ deliver (gpointer user_data)
   json_builder_add_int_value (builder, stream->dropped);
   json_builder_end_object (builder);
   stream->dropped = 0;
+  stream->total_delivered++;
   tc_ipc_send_event (delivery->host, "renderer.live_chunk", json_builder_get_root (builder));
   return G_SOURCE_REMOVE;
 }
@@ -492,6 +493,7 @@ on_tick (gpointer user_data)
   if (stream->skip > 0) {
     stream->skip--;
     stream->dropped++;
+    stream->total_dropped++;
     return G_SOURCE_CONTINUE;
   }
   /* An encoder may consume a frame without output; a second of silence
@@ -502,6 +504,7 @@ on_tick (gpointer user_data)
   if (g_atomic_int_get (&stream->in_flight) >= TC_LIVE_MAX_IN_FLIGHT) {
     /* The encoder is behind: drop this raw frame instead of queueing it. */
     stream->dropped++;
+    stream->total_dropped++;
     return G_SOURCE_CONTINUE;
   }
   guint64 generation = tc_preview_presented_generation (stream->host);
@@ -513,6 +516,7 @@ on_tick (gpointer user_data)
     stream->last_capture_us = elapsed;
     if (pixels == NULL) {
       stream->dropped++;
+      stream->total_dropped++;
       return G_SOURCE_CONTINUE;
     }
     g_clear_pointer (&stream->last_pixels, g_bytes_unref);
@@ -521,6 +525,7 @@ on_tick (gpointer user_data)
     stream->last_width = width;
     stream->last_height = height;
     stream->copied_generation = generation;
+    /* Microseconds, so a 30 fps slot is 33333 and never rounds to zero. */
     gint64 interval = G_USEC_PER_SEC / MAX (1u, stream->fps);
     if (elapsed * TC_LIVE_MAIN_LOOP_SHARE > interval)
       stream->skip = (guint) MIN (elapsed * TC_LIVE_MAIN_LOOP_SHARE / interval, 4);
@@ -575,6 +580,9 @@ tc_live_encoder_stop_all (TcHost *host)
   if (stream == NULL)
     return;
   active = NULL;
+  g_message ("live-encoder: stream ended: %" G_GUINT64_FORMAT " access units delivered, %" G_GUINT64_FORMAT
+             " raw frames dropped before encoding",
+             stream->total_delivered, stream->total_dropped);
   if (stream->timer != 0)
     g_source_remove (stream->timer);
   /* NULL joins the streaming threads; queued deliveries see a new
@@ -601,9 +609,8 @@ start (TcHost *host, JsonObject *data)
   gint64 fps = json_object_get_int_member_with_default (data, "fps", 0);
   gint64 bitrate = json_object_get_int_member_with_default (data, "bitrate", 0);
   const char *profile = json_object_get_string_member_with_default (data, "profile", "");
-  gboolean allowed = probe.candidate != NULL
-                     && (g_strcmp0 (profile, "h264-540p15") == 0 || g_strcmp0 (profile, "h264-540p10") == 0
-                         || (g_strcmp0 (profile, "h264-720p15") == 0 && probe.supports_720p));
+  /* Only what the probe qualified: a profile above the tier is refused. */
+  gboolean allowed = probe.candidate != NULL && tc_live_tier_allows_profile (probe.tier, profile);
   if (!allowed || max_width < 16 || max_width > 1280 || max_height < 16 || max_height > 720 || fps < 1 || fps > 30
       || bitrate < 100000 || bitrate > 8000000) {
     send_state (host, stream_id, "failed", "start_invalid", NULL);
@@ -659,7 +666,11 @@ start (TcHost *host, JsonObject *data)
     return;
   }
   stream->last_output_us = g_get_monotonic_time ();
-  stream->timer = g_timeout_add_full (G_PRIORITY_DEFAULT, MAX (1u, 1000u / stream->fps), on_tick, stream, NULL);
+  stream->timer =
+    g_timeout_add_full (G_PRIORITY_DEFAULT, tc_live_timer_interval_ms (stream->fps), on_tick, stream, NULL);
+  g_message ("live-encoder: stream started: %s on %s (%s), %ux%u at %u fps, %u bit/s, qualified up to %s", profile,
+             probe.candidate->element, probe.candidate->hardware ? "hardware" : "software", width, height,
+             stream->fps, (guint) bitrate, tc_live_tier_name (probe.tier));
   send_state (host, stream_id, "started", "ok", probe.candidate->element);
 }
 
