@@ -94,23 +94,23 @@ dependencies {
     // device test seeds a pre-migration database for the native importer.
     // 2.7.0 matches the Room WorkManager already ships; consistent resolution
     // pins androidTest to the app's resolved version.
-    androidTestImplementation("androidx.room:room-runtime:2.7.0")
-    androidTestImplementation("androidx.room:room-ktx:2.7.0")
-    kspAndroidTest("androidx.room:room-compiler:2.7.0")
+    androidTestImplementation("androidx.room:room-runtime:2.8.5")
+    androidTestImplementation("androidx.room:room-ktx:2.8.5")
+    kspAndroidTest("androidx.room:room-compiler:2.8.5")
     // WorkManager 2.12 raises minSdk to 24; Tilecast still supports API 23.
-    implementation("androidx.work:work-runtime-ktx:2.11.2")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     // Trusted Player Runtime host (WebViewAssetLoader, WebMessageListener).
     // minSdk stays 23: webkit 1.15.x is the newest stable line supporting API
     // 23 (1.16.x requires API 24). Required APIs are feature-detected at
     // runtime; an unsupported WebView fails closed, never silently downgrades.
     implementation("androidx.webkit:webkit:1.15.0")
-    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
     // Kotlin component of rustls-platform-verifier. The version stays
     // unpinned here: the resolution strategy below pins it to the
     // rustls-platform-verifier-android version in the root Cargo.lock, which
     // is the exact native component it must match.
     implementation("org.rustls:rustls-platform-verifier")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     implementation("com.google.zxing:core:3.5.4")
     // Lucide, the icon set Studio uses, as Android vector drawables
     // (lucide_ic_*). Release resource shrinking keeps only the icons in use.
@@ -121,7 +121,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
-    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.1")
     testImplementation("androidx.room:room-testing:2.8.5")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
