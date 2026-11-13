@@ -3512,7 +3512,7 @@ async fn watch_live_drops_queued_frames_across_a_protected_reconnect() {
     wait_long("live frames before disconnect", 60, async || live_frames_for(&harness.fake, &session) >= 2).await;
 
     // Drop the socket and refuse reconnects while the producer keeps running,
-    // so a latest frame can remain pending in the watch slot.
+    // so a latest frame can remain pending in the outbox.
     let connections = harness.fake.socket_connections.load(Ordering::SeqCst);
     harness.fake.socket_enabled.store(false, Ordering::SeqCst);
     harness.fake.socket_generation.fetch_add(1, Ordering::SeqCst);
@@ -3534,8 +3534,7 @@ async fn watch_live_drops_queued_frames_across_a_protected_reconnect() {
         renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
     })
     .await;
-    let queued = player.context.live_frames.subscribe();
-    wait_long("the pending live frame to be cleared", 10, async || queued.borrow().is_none()).await;
+    wait_long("the pending live frame to be cleared", 10, async || player.context.live_outbox.is_empty()).await;
     let before_reconnect = live_frames_for(&harness.fake, &session);
 
     // Reconnect while still protected. The socket owner checks the current
@@ -3793,7 +3792,10 @@ async fn explicit_download_beyond_cache_fails_preparation_visibly() {
     assert_eq!(reason.as_deref(), Some("media_cache_too_small"));
     assert!(player.stage(&binding, Stage::Pending).await.is_none());
     assert!(player.stage(&binding, Stage::Active).await.is_none());
-    assert_eq!(heartbeat(&player.context).await["lastSynchronizationError"], "media_cache_too_small");
+    wait_until("cache capacity error in the heartbeat", || async {
+        heartbeat(&player.context).await["lastSynchronizationError"] == "media_cache_too_small"
+    })
+    .await;
     renderer.stop();
     player.stop().await;
 }

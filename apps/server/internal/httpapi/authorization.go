@@ -102,6 +102,7 @@ var objectRules = map[string]objectRule{
 	"POST /api/v1/screens/{id}/live-stream/{sessionId}/renew":       screenObject(auth.CapScreenRead),
 	"DELETE /api/v1/screens/{id}/live-stream/{sessionId}":           screenObject(auth.CapScreenRead),
 	"GET /api/v1/screens/{id}/live-stream/{sessionId}/mjpeg":        screenObject(auth.CapScreenRead),
+	"GET /api/v1/screens/{id}/live-stream/{sessionId}/h264":         screenObject(auth.CapScreenRead),
 	"GET /api/v1/screens/{id}/reliability":                          screenObject(auth.CapScreenRead),
 	"GET /api/v1/screens/{id}/presentation-network":                 screenObject(auth.CapScreenRead),
 	"PUT /api/v1/screens/{id}/presentation-network":                 screenObject(auth.CapScreenManage),

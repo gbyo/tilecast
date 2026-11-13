@@ -205,6 +205,64 @@ def read_mjpeg_frames(url, opener, want, timeout):
     return frames
 
 
+def read_h264_records(url, opener, want, timeout):
+    """Reads TCLS version 2 records from a Tilecast H.264 live-stream
+    response: a big-endian u32 length, then the 48-byte header and one
+    Annex B access unit. Returns (header, access unit) pairs and asserts the
+    framing and bounds the server promises."""
+    response = opener.open(urllib.request.Request(url), timeout=15)
+    assert response.status == 200, response.status
+    assert response.headers.get("Content-Type") == "application/vnd.tilecast.live-h264", response.headers
+    assert response.headers.get("Cache-Control") == "no-store, private", response.headers
+    records = []
+    rest = b""
+    deadline = time.time() + timeout
+    try:
+        while len(records) < want and time.time() < deadline:
+            chunk = response.read1(65536)
+            if not chunk:
+                break
+            rest += chunk
+            while len(rest) >= 4:
+                length = struct.unpack(">I", rest[:4])[0]
+                assert 52 <= length <= 48 + 512 * 1024, length
+                if len(rest) < 4 + length:
+                    break
+                packet, rest = rest[4:4 + length], rest[4 + length:]
+                assert packet[:5] == b"TCLS\x02", packet[:8]
+                flags = packet[6]
+                assert flags & ~1 == 0 and packet[7] == 0, packet[:8]
+                header = {
+                    "session": str(uuid.UUID(bytes=packet[8:24])),
+                    "profile_code": packet[5],
+                    "sequence": struct.unpack(">Q", packet[24:32])[0],
+                    "timestamp": struct.unpack(">Q", packet[32:40])[0],
+                    "width": struct.unpack(">H", packet[40:42])[0],
+                    "height": struct.unpack(">H", packet[42:44])[0],
+                    "keyframe": bool(flags & 1),
+                }
+                assert struct.unpack(">I", packet[44:48])[0] == length - 48
+                records.append((header, packet[48:]))
+    finally:
+        response.close()
+    return records
+
+
+def nal_types(access_unit):
+    return [access_unit[match.end()] & 0x1F for match in re.finditer(b"\x00\x00\x01", access_unit)
+            if match.end() < len(access_unit)]
+
+
+def decode_h264(ffmpeg, access_units, width, height):
+    """Decodes Annex B access units with FFmpeg into RGB frames."""
+    rgb = subprocess.run(
+        [ffmpeg, "-loglevel", "error", "-f", "h264", "-i", "pipe:0", "-f", "rawvideo", "-pix_fmt", "rgb24",
+         "pipe:1"], input=b"".join(access_units), capture_output=True, check=True).stdout
+    size = width * height * 3
+    assert len(rgb) % size == 0, (len(rgb), size)
+    return [Frame(width, height, rgb[index:index + size]) for index in range(0, len(rgb), size)]
+
+
 def png_with_alpha(width, height, opaque_columns, color):
     """A width x height RGBA PNG whose left ``opaque_columns`` columns are the
     opaque ``color`` and the rest fully transparent. The standard library
@@ -972,6 +1030,78 @@ def main():
             client.call("DELETE", f"/api/v1/screens/{screen_id}/live-stream/{live_id}", expect=204)
             status, _ = client.call("GET", f"/api/v1/screens/{screen_id}/live-stream/{live_id}/mjpeg")
             assert status == 404, f"the ended session still streams: {status}"
+            assert live["data"].get("profile") is None and live["data"]["transport"] == "mjpeg", live["data"]
+
+            # Watch Live H.264: a Studio that can decode H.264 says so, the
+            # renderer's encoder probe found a working encoder (OpenH264 in
+            # this image), and the server selects an H.264 profile. The
+            # stream must decode: an IDR first, then P-frames that move.
+            assert "live-encoder: H.264 Watch Live uses" in open(renderer_log_path, errors="replace").read(), \
+                "the renderer did not report a working H.264 encoder"
+            accept = ["h264-720p15", "h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"]
+            _, h264_live = client.call("POST", f"/api/v1/screens/{screen_id}/live-stream",
+                                       body={"acceptProfiles": accept}, expect=201)
+            h264_id = h264_live["data"]["id"]
+            stop_renew = threading.Event()
+            selected = {}
+
+            def renew_h264():
+                while not stop_renew.wait(1):
+                    _, renewed = client.call(
+                        "POST", f"/api/v1/screens/{screen_id}/live-stream/{h264_id}/renew", expect=200)
+                    selected.update(renewed["data"])
+
+            renewer = threading.Thread(target=renew_h264, daemon=True)
+            renewer.start()
+            h264_url = f"{BASE}/api/v1/screens/{screen_id}/live-stream/{h264_id}/h264"
+            try:
+                wait_for(lambda: selected.get("profile"), "the Player to choose a Watch Live profile", timeout=30)
+                assert selected["transport"] == "h264" and selected["codec"] == "avc1.42e01f", selected
+                assert selected["profile"] in ("h264-720p15", "h264-540p15"), selected
+                print("live h264:", selected["profile"], f"{selected['maxWidth']}x{selected['maxHeight']}",
+                      f"target {selected['targetBitrate']} bit/s")
+                records = read_h264_records(h264_url, client.opener, want=45, timeout=60)
+                assert len(records) >= 30, f"only {len(records)} H.264 access units arrived"
+                first, first_unit = records[0]
+                assert first["keyframe"] and first["session"] == h264_id, first
+                types = nal_types(first_unit)
+                assert 7 in types and 8 in types and 5 in types and types.index(7) < types.index(5), types
+                keyframes = [header for header, unit in records if header["keyframe"]]
+                for header, unit in records:
+                    if header["keyframe"]:
+                        assert {7, 8, 5} <= set(nal_types(unit)), "a keyframe without SPS, PPS and IDR"
+                    else:
+                        assert 5 not in nal_types(unit), "a delta access unit with an IDR slice"
+                sequences = [header["sequence"] for header, _ in records]
+                assert sequences == sorted(set(sequences)), "sequence numbers must increase"
+                stamps = [header["timestamp"] for header, _ in records]
+                assert stamps == sorted(stamps), "timestamps must not go backwards"
+                width, height = first["width"], first["height"]
+                assert (width, height) == (selected["maxWidth"], selected["maxHeight"]), (width, height)
+                frames = decode_h264(tools["ffmpeg"], [unit for _, unit in records], width, height)
+                assert len(frames) >= 30, f"FFmpeg decoded only {len(frames)} frames"
+                positions = [assert_video_under_overlay(frame, f"H.264 frame {index}")["box_x"]
+                             for index, frame in enumerate(frames[::3])]
+                assert max(positions) - min(positions) >= 20, f"the video did not move in H.264: {positions}"
+                print("live h264 content:", f"{len(frames)} decoded frames, {len(keyframes)} keyframes,",
+                      [round(p) for p in positions])
+
+                # A viewer that reconnects joins at an IDR (the buffered
+                # GOP or the next keyframe) and decodes from there.
+                time.sleep(1.5)
+                again = read_h264_records(h264_url, client.opener, want=20, timeout=30)
+                assert again and again[0][0]["keyframe"], "a reconnect must start at a keyframe"
+                assert again[0][0]["sequence"] > sequences[0], (again[0][0], sequences[0])
+                rejoined = decode_h264(tools["ffmpeg"], [unit for _, unit in again], width, height)
+                assert len(rejoined) >= 10, f"the reconnect decoded only {len(rejoined)} frames"
+                assert_video_under_overlay(rejoined[-1], "H.264 after reconnect")
+                print("live h264 reconnect:", f"{len(rejoined)} frames from sequence {again[0][0]['sequence']}")
+            finally:
+                stop_renew.set()
+                renewer.join(timeout=10)
+            client.call("DELETE", f"/api/v1/screens/{screen_id}/live-stream/{h264_id}", expect=204)
+            status, _ = client.call("GET", f"/api/v1/screens/{screen_id}/live-stream/{h264_id}/h264")
+            assert status == 404, f"the ended H.264 session still streams: {status}"
 
             # Offline: the committed Layout plays from the cache with the
             # server stopped and the player restarted.

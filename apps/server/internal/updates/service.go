@@ -656,9 +656,22 @@ func (s *Service) Cache(ctx context.Context, releaseID uuid.UUID) error {
 	progress.flush()
 	syncErr := file.Sync()
 	closeErr := file.Close()
-	if copyErr != nil || syncErr != nil || closeErr != nil || written != expectedSize || hex.EncodeToString(hash.Sum(nil)) != expectedHash {
+	var pathErr *os.PathError
+	if syncErr != nil || closeErr != nil || errors.As(copyErr, &pathErr) {
 		_ = os.Remove(part)
-		return errors.New("release artifact size or SHA-256 verification failed")
+		return errors.New("release artifact could not be saved; check server storage")
+	}
+	if copyErr != nil {
+		_ = os.Remove(part)
+		return errors.New("release artifact download interrupted; retry the download")
+	}
+	if written != expectedSize {
+		_ = os.Remove(part)
+		return fmt.Errorf("release artifact size verification failed: received %d of %d bytes", written, expectedSize)
+	}
+	if hex.EncodeToString(hash.Sum(nil)) != expectedHash {
+		_ = os.Remove(part)
+		return errors.New("release artifact SHA-256 verification failed")
 	}
 	if platform == PlatformAndroid {
 		var expectedApplication string

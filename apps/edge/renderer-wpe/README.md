@@ -42,6 +42,15 @@ The host copies only known, bounded fields into IPC events. Host-to-page deliver
 - **Fallback: WebKit snapshot.** `webkit_web_view_get_snapshot()` is used for a request only when the presented buffer cannot be read: no buffer yet, import not supported, unknown format, a GBM mapping failure, or an invalid size or stride. A WebKit snapshot can leave out a hardware-decoded video layer, so it is a compatibility path. The two paths never run together, and a capture problem never changes playback.
 - **Logs.** The backend is logged when it changes: `preview: using presented WPE buffer 1920x1080 dmabuf XRGB8888 modifier 0x0`, or `preview: WPE buffer import unavailable (<reason>); falling back to WebKit snapshot`. Per-capture lines are debug level (`G_MESSAGES_DEBUG=all`). A log line never contains pixels, content URLs or credentials.
 
+### Watch Live H.264 (`src/live-encoder.c`)
+
+For an H.264 Watch Live lease, `tilecastd` sends `live_encoder.start` and the renderer runs one persistent GStreamer pipeline of the same presented buffer (`appsrc ! videoconvert ! videoscale ! <encoder> ! h264parse ! appsink`), replacing the one-shot JPEG capture for those frames. The renderer never starts it on its own, and `live_encoder.stop` frees it at once.
+
+- **Probe.** At startup, on a worker thread, each installed candidate (`vah264lpenc`, `vah264enc`, `openh264enc`, in that order) must encode real frames into a Constrained Baseline keyframe with SPS, PPS and an IDR. A hardware encoder must pass at 1280×720 to advertise 720p; software starts at 540p. The result is sent as `renderer.live_capabilities`, and logged as `live-encoder: H.264 Watch Live uses <element> (...)`. No element is assumed from its package.
+- **Playback isolation.** The main loop only copies the presented buffer (reusing the last copy when nothing was presented) at the profile frame rate. At most two raw frames wait for the encoder; more are dropped and counted. A slow copy skips the next frames. Conversion and encoding run on GStreamer threads.
+- **Keyframes.** `h264parse config-interval=-1` puts SPS and PPS before every IDR; the encoder makes one about each second; `live_encoder.keyframe` asks for one sooner. A unit over 512 KiB is dropped and a keyframe requested.
+- **Privacy.** Pixels and access units are never logged or stored. Every chunk is `renderer.live_chunk` to `tilecastd`, which checks the protected state before it reaches the socket.
+
 The headless end-to-end test runs this path with SHM buffers. The DMA-BUF import on a physical DRM display has no CI coverage; the release canary checks it.
 
 ## Build and test

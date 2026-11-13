@@ -48,6 +48,7 @@ pub mod idle_inhibit;
 pub mod ipc_handler;
 pub mod legacy_compat;
 pub mod legacy_import;
+pub mod live_encoder;
 pub mod live_stream;
 pub mod logging;
 pub mod manifest;

@@ -440,13 +440,20 @@ impl PlayerSocket {
         .await
     }
 
-    /// Sends one encoded TCLS live-stream frame on this socket. The socket
-    /// stays single-owner in `server_link.rs`: callers hand frames to it
-    /// through the bounded latest-frame channel and never touch the socket.
+    /// Sends one encoded TCLS live-stream message (a version 1 JPEG frame or
+    /// a version 2 H.264 access unit) on this socket. The socket stays
+    /// single-owner in Core's server link: producers hand messages to it
+    /// through the bounded Watch Live outbox and never touch the socket.
     /// The existing inbound message limits are unchanged: they bound what
     /// the server may send, not what the player may emit.
     pub async fn send_live_stream_frame(&mut self, frame: Vec<u8>) -> Result<(), ServerError> {
-        if frame.len() > crate::live_stream::TCLS_HEADER_LEN + crate::live_stream::MAX_FRAME_BYTES {
+        let limit = match frame.get(4) {
+            Some(&crate::live_stream::TCLS_VERSION_H264) => {
+                crate::live_stream::TCLS_V2_HEADER_LEN + crate::live_stream::MAX_ACCESS_UNIT_BYTES
+            }
+            _ => crate::live_stream::TCLS_HEADER_LEN + crate::live_stream::MAX_FRAME_BYTES,
+        };
+        if frame.len() > limit {
             return Err(ServerError::Decode);
         }
         let remaining = PLAYER_SOCKET_ACTIVITY_TIMEOUT.saturating_sub(self.last_activity.elapsed());
@@ -795,20 +802,20 @@ impl AuthenticatedServer {
     /// `GET /player/live-stream-session`: whether Studio holds a Watch Live
     /// lease. An inactive, expired, malformed, or incomplete session fails
     /// closed to no streaming rather than affecting playback.
-    pub async fn live_stream_session(&self) -> Result<crate::live_stream::LiveStreamSession, ServerError> {
-        self.live_stream_session_with_profile(false).await
-    }
-
-    pub async fn live_stream_session_with_profile(
+    /// `capabilities` names the profiles this Player can produce now; the
+    /// server selects one and never a profile outside the list.
+    /// `degraded` names a session this Player degraded out of a profile; the
+    /// server then selects a lower profile for that session only.
+    pub async fn live_stream_session(
         &self,
-        edge_540p10: bool,
+        capabilities: &crate::live_stream::WatchLiveCapabilities,
+        degraded: Option<(uuid::Uuid, crate::live_stream::WatchLiveProfile)>,
     ) -> Result<crate::live_stream::LiveStreamSession, ServerError> {
-        let path = if edge_540p10 {
-            "/api/v1/player/live-stream-session?captureProfile=edge-540p10"
-        } else {
-            "/api/v1/player/live-stream-session"
-        };
-        let response = self.send(self.request(reqwest::Method::GET, path)).await?;
+        let mut path = format!("/api/v1/player/live-stream-session?{}", capabilities.query());
+        if let Some((session_id, profile)) = degraded {
+            path.push_str(&format!("&degradedSession={session_id}&degradedProfile={}", profile.id()));
+        }
+        let response = self.send(self.request(reqwest::Method::GET, &path)).await?;
         let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(crate::live_stream::live_stream_session(&data))
     }

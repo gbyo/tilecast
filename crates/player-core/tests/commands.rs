@@ -192,6 +192,13 @@ impl Harness {
 
     /// A coordinator as a (re)started daemon builds it.
     async fn start(&self) -> Coordinator<Recorder> {
+        let coordinator = self.build();
+        coordinator.recover().await.unwrap();
+        coordinator
+    }
+
+    /// A coordinator that has not recovered yet.
+    fn build(&self) -> Coordinator<Recorder> {
         let db = StateDb::open(&self.path, OpenOptions::default()).unwrap();
         let recorder = Recorder {
             db: db.clone(),
@@ -202,9 +209,7 @@ impl Harness {
             api: Arc::clone(&self.api),
             break_store: Arc::clone(&self.break_store),
         };
-        let coordinator = Coordinator::new(db, self.clock(), recorder);
-        coordinator.recover().await.unwrap();
-        coordinator
+        Coordinator::new(db, self.clock(), recorder)
     }
 
     fn deliver(&self, command: ServerCommand) {
@@ -578,6 +583,70 @@ async fn a_migration_probation_leaves_commands_on_the_server_until_it_ends() {
     probation.store(false, Ordering::SeqCst);
     assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Completed);
     assert_eq!(h.runs.load(Ordering::SeqCst), 1, "after acceptance the command runs once");
+}
+
+/// Breaks and restores the command table, as a held SQLite lock or an I/O
+/// error would for a while.
+fn break_command_store(path: &std::path::Path, broken: bool) {
+    let (from, to) =
+        if broken { ("player_commands", "player_commands_off") } else { ("player_commands_off", "player_commands") };
+    let db = StateDb::open(path, OpenOptions::default()).unwrap();
+    db.run_blocking(move |c| {
+        c.execute_batch(&format!("ALTER TABLE {from} RENAME TO {to}")).unwrap();
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_state_store_failure_during_recovery_is_retried_and_commands_then_run() {
+    let h = Harness::new();
+    h.deliver(command(id(1), "reload_playback"));
+    let coordinator = Arc::new(h.build());
+    break_command_store(&h.path, true);
+    let (_server, receiver) = watch::channel(Some(Arc::clone(&h.api)));
+    let wake = Arc::new(Notify::new());
+    let shutdown = CancellationToken::new();
+    let driver = {
+        let (coordinator, wake, shutdown) = (Arc::clone(&coordinator), Arc::clone(&wake), shutdown.clone());
+        tokio::spawn(async move { drive(&coordinator, receiver, &wake, &shutdown, |_| {}).await })
+    };
+    for _ in 0..3 {
+        settle().await;
+        tokio::time::advance(Duration::from_secs(31)).await;
+    }
+    settle().await;
+    assert!(!driver.is_finished(), "a failed recovery must not end the command task");
+    assert_eq!(h.api.fetches.load(Ordering::SeqCst), 0, "nothing is fetched before recovery settles");
+    assert_eq!(h.runs.load(Ordering::SeqCst), 0);
+
+    break_command_store(&h.path, false);
+    for _ in 0..3 {
+        tokio::time::advance(Duration::from_secs(31)).await;
+        settle_until(|| h.runs.load(Ordering::SeqCst) > 0).await;
+    }
+    assert_eq!(h.runs.load(Ordering::SeqCst), 1, "the command runs once the store recovers");
+    assert_eq!(h.record().state, CommandState::Completed);
+
+    shutdown.cancel();
+    driver.await.unwrap();
+}
+
+#[tokio::test(start_paused = true)]
+async fn shutdown_ends_a_recovery_that_keeps_failing() {
+    let h = Harness::new();
+    let coordinator = Arc::new(h.build());
+    break_command_store(&h.path, true);
+    let (_server, receiver) = watch::channel::<Option<Arc<FakeApi>>>(None);
+    let wake = Arc::new(Notify::new());
+    let shutdown = CancellationToken::new();
+    let driver = {
+        let (coordinator, wake, shutdown) = (Arc::clone(&coordinator), Arc::clone(&wake), shutdown.clone());
+        tokio::spawn(async move { drive(&coordinator, receiver, &wake, &shutdown, |_| {}).await })
+    };
+    settle().await;
+    shutdown.cancel();
+    driver.await.unwrap();
 }
 
 #[tokio::test]

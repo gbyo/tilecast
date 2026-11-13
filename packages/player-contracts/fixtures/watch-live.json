@@ -1,0 +1,235 @@
+{
+  "$comment": "Watch Live profiles and the TCLS v2 wire vectors. The Go server (internal/livestream), player-client (Rust), and Studio (src/live-stream) pin this file in tests. Order is preference order, best first. targetBitrate is an initial encoder target, not a contract rate.",
+  "codec": "avc1.42e01f",
+  "maxAccessUnitBytes": 524288,
+  "maxMjpegFrameBytes": 102400,
+  "tclsV2HeaderBytes": 48,
+  "profiles": [
+    {
+      "id": "h264-720p15",
+      "code": 1,
+      "transport": "h264",
+      "maxWidth": 1280,
+      "maxHeight": 720,
+      "fps": 15,
+      "frameIntervalMillis": 67,
+      "targetBitrate": 1500000
+    },
+    {
+      "id": "h264-540p15",
+      "code": 2,
+      "transport": "h264",
+      "maxWidth": 960,
+      "maxHeight": 540,
+      "fps": 15,
+      "frameIntervalMillis": 67,
+      "targetBitrate": 900000
+    },
+    {
+      "id": "h264-540p10",
+      "code": 3,
+      "transport": "h264",
+      "maxWidth": 960,
+      "maxHeight": 540,
+      "fps": 10,
+      "frameIntervalMillis": 100,
+      "targetBitrate": 700000
+    },
+    {
+      "id": "mjpeg-540p10",
+      "code": 0,
+      "transport": "mjpeg",
+      "maxWidth": 960,
+      "maxHeight": 540,
+      "fps": 10,
+      "frameIntervalMillis": 100,
+      "targetBitrate": 0
+    },
+    {
+      "id": "mjpeg-360p8",
+      "code": 0,
+      "transport": "mjpeg",
+      "maxWidth": 640,
+      "maxHeight": 360,
+      "fps": 8,
+      "frameIntervalMillis": 125,
+      "targetBitrate": 0
+    }
+  ],
+  "selection": [
+    {
+      "name": "old Studio and new Player",
+      "viewer": null,
+      "player": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "selected": "mjpeg-540p10"
+    },
+    {
+      "name": "new Studio and old Player",
+      "viewer": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": null,
+      "selected": "mjpeg-360p8"
+    },
+    {
+      "name": "old Edge Player",
+      "viewer": ["h264-720p15", "mjpeg-540p10", "mjpeg-360p8"],
+      "player": ["legacy:edge-540p10"],
+      "selected": "mjpeg-540p10"
+    },
+    {
+      "name": "both support 720p",
+      "viewer": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "selected": "h264-720p15"
+    },
+    {
+      "name": "software encoder",
+      "viewer": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": ["h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"],
+      "selected": "h264-540p15"
+    },
+    {
+      "name": "Studio without 720p decode",
+      "viewer": ["h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"],
+      "player": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "selected": "h264-540p15"
+    },
+    {
+      "name": "no H.264 encoder",
+      "viewer": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": ["mjpeg-540p10", "mjpeg-360p8"],
+      "selected": "mjpeg-540p10"
+    },
+    {
+      "name": "Studio without WebCodecs",
+      "viewer": ["mjpeg-540p10", "mjpeg-360p8"],
+      "player": ["h264-720p15", "h264-540p15", "mjpeg-540p10", "mjpeg-360p8"],
+      "selected": "mjpeg-540p10"
+    },
+    {
+      "name": "unknown IDs are ignored",
+      "viewer": ["h265-4k60", "h264-540p10", "mjpeg-360p8"],
+      "player": ["av1-1080p30", "h264-540p10", "mjpeg-360p8"],
+      "selected": "h264-540p10"
+    },
+    {
+      "name": "nothing in common falls back to legacy",
+      "viewer": ["h264-720p15"],
+      "player": ["mjpeg-360p8"],
+      "selected": "mjpeg-360p8"
+    }
+  ],
+  "tclsV2": {
+    "$comment": "Header: magic TCLS, version 2, profile code, flags (bit 0 keyframe; other bits zero), reserved 0, session UUID, sequence u64, timestamp micros u64, width u16, height u16, payload length u32. Big-endian.",
+    "valid": [
+      {
+        "name": "IDR with SPS and PPS",
+        "sessionId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d",
+        "profile": "h264-540p15",
+        "sequence": 7,
+        "timestampMicros": 1000000,
+        "width": 960,
+        "height": 540,
+        "keyframe": true,
+        "payloadHex": "0000000167420028ffff0000000168ce3c800000016588840000",
+        "packetHex": "54434c5302020100bffef4b1f9b54b259d4f864fba88d86d000000000000000700000000000f424003c0021c0000001a0000000167420028ffff0000000168ce3c800000016588840000"
+      },
+      {
+        "name": "P slice with a three-byte start code",
+        "sessionId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d",
+        "profile": "h264-540p15",
+        "sequence": 8,
+        "timestampMicros": 1066666,
+        "width": 960,
+        "height": 540,
+        "keyframe": false,
+        "payloadHex": "0000014188a0",
+        "packetHex": "54434c5302020000bffef4b1f9b54b259d4f864fba88d86d000000000000000800000000001046aa03c0021c000000060000014188a0"
+      }
+    ],
+    "invalid": [
+      {
+        "name": "keyframe without SPS",
+        "keyframe": true,
+        "payloadHex": "0000000168ce3c800000016588840000"
+      },
+      {
+        "name": "keyframe without PPS",
+        "keyframe": true,
+        "payloadHex": "0000000167420028ffff0000016588840000"
+      },
+      {
+        "name": "keyframe without IDR slice",
+        "keyframe": true,
+        "payloadHex": "0000000167420028ffff0000000168ce3c80"
+      },
+      {
+        "name": "keyframe with IDR before SPS",
+        "keyframe": true,
+        "payloadHex": "00000165888400000000000167420028ffff0000000168ce3c80"
+      },
+      {
+        "name": "delta that carries an IDR slice",
+        "keyframe": false,
+        "payloadHex": "0000016588840000"
+      },
+      {
+        "name": "delta without a slice",
+        "keyframe": false,
+        "payloadHex": "0000000167420028ffff"
+      },
+      {
+        "name": "no leading start code",
+        "keyframe": false,
+        "payloadHex": "4188a00000014188a0"
+      },
+      {
+        "name": "forbidden zero bit set",
+        "keyframe": false,
+        "payloadHex": "000001c188a0"
+      },
+      { "name": "empty payload", "keyframe": false, "payloadHex": "" }
+    ]
+  }
+}

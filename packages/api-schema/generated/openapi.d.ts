@@ -1742,7 +1742,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Start a live MJPEG relay session for a screen. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
     post: operations["startLiveStream"];
     delete?: never;
     options?: never;
@@ -1759,7 +1759,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description Renew a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
     post: operations["renewLiveStream"];
     delete?: never;
     options?: never;
@@ -1777,7 +1777,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description End a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description End a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
     delete: operations["endLiveStream"];
     options?: never;
     head?: never;
@@ -1793,6 +1793,23 @@ export interface paths {
     };
     /** @description Watch a live MJPEG relay session as a multipart stream. Requires an authenticated dashboard user with the read scope. */
     get: operations["watchLiveStream"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/screens/{id}/live-stream/{sessionId}/h264": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Watch an H.264 Watch Live session. Each record is a big-endian u32 length followed by one TCLS version 2 packet (one Annex B access unit). The first record is a keyframe with its SPS and PPS. The response ends when the session ends or its profile changes. Requires an authenticated dashboard user with the read scope. */
+    get: operations["watchLiveStreamH264"];
     put?: never;
     post?: never;
     delete?: never;
@@ -7668,10 +7685,35 @@ export interface components {
       active: boolean;
       /** Format: date-time */
       expiresAt: string;
+      /**
+       * @description Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
+       * @enum {string}
+       */
+      profile?:
+        | "h264-720p15"
+        | "h264-540p15"
+        | "h264-540p10"
+        | "mjpeg-540p10"
+        | "mjpeg-360p8";
+      /** @enum {string} */
+      transport: "h264" | "mjpeg";
+      /** @description WebCodecs codec string of an H.264 profile. */
+      codec?: string;
+      /** @description Increases each time the session degrades to a lower profile. */
+      profileGeneration: number;
       frameIntervalMillis: number;
       maxWidth: number;
       maxHeight: number;
       maxFrameBytes: number;
+      /** @description Initial H.264 encoder target in bits per second. */
+      targetBitrate?: number;
+      /**
+       * Format: date-time
+       * @description In-memory arrival time of the last accepted frame.
+       */
+      lastFrameAt?: string;
+      /** @description In-memory count of accepted frames. */
+      frameSequence: number;
     };
     SystemStatus: {
       tilecastVersion: string;
@@ -17273,7 +17315,14 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** @description Watch Live profile IDs the viewer can consume. Unknown IDs are ignored. */
+          acceptProfiles?: string[];
+        };
+      };
+    };
     responses: {
       /** @description Live stream session started */
       201: {
@@ -17436,12 +17485,78 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The session's selected profile is not MJPEG */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  watchLiveStreamH264: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+        sessionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Length-prefixed TCLS version 2 stream */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/vnd.tilecast.live-h264": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen scope forbids this screen */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Live stream session not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The session's selected profile is not H.264 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   getPlayerLiveStreamSession: {
     parameters: {
       query?: {
-        /** @description Optional Watch Live capture profile supported by this Player. Omit it to retain the legacy 640x360 at 8 FPS profile. */
+        /** @description Watch Live profile IDs this Player can produce now, repeated. Omit it to retain the legacy 640x360 at 8 FPS MJPEG profile. Unknown IDs are ignored. */
+        profile?: string[];
+        /** @description With degradedProfile, the session this Player could not sustain degradedProfile for. The server then selects a lower profile for that session only; a hint for another session is ignored. */
+        degradedSession?: string;
+        degradedProfile?: string;
+        /**
+         * @deprecated
+         * @description Retired opt-in of older Edge Players. edge-540p10 means the profiles mjpeg-540p10 and mjpeg-360p8.
+         */
         captureProfile?: "edge-540p10";
       };
       header?: never;

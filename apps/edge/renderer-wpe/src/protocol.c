@@ -378,6 +378,8 @@ handle_event (TcHost *host, const char *name, JsonNode *data_node)
     }
   } else if (g_strcmp0 (name, "preview.request") == 0) {
     tc_preview_capture (host, data);
+  } else if (g_str_has_prefix (name, "live_encoder.")) {
+    tc_live_encoder_handle (host, name, data);
   } else if (g_strcmp0 (name, "renderer.shutdown") == 0) {
     g_message ("protocol: tilecastd requested renderer shutdown (%s)",
                json_object_get_string_member_with_default (data, "reason", "unspecified"));

@@ -314,10 +314,6 @@ impl Handlers for DaemonHandlers {
 pub async fn run(context: Arc<DaemonContext>) {
     let Some(core) = context.core.as_ref() else { return };
     let coordinator = core.commands(DaemonHandlers::new(&context));
-    if let Err(error) = coordinator.recover().await {
-        tracing::error!(component = "commands", event = "recovery_failed", reason = error.reason_code());
-        return;
-    }
     let server = context.command_server.subscribe();
     core.run_commands(&coordinator, server, &context.command_wake, &context.shutdown, |outcome| {
         if outcome == player_core::PassOutcome::CredentialRejected {

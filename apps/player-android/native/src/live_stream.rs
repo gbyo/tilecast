@@ -11,7 +11,7 @@ use std::sync::Arc;
 use player_core::{CaptureBroker, CaptureError, CapturedFrame, RendererPort, RendererPortError};
 use player_types::Timestamp;
 use player_types::time::SharedClock;
-use tokio::sync::{Mutex, watch};
+use tokio::sync::Mutex;
 
 use crate::renderer::PresentationEngine;
 
@@ -19,7 +19,7 @@ pub struct AndroidLiveStreamHost {
     engine: Arc<Mutex<PresentationEngine>>,
     broker: Arc<CaptureBroker>,
     clock: SharedClock,
-    live_frames: watch::Sender<Option<player_core::LiveFrame>>,
+    live_outbox: Arc<player_core::LiveOutbox>,
 }
 
 impl std::fmt::Debug for AndroidLiveStreamHost {
@@ -33,9 +33,9 @@ impl AndroidLiveStreamHost {
         engine: Arc<Mutex<PresentationEngine>>,
         broker: Arc<CaptureBroker>,
         clock: SharedClock,
-        live_frames: watch::Sender<Option<player_core::LiveFrame>>,
+        live_outbox: Arc<player_core::LiveOutbox>,
     ) -> Self {
-        Self { engine, broker, clock, live_frames }
+        Self { engine, broker, clock, live_outbox }
     }
 }
 
@@ -74,8 +74,8 @@ impl player_core::LiveStreamHost for AndroidLiveStreamHost {
         self.clock.now()
     }
 
-    fn live_frames(&self) -> &watch::Sender<Option<player_core::LiveFrame>> {
-        &self.live_frames
+    fn live_outbox(&self) -> &player_core::LiveOutbox {
+        &self.live_outbox
     }
 }
 
@@ -118,8 +118,7 @@ mod tests {
             Timestamp::from_unix_millis(1_700_000_000_000).expect("time"),
         )));
         let broker = Arc::new(CaptureBroker::default());
-        let (frames, _) = watch::channel(None);
-        let host = AndroidLiveStreamHost::new(engine.clone(), broker, clock, frames);
+        let host = AndroidLiveStreamHost::new(engine.clone(), broker, clock, Arc::default());
         (host, engine)
     }
 

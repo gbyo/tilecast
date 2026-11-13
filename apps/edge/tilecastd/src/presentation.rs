@@ -857,6 +857,11 @@ impl PresentationEngine {
             .is_ok()
     }
 
+    /// The ready renderer's IPC session, for the Watch Live encoder.
+    pub fn ready_session(&self) -> Option<SessionHandle> {
+        self.renderer.as_ref().filter(|link| link.ready.is_some()).map(|link| link.session.clone())
+    }
+
     pub fn ready_info(&self) -> Option<&RendererReady> {
         self.renderer.as_ref().and_then(|link| link.ready.as_ref())
     }

@@ -1,0 +1,18 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 12,
+    "event": "renderer.live_chunk",
+    "data": {
+      "streamId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d",
+      "timestampMicros": 66666,
+      "width": 960,
+      "height": 540,
+      "keyframe": true,
+      "dataBase64": "AAAAAWdCACj//wAAAAFozjyAAAABZYiEAAA=",
+      "captureMicros": 2100,
+      "encodeMicros": 9800,
+      "droppedFrames": 0
+    }
+  }
+}

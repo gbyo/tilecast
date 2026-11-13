@@ -153,6 +153,7 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireCSRF, s.requireScope("write")).Post("/screens/{id}/live-stream/{sessionId}/renew", s.renewLiveStream)
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireCSRF, s.requireScope("write")).Delete("/screens/{id}/live-stream/{sessionId}", s.endLiveStream)
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/live-stream/{sessionId}/mjpeg", s.watchLiveStream)
+			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/live-stream/{sessionId}/h264", s.watchLiveStreamH264)
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/reliability", s.screenReliability)
 			// AirPlay Present is a temporary, high-priority external
 			// presentation. Only screen managers can start/stop it; read access

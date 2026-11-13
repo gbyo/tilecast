@@ -2184,6 +2184,51 @@ func (e LayoutSummaryOrientation) Valid() bool {
 	}
 }
 
+// Defines values for LiveStreamSessionProfile.
+const (
+	H264540p10  LiveStreamSessionProfile = "h264-540p10"
+	H264540p15  LiveStreamSessionProfile = "h264-540p15"
+	H264720p15  LiveStreamSessionProfile = "h264-720p15"
+	Mjpeg360p8  LiveStreamSessionProfile = "mjpeg-360p8"
+	Mjpeg540p10 LiveStreamSessionProfile = "mjpeg-540p10"
+)
+
+// Valid indicates whether the value is a known member of the LiveStreamSessionProfile enum.
+func (e LiveStreamSessionProfile) Valid() bool {
+	switch e {
+	case H264540p10:
+		return true
+	case H264540p15:
+		return true
+	case H264720p15:
+		return true
+	case Mjpeg360p8:
+		return true
+	case Mjpeg540p10:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LiveStreamSessionTransport.
+const (
+	H264  LiveStreamSessionTransport = "h264"
+	Mjpeg LiveStreamSessionTransport = "mjpeg"
+)
+
+// Valid indicates whether the value is a known member of the LiveStreamSessionTransport enum.
+func (e LiveStreamSessionTransport) Valid() bool {
+	switch e {
+	case H264:
+		return true
+	case Mjpeg:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LoginChallengeMfaRequired.
 const (
 	LoginChallengeMfaRequiredTrue LoginChallengeMfaRequired = true
@@ -9026,15 +9071,40 @@ type LayoutUsageItem struct {
 
 // LiveStreamSession defines model for LiveStreamSession.
 type LiveStreamSession struct {
-	Active              bool               `json:"active"`
-	ExpiresAt           time.Time          `json:"expiresAt"`
-	FrameIntervalMillis int                `json:"frameIntervalMillis"`
-	Id                  openapi_types.UUID `json:"id"`
-	MaxFrameBytes       int                `json:"maxFrameBytes"`
-	MaxHeight           int                `json:"maxHeight"`
-	MaxWidth            int                `json:"maxWidth"`
-	ScreenId            openapi_types.UUID `json:"screenId"`
+	Active bool `json:"active"`
+
+	// Codec WebCodecs codec string of an H.264 profile.
+	Codec               *string   `json:"codec,omitempty"`
+	ExpiresAt           time.Time `json:"expiresAt"`
+	FrameIntervalMillis int       `json:"frameIntervalMillis"`
+
+	// FrameSequence In-memory count of accepted frames.
+	FrameSequence int                `json:"frameSequence"`
+	Id            openapi_types.UUID `json:"id"`
+
+	// LastFrameAt In-memory arrival time of the last accepted frame.
+	LastFrameAt   *time.Time `json:"lastFrameAt,omitempty"`
+	MaxFrameBytes int        `json:"maxFrameBytes"`
+	MaxHeight     int        `json:"maxHeight"`
+	MaxWidth      int        `json:"maxWidth"`
+
+	// Profile Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
+	Profile *LiveStreamSessionProfile `json:"profile,omitempty"`
+
+	// ProfileGeneration Increases each time the session degrades to a lower profile.
+	ProfileGeneration int                `json:"profileGeneration"`
+	ScreenId          openapi_types.UUID `json:"screenId"`
+
+	// TargetBitrate Initial H.264 encoder target in bits per second.
+	TargetBitrate *int                       `json:"targetBitrate,omitempty"`
+	Transport     LiveStreamSessionTransport `json:"transport"`
 }
+
+// LiveStreamSessionProfile Selected Watch Live profile. Absent until the Player first reconciles the lease; the limits are then the legacy profile.
+type LiveStreamSessionProfile string
+
+// LiveStreamSessionTransport defines model for LiveStreamSession.Transport.
+type LiveStreamSessionTransport string
 
 // LivenessAccepted defines model for LivenessAccepted.
 type LivenessAccepted struct {
@@ -13879,7 +13949,15 @@ type DownloadPlayerVariantParams struct {
 
 // GetPlayerLiveStreamSessionParams defines parameters for GetPlayerLiveStreamSession.
 type GetPlayerLiveStreamSessionParams struct {
-	// CaptureProfile Optional Watch Live capture profile supported by this Player. Omit it to retain the legacy 640x360 at 8 FPS profile.
+	// Profile Watch Live profile IDs this Player can produce now, repeated. Omit it to retain the legacy 640x360 at 8 FPS MJPEG profile. Unknown IDs are ignored.
+	Profile *[]string `form:"profile,omitempty" json:"profile,omitempty"`
+
+	// DegradedSession With degradedProfile, the session this Player could not sustain degradedProfile for. The server then selects a lower profile for that session only; a hint for another session is ignored.
+	DegradedSession *openapi_types.UUID `form:"degradedSession,omitempty" json:"degradedSession,omitempty"`
+	DegradedProfile *string             `form:"degradedProfile,omitempty" json:"degradedProfile,omitempty"`
+
+	// CaptureProfile Retired opt-in of older Edge Players. edge-540p10 means the profiles mjpeg-540p10 and mjpeg-360p8.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CaptureProfile *GetPlayerLiveStreamSessionParamsCaptureProfile `form:"captureProfile,omitempty" json:"captureProfile,omitempty"`
 }
 
@@ -14367,6 +14445,12 @@ type SetBrowserPlayerRecoveryParams struct {
 type CancelPlayerCommandParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// StartLiveStreamJSONBody defines parameters for StartLiveStream.
+type StartLiveStreamJSONBody struct {
+	// AcceptProfiles Watch Live profile IDs the viewer can consume. Unknown IDs are ignored.
+	AcceptProfiles *[]string `json:"acceptProfiles,omitempty"`
 }
 
 // StartLiveStreamParams defines parameters for StartLiveStream.
@@ -15050,6 +15134,9 @@ type SetBrowserPlayerRecoveryJSONRequestBody SetBrowserPlayerRecoveryJSONBody
 
 // SendScreenCommandJSONRequestBody defines body for SendScreenCommand for application/json ContentType.
 type SendScreenCommandJSONRequestBody = PlayerCommandRequest
+
+// StartLiveStreamJSONRequestBody defines body for StartLiveStream for application/json ContentType.
+type StartLiveStreamJSONRequestBody StartLiveStreamJSONBody
 
 // AssignPresentationJSONRequestBody defines body for AssignPresentation for application/json ContentType.
 type AssignPresentationJSONRequestBody = PresentationReference
@@ -18844,15 +18931,27 @@ type ClientInterface interface {
 	// Requires the Owner or Administrator role with the write scope. Cookie requests additionally require the X-CSRF-Token header. Re-enables a disabled screen.
 	EnableScreen(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// StartLiveStream performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+	// StartLiveStreamWithBody performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request,
+	// with any type of body and a specified content type.
 	//
-	// Start a live MJPEG relay session for a screen. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
-	StartLiveStream(ctx context.Context, id ResourceID, params *StartLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	StartLiveStreamWithBody(ctx context.Context, id ResourceID, params *StartLiveStreamParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartLiveStream performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	StartLiveStream(ctx context.Context, id ResourceID, params *StartLiveStreamParams, body StartLiveStreamJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EndLiveStream performs a DELETE /api/v1/screens/{id}/live-stream/{sessionId} (the `EndLiveStream` operationId) request.
 	//
-	// End a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// End a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	EndLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *EndLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// WatchLiveStreamH264 performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/h264 (the `WatchLiveStreamH264` operationId) request.
+	//
+	// Watch an H.264 Watch Live session. Each record is a big-endian u32 length followed by one TCLS version 2 packet (one Annex B access unit). The first record is a keyframe with its SPS and PPS. The response ends when the session ends or its profile changes. Requires an authenticated dashboard user with the read scope.
+	WatchLiveStreamH264(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// WatchLiveStream performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/mjpeg (the `WatchLiveStream` operationId) request.
 	//
@@ -18861,7 +18960,7 @@ type ClientInterface interface {
 
 	// RenewLiveStream performs a POST /api/v1/screens/{id}/live-stream/{sessionId}/renew (the `RenewLiveStream` operationId) request.
 	//
-	// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Renew a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
@@ -27037,11 +27136,28 @@ func (c *Client) EnableScreen(ctx context.Context, id openapi_types.UUID, reqEdi
 	return c.Client.Do(req)
 }
 
-// StartLiveStream performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+// StartLiveStreamWithBody performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request,
+// with any type of body and a specified content type.
 //
-// Start a live MJPEG relay session for a screen. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
-func (c *Client) StartLiveStream(ctx context.Context, id ResourceID, params *StartLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartLiveStreamRequest(c.Server, id, params)
+// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) StartLiveStreamWithBody(ctx context.Context, id ResourceID, params *StartLiveStreamParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartLiveStreamRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartLiveStream performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) StartLiveStream(ctx context.Context, id ResourceID, params *StartLiveStreamParams, body StartLiveStreamJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartLiveStreamRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -27054,9 +27170,24 @@ func (c *Client) StartLiveStream(ctx context.Context, id ResourceID, params *Sta
 
 // EndLiveStream performs a DELETE /api/v1/screens/{id}/live-stream/{sessionId} (the `EndLiveStream` operationId) request.
 //
-// End a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// End a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) EndLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *EndLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEndLiveStreamRequest(c.Server, id, sessionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// WatchLiveStreamH264 performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/h264 (the `WatchLiveStreamH264` operationId) request.
+//
+// Watch an H.264 Watch Live session. Each record is a big-endian u32 length followed by one TCLS version 2 packet (one Annex B access unit). The first record is a keyframe with its SPS and PPS. The response ends when the session ends or its profile changes. Requires an authenticated dashboard user with the read scope.
+func (c *Client) WatchLiveStreamH264(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWatchLiveStreamH264Request(c.Server, id, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -27084,7 +27215,7 @@ func (c *Client) WatchLiveStream(ctx context.Context, id ResourceID, sessionId o
 
 // RenewLiveStream performs a POST /api/v1/screens/{id}/live-stream/{sessionId}/renew (the `RenewLiveStream` operationId) request.
 //
-// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Renew a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewLiveStreamRequest(c.Server, id, sessionId, params)
 	if err != nil {
@@ -40400,6 +40531,42 @@ func NewGetPlayerLiveStreamSessionRequest(server string, params *GetPlayerLiveSt
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
 
+		if params.Profile != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "profile", *params.Profile, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DegradedSession != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "degradedSession", *params.DegradedSession, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DegradedProfile != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "degradedProfile", *params.DegradedProfile, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.CaptureProfile != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "captureProfile", *params.CaptureProfile, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -45807,8 +45974,19 @@ func NewEnableScreenRequest(server string, id openapi_types.UUID) (*http.Request
 	return req, nil
 }
 
-// NewStartLiveStreamRequest constructs an http.Request for the StartLiveStream method
-func NewStartLiveStreamRequest(server string, id ResourceID, params *StartLiveStreamParams) (*http.Request, error) {
+// NewStartLiveStreamRequest calls the generic StartLiveStream builder with application/json body
+func NewStartLiveStreamRequest(server string, id ResourceID, params *StartLiveStreamParams, body StartLiveStreamJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartLiveStreamRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewStartLiveStreamRequestWithBody constructs an http.Request for the StartLiveStream method, with any body, and a specified content type
+func NewStartLiveStreamRequestWithBody(server string, id ResourceID, params *StartLiveStreamParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -45833,10 +46011,12 @@ func NewStartLiveStreamRequest(server string, id ResourceID, params *StartLiveSt
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -45903,6 +46083,47 @@ func NewEndLiveStreamRequest(server string, id ResourceID, sessionId openapi_typ
 
 		req.Header.Set("X-CSRF-Token", headerParam0)
 
+	}
+
+	return req, nil
+}
+
+// NewWatchLiveStreamH264Request constructs an http.Request for the WatchLiveStreamH264 method
+func NewWatchLiveStreamH264Request(server string, id ResourceID, sessionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/live-stream/%s/h264", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -52824,19 +53045,33 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	EnableScreenWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*EnableScreenResponse, error)
 
-	// StartLiveStreamWithResponse performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+	// StartLiveStreamWithBodyWithResponse performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request,
+	// with any type of body and a specified content type.
 	//
-	// Start a live MJPEG relay session for a screen. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	StartLiveStreamWithResponse(ctx context.Context, id ResourceID, params *StartLiveStreamParams, reqEditors ...RequestEditorFn) (*StartLiveStreamResponse, error)
+	StartLiveStreamWithBodyWithResponse(ctx context.Context, id ResourceID, params *StartLiveStreamParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartLiveStreamResponse, error)
+
+	// StartLiveStreamWithResponse performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	StartLiveStreamWithResponse(ctx context.Context, id ResourceID, params *StartLiveStreamParams, body StartLiveStreamJSONRequestBody, reqEditors ...RequestEditorFn) (*StartLiveStreamResponse, error)
 
 	// EndLiveStreamWithResponse performs a DELETE /api/v1/screens/{id}/live-stream/{sessionId} (the `EndLiveStream` operationId) request.
 	//
-	// End a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// End a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	EndLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *EndLiveStreamParams, reqEditors ...RequestEditorFn) (*EndLiveStreamResponse, error)
+
+	// WatchLiveStreamH264WithResponse performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/h264 (the `WatchLiveStreamH264` operationId) request.
+	//
+	// Watch an H.264 Watch Live session. Each record is a big-endian u32 length followed by one TCLS version 2 packet (one Annex B access unit). The first record is a keyframe with its SPS and PPS. The response ends when the session ends or its profile changes. Requires an authenticated dashboard user with the read scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	WatchLiveStreamH264WithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*WatchLiveStreamH264Response, error)
 
 	// WatchLiveStreamWithResponse performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/mjpeg (the `WatchLiveStream` operationId) request.
 	//
@@ -52847,7 +53082,7 @@ type ClientWithResponsesInterface interface {
 
 	// RenewLiveStreamWithResponse performs a POST /api/v1/screens/{id}/live-stream/{sessionId}/renew (the `RenewLiveStream` operationId) request.
 	//
-	// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Renew a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RenewLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*RenewLiveStreamResponse, error)
@@ -68720,6 +68955,40 @@ func (r EndLiveStreamResponse) ContentType() string {
 	return ""
 }
 
+type WatchLiveStreamH264Response struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r WatchLiveStreamH264Response) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r WatchLiveStreamH264Response) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WatchLiveStreamH264Response) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r WatchLiveStreamH264Response) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type WatchLiveStreamResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -78529,13 +78798,26 @@ func (c *ClientWithResponses) EnableScreenWithResponse(ctx context.Context, id o
 	return ParseEnableScreenResponse(rsp)
 }
 
-// StartLiveStreamWithResponse performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+// StartLiveStreamWithBodyWithResponse performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request,
+// with any type of body and a specified content type.
 //
-// Start a live MJPEG relay session for a screen. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) StartLiveStreamWithResponse(ctx context.Context, id ResourceID, params *StartLiveStreamParams, reqEditors ...RequestEditorFn) (*StartLiveStreamResponse, error) {
-	rsp, err := c.StartLiveStream(ctx, id, params, reqEditors...)
+func (c *ClientWithResponses) StartLiveStreamWithBodyWithResponse(ctx context.Context, id ResourceID, params *StartLiveStreamParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartLiveStreamResponse, error) {
+	rsp, err := c.StartLiveStreamWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartLiveStreamResponse(rsp)
+}
+
+// StartLiveStreamWithResponse performs a POST /api/v1/screens/{id}/live-stream (the `StartLiveStream` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Start an ephemeral Watch Live session for a screen. The optional body lists the Watch Live profiles this viewer can consume; a request without a body is MJPEG only. The Player then selects the best profile both sides support. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *ClientWithResponses) StartLiveStreamWithResponse(ctx context.Context, id ResourceID, params *StartLiveStreamParams, body StartLiveStreamJSONRequestBody, reqEditors ...RequestEditorFn) (*StartLiveStreamResponse, error) {
+	rsp, err := c.StartLiveStream(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -78544,7 +78826,7 @@ func (c *ClientWithResponses) StartLiveStreamWithResponse(ctx context.Context, i
 
 // EndLiveStreamWithResponse performs a DELETE /api/v1/screens/{id}/live-stream/{sessionId} (the `EndLiveStream` operationId) request.
 //
-// End a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// End a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) EndLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *EndLiveStreamParams, reqEditors ...RequestEditorFn) (*EndLiveStreamResponse, error) {
@@ -78553,6 +78835,19 @@ func (c *ClientWithResponses) EndLiveStreamWithResponse(ctx context.Context, id 
 		return nil, err
 	}
 	return ParseEndLiveStreamResponse(rsp)
+}
+
+// WatchLiveStreamH264WithResponse performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/h264 (the `WatchLiveStreamH264` operationId) request.
+//
+// Watch an H.264 Watch Live session. Each record is a big-endian u32 length followed by one TCLS version 2 packet (one Annex B access unit). The first record is a keyframe with its SPS and PPS. The response ends when the session ends or its profile changes. Requires an authenticated dashboard user with the read scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) WatchLiveStreamH264WithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*WatchLiveStreamH264Response, error) {
+	rsp, err := c.WatchLiveStreamH264(ctx, id, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWatchLiveStreamH264Response(rsp)
 }
 
 // WatchLiveStreamWithResponse performs a GET /api/v1/screens/{id}/live-stream/{sessionId}/mjpeg (the `WatchLiveStream` operationId) request.
@@ -78570,7 +78865,7 @@ func (c *ClientWithResponses) WatchLiveStreamWithResponse(ctx context.Context, i
 
 // RenewLiveStreamWithResponse performs a POST /api/v1/screens/{id}/live-stream/{sessionId}/renew (the `RenewLiveStream` operationId) request.
 //
-// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Renew a Watch Live session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) RenewLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*RenewLiveStreamResponse, error) {
@@ -90202,6 +90497,22 @@ func ParseEndLiveStreamResponse(rsp *http.Response) (*EndLiveStreamResponse, err
 	}
 
 	response := &EndLiveStreamResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseWatchLiveStreamH264Response parses an HTTP response from a WatchLiveStreamH264WithResponse call
+func ParseWatchLiveStreamH264Response(rsp *http.Response) (*WatchLiveStreamH264Response, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WatchLiveStreamH264Response{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

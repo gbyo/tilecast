@@ -188,7 +188,12 @@ func (p *GitHubProvider) Open(ctx context.Context, rawURL string) (*http.Respons
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	p.headers(req)
 	req.Header.Set("Accept", "application/octet-stream")
-	return p.client.Do(req)
+	// The metadata client's total timeout also covers response-body reads.
+	// Large release assets need the cache job's download budget instead of
+	// being cut off after 30 seconds on a slower connection.
+	client := *p.client
+	client.Timeout = 15 * time.Minute
+	return client.Do(req)
 }
 
 func (p *GitHubProvider) headers(req *http.Request) {
