@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { Switch } from "../../components/ui/switch";
+import { Textarea } from "../../components/ui/textarea";
 import type {
   DataSourceDetail,
   SavedDataSource,
@@ -54,6 +55,18 @@ const manualDateModeOptions = [
   { value: "next_available", labelKey: "dataSources.options.nextAvailable" },
   { value: "current_week", labelKey: "dataSources.options.currentWeek" },
 ] as const;
+
+// Simple list is only an editor for a single text column. The stored format stays
+// the standard Manual Table configuration that every existing Widget understands.
+const maximumManualRows = 200;
+const maximumManualTextLength = 500;
+
+function textListItems(value: string): string[] {
+  return value
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
 
 export function ManualDataSourceEditor({
   dataSource,
@@ -95,6 +108,57 @@ export function ManualDataSourceEditor({
       },
     },
   );
+  const [entryMode, setEntryMode] = useState<"table" | "list">("table");
+  const [textListDraft, setTextListDraft] = useState("");
+  const textColumn = configuration.columns[0];
+  // Switching a multi-column table to a list would silently discard data.
+  const canUseSimpleList =
+    configuration.columns.length === 1 &&
+    textColumn?.type === "text" &&
+    configuration.rows.every(
+      (row) => !/[\r\n]/.test(row.values[textColumn.key] ?? ""),
+    );
+  const tableListItems = canUseSimpleList
+    ? textListItems(
+        configuration.rows
+          .map((row) => row.values[textColumn.key] ?? "")
+          .join("\n"),
+      )
+    : [];
+  const tableListInvalid =
+    tableListItems.length > maximumManualRows ||
+    tableListItems.some(
+      (line) => Array.from(line).length > maximumManualTextLength,
+    );
+  const listItems = textListItems(textListDraft);
+  const listTooMany = listItems.length > maximumManualRows;
+  const listTooLong = listItems.some(
+    (line) => Array.from(line).length > maximumManualTextLength,
+  );
+  const listInvalid = entryMode === "list" && (listTooMany || listTooLong);
+
+  const changeTextList = (draft: string) => {
+    setTextListDraft(draft);
+    const items = textListItems(draft);
+    if (
+      items.length > maximumManualRows ||
+      items.some((line) => Array.from(line).length > maximumManualTextLength)
+    ) {
+      return;
+    }
+    setConfiguration((current) => {
+      const column = current.columns[0];
+      if (!column) return current;
+      return {
+        ...current,
+        rows: items.map((value, index) => ({
+          id: current.rows[index]?.id ?? crypto.randomUUID(),
+          values: { [column.key]: value },
+        })),
+      };
+    });
+  };
+
   useEffect(() => {
     if (dataSource || !regional.ready || touchedTimezone.current) return;
     setConfiguration((current) => ({
@@ -192,6 +256,7 @@ export function ManualDataSourceEditor({
             type="button"
             disabled={
               save.isPending ||
+              listInvalid ||
               !name.trim() ||
               configuration.columns.some(
                 (column) =>
@@ -233,7 +298,46 @@ export function ManualDataSourceEditor({
           />
         </Field>
       </div>
-      <fieldset className="grid gap-3">
+      <div className="grid gap-2">
+        <div
+          role="group"
+          aria-label={t("dataSources.manual.entryMode")}
+          className="flex flex-wrap gap-2"
+        >
+          <Button
+            type="button"
+            variant={entryMode === "table" ? "default" : "outline"}
+            aria-pressed={entryMode === "table"}
+            disabled={listInvalid}
+            onClick={() => setEntryMode("table")}
+          >
+            {t("dataSources.manual.tableMode")}
+          </Button>
+          <Button
+            type="button"
+            variant={entryMode === "list" ? "default" : "outline"}
+            aria-pressed={entryMode === "list"}
+            disabled={!canUseSimpleList || tableListInvalid}
+            onClick={() => {
+              if (!canUseSimpleList || tableListInvalid) return;
+              setTextListDraft(
+                configuration.rows
+                  .map((row) => row.values[textColumn.key] ?? "")
+                  .join("\n"),
+              );
+              setEntryMode("list");
+            }}
+          >
+            {t("dataSources.manual.simpleList")}
+          </Button>
+        </div>
+        {!canUseSimpleList && (
+          <p className="text-sm text-muted-foreground">
+            {t("dataSources.manual.simpleListUnavailable")}
+          </p>
+        )}
+      </div>
+      <fieldset className={entryMode === "table" ? "grid gap-3" : "hidden"}>
         <legend className="text-sm font-medium">
           {t("dataSources.manual.columnsLegend")}
         </legend>
@@ -372,7 +476,7 @@ export function ManualDataSourceEditor({
           </Button>
         )}
       </fieldset>
-      <fieldset className="grid gap-3">
+      <fieldset className={entryMode === "table" ? "grid gap-3" : "hidden"}>
         <legend className="text-sm font-medium">
           {t("dataSources.manual.rowsLegend", {
             rows: configuration.rows.length,
@@ -519,7 +623,57 @@ export function ManualDataSourceEditor({
           </Button>
         )}
       </fieldset>
-      <fieldset className="grid gap-3">
+      {entryMode === "list" && (
+        <Field>
+          <FieldLabel htmlFor="manual-text-list">
+            {t("dataSources.manual.textListLabel")}
+          </FieldLabel>
+          <Textarea
+            id="manual-text-list"
+            value={textListDraft}
+            rows={10}
+            disabled={readOnly}
+            aria-invalid={listInvalid}
+            aria-describedby={
+              [
+                "manual-text-list-hint",
+                listTooMany ? "manual-text-list-too-many" : "",
+                listTooLong ? "manual-text-list-too-long" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
+            }
+            onChange={(event) => changeTextList(event.target.value)}
+          />
+          <FieldDescription id="manual-text-list-hint">
+            {t("dataSources.manual.textListHint")}
+          </FieldDescription>
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {t("dataSources.manual.textListCount", {
+              count: listItems.length,
+            })}
+          </p>
+          {listTooMany && (
+            <p
+              id="manual-text-list-too-many"
+              role="alert"
+              className="text-sm text-destructive"
+            >
+              {t("dataSources.manual.textListTooMany")}
+            </p>
+          )}
+          {listTooLong && (
+            <p
+              id="manual-text-list-too-long"
+              role="alert"
+              className="text-sm text-destructive"
+            >
+              {t("dataSources.manual.textListTooLong")}
+            </p>
+          )}
+        </Field>
+      )}
+      <fieldset className={entryMode === "list" ? "hidden" : "grid gap-3"}>
         <legend className="text-sm font-medium">
           {t("dataSources.manual.dateAware")}
         </legend>

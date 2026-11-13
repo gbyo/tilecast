@@ -32,7 +32,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 </Steps>
 
-The provider determines what you configure. For example, a public calendar needs an ICS feed URL; a JSON or CSV source needs field mappings; a **Manual Table** lets you define typed columns and enter up to 200 rows in Studio. Installed plugins can add providers; Forms, for example, publishes approved submissions as a Data Source. The [content definition reference](../reference/content-definitions/) lists the providers in your Tilecast version.
+The provider determines what you configure. For example, a public calendar needs an ICS feed URL; a JSON or CSV source needs field mappings; a **Manual Table** lets you define typed columns and enter up to 200 rows in Studio. When it has a single text column, you can switch between **Table** and **Simple list**. Simple list accepts pasted text with one entry per line, ignores blank lines, and keeps the original order. The result is still a Manual Table, and each entry may contain up to 500 characters. Installed plugins can add providers; Forms, for example, publishes approved submissions as a Data Source. The [content definition reference](../reference/content-definitions/) lists the providers in your Tilecast version.
 
 You can also create a Data Source from a Widget or Layout editor. Select **Connect new data** in the **Choose data** list. The list shows only sources that the Widget or binding can use.
 
