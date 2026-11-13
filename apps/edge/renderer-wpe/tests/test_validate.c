@@ -106,6 +106,18 @@ test_web_capabilities (void)
 }
 
 static void
+test_present_uris (void)
+{
+  g_assert_true (tc_is_present_uri ("tcpresent://session/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_present_uri ("tcpresent://session/0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_present_uri ("tcpresent://session/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef?port=1"));
+  g_assert_false (tc_is_present_uri ("tcpresent://127.0.0.1:42000/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_present_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_present_uri ("tcpresent://session/"));
+  g_assert_false (tc_is_present_uri (NULL));
+}
+
+static void
 test_runtime_support (void)
 {
   const char *cases[] = {
@@ -157,6 +169,35 @@ test_plugin_frame_fixtures (void)
   }
 }
 
+static JsonObject *
+fixture_presentation (JsonParser *parser, const char *name)
+{
+  g_autofree char *path = g_build_filename (TC_IPC_FIXTURE_DIR, name, NULL);
+  g_assert_true (json_parser_load_from_file (parser, path, NULL));
+  JsonObject *frame = json_object_get_object_member (json_node_get_object (json_parser_get_root (parser)), "frame");
+  return json_object_get_object_member (json_object_get_object_member (frame, "data"), "presentation");
+}
+
+static void
+test_present_source_fixtures (void)
+{
+  g_autoptr (JsonParser) valid = json_parser_new ();
+  g_assert_cmpstr (tc_present_source_id (fixture_presentation (valid, "valid/event-activate-external-presentation.json")),
+                   ==, "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+  g_autoptr (JsonParser) invalid = json_parser_new ();
+  g_assert_null (
+    tc_present_source_id (fixture_presentation (invalid, "invalid/event-activate-external-presentation-source.json")));
+  g_autoptr (JsonParser) idle = json_parser_new ();
+  g_assert_null (tc_present_source_id (fixture_presentation (idle, "valid/event-activate-idle.json")));
+  /* A sourceId on another state is not a source. */
+  g_autoptr (JsonParser) other = json_parser_new ();
+  g_assert_true (json_parser_load_from_data (
+    other, "{\"state\":\"playing\",\"sourceId\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}",
+    -1, NULL));
+  g_assert_null (tc_present_source_id (json_node_get_object (json_parser_get_root (other))));
+  g_assert_null (tc_present_source_id (NULL));
+}
+
 int
 main (int argc, char **argv)
 {
@@ -167,7 +208,9 @@ main (int argc, char **argv)
   g_test_add_func ("/validate/ranges", test_ranges);
   g_test_add_func ("/validate/clean-paths", test_clean_paths);
   g_test_add_func ("/validate/web-capabilities", test_web_capabilities);
+  g_test_add_func ("/validate/present-uris", test_present_uris);
   g_test_add_func ("/validate/runtime-support", test_runtime_support);
   g_test_add_func ("/validate/plugin-frame-fixtures", test_plugin_frame_fixtures);
+  g_test_add_func ("/validate/present-source-fixtures", test_present_source_fixtures);
   return g_test_run ();
 }

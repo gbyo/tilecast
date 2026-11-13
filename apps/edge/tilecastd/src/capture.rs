@@ -82,7 +82,9 @@ mod tests {
     #[test]
     fn a_frame_is_discarded_when_the_screen_became_protected_during_capture() {
         assert!(recheck_after_capture(Some(CaptureState::Presentation), frame()).is_ok());
-        for protected in [CaptureState::Setup, CaptureState::Pairing, CaptureState::SafeMode] {
+        for protected in
+            [CaptureState::Setup, CaptureState::Pairing, CaptureState::SafeMode, CaptureState::ExternalPresentation]
+        {
             assert_eq!(recheck_after_capture(Some(protected), frame()), Err(CaptureError::ProtectedState));
         }
         assert_eq!(recheck_after_capture(Some(CaptureState::NothingShown), frame()), Err(CaptureError::NothingShown));

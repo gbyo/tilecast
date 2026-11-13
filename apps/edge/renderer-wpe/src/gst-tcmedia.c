@@ -1,6 +1,7 @@
 /*
- * tcmediasrc: GStreamer source for tcmedia://cap/<opaque capability>, and
- * tcwebsrc: GStreamer source for tcweb://cap/<opaque capability> (below).
+ * tcmediasrc: GStreamer source for tcmedia://cap/<opaque capability>,
+ * tcwebsrc: GStreamer source for tcweb://cap/<opaque capability>, and
+ * tcpresentsrc: GStreamer source for tcpresent://session/<opaque id> (below).
  *
  * WPE's media pipeline uses this URI handler for seekable Tilecast media.
  * The source makes bounded reads from tilecastd's media socket. It never
@@ -290,11 +291,187 @@ tc_web_src_uri_handler_init (gpointer iface, gpointer data)
   uri->set_uri = web_uri_set_uri;
 }
 
+/* ------------------------------------------------------------- tcpresentsrc
+ *
+ * tcpresent://session/<id>: the RTP streams of an AirPlay session
+ * (docs/tilecast-edge-airplay.md §5). The page names only the opaque ID.
+ * WebKit's sandbox gives this web process its own network namespace, so the
+ * renderer's main process receives UxPlay's loopback RTP for a granted ID and
+ * relays each stream to <TILECAST_PRESENT_DIR>/<id>-video.sock and
+ * <id>-audio.sock (present-relay.c). The path is built from the ID like a CAS
+ * path from a digest: an ID the daemon did not grant, or revoked, names no
+ * socket, and the element fails like a missing file. The audio socket exists
+ * only when the session forwards audio.
+ *
+ * Inside: unixfdsrc → rtpjitterbuffer → rtph264depay → h264parse for video,
+ * and unixfdsrc → rtpjitterbuffer → rtpL16depay for audio. The bin is live. */
+
+#define TC_TYPE_PRESENT_SRC (tc_present_src_get_type ())
+G_DECLARE_FINAL_TYPE (TcPresentSrc, tc_present_src, TC, PRESENT_SRC, GstBin)
+
+/* The Electron receiver's jitter buffer (apps/player-linux/src/main/airplay.ts).
+ * The Stage 4 measurement is in docs/tilecast-edge-airplay.md §5. */
+#define TC_PRESENT_LATENCY_MS 80
+
+struct _TcPresentSrc {
+  GstBin parent_instance;
+  char *uri;
+  char session[65];
+  gboolean built;
+};
+
+static void tc_present_src_uri_handler_init (gpointer iface, gpointer data);
+
+G_DEFINE_FINAL_TYPE_WITH_CODE (TcPresentSrc, tc_present_src, GST_TYPE_BIN,
+                               G_IMPLEMENT_INTERFACE (GST_TYPE_URI_HANDLER, tc_present_src_uri_handler_init))
+
+static GstStaticPadTemplate present_video_template =
+  GST_STATIC_PAD_TEMPLATE ("video", GST_PAD_SRC, GST_PAD_SOMETIMES, GST_STATIC_CAPS_ANY);
+static GstStaticPadTemplate present_audio_template =
+  GST_STATIC_PAD_TEMPLATE ("audio", GST_PAD_SRC, GST_PAD_SOMETIMES, GST_STATIC_CAPS_ANY);
+
+/* One branch: unixfdsrc ! rtpjitterbuffer ! depay [! parse], exposed as a
+ * ghost pad from `template`. The relay sends the RTP caps. */
+static gboolean
+present_add_branch (TcPresentSrc *self, const char *path, const char *depay_name, const char *parse_name,
+                    GstStaticPadTemplate *template)
+{
+  GstElement *source = gst_element_factory_make ("unixfdsrc", NULL);
+  GstElement *jitter = gst_element_factory_make ("rtpjitterbuffer", NULL);
+  GstElement *depay = gst_element_factory_make (depay_name, NULL);
+  GstElement *parse = parse_name != NULL ? gst_element_factory_make (parse_name, NULL) : NULL;
+  if (source == NULL || jitter == NULL || depay == NULL || (parse_name != NULL && parse == NULL)) {
+    g_clear_object (&source);
+    g_clear_object (&jitter);
+    g_clear_object (&depay);
+    g_clear_object (&parse);
+    return FALSE;
+  }
+  g_object_set (source, "socket-path", path, NULL);
+  g_object_set (jitter, "latency", (guint) TC_PRESENT_LATENCY_MS, "drop-on-latency", TRUE, NULL);
+  gst_bin_add_many (GST_BIN (self), source, jitter, depay, NULL);
+  GstElement *last = depay;
+  gboolean linked = gst_element_link_many (source, jitter, depay, NULL);
+  if (parse != NULL) {
+    g_object_set (parse, "config-interval", -1, NULL);
+    gst_bin_add (GST_BIN (self), parse);
+    linked = linked && gst_element_link (depay, parse);
+    last = parse;
+  }
+  if (!linked)
+    return FALSE;
+  GstPad *target = gst_element_get_static_pad (last, "src");
+  GstPad *ghost = gst_ghost_pad_new_from_template (template->name_template, target,
+                                                   gst_static_pad_template_get (template));
+  gst_object_unref (target);
+  return gst_element_add_pad (GST_ELEMENT (self), ghost);
+}
+
+static gboolean
+present_build (TcPresentSrc *self)
+{
+  if (self->built)
+    return TRUE;
+  const char *dir = g_getenv ("TILECAST_PRESENT_DIR");
+  g_autofree char *video_name = g_strdup_printf ("%s-video.sock", self->session);
+  g_autofree char *audio_name = g_strdup_printf ("%s-audio.sock", self->session);
+  g_autofree char *video = tc_is_clean_absolute_path (dir) ? g_build_filename (dir, video_name, NULL) : NULL;
+  g_autofree char *audio = tc_is_clean_absolute_path (dir) ? g_build_filename (dir, audio_name, NULL) : NULL;
+  if (self->session[0] == '\0' || video == NULL || !g_file_test (video, G_FILE_TEST_EXISTS)) {
+    GST_ELEMENT_ERROR (self, RESOURCE, NOT_FOUND, ("presentation stream is not granted"), (NULL));
+    return FALSE;
+  }
+  if (!present_add_branch (self, video, "rtph264depay", "h264parse", &present_video_template)
+      || (g_file_test (audio, G_FILE_TEST_EXISTS)
+          && !present_add_branch (self, audio, "rtpL16depay", NULL, &present_audio_template))) {
+    GST_ELEMENT_ERROR (self, CORE, MISSING_PLUGIN, ("presentation elements are unavailable"), (NULL));
+    return FALSE;
+  }
+  gst_element_no_more_pads (GST_ELEMENT (self));
+  self->built = TRUE;
+  return TRUE;
+}
+
+static GstStateChangeReturn
+tc_present_src_change_state (GstElement *element, GstStateChange transition)
+{
+  if (transition == GST_STATE_CHANGE_NULL_TO_READY && !present_build (TC_PRESENT_SRC (element)))
+    return GST_STATE_CHANGE_FAILURE;
+  return GST_ELEMENT_CLASS (tc_present_src_parent_class)->change_state (element, transition);
+}
+
+static void
+tc_present_src_init (TcPresentSrc *self)
+{
+  GST_OBJECT_FLAG_SET (self, GST_ELEMENT_FLAG_SOURCE);
+}
+
+static void
+tc_present_src_finalize (GObject *object)
+{
+  TcPresentSrc *self = TC_PRESENT_SRC (object);
+  g_free (self->uri);
+  G_OBJECT_CLASS (tc_present_src_parent_class)->finalize (object);
+}
+
+static void
+tc_present_src_class_init (TcPresentSrcClass *klass)
+{
+  G_OBJECT_CLASS (klass)->finalize = tc_present_src_finalize;
+  GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
+  element_class->change_state = tc_present_src_change_state;
+  gst_element_class_set_static_metadata (element_class, "Tilecast presentation source", "Source/Network",
+                                         "The relayed streams of a granted AirPlay session", "Tilecast");
+  gst_element_class_add_static_pad_template (element_class, &present_video_template);
+  gst_element_class_add_static_pad_template (element_class, &present_audio_template);
+}
+
+static const gchar *const *
+present_uri_get_protocols (GType type)
+{
+  (void) type;
+  static const gchar *const protocols[] = { "tcpresent", NULL };
+  return protocols;
+}
+
+static gchar *
+present_uri_get_uri (GstURIHandler *handler)
+{
+  return g_strdup (TC_PRESENT_SRC (handler)->uri);
+}
+
+static gboolean
+present_uri_set_uri (GstURIHandler *handler, const gchar *uri, GError **error)
+{
+  TcPresentSrc *self = TC_PRESENT_SRC (handler);
+  static const char prefix[] = "tcpresent://session/";
+  if (self->built || !tc_is_present_uri (uri)) {
+    g_set_error (error, GST_URI_ERROR, GST_URI_ERROR_BAD_URI, "not a Tilecast presentation URI");
+    return FALSE;
+  }
+  memcpy (self->session, uri + sizeof prefix - 1, sizeof self->session);
+  g_free (self->uri);
+  self->uri = g_strdup (uri);
+  return TRUE;
+}
+
+static void
+tc_present_src_uri_handler_init (gpointer iface, gpointer data)
+{
+  (void) data;
+  GstURIHandlerInterface *uri = iface;
+  uri->get_type = uri_get_type;
+  uri->get_protocols = present_uri_get_protocols;
+  uri->get_uri = present_uri_get_uri;
+  uri->set_uri = present_uri_set_uri;
+}
+
 static gboolean
 plugin_init (GstPlugin *plugin)
 {
   return gst_element_register (plugin, "tcmediasrc", GST_RANK_PRIMARY, TC_TYPE_MEDIA_SRC)
-         && gst_element_register (plugin, "tcwebsrc", GST_RANK_PRIMARY, TC_TYPE_WEB_SRC);
+         && gst_element_register (plugin, "tcwebsrc", GST_RANK_PRIMARY, TC_TYPE_WEB_SRC)
+         && gst_element_register (plugin, "tcpresentsrc", GST_RANK_PRIMARY, TC_TYPE_PRESENT_SRC);
 }
 
 #define PACKAGE "tilecast"

@@ -291,3 +291,23 @@ tc_is_web_capability_uri (const char *value)
   static const char prefix[] = "tcweb://cap/";
   return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
 }
+
+gboolean
+tc_is_present_uri (const char *value)
+{
+  static const char prefix[] = "tcpresent://session/";
+  return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
+}
+
+const char *
+tc_present_source_id (JsonObject *presentation)
+{
+  if (presentation == NULL
+      || g_strcmp0 (json_object_get_string_member_with_default (presentation, "state", NULL), "external-presentation") != 0)
+    return NULL;
+  JsonNode *node = json_object_get_member (presentation, "sourceId");
+  if (node == NULL || !JSON_NODE_HOLDS_VALUE (node) || json_node_get_value_type (node) != G_TYPE_STRING)
+    return NULL;
+  const char *id = json_node_get_string (node);
+  return tc_is_sha256_hex (id) ? id : NULL;
+}

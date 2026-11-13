@@ -277,6 +277,11 @@
       // Edge shows the pulse logo outside active hours; other hosts omit this
       // and keep the Cast logo.
       outsideHoursLogo: "pulse",
+      // AirPlay: the renderer relays a session's stream to
+      // tcpresent://session/<sourceId>. tilecastd sends sourceId only to a
+      // renderer that advertised external-presentation-video-v1, so without
+      // the elements the view keeps the ready page.
+      externalPresentationVideo: true,
     }),
     subscribe(listener) {
       listeners.add(listener);

@@ -20,6 +20,7 @@ WebKit 2.54 inverts `WPE_SETTING_REDUCED_MOTION`: with the default (`FALSE`) pag
 
 - `tilecast://runtime/<name>` and `tilecast://runtime/fonts/<name>`: the shared Player Runtime artifact (`packages/player-runtime/dist/runtime`), the same files the Electron player serves. `assemble-runtime.sh` copies it and verifies every file against the artifact's `runtime-manifest.json`. Names are validated against a fixed grammar (`src/validate.c`).
 - `tcmedia://cap/<opaque>`: a daemon-issued capability scoped to the current renderer and presentation generation. Reads use the bounded media socket; the renderer has no CAS path or direct CAS permission.
+- `tcpresent://session/<opaque>`: an AirPlay session's stream (`docs/tilecast-edge-airplay.md` §5). The web process has its own network namespace, so the main process relays the loopback RTP (`src/present-relay.c`) for the `sourceId` of the current activation, after `tilecastd` answers the media socket's `present` request. `tcpresentsrc` (`src/gst-tcmedia.c`) reads the relay's Unix sockets in a private directory. While the relay runs, preview is refused (`external_presentation`) and Watch Live gets black frames.
 
 ## Bridge
 

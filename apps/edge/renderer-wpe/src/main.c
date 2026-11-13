@@ -4,6 +4,7 @@
 
 #include <execinfo.h>
 #include <glib-unix.h>
+#include <glib/gstdio.h>
 #include <signal.h>
 #include <unistd.h>
 #include <wpe/drm/wpe-drm.h>
@@ -192,11 +193,21 @@ main (int argc, char **argv)
    *   - tcmediasrc (gst-tcmedia.c) serves opaque tcmedia URLs through the
    *     daemon's bounded media socket;
    *   - tcwebsrc (gst-tcmedia.c) receives a remote web surface's frames
-   *     from the helper's frame socket named by an opaque capability. */
-  g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia,tcweb", TRUE);
+   *     from the helper's frame socket named by an opaque capability;
+   *   - tcpresentsrc (gst-tcmedia.c) receives an AirPlay session's streams
+   *     from this process's relay (present-relay.c), named by an opaque ID. */
+  g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia,tcweb,tcpresent", TRUE);
   g_setenv ("TILECAST_MEDIA_SOCKET", host.media_socket, TRUE);
   /* tcwebsrc (gst-tcmedia.c) resolves tcweb://cap/<capability> here. */
   g_setenv ("TILECAST_WEB_FRAMES_DIR", host.web_frames_dir, TRUE);
+  host.present_dir = g_dir_make_tmp ("tilecast-present-XXXXXX", &error);
+  if (host.present_dir == NULL) {
+    g_warning ("cannot create the AirPlay relay directory: %s", error->message);
+    g_clear_error (&error);
+  } else {
+    g_setenv ("TILECAST_PRESENT_DIR", host.present_dir, TRUE);
+  }
+  host.present = tc_present_relay_new (host.present_dir, host.media_socket);
   const char *existing = g_getenv ("GST_PLUGIN_PATH");
   g_autofree char *plugin_path =
     existing && *existing ? g_strjoin (":", host.gst_plugin_dir, existing, NULL) : g_strdup (host.gst_plugin_dir);
@@ -236,6 +247,10 @@ main (int argc, char **argv)
   g_main_loop_run (host.loop);
   tc_live_encoder_stop_all (&host);
   tc_remote_web_stop (&host);
+  g_clear_pointer (&host.present, tc_present_relay_free);
+  if (host.present_dir != NULL)
+    g_rmdir (host.present_dir);
+  g_free (host.present_dir);
   g_clear_pointer (&host.runtime_support, json_node_unref);
 
   tc_preview_detach_view (&host);

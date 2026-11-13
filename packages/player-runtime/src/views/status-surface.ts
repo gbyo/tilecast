@@ -15,6 +15,7 @@ import type {
 } from "../host/contract";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+const SOURCE_ID = /^[0-9a-f]{64}$/;
 
 export interface SetupBridge {
   submit(url: string): Promise<SetupResultV1>;
@@ -30,6 +31,7 @@ export class StatusSurface extends LitElement {
     problem: { attribute: false },
     servers: { attribute: false },
     setup: { attribute: false },
+    presentVideo: { attribute: false },
     setupError: { state: true },
     suppressed: { attribute: false },
   };
@@ -45,6 +47,11 @@ export class StatusSurface extends LitElement {
    * The view sets it; the provider never touches this element.
    */
   declare suppressed: boolean;
+  /**
+   * The host relays AirPlay streams (`capabilities.externalPresentationVideo`).
+   * The view decides from this capability, never from the host's name.
+   */
+  declare presentVideo: boolean;
 
   constructor() {
     super();
@@ -54,6 +61,7 @@ export class StatusSurface extends LitElement {
     this.setup = null;
     this.setupError = "";
     this.suppressed = false;
+    this.presentVideo = false;
   }
 
   // Light DOM: the display is one document and ordinary CSS applies.
@@ -303,9 +311,42 @@ export class StatusSurface extends LitElement {
   private renderExternal(
     p: Extract<RuntimePresentation, { state: "external-presentation" }>,
   ) {
+    const source =
+      this.presentVideo && SOURCE_ID.test(p.sourceId ?? "")
+        ? p.sourceId
+        : undefined;
+    if (source) {
+      // The host relays the stream. One <video> stays mounted for the whole
+      // session, under the ready page, so it already receives when a sender
+      // connects: the sender's only keyframe arrives then.
+      return html`<video
+          class=${classMap({
+            "external-presentation__video": true,
+            "external-presentation__video--waiting": !p.connected,
+          })}
+          src=${`tcpresent://session/${source}`}
+          autoplay
+          playsinline
+          disablepictureinpicture
+          aria-hidden=${p.connected ? "false" : "true"}
+        ></video>
+        ${
+          p.connected
+            ? nothing
+            : html`<div class="external-presentation__ready">
+                ${this.renderReady(p)}
+              </div>`
+        }`;
+    }
     // Once connected, the external receiver owns the screen: nothing of ours
     // may cover it.
     if (p.connected) return nothing;
+    return this.renderReady(p);
+  }
+
+  private renderReady(
+    p: Extract<RuntimePresentation, { state: "external-presentation" }>,
+  ) {
     const receiver = p.receiverName ?? "Tilecast AirPlay";
     // Deliberately generic copy: neither the network's name, its SSID, nor
     // anything resembling a credential belongs on a screen a room can see.

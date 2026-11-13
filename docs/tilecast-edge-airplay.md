@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol) is implemented. Edge continues to answer the AirPlay commands with `unsupported_command` until Stage 5 merges, and AirPlay on Edge is not available until Stage 6 records hardware evidence.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol), Stage 3 (UxPlay in the release), and Stage 4 (the renderer relay, the `tcpresent` source, and the Runtime view) are implemented. Edge continues to answer the AirPlay commands with `unsupported_command` until Stage 5 merges, and AirPlay on Edge is not available until Stage 6 records hardware evidence.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -47,7 +47,7 @@ The Electron Player starts `uxplay` and `gst-launch-1.0` from the kiosk process.
             /     |      \
  renderer-wpe  tilecast-airplay   tilecast-networkd (root, existing)
       |           |   (unprivileged, socket activated)
- WPE WebKit     uxplay  --RTP over loopback-->  renderer-wpe (tcpresent source)
+ WPE WebKit     uxplay  --RTP over loopback-->  renderer-wpe relay --Unix socket--> web process (tcpresent)
 ```
 
 ### 4.1 `tilecast-airplay`
@@ -98,18 +98,69 @@ UxPlay forwards decrypted, compressed H.264 with `-vs fakesink -vrtp "config-int
 
 **Change from the first version of this amendment (Stage 2).** The first version used `-vs 0 -vrtp`. The UxPlay source does not support that. In 1.73.7 (and in the vendored 1.73.6), `-vs 0` sets `use_video = false`, and UxPlay then never calls `video_renderer_init`, so the `-vrtp` pipeline is never built and no video is forwarded (`uxplay.cpp`). `-vrtp` by itself already replaces the decoder and the sink with `rtph264pay` (`renderers/video_renderer.c`), so UxPlay does not draw. `-vs fakesink` keeps a sink that cannot draw for any path that does not use RTP (for example cover art). The decision "UxPlay never draws" does not change. The Electron group gateway uses `-vs 0 -vrtp` with 1.73.6; that path is outside this amendment and needs its own check.
 
-The renderer adds one GStreamer element, `tcpresent`, in `apps/edge/renderer-wpe/src/`. It follows the pattern of `gst-tcmedia.c`:
+### 5.1 The relay and the `tcpresent` source (Stage 4)
 
-- It handles the URI scheme `tcpresent://session/<opaque-id>`. The page never supplies a port or an address.
-- The renderer maps the opaque ID to the ports only from a `tilecastd` grant. The grant ends when the session ends.
-- Inside the element: `udpsrc address=127.0.0.1 → rtpjitterbuffer → rtph264depay → h264parse` for video, and the L16 equivalent for audio. The element is live.
+**Change from the first version of this amendment (Stage 4).** The first version put `udpsrc address=127.0.0.1` inside the `tcpresent` element. The element runs in the WebKit web process. WebKit starts that process through bubblewrap with `--unshare-net`, so the web process has its own network namespace and its own loopback interface. Stage 4 confirmed this in the `tilecast-edge-dev` image with the sandbox on (`docker run --privileged`): the web process's `udpsrc` was bound to `127.0.0.1:42000` in network namespace `4026532449`, and the renderer and UxPlay were in `4026532383`. No packet arrived. The first design works only with `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`, which a release never sets (`tilecast-edge-sandbox-review.md` §4).
+
+The media path is therefore:
+
+```text
+uxplay --udp 127.0.0.1:42000/42002--> renderer main process (host network namespace)
+         udpsrc reuse=false ! unixfdsink   (present-relay.c)
+           --> <present dir>/<id>-video.sock, <id>-audio.sock
+web process (own network namespace)
+         tcpresent: unixfdsrc ! rtpjitterbuffer ! rtph264depay ! h264parse
+                    unixfdsrc ! rtpjitterbuffer ! rtpL16depay
+```
+
+- The renderer's main process (`tilecast-renderer-wpe`) is not in the bubblewrap sandbox. It stays in the host network namespace and its unit already allows `AF_INET`.
+- The main process creates a private 0700 directory under the unit's private `/tmp` at start (`TILECAST_PRESENT_DIR`). It adds the directory to the web process sandbox. It is the only path that the web process gets for AirPlay.
+- When an activation carries an `external-presentation` document with `sourceId`, the main process asks `tilecastd` for the present grant over the media socket: `{"op":"present","session":"<id>"}`. `tilecastd` answers from its grant registry with the fixed ports (`{"status":"ok","videoPort":42000,"audioPort":42002}`, without `audioPort` when the session forwards no audio). The client refuses any other port. The page and the document never name an address or a port.
+- The main process then starts one pipeline for each stream: `udpsrc address=127.0.0.1 port=<fixed> reuse=false ! unixfdsink socket-path=<dir>/<id>-<stream>.sock`. `reuse=false` makes the relay fail, not share the port, when another socket holds it.
+- The main process delivers the activation to the Runtime only after the relay runs or failed. A failed relay reports `renderer.health` `degraded` with `external_presentation_unavailable`.
+- The main process asks for the grant again each second. When `tilecastd` denies it, or a new activation has another `sourceId` or none, the main process stops the relay and removes its sockets.
+- In the web process, `tcpresent://session/<id>` builds the socket paths from the ID, as `tcwebsrc` builds a frame socket path from a capability. An ID with no relay names no socket, and the element fails like a missing file. The audio branch exists only when `<id>-audio.sock` exists.
 - `WEBKIT_GST_ALLOWED_URI_PROTOCOLS` adds `tcpresent`.
 
-The renderer advertises a new feature in `renderer.ready`. The Runtime shows a `<video>` element in its `external-presentation` view only if the host advertises that feature (`packages/player-runtime/src/views/status-surface.ts`). Without the feature, the view keeps the current Electron behavior: the external receiver owns the screen. The Runtime decides from the capability, never from a host name. Presentation behavior stays in the Runtime.
+A UDP socket passed to the web process with `SCM_RIGHTS` would remove the copy. It was rejected: a sandboxed web process with a socket of the host network namespace could send UDP to any address on the network (threat review §8).
 
-Audio uses the renderer's existing audio output. The AirPlay unit therefore needs no audio device. Video and audio share one media element, so WebKit keeps them in sync with the RTP timestamps. If the Stage 4 spike shows that one source with two streams does not work in WebKit's player, the fallback is this: the unit plays audio through ALSA, it gets the `audio` group, and the documents record the loss of A/V sync. A change to that fallback needs an update to this document and to the threat review.
+### 5.2 Renderer feature and Runtime view
 
-**Main technical risk.** WebKit can add latency to a live source with its buffering. Stage 4 begins with a spike that measures the delay from sender to glass with a synthetic RTP stream. The target is at most 300 ms above Electron on the same hardware. If the spike misses the target, stop and update this document before more work.
+The renderer adds `external-presentation-video-v1` to the `renderer.ready` features, and `externalPresentation` with the H.264 decoder of the highest rank (`decoder`, `hardwareDecode`). It does this only when GStreamer starts and every element of the relay and of the source exists (`tc_present_relay_probe`). `tilecastd` (Stage 5) sends `sourceId` only to a renderer with the feature.
+
+The WPE bridge sets the Runtime capability `externalPresentationVideo`. The Runtime external-presentation view shows `<video src="tcpresent://session/<sourceId>">` only when the capability is set and `sourceId` is 64 lowercase hexadecimal characters (`packages/player-runtime/src/views/status-surface.ts`). Without both, the view keeps the Electron behavior: the external receiver owns the screen. The Runtime decides from the capability, never from a host name.
+
+The view mounts the `<video>` when the session starts, under the ready page, and shows it when `connected` is true. iOS sends a key frame only when mirroring starts. A pipeline that starts after the sender connects can wait for a long time for the next key frame. The same element stays mounted while `connected` changes, so a sender that disconnects and connects again reuses the running pipeline.
+
+Video and audio share one media element. Stage 4 confirmed that WebKit 2.54.2 accepts one source with two pads: the element exposed one video track and one audio track, with the sandbox on and off. The fallback (ALSA in the AirPlay unit) is not used. The container has no audio device, so Stage 4 did not measure audio latency or A/V sync. Stage 6 must measure them on hardware.
+
+### 5.3 Latency measurement (Stage 4)
+
+`apps/edge/renderer-wpe/spike/present-latency/run.sh` measures the delay from the sender to the composited output in the `tilecast-edge-dev` image (WPE 2.54.2, GStreamer 1.28, headless WPEPlatform, 8 CPUs, software decoding with `avdec_h264`). A Python sender sends a 1280x720, 30 fps H.264 stream (libx264 baseline, from ffmpeg) as RTP to `127.0.0.1:42000`. With audio, it also sends L16 stereo 44.1 kHz to `:42002`. The stream changes between black and white each second. The sender records the time at which the first packet of each change leaves. Each receiver records the time at which the center pixel changes: WebKit in the composited `WPEView` buffer, and the reference pipelines in the decoded frame at an `appsink`. 40 changes for each row:
+
+| Path                                                                                                             | Median   | p90      | Range      |
+| ---------------------------------------------------------------------------------------------------------------- | -------- | -------- | ---------- |
+| Minimal decode: `udpsrc ! rtph264depay ! h264parse ! avdec_h264 ! appsink sync=false`                            | 9.5 ms   | 10.0 ms  | 6–10 ms    |
+| Electron receiver pipeline (`buildReceiverArgs`: `rtpjitterbuffer latency=80 drop-on-latency=true`, `sync=true`) | 99.8 ms  | 102.4 ms | 93–108 ms  |
+| WebKit, relay and `tcpresent`, video only                                                                        | 112.0 ms | 117.1 ms | 105–119 ms |
+| WebKit, relay and `tcpresent`, video and audio                                                                   | 111.6 ms | 113.1 ms | 103–121 ms |
+| WebKit, relay and `tcpresent`, video only, WebKit sandbox on                                                     | 112.2 ms | 115.1 ms | 107–120 ms |
+| WebKit, relay and `tcpresent`, video and audio, WebKit sandbox on                                                | 111.5 ms | 113.6 ms | 109–120 ms |
+
+The WebKit path is 12 ms above the Electron receiver pipeline and 102 ms above the minimal decode. Both are below the limit of 300 ms. Most of the delay is the 80 ms jitter buffer, which `tcpresent` takes from the Electron receiver. A smaller buffer is possible on loopback. Stage 6 can tune it with hardware evidence. A relay through `unixfdsink` and `unixfdsrc` alone, measured with the Electron receiver pipeline, also gave 100.2 ms. The relay adds no measurable delay.
+
+The measurement does not include the sender, Wi-Fi, UxPlay, display scan-out, or a hardware decoder. The Electron single-screen path (UxPlay draws with its own sink) was not measured, because UxPlay cannot draw in this image. Stage 6 measures from the sender to the glass on reference hardware.
+
+### 5.4 Capture exclusion
+
+Preview, snapshot, and Watch Live never capture a mirrored frame. Two layers enforce this:
+
+- `tilecastd` maps the `external-presentation` document to the protected capture state `CaptureState::ExternalPresentation` (Player Core). It refuses a capture before it asks the renderer, and it discards a frame when the screen changed to that state during the capture.
+- The renderer refuses a preview with `unavailable` and the code `external_presentation` while the relay runs or waits for its grant. Watch Live gets black frames of the presented size, and the renderer does not read the presented pixels (`preview.c`).
+
+### 5.5 Main technical risk
+
+WebKit can add latency to a live source with its buffering. Stage 4 measured the risk (§5.3). If hardware evidence in Stage 6 shows more than 300 ms above Electron on the same hardware, stop and update this document before more work.
 
 ## 6. Session state and priority
 
@@ -143,8 +194,8 @@ Every durable transition (prepare, start, stop, expire, recover) needs a crash-p
 
 Heartbeat uses the existing `airplay*` fields (`apps/server/internal/devices/airplay_heartbeat.go`):
 
-- `airplaySupported` is true only if the unit is installed, UxPlay answers `probe`, avahi-daemon is reachable, and the renderer advertises the `tcpresent` feature.
-- `airplayHardwareDecode` and `airplayDecoder` report the decoder that the renderer's GStreamer selects.
+- `airplaySupported` is true only if the unit is installed, UxPlay answers `probe`, avahi-daemon is reachable, and the renderer advertises `external-presentation-video-v1` (§5.2).
+- `airplayHardwareDecode` and `airplayDecoder` report the decoder that the renderer's GStreamer selects (`renderer.ready` `externalPresentation`, §5.2).
 - `airplayGroupSupported` is always false.
 - `airplayLimitation` names the first failed dependency in one sentence, in the Electron order, so that Studio can show it unchanged.
 
@@ -172,12 +223,12 @@ The unit advertises only while a session is active. It does not create a permane
 
 The ports are the existing AirPlay firewall contract ([`airplay-present.md`](airplay-present.md)):
 
-| Purpose                          | Ports                   | Bind                         |
-| -------------------------------- | ----------------------- | ---------------------------- |
-| UxPlay AirPlay control and media | TCP and UDP 37000–37002 | all interfaces, session only |
-| Forwarded H.264 RTP              | UDP 42000               | `127.0.0.1` only             |
-| Forwarded L16 audio RTP          | UDP 42002               | `127.0.0.1` only             |
-| Bonjour/mDNS                     | UDP 5353 (avahi-daemon) | host                         |
+| Purpose                          | Ports                   | Bind                                                                         |
+| -------------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| UxPlay AirPlay control and media | TCP and UDP 37000–37002 | all interfaces, session only                                                 |
+| Forwarded H.264 RTP              | UDP 42000               | `127.0.0.1` only, by the renderer's main process while a grant exists (§5.1) |
+| Forwarded L16 audio RTP          | UDP 42002               | `127.0.0.1` only, by the renderer's main process while a grant exists (§5.1) |
+| Bonjour/mDNS                     | UDP 5353 (avahi-daemon) | host                                                                         |
 
 The single-screen RTP stream never leaves the screen. A future group amendment must define how loopback and LAN receivers share these ports.
 
@@ -202,14 +253,16 @@ The UxPlay build dependencies (libplist, OpenSSL, the Avahi DNS-SD compatibility
 
 Each stage is a separate pull request. Each pull request stacks on the one before it.
 
-| Stage | Scope                                                                                                                                                        | Acceptance evidence                                                                                                                                                                                                       |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | This amendment and the threat review. Pointer updates in the Edge documents.                                                                                 | `make docs-check`. The user approves the decision.                                                                                                                                                                        |
-| 2     | `tilecast-airplay` crate, units, `sysusers.d` entry, `edge-protocol` messages and fixtures.                                                                  | A Rust and fixture test suite. An integration test with a fake `uxplay` under real systemd in the Linux image: peer refusal for the renderer cgroup, no orphan after `SIGKILL` of the supervisor, no PIN in argv or logs. |
-| 3     | Release bundling: build UxPlay 1.73.7 in `release/Dockerfile.builder`; `runtime_closure.py`; `system-baseline.txt` (avahi-daemon); SBOM, source, and notice. | `run-closure-check.sh` and `run-sandbox-check.sh` pass. `uxplay -v` reports 1.73.7 in the packaged sandbox. `-vrtp`, `-artp`, `-rc`, and `-pin` are confirmed in 1.73.7.                                                  |
-| 4     | Renderer `tcpresent` element, `renderer.ready` feature, Runtime external-presentation video view. The latency spike comes first.                             | Headless end-to-end test with a synthetic RTP stream. Runtime unit tests for the capability gate. The recorded latency measurement.                                                                                       |
-| 5     | `tilecastd` session: command handlers, migration `0014`, priority in `presentation.rs`, Presentation Network binding, heartbeat, capability.                 | Crash-point tests for every transition. A command redelivery test. A takeover-during-session test. `python3 scripts/ci/check-player-architecture.py`.                                                                     |
-| 6     | Public documentation and qualification.                                                                                                                      | The manual procedure in [`airplay-present.md`](airplay-present.md) (single-screen steps) on Edge reference hardware with iPhone, iPad, and Mac senders, recorded in the qualification ledger.                             |
+| Stage | Scope                                                                                                                                                                                       | Acceptance evidence                                                                                                                                                                                                                                                                 |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | This amendment and the threat review. Pointer updates in the Edge documents.                                                                                                                | `make docs-check`. The user approves the decision.                                                                                                                                                                                                                                  |
+| 2     | `tilecast-airplay` crate, units, `sysusers.d` entry, `edge-protocol` messages and fixtures.                                                                                                 | A Rust and fixture test suite. An integration test with a fake `uxplay` under real systemd in the Linux image: peer refusal for the renderer cgroup, no orphan after `SIGKILL` of the supervisor, no PIN in argv or logs.                                                           |
+| 3     | Release bundling: build UxPlay 1.73.7 in `release/Dockerfile.builder`; `runtime_closure.py`; `system-baseline.txt` (avahi-daemon); SBOM, source, and notice.                                | `run-closure-check.sh` and `run-sandbox-check.sh` pass. `uxplay -v` reports 1.73.7 in the packaged sandbox. `-vrtp`, `-artp`, `-rc`, and `-pin` are confirmed in 1.73.7.                                                                                                            |
+| 4     | Renderer relay and `tcpresent` element, media-socket `present` grant, `renderer.ready` feature, Runtime external-presentation video view, capture exclusion. The latency spike comes first. | The recorded latency measurement (§5.3). The relay test with real loopback UDP and `unixfdsrc` (`tests/test_present_relay.c`). Media and IPC fixtures with Rust and C tests. Runtime unit tests for the capability gate. The headless end-to-end test moves to Stage 5 (see below). |
+| 5     | `tilecastd` session: command handlers, migration `0014`, priority in `presentation.rs`, Presentation Network binding, heartbeat, capability.                                                | Crash-point tests for every transition. A command redelivery test. A takeover-during-session test. `python3 scripts/ci/check-player-architecture.py`.                                                                                                                               |
+| 6     | Public documentation and qualification.                                                                                                                                                     | The manual procedure in [`airplay-present.md`](airplay-present.md) (single-screen steps) on Edge reference hardware with iPhone, iPad, and Mac senders, recorded in the qualification ledger.                                                                                       |
+
+**Change to the Stage 4 evidence.** The headless end-to-end test needs `tilecastd` to issue the grant and to project the `external-presentation` document. That is Stage 5. Stage 4 therefore records the latency measurement, which runs WebKit, the relay, and the `tcpresent` element with a synthetic RTP stream and a fake grant, and the component tests. Stage 5 adds the end-to-end scenario to `apps/edge/renderer-wpe/tests/e2e_headless.py`: a real `tilecastd`, the real supervisor with the fake UxPlay, synthetic RTP to 42000 and 42002, the Runtime showing the video, and capture excluded.
 
 Until Stage 6 is recorded, the readiness documents must not show AirPlay on Edge as available, and an AirPlay-dependent screen must stay on the Electron Player.
 

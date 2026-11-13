@@ -202,3 +202,102 @@ describe("status-surface branded states", () => {
     view.remove();
   });
 });
+
+describe("status-surface external presentation video", () => {
+  const SOURCE = "0123456789abcdef".repeat(4);
+  type External = Extract<
+    NonNullable<StatusSurface["presentation"]>,
+    { state: "external-presentation" }
+  >;
+
+  function renderExternal(
+    presentation: Omit<External, "state">,
+    presentVideo: boolean,
+  ) {
+    const view = document.createElement(
+      "tc-status-surface",
+    ) as unknown as StatusSurface;
+    view.presentVideo = presentVideo;
+    view.presentation = {
+      state: "external-presentation",
+      receiverName: "Lobby",
+      pin: "0000",
+      ...presentation,
+    };
+    document.body.append(view);
+    return view;
+  }
+
+  it("keeps today's behavior when the host does not relay the stream", async () => {
+    const view = renderExternal({ sourceId: SOURCE, connected: false }, false);
+    await view.updateComplete;
+    expect(view.querySelector("video")).toBeNull();
+    expect(view.querySelector(".code")?.textContent).toBe("0000");
+    view.presentation = { ...view.presentation!, connected: true } as External;
+    await view.updateComplete;
+    // The external receiver owns the screen: nothing of ours covers it.
+    expect(view.querySelector("#message")?.children).toHaveLength(0);
+    expect(view.visible).toBe(true);
+    view.remove();
+  });
+
+  it("needs an opaque source ID as well as the capability", async () => {
+    for (const sourceId of [
+      undefined,
+      SOURCE.toUpperCase(),
+      `${SOURCE}/x`,
+      "127.0.0.1:42000",
+    ]) {
+      const view = renderExternal({ sourceId, connected: true }, true);
+      await view.updateComplete;
+      expect(view.querySelector("video")).toBeNull();
+      view.remove();
+    }
+  });
+
+  it("mounts one video for the session and reveals it when a sender connects", async () => {
+    const view = renderExternal({ sourceId: SOURCE, connected: false }, true);
+    await view.updateComplete;
+    const video = view.querySelector<HTMLVideoElement>("video");
+    expect(video?.getAttribute("src")).toBe(`tcpresent://session/${SOURCE}`);
+    expect(video?.hasAttribute("autoplay")).toBe(true);
+    expect(
+      video?.classList.contains("external-presentation__video--waiting"),
+    ).toBe(true);
+    // The ready page with the PIN covers the waiting video.
+    expect(
+      view.querySelector(".external-presentation__ready .code")?.textContent,
+    ).toBe("0000");
+
+    view.presentation = { ...view.presentation!, connected: true } as External;
+    await view.updateComplete;
+    // The same element keeps receiving: no new pipeline, no lost keyframe.
+    expect(view.querySelector("video")).toBe(video);
+    expect(
+      video?.classList.contains("external-presentation__video--waiting"),
+    ).toBe(false);
+    expect(view.querySelector(".external-presentation__ready")).toBeNull();
+    expect(view.querySelector(".code")).toBeNull();
+
+    // A sender disconnect returns to the ready page; the video stays mounted.
+    view.presentation = { ...view.presentation!, connected: false } as External;
+    await view.updateComplete;
+    expect(view.querySelector("video")).toBe(video);
+    expect(view.querySelector(".code")?.textContent).toBe("0000");
+    view.remove();
+  });
+
+  it("drops the video when the session ends", async () => {
+    const view = renderExternal({ sourceId: SOURCE, connected: true }, true);
+    await view.updateComplete;
+    expect(view.querySelector("video")).not.toBeNull();
+    view.presentation = {
+      state: "idle",
+      title: "Tilecast",
+      message: "No content assigned.",
+    };
+    await view.updateComplete;
+    expect(view.querySelector("video")).toBeNull();
+    view.remove();
+  });
+});

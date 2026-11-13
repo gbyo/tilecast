@@ -944,6 +944,7 @@ fn ready() -> Event {
                 .map(|(name, version)| (ShortToken::new(name).unwrap(), version))
                 .collect(),
         })),
+        external_presentation: None,
     })
 }
 

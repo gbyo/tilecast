@@ -166,6 +166,7 @@ export class PlayerRoot extends LitElement {
           .servers=${this.servers}
           .setup=${b?.setup ?? null}
           .suppressed=${this.providerOwned}
+          .presentVideo=${b?.capabilities.externalPresentationVideo === true}
         ></tc-status-surface>
       </div>
       ${b?.surfaces.element ?? nothing}
