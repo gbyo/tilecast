@@ -9,7 +9,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use edge_ipc::lines::{Line, read_line};
+use edge_ipc::lines::{Line, LineReader};
 pub use edge_protocol::airplay::DEFAULT_SOCKET;
 use edge_protocol::airplay::{ControlEvent, ControlRequest, MAX_LINE_BYTES, encode_line};
 use tokio::io::{AsyncWriteExt as _, BufReader};
@@ -53,7 +53,9 @@ impl ReceiverError {
 /// One control connection to the supervisor.
 #[derive(Debug)]
 pub struct ReceiverConnection {
-    reader: BufReader<OwnedReadHalf>,
+    /// Cancel-safe: the session loop drops a pending read whenever another
+    /// event of its `select!` wins, and no partial line is lost.
+    reader: LineReader<BufReader<OwnedReadHalf>>,
     writer: OwnedWriteHalf,
 }
 
@@ -65,7 +67,7 @@ impl ReceiverConnection {
             Err(_) => return Err(ReceiverError::Timeout),
         };
         let (read, writer) = stream.into_split();
-        Ok(Self { reader: BufReader::new(read), writer })
+        Ok(Self { reader: LineReader::new(BufReader::new(read), MAX_LINE_BYTES), writer })
     }
 
     pub async fn send(&mut self, request: &ControlRequest) -> Result<(), ReceiverError> {
@@ -80,7 +82,7 @@ impl ReceiverConnection {
     /// The next event. A `rejected` event is returned as an error, because
     /// the supervisor closes the connection after it.
     pub async fn next_event(&mut self) -> Result<ControlEvent, ReceiverError> {
-        match read_line(&mut self.reader, MAX_LINE_BYTES).await {
+        match self.reader.next().await {
             Line::End => Err(ReceiverError::Closed),
             Line::TooLong => Err(ReceiverError::Protocol),
             Line::Complete(bytes) => match ControlEvent::decode(&bytes) {
