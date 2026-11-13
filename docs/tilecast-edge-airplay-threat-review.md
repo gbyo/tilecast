@@ -1,0 +1,127 @@
+# Tilecast Edge AirPlay receiver: threat-boundary review
+
+This review covers the single-screen AirPlay receiver that [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) proposes: the `tilecast-airplay` supervisor and its units, the bundled UxPlay, the renderer `tcpresent` source, and the session code in `tilecastd`. Read it before you change `apps/edge/tilecast-airplay`, its units in `apps/edge/packaging`, the `tcpresent` element, or the AirPlay command handlers in `tilecastd`.
+
+The receiver adds no root privilege. Review rule 1 therefore does not require this document. It exists because the receiver adds the first Edge listener for untrusted LAN peers and the first Edge process that starts a program.
+
+## 1. Trust boundaries
+
+```text
+ AirPlay sender (untrusted LAN or Presentation Network peer)
+   | TCP and UDP 37000–37002, mDNS through avahi-daemon
+   v
+ uxplay (tilecast-airplay account; started by the supervisor)
+   | decrypted H.264 RTP and L16 RTP to 127.0.0.1:42000 and :42002
+   v
+ renderer-wpe tcpresent source (tilecast account; tilecast-renderer.service)
+   ^ grant: opaque session ID to ports, from tilecastd only
+   |
+ tilecastd (tilecast account; tilecast-edge.service)
+   | /run/tilecast-airplay/control.sock  root:tilecast 0660
+   | peer: tilecast UID and tilecast-edge.service cgroup only
+   v
+ tilecast-airplay supervisor (tilecast-airplay account; socket activated)
+```
+
+## 2. Assets
+
+| Asset                       | Where it is                                                              | Who may read it                                                     |
+| --------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Device credential           | `tilecastd` identity directory                                           | `tilecastd` only. Not changed.                                      |
+| Presentation Network secret | Memory of `tilecastd` during a profile install, then `tilecast-networkd` | Not changed. Never crosses the AirPlay socket.                      |
+| Session PIN and device ID   | Server command, `tilecastd` state row, supervisor `-rc` file             | `tilecastd`, the supervisor, UxPlay. Deleted when the session ends. |
+| Mirrored frames and audio   | UxPlay, loopback RTP, renderer                                           | Never sent to preview, Watch Live, snapshot, or the Server.         |
+| Display                     | Renderer (DRM master)                                                    | Renderer only. UxPlay never draws.                                  |
+
+## 3. The new account and unit
+
+`tilecast-airplay` is a system account with no login shell and no home directory content. It is not a member of `tilecast`, `tilecast-display`, `tilecast-network`, `tilecast-web`, `video`, `render`, `input`, or `audio`. It therefore cannot reach the daemon state, the display, the CEC or I2C devices, the Presentation Network helper, the web helper, or an audio device.
+
+The unit must have:
+
+- `User=tilecast-airplay`, `NoNewPrivileges=yes`, an empty `CapabilityBoundingSet=`.
+- `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`.
+- `InaccessiblePaths=` for `/var/lib/tilecast-edge`, `/run/tilecast-edge-update`, `/run/tilecast`, and `/run/tilecast-web`.
+- `RuntimeDirectory=tilecast-airplay-session` with mode 0700 for the `-rc` file.
+- `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`. `AF_UNIX` is for the control socket and the system D-Bus.
+- `ProtectKernelTunables=yes`, `ProtectKernelLogs=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictNamespaces=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallArchitectures=native`. WebKit does not run in this unit, so the bubblewrap exceptions of the renderer unit do not apply. Stage 2 must confirm that GStreamer in UxPlay works with `MemoryDenyWriteExecute=yes`. If it does not, record the reason in this section.
+- `KillMode=control-group`, so no `uxplay` process lives longer than the unit.
+- `ProtectProc=invisible` and `ProcSubset=pid`.
+
+The supervisor writes nothing outside its runtime directory. The release check (`run-sandbox-check.sh`) must start the unit with these options.
+
+## 4. The control socket
+
+The socket follows `tilecast-edge-update.socket`: `root:tilecast`, mode 0660. The supervisor checks the peer with `SO_PEERCRED` and refuses a peer whose UID is not `tilecast` or whose cgroup is not `tilecast-edge.service`. The renderer and the session bridge use the `tilecast` UID, so the cgroup check is what refuses them. Stage 2 must test that refusal.
+
+Every message is bounded and strictly parsed. The supervisor refuses an unknown field. It takes no path, no program name, no port outside the fixed range, and no option string from a message.
+
+## 5. The spawn boundary
+
+The supervisor is the only Edge process that starts a program. Review rule 2 applies in full:
+
+- It starts one program, at the fixed release path `bin/uxplay`.
+- It builds the argument vector from typed values only. It never uses a shell.
+- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two port numbers from the fixed range.
+- The receiver name goes into the `-rc` file, not into an argument. The supervisor accepts only printable characters with no line break, and it limits the length. The `-rc` grammar has one option per line, so a name with a line break could add an option. The validation stops that.
+
+## 6. Untrusted senders
+
+UxPlay parses network input from any peer that can reach TCP and UDP 37000–37002. This is the main new attack surface.
+
+- UxPlay listens only during a session. The supervisor starts it after `start` and stops it at `stop`, expiry, or disconnect of `tilecastd`.
+- The four-digit PIN (`-pin`) controls who can mirror. The Server generates a new PIN for each session.
+- A compromise of UxPlay gives the attacker the `tilecast-airplay` account inside the unit sandbox (§3). It does not give the device credential, the state database, the display, or a Presentation Network secret.
+- The release pins UxPlay by version, tag commit, and SHA-256. A security fix in UxPlay arrives through an ordinary signed Edge release.
+
+## 7. Loopback RTP injection
+
+The renderer receives RTP on `127.0.0.1:42000` and `:42002`. Any local process can send UDP to those ports. A local process can therefore inject frames or audio into an active session. It cannot read the stream.
+
+This risk is accepted for these reasons:
+
+- A process that can send on loopback already runs on the signage host.
+- The ports are open only during a session, because the `tcpresent` grant exists only then.
+- The worst result is wrong video or audio on the screen during a session. Emergency Takeover still has priority.
+
+A Unix-socket transport would remove the risk, but it needs a custom GStreamer source and sink on both sides. Revisit the decision if a deployment runs untrusted local accounts on the signage host.
+
+## 8. The renderer
+
+The renderer gets one new URI scheme, `tcpresent`. The page supplies only an opaque session ID. The renderer maps the ID to ports only from a `tilecastd` grant, and the grant ends with the session. The renderer never takes an address, a port, or a path from the page. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
+
+Preview, snapshot, and Watch Live must not capture the external-presentation surface. Stage 4 must test this, as the Electron Player does.
+
+## 9. Discovery and D-Bus
+
+UxPlay registers its services with avahi-daemon through the system D-Bus. The unit needs no other D-Bus access. The unit must not get a D-Bus policy beyond the default, which lets any user talk to avahi-daemon.
+
+## 10. Secrets
+
+- The PIN and the device ID never appear in a process argument, a log line, a heartbeat, audit metadata, or a fixture with a real value.
+- The supervisor deletes the `-rc` file when the session ends and when it starts.
+- `tilecastd` deletes the PIN and the device ID from SQLite when the session ends. The Server already clears them from the command row.
+- The Presentation Network credential never crosses the AirPlay socket.
+
+## 11. Edge review rules
+
+| Rule                                                        | How the receiver meets it                                                                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                       |
+| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                         |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The renderer maps only an opaque ID (§8).                                            |
+| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.   |
+| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                             |
+| 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                              |
+| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                               |
+| 8. IPC change has fixtures and tests on both sides          | Required in Stage 2 (amendment §4.2).                                                                              |
+| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive. |
+| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                         |
+| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.      |
+
+## 12. Residual risks
+
+- UxPlay is a large C program that parses untrusted network input. The unit sandbox limits the effect of a compromise. It does not remove the risk.
+- Loopback injection during a session (§7).
+- A four-digit PIN can be guessed if the sender is not rate-limited. UxPlay controls this, not Tilecast. Stage 3 must record what UxPlay 1.73.7 does after a wrong PIN.
+- avahi-daemon is a host service that Tilecast does not update.
