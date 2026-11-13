@@ -103,15 +103,10 @@ impl fmt::Display for SessionId {
 
 /// The name that AirPlay senders show.
 ///
-/// The supervisor writes it into UxPlay's `-rc` startup file. That file has
-/// one option per line, and UxPlay splits a line into words at spaces unless
-/// a word is quoted with `"` or `'`. A quoted word ends at its quote
-/// character when a space or the end of the line follows. So the name must
-/// have no line break and no control character (no second option), must not
-/// start with `-` (UxPlay reads that as a missing value), and must not have
-/// both quote characters (then no quote character can enclose it without a
-/// way to end the word early). Leading and trailing white space is refused,
-/// because the Server trims it.
+/// The supervisor passes it to UxPlay as one argument after `-n`; no shell
+/// reads it. So the name must have no control character or line separator,
+/// and must not start with `-` (UxPlay would read it as an option). Leading
+/// and trailing white space is refused, because the Server trims it.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ReceiverName(String);
 
@@ -123,19 +118,12 @@ impl ReceiverName {
             && !value.chars().any(|c| c.is_control() || matches!(c, '\u{2028}' | '\u{2029}'))
             && !value.starts_with(char::is_whitespace)
             && !value.ends_with(char::is_whitespace)
-            && !value.starts_with('-')
-            && !(value.contains('"') && value.contains('\''));
+            && !value.starts_with('-');
         if allowed { Ok(Self(value)) } else { Err(ValueError::ReceiverName) }
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    /// The quote character that encloses this name in the `-rc` file: the
-    /// one that the name does not contain.
-    pub fn rc_quote(&self) -> char {
-        if self.0.contains('"') { '\'' } else { '"' }
     }
 }
 
@@ -421,7 +409,8 @@ mod tests {
 
     #[test]
     fn receiver_names_that_could_add_an_option_are_refused() {
-        for good in ["Lobby", "Room 204 \"North\"", "Café l'Été", "Board Room", "a", &"x".repeat(120)] {
+        for good in ["Lobby", "Room 204 \"North\"", "Café l'Été", "Both \" and '", "Board Room", "a", &"x".repeat(120)]
+        {
             assert!(ReceiverName::new(good).is_ok(), "{good}");
         }
         for bad in [
@@ -433,13 +422,10 @@ mod tests {
             "-Lobby",
             " Lobby",
             "Lobby ",
-            "Both \" and '",
             &"x".repeat(121),
         ] {
             assert_eq!(ReceiverName::new(bad), Err(ValueError::ReceiverName), "{bad:?}");
         }
-        assert_eq!(ReceiverName::new("Room \"A\"").unwrap().rc_quote(), '\'');
-        assert_eq!(ReceiverName::new("Kim's room").unwrap().rc_quote(), '"');
     }
 
     #[test]

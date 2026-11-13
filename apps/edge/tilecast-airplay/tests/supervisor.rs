@@ -157,14 +157,15 @@ async fn a_session_runs_uxplay_with_a_fixed_command_line_and_reports_the_sender(
             "-rc",
             harness.session_dir().join("session.rc").to_str().unwrap(),
             "-pin",
+            "-n",
+            "Lobby \"North\"",
+            "-nh",
             "-p",
             "37000,37001,37002",
             "-s",
             "1920x1080",
             "-fps",
             "30",
-            "-vs",
-            "fakesink",
             "-vrtp",
             "config-interval=1 ! udpsink host=127.0.0.1 port=42000",
             "-artp",
@@ -172,7 +173,7 @@ async fn a_session_runs_uxplay_with_a_fixed_command_line_and_reports_the_sender(
         ])
     );
     assert_eq!(record["rcMode"], "0o600");
-    assert_eq!(record["rcOptions"], json!(["n", "nh", "pin", "m"]));
+    assert_eq!(record["rcOptions"], json!(["pin", "m"]));
     // The environment is cleared: the test process's Cargo variables are
     // gone, and the supervisor's own are there.
     let env: Vec<String> = serde_json::from_value(record["env"].clone()).unwrap();

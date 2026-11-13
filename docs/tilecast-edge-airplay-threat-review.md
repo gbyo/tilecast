@@ -14,7 +14,7 @@ The receiver adds no root privilege. Review rule 1 therefore does not require th
    | decrypted H.264 RTP and L16 RTP to 127.0.0.1:42000 and :42002
    v
  renderer-wpe tcpresent source (tilecast account; tilecast-renderer.service)
-   ^ grant: opaque session ID to ports, from tilecastd only
+   ^ grant: unguessable tcpresent capability to ports, from tilecastd only
    |
  tilecastd (tilecast account; tilecast-edge.service)
    | /run/tilecast-airplay/control.sock  root:tilecast 0660
@@ -66,9 +66,10 @@ The supervisor is the only Edge process that starts a program. Review rule 2 app
 
 - It starts one program, at the fixed release path `bin/uxplay`.
 - It builds the argument vector from typed values only. It never uses a shell.
-- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two fixed port numbers. The argument vector never has `-vs 0`, which turns off the RTP forward too.
+- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two fixed port numbers.
 - UxPlay gets a cleared environment with a fixed list of variables.
-- The receiver name goes into the `-rc` file, not into an argument. The supervisor accepts only printable characters with no line break, and it limits the length. The `-rc` grammar has one option per line, so a name with a line break could add an option. The validation stops that.
+- The `-rc` file contains only the PIN and locally administered device ID. Both have fixed grammars. The receiver name stays one bounded, validated `execve` argument, so UxPlay's free-form startup-file parser never has to encode it.
+- The video template uses `-vrtp` without `-vs 0`. UxPlay 1.73.7 already bypasses rendering for `-vrtp`; `-vs 0` would also advertise a 1 fps display limit to the sender. Edge does not enable `-h265`.
 
 ## 6. Untrusted senders
 
@@ -86,20 +87,22 @@ The renderer receives RTP on `127.0.0.1:42000` and `:42002`. Any local process c
 This risk is accepted for these reasons:
 
 - A process that can send on loopback already runs on the signage host.
-- The ports are open only during a session, because the `tcpresent` grant exists only then.
+- The renderer binds the ports only for an active session, and `tilecastd` exposes them to the Runtime only through a live `tcpresent` capability.
 - The worst result is wrong video or audio on the screen during a session. Emergency Takeover still has priority.
 
 A Unix-socket transport would remove the risk, but it needs a custom GStreamer source and sink on both sides. Revisit the decision if a deployment runs untrusted local accounts on the signage host.
 
 ## 8. The renderer
 
-The renderer gets one new URI scheme, `tcpresent`. The page supplies only an opaque session ID. The renderer maps the ID to ports only from a `tilecastd` grant, and the grant ends with the session. The renderer never takes an address, a port, or a path from the page. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
+The renderer gets one new URI scheme, `tcpresent`. The page receives only `tcpresent://cap/<opaque-token>`. The token is unguessable, scoped to the current presentation generation, and is not the session UUID. The renderer resolves only a live daemon-issued capability to loopback ports. Stop, expiry, replacement, or renderer-generation change revokes it. The renderer never takes an address, a port, a session ID, or a path from the page. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
 
-Preview, snapshot, and Watch Live must not capture the external-presentation surface. Stage 4 must test this, as the Electron Player does.
+Mirrored pixels are part of the presented WPE buffer, so capture policy must stop them before capture starts. Stage 5 adds `CaptureState::ProtectedPresentation` in Player Core and maps active AirPlay to it. Preview, snapshot, MJPEG Watch Live, and H.264 Watch Live must all return `protected_state`. A CSS mask or a Runtime-only omission is not a privacy boundary.
 
 ## 9. Discovery and D-Bus
 
-UxPlay registers its services with avahi-daemon through the system D-Bus. The unit needs no other D-Bus access. The unit must not get a D-Bus policy beyond the default, which lets any user talk to avahi-daemon.
+UxPlay 1.73.7 uses the DNS-SD compatibility API. On Debian, `libavahi-compat-libdnssd` supplies that API and reaches the host `avahi-daemon`. The unit gets only the Unix socket or system-bus access that this packaged path proves it needs in the Stage 2 sandbox test. Do not grant a general desktop session bus, and do not enable UxPlay's `-scrsv` option.
+
+The existing root `tilecast-networkd` boundary does not change. A fresh Edge installation receives that same helper and unit from the signed Edge release instead of running the Legacy Server install script. NetworkManager stays optional and outside the Edge updater's authority.
 
 ## 10. Secrets
 
@@ -115,7 +118,7 @@ UxPlay registers its services with avahi-daemon through the system D-Bus. The un
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                       |
 | 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                         |
-| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The renderer maps only an opaque ID (§8).                                            |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no server path. The renderer maps only an unguessable daemon-issued capability (§8).          |
 | 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.   |
 | 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                             |
 | 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                              |
