@@ -42,7 +42,7 @@ Dates are the dates of the release tags.
 - Player update downloads have a longer timeout for large release assets and report download errors more accurately ([#1890](https://github.com/gbyo/tilecast/pull/1890)).
 - CLI login waits for the browser callback response to finish before closing its loopback server ([#1901](https://github.com/gbyo/tilecast/pull/1901)).
 
-The legacy Electron Linux Player remains a separate release line. Its active manifest media now stays cached when preparing a candidate manifest fails ([#1806](https://github.com/gbyo/tilecast/pull/1806)).
+The legacy Electron Linux Player remains a separate release line. Its active manifest media now stays cached when preparing a candidate manifest fails ([#1806](https://github.com/gbyo/tilecast/pull/1806)). Directly assigned Layouts stay mounted beyond 30 seconds ([#1888](https://github.com/gbyo/tilecast/pull/1888)).
 
 [Full changelog](https://github.com/gbyo/tilecast/compare/v1.0.0...v1.1.1)
 
