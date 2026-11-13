@@ -33,6 +33,7 @@ export class StatusSurface extends LitElement {
     setup: { attribute: false },
     presentVideo: { attribute: false },
     setupError: { state: true },
+    videoFailed: { state: true },
     suppressed: { attribute: false },
   };
 
@@ -52,6 +53,12 @@ export class StatusSurface extends LitElement {
    * The view decides from this capability, never from the host's name.
    */
   declare presentVideo: boolean;
+  /**
+   * The source ID whose stream the `<video>` could not open (the host's relay
+   * is gone or never started). The ready page replaces it, also while a
+   * sender is connected, so the screen never stays blank without a reason.
+   */
+  declare videoFailed: string | undefined;
 
   constructor() {
     super();
@@ -62,6 +69,7 @@ export class StatusSurface extends LitElement {
     this.setupError = "";
     this.suppressed = false;
     this.presentVideo = false;
+    this.videoFailed = undefined;
   }
 
   // Light DOM: the display is one document and ordinary CSS applies.
@@ -82,6 +90,16 @@ export class StatusSurface extends LitElement {
       this.querySelector<HTMLInputElement>("#setup-input")?.focus();
     }
     if (changed.has("presentation")) this.setupError = "";
+    // A failure belongs to one session's source.
+    if (this.videoFailed !== undefined) {
+      const p = this.presentation;
+      if (
+        p?.state !== "external-presentation" ||
+        p.sourceId !== this.videoFailed
+      ) {
+        this.videoFailed = undefined;
+      }
+    }
   }
 
   override render() {
@@ -311,8 +329,9 @@ export class StatusSurface extends LitElement {
   private renderExternal(
     p: Extract<RuntimePresentation, { state: "external-presentation" }>,
   ) {
+    const failed = p.sourceId !== undefined && p.sourceId === this.videoFailed;
     const source =
-      this.presentVideo && SOURCE_ID.test(p.sourceId ?? "")
+      this.presentVideo && !failed && SOURCE_ID.test(p.sourceId ?? "")
         ? p.sourceId
         : undefined;
     if (source) {
@@ -325,6 +344,9 @@ export class StatusSurface extends LitElement {
             "external-presentation__video--waiting": !p.connected,
           })}
           src=${`tcpresent://session/${source}`}
+          @error=${() => {
+            this.videoFailed = source;
+          }}
           autoplay
           playsinline
           disablepictureinpicture
@@ -339,8 +361,9 @@ export class StatusSurface extends LitElement {
         }`;
     }
     // Once connected, the external receiver owns the screen: nothing of ours
-    // may cover it.
-    if (p.connected) return nothing;
+    // may cover it. A relayed stream that failed leaves nothing to show, so
+    // the ready page stays.
+    if (p.connected && !failed) return nothing;
     return this.renderReady(p);
   }
 

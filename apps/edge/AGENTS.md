@@ -121,7 +121,8 @@ IDs, and timezone observations and constructs one shared PlayerCore instance.
   into the 0600 `-rc` file, never into an argument or a log line, and the
   supervisor never logs UxPlay output (UxPlay prints the PIN). UxPlay never
   draws to the display: the renderer shows its forwarded RTP. Never pass
-  `-vs 0`: it turns off the RTP forward too. Group AirPlay is out of scope.
+  `-vs 0`: it advertises a 1 frame per second display limit to the sender.
+  Group AirPlay is out of scope.
 - Peer delivery, mesh, relayed state, the Context Engine and PTP are not part
   of Edge 1 (`docs/tilecast-edge-future.md`). Do not add runtime support for
   them.

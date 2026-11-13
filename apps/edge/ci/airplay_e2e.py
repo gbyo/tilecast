@@ -206,7 +206,7 @@ def session_and_sigkill():
         fail(f"the session directory mode is {oct(stat.st_mode)}")
     with open(os.path.join(SESSION_DIR, "fake-uxplay.json")) as handle:
         record = json.load(handle)
-    if record["rcMode"] != "0o600" or record["rcOptions"] != ["n", "nh", "pin", "m"]:
+    if record["rcMode"] != "0o600" or record["rcOptions"] != ["pin", "m"]:
         fail(f"rc file: {record}")
     with open(os.path.join(SESSION_DIR, "fake-uxplay.cmd"), "w") as handle:
         handle.write("mirroring\n")

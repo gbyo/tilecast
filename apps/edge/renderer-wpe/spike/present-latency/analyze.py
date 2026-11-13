@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-"""Pairs `send <phase> T` lines with the next `glass <phase> G` line and
-prints the delay statistics in milliseconds. The first WARMUP changes are
-left out: the receiver needs an IDR frame and its pipeline to start."""
+"""Pairs each `send <phase> T` line with the next unused `glass <phase> G`
+line and prints the delay statistics in milliseconds. A glass line serves one
+change only, and a delay of a whole phase or more counts as missed, not as a
+short delay. The sender's changes are paired first, and then the first WARMUP
+changes are left out: the receiver needs an IDR frame and its pipeline to
+start.
+
+The colours carry no sequence number, so a steady delay of a whole phase or
+more cannot be told from a start that missed its first changes. Run the
+spike with a delay far below one phase (the target is 300 ms)."""
 import statistics
 import sys
 
 WARMUP = 4
+PHASE_US = 1_000_000  # the sender holds each colour for one second
 
 
 def events(path, kind):
@@ -20,15 +28,21 @@ def events(path, kind):
 
 def main():
     name, sender, receiver = sys.argv[1:4]
-    sent = events(sender, "send")[WARMUP:]
+    sent = events(sender, "send")
     seen = events(receiver, "glass")
-    delays, missed = [], 0
+    taken = [False] * len(seen)
+    paired = []
     for phase, at in sent:
-        match = next((g for p, g in seen if p == phase and at <= g < at + 1_000_000), None)
-        if match is None:
-            missed += 1
+        index = next((i for i, (p, g) in enumerate(seen) if not taken[i] and p == phase and g >= at), None)
+        if index is None or seen[index][1] - at >= PHASE_US:
+            paired.append(None)  # no frame, or one that a later change may own
         else:
-            delays.append((match - at) / 1000)
+            taken[index] = True
+            paired.append((seen[index][1] - at) / 1000)
+    paired = paired[WARMUP:]
+    delays = [delay for delay in paired if delay is not None]
+    missed = len(paired) - len(delays)
+    sent = paired
     if not delays:
         print(f"{name}: no matched changes (sent {len(sent)})")
         return

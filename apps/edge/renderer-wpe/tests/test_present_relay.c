@@ -91,6 +91,12 @@ wait_for (gboolean (*predicate) (gpointer), gpointer data, guint timeout_ms)
   return predicate (data);
 }
 
+static void
+on_stopped (gpointer data)
+{
+  ++*(guint *) data;
+}
+
 static gboolean
 ready_called (gpointer data)
 {
@@ -186,6 +192,8 @@ static void
 test_relays_granted_streams_until_revoked (Fixture *f, gconstpointer data)
 {
   (void) data;
+  guint stopped = 0;
+  tc_present_relay_on_stopped (f->relay, on_stopped, &stopped);
   Ready ready = { 0 };
   tc_present_relay_set (f->relay, SOURCE, on_ready, &ready);
   g_assert_true (tc_present_relay_pending (f->relay));
@@ -210,6 +218,9 @@ test_relays_granted_streams_until_revoked (Fixture *f, gconstpointer data)
   g_assert_true (wait_for (relay_stopped, f->relay, 4000));
   g_assert_false (g_file_test (video, G_FILE_TEST_EXISTS));
   g_assert_false (g_file_test (audio, G_FILE_TEST_EXISTS));
+  /* The host is told once that the relay is gone, so it can drop the last
+   * presented buffer. */
+  g_assert_cmpuint (stopped, ==, 1);
 }
 
 static void
@@ -225,11 +236,40 @@ test_video_only_and_stop (Fixture *f, gconstpointer data)
   g_assert_true (g_file_test (video, G_FILE_TEST_EXISTS));
   g_assert_false (g_file_test (audio, G_FILE_TEST_EXISTS));
   assert_relays (video, TC_PRESENT_VIDEO_PORT);
+  guint told = 0;
+  tc_present_relay_on_stopped (f->relay, on_stopped, &told);
   Ready stopped = { 0 };
   tc_present_relay_set (f->relay, NULL, on_ready, &stopped);
   g_assert_true (stopped.called && stopped.ok);
   g_assert_false (tc_present_relay_active (f->relay));
   g_assert_false (g_file_test (video, G_FILE_TEST_EXISTS));
+  g_assert_cmpuint (told, ==, 1);
+}
+
+/* A stop while the grant check waits: the answer that comes later starts
+ * nothing and delivers nothing, and the host has nothing to drop. */
+static void
+test_stop_while_pending (Fixture *f, gconstpointer data)
+{
+  (void) data;
+  guint told = 0;
+  tc_present_relay_on_stopped (f->relay, on_stopped, &told);
+  Ready first = { 0 };
+  tc_present_relay_set (f->relay, SOURCE, on_ready, &first);
+  g_assert_true (tc_present_relay_pending (f->relay));
+  Ready stopped = { 0 };
+  tc_present_relay_set (f->relay, NULL, on_ready, &stopped);
+  g_assert_true (stopped.called && stopped.ok);
+  g_assert_false (tc_present_relay_active (f->relay));
+  /* Let the daemon's answer arrive. */
+  gint64 deadline = g_get_monotonic_time () + 500 * 1000;
+  while (g_get_monotonic_time () < deadline)
+    g_main_context_iteration (NULL, FALSE), g_usleep (5000);
+  g_assert_false (first.called);
+  g_assert_false (tc_present_relay_active (f->relay));
+  g_autofree char *video = relay_socket (f->dir, "video");
+  g_assert_false (g_file_test (video, G_FILE_TEST_EXISTS));
+  g_assert_cmpuint (told, ==, 0);
 }
 
 static void
@@ -292,6 +332,8 @@ main (int argc, char **argv)
   g_test_add ("/present-relay/granted-until-revoked", Fixture, NULL, fixture_set_up,
               test_relays_granted_streams_until_revoked, fixture_tear_down);
   g_test_add ("/present-relay/video-only-and-stop", Fixture, NULL, fixture_set_up, test_video_only_and_stop,
+              fixture_tear_down);
+  g_test_add ("/present-relay/stop-while-pending", Fixture, NULL, fixture_set_up, test_stop_while_pending,
               fixture_tear_down);
   g_test_add ("/present-relay/refusals", Fixture, NULL, fixture_set_up, test_refusals, fixture_tear_down);
   g_test_add_func ("/present-relay/probe", test_probe);

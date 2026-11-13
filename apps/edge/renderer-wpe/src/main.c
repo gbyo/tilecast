@@ -31,6 +31,13 @@ on_exit_timer (gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
+static void
+on_present_relay_stopped (gpointer user_data)
+{
+  /* The last presented buffer can hold mirrored pixels (threat review §8). */
+  tc_preview_clear_presented_buffer (user_data);
+}
+
 static gboolean
 on_health (gpointer user_data)
 {
@@ -208,6 +215,7 @@ main (int argc, char **argv)
     g_setenv ("TILECAST_PRESENT_DIR", host.present_dir, TRUE);
   }
   host.present = tc_present_relay_new (host.present_dir, host.media_socket);
+  tc_present_relay_on_stopped (host.present, on_present_relay_stopped, &host);
   const char *existing = g_getenv ("GST_PLUGIN_PATH");
   g_autofree char *plugin_path =
     existing && *existing ? g_strjoin (":", host.gst_plugin_dir, existing, NULL) : g_strdup (host.gst_plugin_dir);
