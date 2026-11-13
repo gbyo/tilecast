@@ -13,7 +13,7 @@ All notable changes to Tilecast, newest first, from the first commit on 2026-07-
 
 | Line                    | First                        | Latest                       | Notes                                                                                          |
 | ----------------------- | ---------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| Coordinated release     | 0.26.0-beta.3 (2026-10-10)   | 1.1.0 (2026-11-13)           | Server, Edge, Windows, and Android from one commit. Stable is `X.Y.Z`, Beta is `X.Y.Z-beta.N`. |
+| Coordinated release     | 0.26.0-beta.3 (2026-10-10)   | 1.1.1 (2026-11-13)           | Server, Edge, Windows, and Android from one commit. Stable is `X.Y.Z`, Beta is `X.Y.Z-beta.N`. |
 | Tilecast Edge (Linux)   | 0.1.0-preview.1 (2026-09-26) | 0.2.2-preview.1 (2026-10-10) | Native Linux Player. Joined the coordinated release in 0.26.0.                                 |
 | Windows Player          | 0.18.0 (2026-09-22)          | Coordinated release          | Native Windows Player. Joined the coordinated release in 0.26.0.                               |
 | Android Player          | 0.10.1 (2026-07-13)          | 0.29.2 (2026-09-23)          | Android TV, Google TV, and Fire TV. Joined the coordinated release in 0.26.0.                  |
@@ -21,7 +21,7 @@ All notable changes to Tilecast, newest first, from the first commit on 2026-07-
 
 Dates are the dates of the release tags.
 
-## 1.1.0 - 2026-11-13
+## 1.1.1 - 2026-11-13
 
 ### Highlights
 
@@ -40,10 +40,11 @@ Dates are the dates of the release tags.
 - Studio allows YouTube preview frames and reframes the login background so the glass panels fill the screen ([#1876](https://github.com/gbyo/tilecast/pull/1876), [#1872](https://github.com/gbyo/tilecast/pull/1872)).
 - Typed Data Source datasets remain unavailable after the cache expires, and Widget backfill rejects previews rendered from an outdated configuration ([#1834](https://github.com/gbyo/tilecast/pull/1834), [#1851](https://github.com/gbyo/tilecast/pull/1851)).
 - Player update downloads have a longer timeout for large release assets and report download errors more accurately ([#1890](https://github.com/gbyo/tilecast/pull/1890)).
+- CLI login waits for the browser callback response to finish before closing its loopback server ([#1901](https://github.com/gbyo/tilecast/pull/1901)).
 
 The legacy Electron Linux Player remains a separate release line. Its active manifest media now stays cached when preparing a candidate manifest fails ([#1806](https://github.com/gbyo/tilecast/pull/1806)).
 
-[Full changelog](https://github.com/gbyo/tilecast/compare/v1.0.0...v1.1.0)
+[Full changelog](https://github.com/gbyo/tilecast/compare/v1.0.0...v1.1.1)
 
 ## 1.0.0 - 2026-11-05
 
