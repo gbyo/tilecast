@@ -24,6 +24,10 @@
 //!   and then the RTP pipeline is never built. `-vs fakesink` keeps a sink
 //!   that cannot draw for any path that does not use RTP.
 //! * `-artp` replaces the audio sink with `rtpL16pay <options>`.
+//! * In `-pin` mode UxPlay answers a wrong PIN with RTSP 470 and lets the
+//!   sender try again, with no limit (`MAX_PW_ATTEMPTS` applies only to
+//!   `-pw`). The supervisor counts the failures ([`OutputEvent::
+//!   AuthenticationFailed`]) and ends the session at a limit.
 //! * UxPlay prints the PIN on its output when a sender starts pairing. The
 //!   supervisor therefore never logs or forwards a line of UxPlay output; it
 //!   only classifies lines ([`classify`]).
@@ -99,6 +103,8 @@ pub enum OutputEvent {
     Mirroring,
     /// The mirror stream stopped or the connection was lost.
     Disconnected,
+    /// A sender's PIN proof failed (`raop_handlers.h`, pair-setup-pin).
+    AuthenticationFailed,
 }
 
 /// Classifies one output line with a fixed grammar. Any other line means
@@ -112,6 +118,10 @@ pub fn classify(line: &[u8]) -> Option<OutputEvent> {
         Some(OutputEvent::Mirroring)
     } else if contains(b"raop_rtp_mirror->running is no longer true") || contains(b"lost connection with client") {
         Some(OutputEvent::Disconnected)
+    } else if contains(b"Client Authentication Failure (client proof not validated)")
+        || contains(b"pair-pin-setup (step 3): client authentication failed")
+    {
+        Some(OutputEvent::AuthenticationFailed)
     } else {
         None
     }
@@ -219,6 +229,10 @@ mod tests {
         assert_eq!(
             classify(b"*** ERROR lost connection with client (network problem?)"),
             Some(OutputEvent::Disconnected)
+        );
+        assert_eq!(
+            classify(b"Client Authentication Failure (client proof not validated)"),
+            Some(OutputEvent::AuthenticationFailed)
         );
         assert_eq!(classify(b"*** CLIENT MUST NOW ENTER PIN = \"4096\" AS AIRPLAY PASSWORD"), None);
         assert_eq!(classify(b""), None);

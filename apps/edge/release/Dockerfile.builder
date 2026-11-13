@@ -13,6 +13,13 @@
 # pin. The build configuration mirrors Debian's own wpewebkit
 # 2.54.0-2 package (clang, PORT=WPE, Release, bubblewrap sandbox).
 #
+# libplist, OpenSSL and the Avahi DNS-SD compatibility library are UxPlay's
+# (build-uxplay.sh, docs/tilecast-edge-airplay.md §11). avahi-daemon is in
+# the system baseline, and runtime_closure.py needs every baseline package
+# installed here. Like every change to
+# this file, they change the WPE inputs key (inputs.py), so the next release
+# compiles WebKit unless wpe-prebuild.yml has published the new key first.
+#
 #   docker build -t tilecast-edge-release-builder -f apps/edge/release/Dockerfile.builder apps/edge/release
 FROM debian:trixie@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
 ARG SNAPSHOT=20260920T000000Z
@@ -35,6 +42,7 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources \
       liblcms2-dev libopenjp2-7-dev libsoup-3.0-dev libsqlite3-dev libsystemd-dev libtasn1-6-dev libwayland-dev \
       libwebp-dev libwpe-1.0-dev libwpebackend-fdo-1.0-dev libxkbcommon-dev libxml2-utils libxslt1-dev \
       wayland-protocols libjson-glib-dev libglib2.0-dev libwireplumber-0.5-dev ffmpeg openssl jq \
+      libplist-dev libssl-dev libavahi-compat-libdnssd-dev avahi-daemon \
     && rm -rf /var/lib/apt/lists/*
 # The Rust toolchain named by the root rust-toolchain.toml.
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH

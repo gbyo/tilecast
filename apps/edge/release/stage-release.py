@@ -77,6 +77,28 @@ def copy(source, out, relative, mode):
     os.chmod(target, mode)
 
 
+def stage_uxplay(uxplay_dir, out):
+    """UxPlay (GPL-3.0) as a separate program: the binary that the AirPlay
+    supervisor starts, the exact source archive it was built from, and its
+    license (docs/tilecast-edge-airplay.md §11)."""
+    with open(os.path.join(uxplay_dir, "pin")) as handle:
+        version = handle.read().split()[0]
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        sys.exit(f"stage-release: UxPlay version {version!r} is malformed")
+    copy(os.path.join(uxplay_dir, "uxplay"), out, "bin/uxplay", 0o755)
+    copy(os.path.join(uxplay_dir, f"UxPlay-{version}.tar.gz"), out, f"share/tilecast/source/UxPlay-{version}.tar.gz", 0o644)
+    copy(os.path.join(uxplay_dir, "LICENSE"), out, "share/doc/tilecast-edge/licenses/uxplay/LICENSE", 0o644)
+    notice = os.path.join(out, "share/doc/tilecast-edge/licenses/uxplay/NOTICE")
+    with open(notice, "w") as handle:
+        handle.write(
+            f"bin/uxplay is UxPlay {version} (https://github.com/FDH2/UxPlay), free software under the GNU\n"
+            "General Public License version 3 (LICENSE in this directory). It is a separate program that\n"
+            "tilecast-airplay starts; no Tilecast code links it. The exact source it was built from is\n"
+            f"share/tilecast/source/UxPlay-{version}.tar.gz, and the build steps are\n"
+            "apps/edge/release/build-uxplay.sh in the Tilecast source of this release.\n")
+    os.chmod(notice, 0o644)
+
+
 def copy_wpe(prefix, out):
     """Carries the runtime part of the private WPE build under lib/wpe.
 
@@ -142,7 +164,7 @@ def require_plugin_bridge(tree):
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
-                 "--gst-plugin-dir", "--runtime-dir", "--sbom",
+                 "--gst-plugin-dir", "--runtime-dir", "--sbom", "--uxplay-dir",
                  "--wpe-version", "--base-distribution"):
         parser.add_argument(name, required=True)
     parser.add_argument("--wpe-lib-dir", help="a private WPE WebKit build to carry under lib/wpe")
@@ -157,6 +179,7 @@ def main():
     copy(args.renderer, out, "bin/tilecast-renderer-wpe", 0o755)
     copy(args.web_renderer, out, "bin/tilecast-web-renderer-wpe", 0o755)
     copy(args.session_bridge, out, "bin/tilecast-session-bridge", 0o755)
+    stage_uxplay(args.uxplay_dir, out)
     copy(os.path.join(args.gst_plugin_dir, "libgsttcmedia.so"), out, "lib/gstreamer-1.0/libgsttcmedia.so", 0o644)
     for root, _, names in os.walk(args.runtime_dir):
         for name in names:

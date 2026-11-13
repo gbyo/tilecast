@@ -13,7 +13,7 @@ On 2026-09-25, AirPlay was excluded from Edge 1 ([`tilecast-edge-future.md`](til
 1. Edge supports single-screen AirPlay Present.
 2. A new unprivileged process, `tilecast-airplay`, runs the receiver. It runs in its own socket-activated unit and uses its own account. `tilecastd` still starts no processes.
 3. UxPlay runs in RTP-forward mode for every session. It never draws to the display. The WPE renderer shows the forwarded stream inside the Player Runtime `external-presentation` state.
-4. Every Edge release carries a pinned UxPlay **1.73.7**, which the release builder compiles against the private GStreamer build. The release stays dependency-closed and signed. No compiler goes on a screen.
+4. Every Edge release carries a pinned UxPlay **1.73.7**, which the release builder compiles against the Debian 13 GStreamer that the release already uses (`system-baseline.txt`). The release stays dependency-closed and signed. No compiler goes on a screen.
 5. Edge reports `airplayGroupSupported: false`. The existing Server check (`airplay_group_not_ready`) keeps Edge screens out of group sessions. This amendment needs no Server change.
 
 The legacy Electron Player keeps its own baseline (UxPlay 1.73.6, `apps/server/internal/airplay/policy.go`). This amendment does not change the Electron Player, the Server installer scripts, or the vendored 1.73.6 archive.
@@ -63,6 +63,8 @@ The Electron Player starts `uxplay` and `gst-launch-1.0` from the kiosk process.
 - The argument vector also has a bare `-pin`. UxPlay parses the `-rc` file first and the command line after it, and a bare `-pin` keeps the PIN of the file. If UxPlay could not open the file, it ignores it and continues. The bare `-pin` then still requires a random PIN that no one sees, so no sender can connect.
 - It clears the environment of UxPlay. It sets `HOME` and the GStreamer registry to the session directory and passes only a fixed list of library and plugin path variables.
 - UxPlay prints the PIN on its output when a sender starts pairing. The supervisor reads UxPlay's output only to classify lines. It never logs or forwards a line.
+- UxPlay writes its log with `printf` and never flushes it. Through a pipe, its lines stay in a 4 KiB buffer, so the supervisor would not see them in time (the Stage 3 packaged check found this). The supervisor therefore gives UxPlay a pseudo-terminal for its standard output and standard error, on which the C library writes each line at once. This starts no other program.
+- Senders that enter a wrong PIN 10 times end the session (`pin_attempts_exceeded`). UxPlay itself has no limit in `-pin` mode (threat review §6).
 - `KillMode=control-group` and `TimeoutStopSec=` make sure that no `uxplay` process lives longer than the unit.
 
 The supervisor owns no durable Tilecast state, no playback policy, and no Server connection. It receives no device credential and no Presentation Network secret.
@@ -181,7 +183,20 @@ The single-screen RTP stream never leaves the screen. A future group amendment m
 
 ## 11. Licensing
 
-UxPlay is GPL-3.0. Edge ships it as a separate program in the release tree. The release SBOM (`apps/edge/release/sbom.py`) lists it. The release carries the exact source archive and the license notice next to the binary. The archive is pinned by version, tag commit, and SHA-256 in the release builder inputs.
+UxPlay is GPL-3.0 (version 3 or later). Edge ships it as a separate program in the release tree, and no Tilecast code links it. The release SBOM (`apps/edge/release/sbom.py`) lists it. The release carries the exact source archive (`share/tilecast/source/UxPlay-1.73.7.tar.gz`), the license, and a notice (`share/doc/tilecast-edge/licenses/uxplay/`).
+
+`apps/edge/release/build-uxplay.sh` pins the archive:
+
+| Input      | Value                                                              |
+| ---------- | ------------------------------------------------------------------ |
+| Version    | 1.73.7                                                             |
+| Tag commit | `df67c212a433cf6dda3676dd40c097900d24e645` (`v1.73.7`)             |
+| Archive    | `https://github.com/FDH2/UxPlay/archive/refs/tags/v1.73.7.tar.gz`  |
+| SHA-256    | `65feb8732de666a7161a9e562aa603a7f5fe0ebb890c2a30c5e1a9c85c76309f` |
+
+The tag archive was downloaded twice with the same SHA-256, and its tree is identical to the archive of the tag commit. The script builds without X11 and without `-march=native`, checks `uxplay -v`, and checks that `-h` lists every option that the supervisor uses.
+
+The UxPlay build dependencies (libplist, OpenSSL, the Avahi DNS-SD compatibility library) are in `Dockerfile.builder`. Every change to that file changes the WPE inputs key (`inputs.py`). The first release after Stage 3 therefore compiles WebKit, unless `wpe-prebuild.yml` publishes the prebuild for the new key first. The libraries that parse sender input (libplist, OpenSSL) and the DNS-SD library are in `system-baseline.txt`, so Debian keeps them patched. `avahi-daemon` is in the baseline too.
 
 ## 12. Stages
 

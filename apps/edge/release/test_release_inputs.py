@@ -48,6 +48,21 @@ class SbomTests(unittest.TestCase):
                          [str(len(BINARIES)) * 64, str(len(BINARIES) + 1) * 64])
         self.assertEqual(components, sbom.built_cargo_components(list(reversed(artifacts)), metadata, lock))
 
+    def test_uxplay_is_one_gpl_component_pinned_by_commit_and_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pin = Path(directory) / "pin"
+            pin.write_text("1.73.7\ndf67c212a433cf6dda3676dd40c097900d24e645\n" + "6" * 64 + "\n")
+            component = sbom.uxplay_component(pin)
+            self.assertEqual(component["name"], "uxplay")
+            self.assertEqual(component["version"], "1.73.7")
+            self.assertEqual(component["licenses"], [{"license": {"id": "GPL-3.0-or-later"}}])
+            self.assertEqual(component["hashes"], [{"alg": "SHA-256", "content": "6" * 64}])
+            self.assertIn("df67c212a433cf6dda3676dd40c097900d24e645", component["externalReferences"][0]["url"])
+            for bad in ["1.73\nabc\n" + "6" * 64, "1.73.7\n" + "g" * 40 + "\n" + "6" * 64, "1.73.7"]:
+                pin.write_text(bad)
+                with self.subTest(bad=bad), self.assertRaises(ValueError):
+                    sbom.uxplay_component(pin)
+
     def test_empty_failed_unknown_and_incomplete_builds_fail_closed(self):
         artifacts, metadata, lock = build_fixture()
         failed = copy.deepcopy(artifacts)

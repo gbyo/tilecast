@@ -45,6 +45,7 @@ pub const REQUIRED_FILES: &[&str] = &[
     "bin/tilecast-edge-migrate",
     "bin/tilecast-edge-update",
     "bin/tilecast-airplay",
+    "bin/uxplay",
     "bin/tilecast-session-bridge",
     "lib/gstreamer-1.0/libgsttcmedia.so",
     "share/tilecast/renderer-web/index.html",

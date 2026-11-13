@@ -66,6 +66,10 @@ cmake -S "$edge/session-bridge" -B /cache/bridge -G Ninja -DCMAKE_BUILD_TYPE=Rel
 cmake --build /cache/bridge
 ctest --test-dir /cache/bridge --output-on-failure
 
+# 2d. The pinned UxPlay for the AirPlay supervisor, with its source archive
+# and license (GPL-3.0, a separate program).
+"$release/build-uxplay.sh" /cache/uxplay-out /cache/uxplay-work
+
 # 3. The Rust binaries, without the integration-test feature.
 export CARGO_TARGET_DIR=/cache/cargo RUSTFLAGS="--remap-path-prefix=/src=. --remap-path-prefix=/opt/cargo=cargo"
 (cd /src && cargo build --release --locked --message-format=json-render-diagnostics \
@@ -87,13 +91,14 @@ stage() {
     --web-renderer /cache/web-renderer/tilecast-web-renderer-wpe \
     --session-bridge /cache/bridge/tilecast-session-bridge \
     --gst-plugin-dir /cache/renderer/gstreamer-1.0 --runtime-dir /cache/runtime --sbom "$1" \
+    --uxplay-dir /cache/uxplay-out \
     --wpe-version "$wpe_version" --base-distribution "debian-13-snapshot-$snapshot" --wpe-lib-dir "$wpe_prefix"
 }
 echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > /cache/sbom-placeholder.json
 stage /cache/sbom-placeholder.json
 python3 "$release/sbom.py" --release-tree /out/tree --version "$version" --snapshot "$snapshot" \
   --wpe-version "$wpe_version" --wpe-sha256 "$wpe_sha256" --out /cache/sbom.cdx.json \
-  --cargo-artifacts /cache/edge-rust-artifacts.jsonl
+  --cargo-artifacts /cache/edge-rust-artifacts.jsonl --uxplay-pin /cache/uxplay-out/pin
 stage /cache/sbom.cdx.json
 cp /cache/sbom.cdx.json "/out/tilecast-edge-$version-$arch.sbom.cdx.json"
 

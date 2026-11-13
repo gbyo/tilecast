@@ -9,7 +9,10 @@ directory, so the fake takes its instructions from files there:
   "crash" (exits at once), "ignore-term" (survives SIGTERM).
 * fake-uxplay.version: what -v reports (default 1.73.7).
 * fake-uxplay.cmd: lines that the fake acts on and then deletes:
-  "mirroring", "disconnect", "exit <status>".
+  "mirroring", "disconnect", "wrong-pin", "exit <status>".
+
+Like UxPlay, which logs with printf and never flushes, it does not flush
+its standard output: a pipe would hold its lines back.
 
 It records what it saw in fake-uxplay.json: the arguments, the -rc file's
 mode, the option names in the -rc file, and its process ID. It records no
@@ -63,13 +66,13 @@ if mode == "ignore-term":
 else:
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
-print(f"UxPlay: reading configuration from  {rc_path}", flush=True)
-print("UxPlay 1.73.7: An Open-Source AirPlay mirroring and audio-streaming server.", flush=True)
+print(f"UxPlay: reading configuration from  {rc_path}")
+print("UxPlay 1.73.7: An Open-Source AirPlay mirroring and audio-streaming server.")
 if pin is not None:
-    print(f'*** CLIENT MUST NOW ENTER PIN = "{pin}" AS AIRPLAY PASSWORD', flush=True)
+    print(f'*** CLIENT MUST NOW ENTER PIN = "{pin}" AS AIRPLAY PASSWORD')
     print(f'*** CLIENT MUST NOW ENTER PIN = "{pin}" AS AIRPLAY PASSWORD', file=sys.stderr, flush=True)
 if mode != "hang":
-    print("Initialized server socket(s)", flush=True)
+    print("Initialized server socket(s)")
 
 commands = os.path.join(home, "fake-uxplay.cmd")
 while True:
@@ -81,9 +84,11 @@ while True:
         lines = []
     for line in lines:
         if line == "mirroring":
-            print("raop_rtp_mirror starting mirroring", flush=True)
+            print("raop_rtp_mirror starting mirroring")
         elif line == "disconnect":
             print("raop_rtp_mirror->running is no longer true", file=sys.stderr, flush=True)
+        elif line == "wrong-pin":
+            print("Client Authentication Failure (client proof not validated)", file=sys.stderr, flush=True)
         elif line.startswith("exit "):
             sys.exit(int(line.split()[1]))
     time.sleep(0.02)

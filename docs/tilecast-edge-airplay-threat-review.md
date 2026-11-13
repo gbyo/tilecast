@@ -44,7 +44,7 @@ The unit must have:
 - `InaccessiblePaths=` for `/var/lib/tilecast-edge`, `/run/tilecast-edge`, `/run/tilecast-edge-update`, `/run/tilecast`, and `/run/tilecast-web`.
 - `RuntimeDirectory=tilecast-airplay-session` with mode 0700 for the `-rc` file.
 - `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`. `AF_UNIX` is for the control socket and the system D-Bus.
-- `ProtectKernelTunables=yes`, `ProtectKernelLogs=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictNamespaces=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallArchitectures=native`. WebKit does not run in this unit, so the bubblewrap exceptions of the renderer unit do not apply. Stage 2 ran the unit with a fake UxPlay, so it cannot show how GStreamer in UxPlay behaves with `MemoryDenyWriteExecute=yes` and `SystemCallFilter=@system-service`. Stage 3 confirms both with the packaged UxPlay. If either fails, Stage 3 records the reason in this section. Stage 3 also confirms that UxPlay needs no `AF_NETLINK`.
+- `ProtectKernelTunables=yes`, `ProtectKernelLogs=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictNamespaces=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallArchitectures=native`. WebKit does not run in this unit, so the bubblewrap exceptions of the renderer unit do not apply. Stage 2 ran the unit with a fake UxPlay, so it cannot show how GStreamer in UxPlay behaves with `MemoryDenyWriteExecute=yes` and `SystemCallFilter=@system-service`. Stage 3 confirmed both with the packaged UxPlay 1.73.7 (`release/run-airplay-sandbox-check.sh`, Debian 13 with real systemd): UxPlay starts under this unit, builds its RTP pipelines (a pipeline that does not parse stops UxPlay at start), registers with avahi-daemon (UxPlay exits when registration fails), and opens TCP 37001. No seccomp or audit message names UxPlay. Stage 3 also confirms that UxPlay needs no `AF_NETLINK`. From the source: UxPlay calls `getifaddrs` (which uses netlink) only to find a MAC address when `-m` is not given, and the supervisor always gives `m` in the `-rc` file. `release/run-airplay-sandbox-check.sh` runs the packaged UxPlay under this unit with avahi-daemon.
 - `KillMode=control-group`, so no `uxplay` process lives longer than the unit.
 - `ProtectProc=invisible` and `ProcSubset=pid`. Because of this, the supervisor cannot read the peer's `/proc` entry, and the peer check reads the daemon unit's `cgroup.procs` instead (§4).
 
@@ -76,6 +76,7 @@ UxPlay parses network input from any peer that can reach TCP and UDP 37000–370
 
 - UxPlay listens only during a session. The supervisor starts it after `start` and stops it at `stop`, expiry, or disconnect of `tilecastd`.
 - The four-digit PIN (`-pin`) controls who can mirror. The Server generates a new PIN for each session.
+- **What UxPlay 1.73.7 does after a wrong PIN** (`lib/raop_handlers.h`, `raop_handler_pairsetup_pin`): it logs `Client Authentication Failure (client proof not validated)` and answers RTSP 470. The PIN does not change, and the sender can try again at once. There is no attempt limit and no delay in `-pin` mode. The `MAX_PW_ATTEMPTS` limit applies only to `-pw` mode. A sender could therefore try all 10,000 PINs during a session. The supervisor counts the failure lines and ends the session after 10 (`pin_attempts_exceeded`, `MAX_PIN_FAILURES`), which gives a guessing sender a 0.1 % chance per session.
 - A compromise of UxPlay gives the attacker the `tilecast-airplay` account inside the unit sandbox (§3). It does not give the device credential, the state database, the display, or a Presentation Network secret.
 - The release pins UxPlay by version, tag commit, and SHA-256. A security fix in UxPlay arrives through an ordinary signed Edge release.
 
@@ -129,5 +130,5 @@ UxPlay registers its services with avahi-daemon through the system D-Bus. The un
 
 - UxPlay is a large C program that parses untrusted network input. The unit sandbox limits the effect of a compromise. It does not remove the risk.
 - Loopback injection during a session (§7).
-- A four-digit PIN can be guessed if the sender is not rate-limited. UxPlay controls this, not Tilecast. Stage 3 must record what UxPlay 1.73.7 does after a wrong PIN.
+- A four-digit PIN can be guessed. UxPlay has no limit in `-pin` mode (§6). The supervisor's limit of 10 failures for each session leaves a 0.1 % chance for each session. The limit depends on UxPlay's log text; `tilecast-airplay/src/uxplay.rs` names the lines, and a new UxPlay pin must check them again.
 - avahi-daemon is a host service that Tilecast does not update.
