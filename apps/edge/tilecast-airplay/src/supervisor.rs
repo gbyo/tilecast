@@ -13,7 +13,7 @@ use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use edge_ipc::lines::{Line, read_line};
+use edge_ipc::lines::{Line, LineReader};
 use edge_protocol::airplay::{
     ControlEvent, ControlRequest, MAX_LINE_BYTES, SessionId, UXPLAY_BASELINE, VersionText, encode_line, failure,
     limitation, token,
@@ -204,7 +204,7 @@ impl Supervisor {
     /// does not decode. UxPlay is stopped before this returns.
     pub async fn run_connection(&self, stream: UnixStream) {
         let (read, mut write) = stream.into_split();
-        let mut requests = BufReader::new(read);
+        let mut requests = LineReader::new(BufReader::new(read), MAX_LINE_BYTES);
         let (output_tx, mut output_rx) = mpsc::channel::<(u64, OutputEvent)>(64);
         let mut session: Option<Session> = None;
         let mut generation = 0u64;
@@ -212,7 +212,7 @@ impl Supervisor {
         loop {
             let deadline = session.as_ref().filter(|s| !s.advertised).map(|s| s.start_deadline);
             let result = tokio::select! {
-                line = read_line(&mut requests, MAX_LINE_BYTES) => match line {
+                line = requests.next() => match line {
                     Line::Complete(bytes) => match ControlRequest::decode(&bytes) {
                         Ok(request) => {
                             self.handle(request, &mut session, &mut generation, &output_tx, &mut write).await
@@ -525,9 +525,9 @@ async fn sleep_until(deadline: Option<Instant>) {
 
 /// Classifies UxPlay output line by line and forwards only the meaning.
 async fn forward_output(stream: impl AsyncRead + Unpin, generation: u64, output: mpsc::Sender<(u64, OutputEvent)>) {
-    let mut reader = BufReader::new(stream);
+    let mut reader = LineReader::new(BufReader::new(stream), MAX_OUTPUT_LINE);
     loop {
-        let event = match read_line(&mut reader, MAX_OUTPUT_LINE).await {
+        let event = match reader.next().await {
             Line::End => return,
             Line::TooLong => None,
             Line::Complete(bytes) => uxplay::classify(&bytes),

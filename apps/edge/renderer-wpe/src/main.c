@@ -34,8 +34,13 @@ on_exit_timer (gpointer user_data)
 static void
 on_present_relay_stopped (gpointer user_data)
 {
+  TcHost *host = user_data;
   /* The last presented buffer can hold mirrored pixels (threat review §8). */
-  tc_preview_clear_presented_buffer (user_data);
+  tc_preview_clear_presented_buffer (host);
+  /* A relay that ran and stopped for a fault is reported now, not at the
+   * next health tick. */
+  if (tc_present_relay_failed (host->present))
+    tc_protocol_send_health (host, "degraded", "external_presentation_unavailable");
 }
 
 static gboolean
@@ -43,7 +48,14 @@ on_health (gpointer user_data)
 {
   TcHost *host = user_data;
   gboolean responsive = webkit_web_view_get_is_web_process_responsive (host->view);
-  tc_protocol_send_health (host, responsive ? "healthy" : "failing", responsive ? NULL : "web_process_unresponsive");
+  if (!responsive)
+    tc_protocol_send_health (host, "failing", "web_process_unresponsive");
+  else if (tc_present_relay_failed (host->present))
+    /* Not "healthy" while the AirPlay relay is down, or tilecastd would read
+     * this tick as a recovery. */
+    tc_protocol_send_health (host, "degraded", "external_presentation_unavailable");
+  else
+    tc_protocol_send_health (host, "healthy", NULL);
   return G_SOURCE_CONTINUE;
 }
 
