@@ -106,6 +106,34 @@ describe("presentation machine", () => {
     expect(h.log.filter((entry) => entry === "image-shown:a")).toHaveLength(3);
   });
 
+  it("keeps an indefinite root Layout mounted across the old 30-second fallback", () => {
+    const h = harness([
+      item("layout", {
+        kind: "layout",
+        durationMs: null,
+        layout: {
+          canvasWidth: 1920,
+          canvasHeight: 1080,
+          background: "#000000",
+          zones: [],
+        },
+      }),
+    ]);
+    const mount = h.mount();
+    h.ready();
+
+    h.clock.advance(120_000);
+
+    expect(h.mount()).toBe(mount);
+    expect(h.stage()!.item.id).toBe("layout");
+    expect(
+      h.log.filter((entry) => entry === "item-started:layout"),
+    ).toHaveLength(1);
+    expect(
+      h.log.filter((entry) => entry === "layout-alive:layout"),
+    ).toHaveLength(4);
+  });
+
   it("starts the image duration only once the image is shown", () => {
     const h = harness([item("a", { durationMs: 5_000 }), item("b")]);
     h.clock.advance(20_000);
