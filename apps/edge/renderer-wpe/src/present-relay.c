@@ -9,6 +9,10 @@
 #include <string.h>
 
 #define RECHECK_SECONDS 1
+/* Grant checks in a row that get no answer from tilecastd before the relay
+ * stops. An explicit denial stops it at once; a timeout or a reset does not
+ * say that the grant ended. */
+#define MAX_CHECK_ERRORS 5
 #define START_TIMEOUT (2 * GST_SECOND)
 #define VIDEO_CAPS \
   "application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264,payload=(int)96"
@@ -31,11 +35,17 @@ struct _TcPresentRelay {
   guint recheck_source;
   gboolean rechecking;
   gboolean was_running; /* a pipeline ran since the last time the relay settled */
+  guint check_errors;   /* grant checks in a row without an answer */
+  gboolean failed;      /* the relay for the current source did not start, or stopped for a fault */
   TcPresentRelayStopped stopped;
   gpointer stopped_data;
 };
 
 typedef enum { CHECK_START, CHECK_AGAIN } CheckPurpose;
+
+/* What a grant check found out. Only GRANT_DENIED is an answer that the
+ * grant is gone; GRANT_ERROR is a failure to ask. */
+typedef enum { GRANT_OK, GRANT_DENIED, GRANT_ERROR } GrantAnswer;
 
 typedef struct {
   TcPresentRelay *relay; /* valid only while the task's cancellable is not cancelled */
@@ -44,6 +54,7 @@ typedef struct {
   char id[65];
   char *media_socket;
   gboolean audio;
+  GrantAnswer answer;
 } Check;
 
 static void
@@ -128,6 +139,7 @@ on_bus (GstBus *bus, GstMessage *message, gpointer data)
     gst_message_parse_error (message, &error, NULL);
     g_warning ("present-relay: %s", error != NULL ? error->message : "pipeline error");
     relay->bus_watch = 0;
+    relay->failed = TRUE;
     stop_pipeline (relay, "relay_failed");
     settle (relay);
     return G_SOURCE_REMOVE;
@@ -173,6 +185,7 @@ start_pipeline (TcPresentRelay *relay, gboolean audio)
   }
   relay->recheck_source = g_timeout_add_seconds (RECHECK_SECONDS, on_recheck, relay);
   relay->was_running = TRUE;
+  relay->check_errors = 0;
   g_message ("present-relay: relaying (audio %s)", audio ? "on" : "off");
   return TRUE;
 }
@@ -183,7 +196,14 @@ check_in_thread (GTask *task, gpointer source, gpointer task_data, GCancellable 
   (void) source;
   (void) cancellable;
   Check *check = task_data;
-  g_task_return_boolean (task, tc_media_present (check->media_socket, check->id, &check->audio, NULL));
+  g_autoptr (GError) error = NULL;
+  if (tc_media_present (check->media_socket, check->id, &check->audio, &error))
+    check->answer = GRANT_OK;
+  else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED))
+    check->answer = GRANT_DENIED;
+  else
+    check->answer = GRANT_ERROR;
+  g_task_return_boolean (task, TRUE);
 }
 
 static void
@@ -196,22 +216,41 @@ on_checked (GObject *source, GAsyncResult *result, gpointer data)
     return;
   Check *check = g_task_get_task_data (task);
   TcPresentRelay *relay = check->relay;
-  gboolean granted = g_task_propagate_boolean (task, NULL);
+  g_task_propagate_boolean (task, NULL);
   if (check->generation != relay->generation)
     return; /* a later request replaced this one */
   if (check->purpose == CHECK_AGAIN) {
     relay->rechecking = FALSE;
-    if (relay->pipeline != NULL && (!granted || check->audio != relay->audio)) {
+    if (relay->pipeline == NULL)
+      return;
+    if (check->answer == GRANT_ERROR) {
+      /* tilecastd did not answer: a timeout, a reset, a restart in progress.
+       * That does not say that the grant ended, so the stream keeps running,
+       * and the check repeats on the next tick. A daemon that stays silent
+       * stops the relay after MAX_CHECK_ERRORS checks. */
+      if (++relay->check_errors < MAX_CHECK_ERRORS)
+        return;
+      g_warning ("present-relay: tilecastd gave no answer to %u grant checks in a row", MAX_CHECK_ERRORS);
+      relay->failed = TRUE;
+      stop_pipeline (relay, "grant_unreachable");
+      settle (relay);
+      return;
+    }
+    relay->check_errors = 0;
+    if (check->answer == GRANT_DENIED || check->audio != relay->audio) {
       stop_pipeline (relay, "grant_ended");
       settle (relay);
     }
     return;
   }
   relay->pending = FALSE;
-  gboolean ok = granted && start_pipeline (relay, check->audio);
-  if (!granted)
+  gboolean ok = check->answer == GRANT_OK && start_pipeline (relay, check->audio);
+  if (check->answer == GRANT_DENIED)
     g_message ("present-relay: the present grant was denied");
+  else if (check->answer == GRANT_ERROR)
+    g_message ("present-relay: could not ask tilecastd for the present grant");
   if (!ok) {
+    relay->failed = TRUE;
     relay->id[0] = '\0';
     settle (relay);
   }
@@ -285,6 +324,8 @@ tc_present_relay_set (TcPresentRelay *relay, const char *source_id, TcPresentRel
   }
   relay->generation++;
   relay->rechecking = FALSE;
+  relay->failed = FALSE;
+  relay->check_errors = 0;
   stop_pipeline (relay, source_id == NULL ? "presentation_ended" : "source_changed");
   relay->id[0] = '\0';
   relay->pending = FALSE;
@@ -319,6 +360,12 @@ gboolean
 tc_present_relay_pending (TcPresentRelay *relay)
 {
   return relay != NULL && relay->pending;
+}
+
+gboolean
+tc_present_relay_failed (TcPresentRelay *relay)
+{
+  return relay != NULL && relay->failed;
 }
 
 gboolean

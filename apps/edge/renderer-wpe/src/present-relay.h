@@ -46,6 +46,12 @@ gboolean tc_present_relay_pending (TcPresentRelay *relay);
 /* The relay runs. Capture of the screen is refused while it does. */
 gboolean tc_present_relay_active (TcPresentRelay *relay);
 
+/* The relay for the current source did not start, or stopped because of a
+ * fault: its pipeline failed, or tilecastd gave no answer to several grant
+ * checks in a row. A denied grant that ends a running relay is not a fault.
+ * The next request clears it. The renderer's health reports it. */
+gboolean tc_present_relay_failed (TcPresentRelay *relay);
+
 /*
  * Whether this renderer can show a forwarded stream: GStreamer starts, every
  * element of the relay and of the tcpresent source exists, and an H.264
