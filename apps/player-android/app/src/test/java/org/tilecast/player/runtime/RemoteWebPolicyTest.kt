@@ -75,9 +75,15 @@ class RemoteWebPolicyTest {
         assertNull(RemoteWebColor.parse(""))
     }
 
-    @Test fun zoomKeepsTheEngineDefaultAtOneHundredPercent() {
-        assertEquals(0, RemoteWebZoom.initialScale(100, 2f))
-        assertEquals(300, RemoteWebZoom.initialScale(150, 2f))
-        assertEquals(0, RemoteWebZoom.initialScale(150, 0f))
+    @Test fun oneHundredPercentUsesExplicitCanvasPixelsInsteadOfAutomaticDensityScaling() {
+        // The DEXP regression was 100% -> 0 (automatic 2x on a 320-dpi TV).
+        assertEquals(100, RemoteWebZoom.initialScale(100))
+    }
+
+    @Test fun configuredWebsiteZoomMatchesTheLegacyPlayer() {
+        // 150% must stay 150%, rather than becoming 300% on the same TV.
+        for (percent in listOf(25, 50, 150, 200, 400)) {
+            assertEquals(percent, RemoteWebZoom.initialScale(percent))
+        }
     }
 }
