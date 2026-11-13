@@ -488,6 +488,8 @@ The review policy is `content.review_policy=off|contributors|everyone`, with `co
 
 ## Campaigns
 
+The Server clears timing fields for the inactive block schedule type when it saves a Campaign draft or prepares a submission. Weekly blocks use `dailyStart`, `dailyEnd`, and `daysOfWeek`. One-time blocks use `oneTimeStart` and `oneTimeEnd`. Publication also clears inactive timing fields when it creates schedules from an older submission.
+
 Campaigns are scheduling containers, not a Player playback type. `GET/POST /api/v1/campaigns` lists or creates them; `GET /api/v1/campaigns/{id}` reads the draft; `PATCH /api/v1/campaigns/{id}/draft` updates it with `expectedDraftRevision`; `GET /api/v1/campaigns/{id}/preflight` runs readiness, target, root-revision, and schedule validation; and `DELETE /api/v1/campaigns/{id}` archives it. A Campaign draft contains a global time envelope, screen/Display Group destinations, and one or more Playlist/Layout schedule blocks.
 
 `POST /api/v1/campaigns/{id}/publish` freezes and publishes a Campaign release when the caller may publish directly, or creates an immutable Campaign submission when review is required. The generic `/content-submissions` and `/content-history/campaign/{id}` endpoints provide Campaign review, scheduled publication, semantic comparison, Restore as draft, and rollback. `GET /api/v1/campaigns/{id}/releases` lists immutable releases, and `POST /api/v1/campaigns/{id}/releases/{releaseId}/restore` copies one into the draft.
