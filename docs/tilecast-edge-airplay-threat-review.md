@@ -71,9 +71,10 @@ The supervisor is the only Edge process that starts a program. Review rule 2 app
 
 - It starts one program, at the fixed release path `bin/uxplay`.
 - It builds the argument vector from typed values only. It never uses a shell.
-- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two fixed port numbers. The argument vector never has `-vs 0`, which turns off the RTP forward too.
+- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two fixed port numbers.
 - UxPlay gets a cleared environment with a fixed list of variables.
-- The receiver name goes into the `-rc` file, not into an argument. The supervisor accepts only printable characters with no line break, and it limits the length. The `-rc` grammar has one option per line, so a name with a line break could add an option. The validation stops that.
+- The `-rc` file contains only the PIN and locally administered device ID. Both have fixed grammars. The receiver name stays one bounded, validated `execve` argument, so UxPlay's free-form startup-file parser never has to encode it.
+- The video template uses `-vrtp` without `-vs 0`. UxPlay 1.73.7 already bypasses rendering for `-vrtp`; `-vs 0` would also advertise a 1 fps display limit to the sender. Edge does not enable `-h265`.
 
 ## 6. Untrusted senders
 
@@ -118,7 +119,9 @@ Stage 4 tests the daemon state with unit tests and the relay with real sockets. 
 
 ## 9. Discovery and D-Bus
 
-UxPlay registers its services with avahi-daemon through the system D-Bus. The unit needs no other D-Bus access. The unit must not get a D-Bus policy beyond the default, which lets any user talk to avahi-daemon.
+UxPlay 1.73.7 uses the DNS-SD compatibility API. On Debian, `libavahi-compat-libdnssd` supplies that API and reaches the host `avahi-daemon`. The unit gets only the Unix socket or system-bus access that this packaged path proves it needs in the Stage 2 sandbox test. Do not grant a general desktop session bus, and do not enable UxPlay's `-scrsv` option.
+
+The existing root `tilecast-networkd` boundary does not change. A fresh Edge installation receives that same helper and unit from the signed Edge release instead of running the Legacy Server install script. NetworkManager stays optional and outside the Edge updater's authority.
 
 ## 10. Secrets
 
