@@ -4003,7 +4003,7 @@ fn external(activation: &PresentationActivate) -> Option<(bool, Option<String>)>
     match &activation.presentation {
         PresentationDocument::ExternalPresentation { connected, source_id, session_id, receiver_name, .. } => {
             assert_eq!(session_id.as_str(), AIRPLAY_SESSION);
-            assert_eq!(receiver_name.as_str(), "Lobby 'North' 'A'", "normalized for UxPlay's -rc file");
+            assert_eq!(receiver_name.as_str(), "Lobby \"North\" 'A'", "normalized for the -n argument");
             Some((*connected, source_id.as_ref().map(|id| id.as_str().to_owned())))
         }
         _ => None,
@@ -4123,7 +4123,7 @@ async fn an_airplay_receiver_that_fails_to_start_leaves_nothing_behind() {
 fn stored(state: SessionState, expires_in_ms: i64) -> ExternalPresentation {
     ExternalPresentation {
         session_id: AIRPLAY_SESSION.into(),
-        receiver_name: "Lobby 'North' 'A'".into(),
+        receiver_name: "Lobby \"North\" 'A'".into(),
         pin: "7319".into(),
         device_id: "02:5a:00:00:00:01".into(),
         profile: "720p30".into(),

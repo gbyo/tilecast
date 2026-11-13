@@ -96,19 +96,15 @@ pub enum PayloadError {
     Invalid(&'static str),
 }
 
-/// Makes a Server receiver name valid for UxPlay's `-rc` file
+/// Makes a Server receiver name valid for UxPlay's `-n` argument
 /// ([`ReceiverName`]): control characters are dropped, white space is trimmed,
-/// a leading `-` is stripped, the name is cut to the maximum length, and `"`
-/// becomes `'` when both quote characters are present. `None` when nothing
-/// is left.
+/// a leading `-` is stripped, and the name is cut to the maximum length.
+/// `None` when nothing is left.
 pub fn normalize_receiver_name(raw: &str) -> Option<ReceiverName> {
     let kept: String = raw.chars().filter(|c| !c.is_control() && !matches!(c, '\u{2028}' | '\u{2029}')).collect();
     let trimmed = kept.trim().trim_start_matches('-').trim();
     let mut name: String = trimmed.chars().take(wire::MAX_RECEIVER_NAME_CHARS).collect();
     name = name.trim_end().to_owned();
-    if name.contains('"') && name.contains('\'') {
-        name = name.replace('"', "'");
-    }
     ReceiverName::new(name).ok()
 }
 
@@ -1095,7 +1091,7 @@ mod tests {
     fn single_payloads_parse_and_group_roles_fail_first() {
         let session = parse_payload(&payload(), NOW).unwrap();
         assert_eq!(session.id.as_str(), "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
-        assert_eq!(session.receiver_name.as_str(), "Lobby 'North' 'A'");
+        assert_eq!(session.receiver_name.as_str(), "Lobby \"North\" 'A'");
         assert_eq!((session.profile, session.audio_mode), (VideoProfile::P1080p30, AudioMode::GatewayOnly));
         assert!(session.network_id.is_none());
         let debug = format!("{session:?}");
@@ -1131,12 +1127,12 @@ mod tests {
     }
 
     #[test]
-    fn receiver_names_are_normalized_for_the_rc_file() {
+    fn receiver_names_are_normalized_for_the_name_argument() {
         for (raw, expected) in [
             ("  Lobby  ", Some("Lobby")),
             ("-Lobby", Some("Lobby")),
             ("--- Lobby", Some("Lobby")),
-            ("Room \"A\" 'B'", Some("Room 'A' 'B'")),
+            ("Room \"A\" 'B'", Some("Room \"A\" 'B'")),
             ("Room \"A\"", Some("Room \"A\"")),
             ("Line\nbreak", Some("Linebreak")),
             (" \t ", None),
