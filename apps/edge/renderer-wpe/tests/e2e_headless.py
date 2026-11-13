@@ -41,6 +41,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -1337,6 +1338,7 @@ class AirplayState:
         self.results = {}
         self.heartbeats = []
         self.previews = 0
+        self.refused_previews = 0
 
     def manifest(self):
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -1409,9 +1411,14 @@ class AirplayHandler(StreamHandler):
                 return self._send_json(200, {"data": {"id": command_id, "state": entry["state"]}})
         if self._authorized() and self.path == "/api/v1/player/preview":
             length = int(self.headers.get("Content-Length", "0") or 0)
-            self.rfile.read(length)
+            body = self.rfile.read(length)
+            # Only an upload with a JPEG is a captured frame; a refused
+            # capture is reported as unavailable, without an image.
             with self.state.lock:
-                self.state.previews += 1
+                if b"\xff\xd8\xff" in body:
+                    self.state.previews += 1
+                else:
+                    self.state.refused_previews += 1
             self.send_response(204)
             self.end_headers()
             return None
@@ -1448,6 +1455,8 @@ def scenario_airplay(args):
     # The supervisor, its socket and service units, its account, and the
     # fake UxPlay, exactly as the Stage 2 systemd test installs them.
     airplay_e2e.setup()
+    # UxPlay advertises through the host's avahi-daemon; the probe requires it.
+    subprocess.run(["systemctl", "start", "avahi-daemon.service"], check=True)
     sender_spec = importlib.util.spec_from_file_location(
         "present_sender", "/src/apps/edge/renderer-wpe/spike/present-latency/sender.py")
     sender = importlib.util.module_from_spec(sender_spec)
@@ -1486,8 +1495,20 @@ def scenario_airplay(args):
     os.makedirs(home, exist_ok=True)
     subprocess.run(["chown", "tilecast:tilecast", home], check=True)
     # WebKit's bubblewrap sandbox stays on: the renderer's relay is the only
-    # way the web process, in its own network namespace, gets the stream.
-    subprocess.run(common + [
+    # way the web process, in its own network namespace, gets the stream. A
+    # host that cannot give an unprivileged account user namespaces can run
+    # the scenario with E2E_DISABLE_WEBKIT_SANDBOX=1 (never the default), as
+    # ci/migrate_e2e.py allows.
+    sandbox = []
+    probe = subprocess.run(["runuser", "-u", "tilecast", "--", "bwrap", "--unshare-user", "--unshare-net",
+                            "--dev-bind", "/", "/", "/bin/true"], capture_output=True, text=True)
+    if probe.returncode != 0:
+        if os.environ.get("E2E_DISABLE_WEBKIT_SANDBOX") != "1":
+            raise AssertionError("this host cannot run WebKit's sandbox for the tilecast account: "
+                                 + probe.stderr.strip() + " (E2E_DISABLE_WEBKIT_SANDBOX=1 opts out)")
+        print("airplay: WebKit sandbox deliberately disabled for this run (E2E_DISABLE_WEBKIT_SANDBOX=1)")
+        sandbox = ["--setenv=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1"]
+    subprocess.run(common + sandbox + [
         "--unit=tilecast-renderer.service", f"--setenv=HOME={home}", f"--setenv=XDG_CACHE_HOME={home}",
         f"--setenv=XDG_RUNTIME_DIR={home}", "--setenv=GST_DEBUG=GST_STATES:4",
         args.renderer, "--platform=headless", f"--socket={stack.socket}",
@@ -1522,7 +1543,7 @@ def scenario_airplay(args):
         airplay_fake("mirroring")
         wait_for("the connected session in the heartbeat", lambda: (
             state.last_heartbeat().get("airplayConnected") is True), timeout=60)
-        previews = state.previews
+        previews, refused = state.previews, state.refused_previews
         stop = threading.Event()
         threading.Thread(target=sender.audio_loop, args=(stop,), daemon=True).start()
         out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1542,11 +1563,14 @@ def scenario_airplay(args):
         stop.set()
         journal = airplay_journal("tilecast-renderer.service")
         playing = [line for line in journal.splitlines() if "completed state change to PLAYING" in line]
-        assert any("tcpresentsrc" in line for line in playing), "the tcpresent source never played"
-        assert any("h264" in line and "dec" in line for line in playing), "no H.264 decoder ran in the Runtime"
-        print("airplay: the Runtime decoded the forwarded H.264 stream (WebKit sandbox on)")
-        assert state.previews == previews, "a preview was captured during the session"
-        print("airplay: no preview was captured while the session ran")
+        # playbin names the tcpresent bin `source`; its own elements keep their
+        # names, so they show that the relayed RTP reached the web process.
+        for element in ("<unixfdsrc", "<rtph264depay", "<rtpl16depay", "<avdec_h264"):
+            assert any(element in line for line in playing), f"{element[1:]} never played in the web process"
+        print("airplay: the Runtime decoded the forwarded H.264 stream" + (" (WebKit sandbox off)" if sandbox else " (WebKit sandbox on)"))
+        wait_for("a refused capture during the session", lambda: state.refused_previews > refused, timeout=30)
+        assert state.previews == previews, "a preview frame was captured during the session"
+        print("airplay: preview captures were refused while the session ran")
 
         airplay_fake("disconnect")
         wait_for("the ready page again", lambda: (
