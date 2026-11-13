@@ -339,6 +339,12 @@ async fn fetch_required_bundle<P: ManifestSourcePlan>(
     fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await
 }
 
+/// One unified queue avoids delaying Widget bundles behind long media downloads.
+enum RequiredObject {
+    Media(ManifestAsset),
+    Bundle(ManifestBundle),
+}
+
 /// Fetches every variant, Widget bundle, and Widget frame the candidate
 /// needs. The caller persists and pins a candidate only after this
 /// succeeds, so a manifest whose bundle or frame cannot be fetched
@@ -364,30 +370,29 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
         match sizes.insert(asset.digest, asset.size_bytes) {
             Some(size) if size != asset.size_bytes => return Err(ManifestPreparationError::SizeMismatch),
             Some(_) => {}
-            None => downloads.push(asset.clone()),
+            None => downloads.push(RequiredObject::Media(asset.clone())),
         }
     }
-    let mut bundles = Vec::new();
     for bundle in &candidate.required_bundles {
         match sizes.insert(bundle.digest, bundle.size_bytes) {
             Some(size) if size != bundle.size_bytes => return Err(ManifestPreparationError::SizeMismatch),
             Some(_) => {}
-            None => bundles.push(bundle.clone()),
+            None => downloads.push(RequiredObject::Bundle(bundle.clone())),
         }
     }
-    // Required media and bundles download up to the configured number at a
-    // time; the content store reserves space across concurrent writers.
-    // Items are owned so the stream's futures stay `Send` for hosts that
-    // spawn preparation.
-    let limit = store.download_concurrency();
-    stream::iter(downloads.into_iter().map(|asset| async move { fetch_required_download(store, plan, &asset).await }))
-        .buffer_unordered(limit)
-        .try_collect::<Vec<()>>()
-        .await?;
-    stream::iter(bundles.into_iter().map(|bundle| async move { fetch_required_bundle(store, plan, &bundle).await }))
-        .buffer_unordered(limit)
-        .try_collect::<Vec<()>>()
-        .await?;
+    // The media and bundles share one bounded queue. Ordered buffering still
+    // runs up to the configured limit concurrently, but propagates errors in
+    // manifest order rather than depending on network completion order.
+    // Items are owned so the futures remain `Send` for spawned workers.
+    stream::iter(downloads.into_iter().map(|object| async move {
+        match object {
+            RequiredObject::Media(asset) => fetch_required_download(store, plan, &asset).await,
+            RequiredObject::Bundle(bundle) => fetch_required_bundle(store, plan, &bundle).await,
+        }
+    }))
+    .buffered(store.download_concurrency())
+    .try_collect::<Vec<()>>()
+    .await?;
     for frame in &candidate.required_frames {
         let meta = IngestMeta {
             domain: Domain::WidgetFrame,
