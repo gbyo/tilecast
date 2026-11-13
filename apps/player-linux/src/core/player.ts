@@ -1097,13 +1097,24 @@ export class PlayerRuntime {
       manifest,
       this.clock.now(),
     );
+    const rootLayoutHasNoBoundary =
+      this.playbackState === "playing" &&
+      this.selection?.layoutId != null &&
+      this.selection.playlistId == null &&
+      this.presentedItems.length === 1 &&
+      this.presentedItems[0]?.kind === "layout" &&
+      this.presentedItems[0].durationMs === null;
     if (
       this.activeManifest === null ||
       this.playbackState !== "playing" ||
       takeoverNow ||
-      quickPresentNow
+      quickPresentNow ||
+      rootLayoutHasNoBoundary
     ) {
-      // Nothing on screen yet, or a takeover: activate immediately.
+      // Nothing on screen yet, an interrupting presentation, or an indefinite
+      // root Layout has no item boundary to wait for. Activating the manifest
+      // here is still seamless when its projection is unchanged because
+      // evaluatePresentation() suppresses identical presentations.
       if (this.pendingActivationTimer) {
         clearTimeout(this.pendingActivationTimer);
         this.pendingActivationTimer = null;
