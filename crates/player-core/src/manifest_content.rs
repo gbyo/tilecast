@@ -764,7 +764,7 @@ mod tests {
                 let digest = Sha256Digest::of(&bytes);
                 files.insert(digest, bytes.clone());
                 let (asset, variant) = asset_ids(1000 + n * 2);
-                assets.push(image_asset(asset, variant, digest, bytes.len() as u64));
+                assets.push(video_asset(asset, variant, digest, bytes.len() as u64));
                 items.push(item(asset, variant, "download"));
             }
             let mut manifest = candidate(assets, items);
