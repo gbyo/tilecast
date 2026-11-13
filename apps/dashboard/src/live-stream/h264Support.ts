@@ -44,8 +44,11 @@ export async function detectAcceptedProfiles(
       const key = `${H264_CODEC}/${width}x${height}`;
       let answer = answers.get(key);
       if (!answer) {
-        answer = decoder
-          .isConfigSupported(h264DecoderConfig(width, height))
+        // The call runs inside a promise so a synchronous throw is caught too.
+        answer = Promise.resolve()
+          .then(() =>
+            decoder.isConfigSupported(h264DecoderConfig(width, height)),
+          )
           .then((support) => support.supported === true)
           // An engine that rejects the question cannot decode the stream.
           .catch(() => false);
@@ -53,12 +56,15 @@ export async function detectAcceptedProfiles(
       }
       return answer;
     };
-    for (const profile of WATCH_LIVE_PROFILES) {
-      if (profile.transport !== "h264") continue;
-      if (await supports(profile.maxWidth, profile.maxHeight)) {
-        accepted.push(profile.id);
-      }
-    }
+    const h264 = WATCH_LIVE_PROFILES.filter(
+      (profile) => profile.transport === "h264",
+    );
+    const results = await Promise.all(
+      h264.map((profile) => supports(profile.maxWidth, profile.maxHeight)),
+    );
+    h264.forEach((profile, index) => {
+      if (results[index]) accepted.push(profile.id);
+    });
   }
   return [...accepted, ...MJPEG_PROFILE_IDS];
 }

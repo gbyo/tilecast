@@ -260,8 +260,8 @@ struct Window {
     elapsed: Duration,
     chunks: u32,
     samples: u32,
-    missed: u32,
-    slow_captures: u32,
+    /// Samples that missed their slot or ran slow, each counted once.
+    late: u32,
     resyncs: u32,
 }
 
@@ -304,11 +304,9 @@ impl DowngradeMonitor {
     pub fn sample(&mut self, sample: EncoderSample) {
         let budget = Duration::from_micros(1_000_000 / u64::from(self.fps.max(1)));
         self.window.samples += 1;
-        if sample.missed_deadline {
-            self.window.missed += 1;
-        }
-        if sample.capture + sample.encode.unwrap_or_default() > budget || sample.backlog > 2 {
-            self.window.slow_captures += 1;
+        // A sample that is both missed and slow is one late frame, not two.
+        if sample.missed_deadline || sample.capture + sample.encode.unwrap_or_default() > budget || sample.backlog > 2 {
+            self.window.late += 1;
         }
     }
 
@@ -330,11 +328,7 @@ impl DowngradeMonitor {
         let window = std::mem::take(&mut self.window);
         let seconds = window.elapsed.as_secs_f64();
         let output_fps = f64::from(window.chunks) / seconds;
-        let late_ratio = if window.samples > 0 {
-            f64::from(window.missed + window.slow_captures) / f64::from(window.samples)
-        } else {
-            0.0
-        };
+        let late_ratio = if window.samples > 0 { f64::from(window.late) / f64::from(window.samples) } else { 0.0 };
         self.report = Some(WindowReport { output_fps, late_ratio, samples: window.samples, resyncs: window.resyncs });
         let reason = if output_fps < f64::from(self.fps) * self.policy.min_fps_ratio {
             Some("output_fps")
@@ -592,6 +586,28 @@ mod tests {
         // One in ten late is tolerated by the 30 FPS tier too.
         let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
         assert!(run(&mut monitor, 30, 30, Some(10)).iter().all(|verdict| *verdict == Sustainability::Sustainable));
+    }
+
+    #[test]
+    fn a_sample_that_is_both_missed_and_slow_counts_as_one_late_frame() {
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        let both =
+            EncoderSample { capture: Duration::from_millis(40), missed_deadline: true, ..EncoderSample::default() };
+        let fine = EncoderSample { capture: Duration::from_millis(2), ..EncoderSample::default() };
+        // 18 of 150 samples are late (12%), each both missed and slow.
+        for window in 0..2 {
+            let _ = monitor.tick(if window == 0 { DowngradeMonitor::WARM_UP } else { Duration::ZERO });
+            for index in 0..150 {
+                monitor.chunk();
+                monitor.sample(if index < 18 { both } else { fine });
+            }
+            assert_eq!(
+                monitor.tick(DowngradeMonitor::WINDOW + Duration::from_millis(1)),
+                Sustainability::Sustainable,
+                "window {window}: 12% late is below the 20% limit"
+            );
+        }
+        assert!(monitor.take_report().is_some_and(|report| (report.late_ratio - 0.12).abs() < 1e-9));
     }
 
     #[test]
