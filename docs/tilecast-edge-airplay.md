@@ -59,7 +59,7 @@ The Electron Player starts `uxplay` and `gst-launch-1.0` from the kiosk process.
 - `tilecast-edge.service` pulls the socket in with `Wants=tilecast-airplay.socket`. No installer enables the socket. An update installs the units of the new release, but the installer is the previous release's helper, and it installs only the unit names that it knows ([`tilecast-edge-update-threat-review.md`](tilecast-edge-update-threat-review.md) §4.5). The `sysusers.d` file has a fixed name, so the account arrives with the first AirPlay release. The two AirPlay units arrive with the next update after it, or at once on a new migration. Until then, `tilecastd` cannot connect, and AirPlay reports a limitation. Signage is not affected.
 - It holds one control connection. It refuses other connections while it serves one (`rejected` with `connection_busy`). When the connection closes, the supervisor stops UxPlay and exits. systemd starts it again at the next connection.
 - It is the only Edge process that may start a program. It starts exactly one program: the release's `bin/uxplay`, with a fixed path. It builds the argument vector from validated typed fields and never uses a shell.
-- It writes the session options (receiver name, PIN, device ID) to a 0600 file in its private `RuntimeDirectory` and passes the file with `-rc`. The PIN and the device ID therefore never appear in a process argument. The supervisor deletes the file when UxPlay reports that its server sockets are open (UxPlay reads the file before that), when the session ends, and at start.
+- It writes the PIN and device ID to a 0600 file at a fixed path in its private `RuntimeDirectory` and passes that fixed path with `-rc`. Those values have fixed grammars, so the file does not need to serialize a free-form name. The receiver name stays one validated, bounded argument to `execve`; no shell interprets it. The PIN and device ID never appear in a process argument. The supervisor deletes the file when UxPlay reports that its server sockets are open (UxPlay reads the file before that), when the session ends, and at start.
 - The argument vector also has a bare `-pin`. UxPlay parses the `-rc` file first and the command line after it, and a bare `-pin` keeps the PIN of the file. If UxPlay could not open the file, it ignores it and continues. The bare `-pin` then still requires a random PIN that no one sees, so no sender can connect.
 - It clears the environment of UxPlay. It sets `HOME` and the GStreamer registry to the session directory and passes only a fixed list of library and plugin path variables.
 - UxPlay prints the PIN on its output when a sender starts pairing. The supervisor reads UxPlay's output only to classify lines. It never logs or forwards a line.
@@ -86,7 +86,7 @@ The protocol uses the bounded types in `edge-protocol`. Fixtures go in `packages
 | unit → `tilecastd` | `stopped`             | `sessionId`                                                                                                                                                                                                   |
 | unit → `tilecastd` | `rejected`            | `code`. The last line did not decode, or the peer is refused. The supervisor closes the connection after it.                                                                                                  |
 
-The types are `edge_protocol::airplay`. A line is at most 4096 bytes. `videoPort` decodes only as 42000 and `audioPort` only as 42002. The receiver name must not have a control character or a line separator, must not start with `-` or white space, and must not have both `"` and `'`: the `-rc` grammar splits words at spaces, and a quoted word ends at its quote character. `tilecastd` (Stage 5) normalizes a Server name that breaks these rules before it sends `start`.
+The types are `edge_protocol::airplay`. A line is at most 4096 bytes. `videoPort` decodes only as 42000 and `audioPort` only as 42002. The receiver name must not have a control character or a line separator, must not start with `-` or white space. The supervisor passes it to UxPlay as one argument after `-n`, so quote characters need no special handling. `tilecastd` (Stage 5) normalizes a Server name that breaks these rules before it sends `start`.
 
 `limitation` is a code, not a sentence: `uxplay_missing`, `uxplay_not_executable`, `uxplay_version_failed`, `uxplay_version_unrecognized`, `uxplay_version_unsupported`, `avahi_unavailable`, in the Electron order. `tilecastd` maps the code to the Electron sentence (Stage 5), so the operator text stays in one process. A second `start` for the running session is answered with its current state. A `start` for another session fails with `session_active`.
 
@@ -94,9 +94,7 @@ The supervisor derives `client_connected` and `client_disconnected` from UxPlay'
 
 ## 5. Media path
 
-UxPlay forwards decrypted, compressed H.264 with `-vs fakesink -vrtp "config-interval=1 ! udpsink host=127.0.0.1 port=42000"`. When `audioMode` is `gateway_only`, it forwards decoded L16 audio with `-artp "pt=96 ! udpsink host=127.0.0.1 port=42002"`. When `audioMode` is `none`, it uses `-as 0`.
-
-**Change from the first version of this amendment (Stage 2).** The first version used `-vs 0 -vrtp`. The UxPlay source does not support that. In 1.73.7 (and in the vendored 1.73.6), `-vs 0` sets `use_video = false`, and UxPlay then never calls `video_renderer_init`, so the `-vrtp` pipeline is never built and no video is forwarded (`uxplay.cpp`). `-vrtp` by itself already replaces the decoder and the sink with `rtph264pay` (`renderers/video_renderer.c`), so UxPlay does not draw. `-vs fakesink` keeps a sink that cannot draw for any path that does not use RTP (for example cover art). The decision "UxPlay never draws" does not change. The Electron group gateway uses `-vs 0 -vrtp` with 1.73.6; that path is outside this amendment and needs its own check.
+UxPlay 1.73.7 forwards decrypted, compressed H.264 with `-vrtp "<rtph264pay options> ! udpsink host=127.0.0.1 port=<videoPort>"`. Do **not** add `-vs 0`: in 1.73.7 that option sets the display `maxFPS` advertised to the sender to 1, while `-vrtp` already bypasses UxPlay video rendering. Edge does not enable `-h265`, so this path stays H.264-only. When `audioMode` is `gateway_only`, UxPlay forwards decoded L16 audio with `-artp "<rtpL16pay options> ! udpsink host=127.0.0.1 port=<audioPort>"`. When `audioMode` is `none`, it uses `-as 0`. The 1.73.7 source and README contain `-vrtp`, `-artp`, `-rc`, and `-pin`; Stage 3 still runs the packaged binary to prove those options in the release environment.
 
 ### 5.1 The relay and the `tcpresent` source (Stage 4)
 
@@ -211,11 +209,11 @@ The Presentation Network client already exists (`apps/edge/tilecastd/src/present
 
 The credential path does not change. `tilecastd` fetches the credential only to install a profile, and it never stores it.
 
-A new Edge installation (not a migration) does not install `tilecast-networkd`. The operator runs the Server-published `install-presentation-network.sh`. The script grants its socket group to the `tilecast` account by default, so it works for Edge without change. The public install page for Edge must say so when Stage 6 merges.
+A fresh Edge installation must not depend on the Legacy Server install script. Stage 3 carries the existing `tilecast-networkd` helper and its system unit in the signed Edge release and installs them through the same `edge-release` system-file path as the other Edge units. The helper protocol and implementation do not change. Python becomes an explicit Presentation Network host dependency. NetworkManager remains optional and is never installed or enabled by an Edge update; if it is absent, the existing capability probe reports Presentation Networks as unsupported without affecting signage or Ethernet-only AirPlay.
 
 ## 9. Discovery
 
-UxPlay advertises `_airplay._tcp` and `_raop._tcp` through the host `avahi-daemon` over the system D-Bus (`avahi-compat-libdns_sd`). The release carries the compatibility library. avahi-daemon is a host service that the operator installs. `tilecastd` already uses Avahi for LAN discovery (M5). If avahi-daemon is missing, the probe reports a limitation and AirPlay stays unavailable. Signage is not affected.
+UxPlay advertises `_airplay._tcp` and `_raop._tcp` through the DNS-SD compatibility API. On Debian, `libavahi-compat-libdnssd` supplies that API and talks to the host `avahi-daemon`. Stage 2 records and tests the exact Unix socket or system-bus access that the packaged 1.73.7 build needs instead of granting a generic D-Bus surface. Edge does not enable UxPlay's `-scrsv` option, so its optional desktop session-bus path is unused. If avahi-daemon is missing, the probe reports a limitation and AirPlay stays unavailable. Signage is not affected.
 
 The unit advertises only while a session is active. It does not create a permanent advertisement.
 
@@ -263,6 +261,15 @@ Each stage is a separate pull request. Each pull request stacks on the one befor
 | 6     | Public documentation and qualification.                                                                                                                                                     | The manual procedure in [`airplay-present.md`](airplay-present.md) (single-screen steps) on Edge reference hardware with iPhone, iPad, and Mac senders, recorded in the qualification ledger.                                                                                       |
 
 **Change to the Stage 4 evidence.** The headless end-to-end test needs `tilecastd` to issue the grant and to project the `external-presentation` document. That is Stage 5. Stage 4 therefore records the latency measurement, which runs WebKit, the relay, and the `tcpresent` element with a synthetic RTP stream and a fake grant, and the component tests. Stage 5 adds the end-to-end scenario to `apps/edge/renderer-wpe/tests/e2e_headless.py`: a real `tilecastd`, the real supervisor with the fake UxPlay, synthetic RTP to 42000 and 42002, the Runtime showing the video, and capture excluded.
+
+**Changes from the proposal, as built (Stages 2 to 5).** The stack keeps these decisions. The proposal text above states what each replaces.
+
+- The page names the relay with the session ID: `tcpresent://session/<sourceId>`. The proposal named an unguessable capability, `tcpresent://cap/<token>`. As built, the renderer starts a relay only for the `sourceId` of an activation, after `tilecastd` grants it (§5.1), and the page never names an address or a port. A capability token is not part of Stages 4 and 5.
+- The protected capture state is `CaptureState::ExternalPresentation`. The proposal named `CaptureState::ProtectedPresentation`. As built, `tilecastd` and the renderer refuse capture, and §5.4 states the two layers. A Watch Live H.264 encoder that this stack does not contain must apply the same rule when it merges.
+- Stage 3 does not carry the `tilecast-networkd` helper and unit in the release, and it does not add Python to the host baseline (§8). Until it does, a fresh Edge installation needs the Server-published `install-presentation-network.sh`.
+- Stage 2 grants `AF_UNIX` to the unit for the control socket and the system D-Bus (avahi-daemon). It does not narrow that to the exact socket that the packaged UxPlay needs (§9).
+
+These are open items, not accepted risks. Resolve each one, or record a decision, before Stage 6 qualification.
 
 Until Stage 6 is recorded, the readiness documents must not show AirPlay on Edge as available, and an AirPlay-dependent screen must stay on the Electron Player.
 

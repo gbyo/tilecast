@@ -43,7 +43,7 @@ install -m 0755 "$work/build/uxplay" "$out/uxplay"
 "$out/uxplay" -v | grep -q "UxPlay version $UXPLAY_VERSION"
 # The options the supervisor depends on (tilecast-airplay/src/uxplay.rs).
 help=$("$out/uxplay" -h 2>&1 || true)
-for option in -rc -pin -vrtp -artp -vs -as -p -s -fps -m -n -nh; do
+for option in -rc -pin -vrtp -artp -as -p -s -fps -m -n -nh; do
   grep -qe "^$option\b" <<<"$help" || { echo "UxPlay $UXPLAY_VERSION has no $option option" >&2; exit 1; }
 done
 install -m 0644 "$tarball" "$out/UxPlay-$UXPLAY_VERSION.tar.gz"
