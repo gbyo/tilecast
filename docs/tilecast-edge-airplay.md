@@ -128,7 +128,7 @@ The renderer adds `external-presentation-video-v1` to the `renderer.ready` featu
 
 The WPE bridge sets the Runtime capability `externalPresentationVideo`. The Runtime external-presentation view shows `<video src="tcpresent://session/<sourceId>">` only when the capability is set and `sourceId` is 64 lowercase hexadecimal characters (`packages/player-runtime/src/views/status-surface.ts`). Without both, the view keeps the Electron behavior: the external receiver owns the screen. The Runtime decides from the capability, never from a host name.
 
-The view mounts the `<video>` when the session starts, under the ready page, and shows it when `connected` is true. iOS sends a key frame only when mirroring starts. A pipeline that starts after the sender connects can wait for a long time for the next key frame. The same element stays mounted while `connected` changes, so a sender that disconnects and connects again reuses the running pipeline.
+The view mounts the `<video>` when the session starts, under the ready page, and shows it when `connected` is true. iOS sends a key frame only when mirroring starts. A pipeline that starts after the sender connects can wait for a long time for the next key frame. The same element stays mounted while `connected` changes, so a sender that disconnects and connects again reuses the running pipeline. If the `<video>` cannot open its stream, the view removes it and shows the ready page, also while a sender is connected. A blank screen with no reason is not allowed.
 
 Video and audio share one media element. Stage 4 confirmed that WebKit 2.54.2 accepts one source with two pads: the element exposed one video track and one audio track, with the sandbox on and off. The fallback (ALSA in the AirPlay unit) is not used. The container has no audio device, so Stage 4 did not measure audio latency or A/V sync. Stage 6 must measure them on hardware.
 
@@ -154,7 +154,7 @@ The measurement does not include the sender, Wi-Fi, UxPlay, display scan-out, or
 Preview, snapshot, and Watch Live never capture a mirrored frame. Two layers enforce this:
 
 - `tilecastd` maps the `external-presentation` document to the protected capture state `CaptureState::ExternalPresentation` (Player Core). It refuses a capture before it asks the renderer, and it discards a frame when the screen changed to that state during the capture.
-- The renderer refuses a preview with `unavailable` and the code `external_presentation` while the relay runs or waits for its grant. Watch Live gets black frames of the presented size, and the renderer does not read the presented pixels (`preview.c`).
+- The renderer refuses a preview with `unavailable` and the code `external_presentation` while the relay runs or waits for its grant. Watch Live gets black frames of the presented size, and the renderer does not read the presented pixels (`preview.c`). When a relay that ran stops and no other source waits, the renderer drops its last presented buffer. A capture after the stop cannot read a mirrored frame that the display showed before it.
 
 ### 5.5 Main technical risk
 

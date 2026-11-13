@@ -30,6 +30,9 @@ struct _TcPresentRelay {
   guint bus_watch;
   guint recheck_source;
   gboolean rechecking;
+  gboolean was_running; /* a pipeline ran since the last time the relay settled */
+  TcPresentRelayStopped stopped;
+  gpointer stopped_data;
 };
 
 typedef enum { CHECK_START, CHECK_AGAIN } CheckPurpose;
@@ -81,6 +84,18 @@ stop_pipeline (TcPresentRelay *relay, const char *reason)
     remove_sockets (relay, relay->id);
 }
 
+/* Tells the host once when a relay that ran is gone for good. A pipeline that
+ * stops while a grant check for the next source waits is not that yet. */
+static void
+settle (TcPresentRelay *relay)
+{
+  if (!relay->was_running || relay->pipeline != NULL || relay->pending)
+    return;
+  relay->was_running = FALSE;
+  if (relay->stopped != NULL)
+    relay->stopped (relay->stopped_data);
+}
+
 static gboolean
 add_stream (TcPresentRelay *relay, guint port, const char *caps_text, const char *stream)
 {
@@ -114,6 +129,7 @@ on_bus (GstBus *bus, GstMessage *message, gpointer data)
     g_warning ("present-relay: %s", error != NULL ? error->message : "pipeline error");
     relay->bus_watch = 0;
     stop_pipeline (relay, "relay_failed");
+    settle (relay);
     return G_SOURCE_REMOVE;
   }
   return G_SOURCE_CONTINUE;
@@ -156,6 +172,7 @@ start_pipeline (TcPresentRelay *relay, gboolean audio)
     return FALSE;
   }
   relay->recheck_source = g_timeout_add_seconds (RECHECK_SECONDS, on_recheck, relay);
+  relay->was_running = TRUE;
   g_message ("present-relay: relaying (audio %s)", audio ? "on" : "off");
   return TRUE;
 }
@@ -184,16 +201,20 @@ on_checked (GObject *source, GAsyncResult *result, gpointer data)
     return; /* a later request replaced this one */
   if (check->purpose == CHECK_AGAIN) {
     relay->rechecking = FALSE;
-    if (relay->pipeline != NULL && (!granted || check->audio != relay->audio))
+    if (relay->pipeline != NULL && (!granted || check->audio != relay->audio)) {
       stop_pipeline (relay, "grant_ended");
+      settle (relay);
+    }
     return;
   }
   relay->pending = FALSE;
   gboolean ok = granted && start_pipeline (relay, check->audio);
   if (!granted)
     g_message ("present-relay: the present grant was denied");
-  if (!ok)
+  if (!ok) {
     relay->id[0] = '\0';
+    settle (relay);
+  }
   TcPresentRelayReady ready = relay->ready;
   gpointer ready_data = relay->ready_data;
   relay->ready = NULL;
@@ -226,6 +247,13 @@ tc_present_relay_new (const char *dir, const char *media_socket)
   relay->media_socket = g_strdup (media_socket);
   relay->cancellable = g_cancellable_new ();
   return relay;
+}
+
+void
+tc_present_relay_on_stopped (TcPresentRelay *relay, TcPresentRelayStopped stopped, gpointer data)
+{
+  relay->stopped = stopped;
+  relay->stopped_data = data;
 }
 
 void
@@ -263,6 +291,7 @@ tc_present_relay_set (TcPresentRelay *relay, const char *source_id, TcPresentRel
   relay->ready = NULL;
   relay->ready_data = NULL;
   if (source_id == NULL) {
+    settle (relay);
     if (ready != NULL)
       ready (TRUE, data);
     return;
@@ -274,6 +303,7 @@ tc_present_relay_set (TcPresentRelay *relay, const char *source_id, TcPresentRel
     g_once_init_leave (&gst_ready, 1);
   }
   if (!gst_usable || relay->dir == NULL || relay->media_socket == NULL) {
+    settle (relay);
     if (ready != NULL)
       ready (FALSE, data);
     return;

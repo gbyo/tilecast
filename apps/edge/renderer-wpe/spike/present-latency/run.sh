@@ -38,6 +38,17 @@ if [ ! -f "$B/phases.h264" ]; then
     -x264-params repeat-headers=1 -bsf:v h264_metadata=aud=insert -f h264 "$B/phases.h264"
 fi
 VCAPS="application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,payload=96"
+# The grant server binds its socket in a background thread. A consumer that
+# asks for its grant first fails to start the relay, so wait (at most ten
+# seconds) for the socket before the consumer starts.
+wait_for_socket() {
+  for _ in $(seq 100); do
+    [ -S "$1" ] && return 0
+    sleep 0.1
+  done
+  echo "run.sh: the grant server did not create $1" >&2
+  return 1
+}
 measure() { # name receiver-command...
   name=$1; shift
   "$@" >"$out/$name.receiver" 2>"$out/$name.stderr" & receiver=$!
@@ -53,10 +64,12 @@ SPIKE_AUDIO='' measure reference-electron "$B/reference" "$seconds" \
   "udpsrc address=127.0.0.1 port=42000 caps=$VCAPS ! rtpjitterbuffer latency=80 drop-on-latency=true ! rtph264depay ! h264parse config-interval=-1 ! avdec_h264 ! videoconvert ! video/x-raw,format=GRAY8 ! appsink name=sink sync=true"
 fi
 python3 "$here/sender.py" --video /dev/null --media-socket "$out/media-video.sock" --serve-only & grant=$!
+wait_for_socket "$out/media-video.sock"
 SPIKE_AUDIO='' measure webkit${SPIKE_SANDBOX:+-sandboxed}-video "$B/consumer" --plugin-dir "$B/renderer/gstreamer-1.0" \
   --media-socket "$out/media-video.sock" --muted --seconds "$seconds"
 kill $grant
 python3 "$here/sender.py" --video /dev/null --audio --media-socket "$out/media-av.sock" --serve-only & grant=$!
+wait_for_socket "$out/media-av.sock"
 SPIKE_AUDIO=1 measure webkit${SPIKE_SANDBOX:+-sandboxed}-video-audio "$B/consumer" --plugin-dir "$B/renderer/gstreamer-1.0" \
   --media-socket "$out/media-av.sock" --seconds "$seconds"
 kill $grant
