@@ -58,6 +58,7 @@ pub mod reason {
     pub const RECEIVER_LOST: &str = "receiver_lost";
     pub const RECEIVER_STOPPED: &str = "receiver_stopped";
     pub const ROUTE_LOST: &str = "ethernet_default_route_lost";
+    pub const RELAY_FAILED: &str = "relay_failed";
 }
 
 // ------------------------------------------------------------ payload
@@ -395,6 +396,22 @@ impl Airplay {
         if lock(&self.view).take().is_some() {
             tracing::info!(component = "airplay", event = "takeover");
             let _ = self.requests.try_send(Request::Stop { session_id: None, reason: reason::TAKEOVER, reply: None });
+        }
+    }
+
+    /// The renderer reports (`renderer.health`, state `degraded`) that its
+    /// relay for the session's stream did not start or stopped for a fault.
+    /// Mirrored video cannot reach the screen, so the session ends with a
+    /// stable reason and the Server sees it stop. The renderer repeats the
+    /// report until its next activation, so a full request queue loses
+    /// nothing. A report that arrives before the session's stream was granted
+    /// is about an earlier session and is ignored.
+    pub fn relay_failed(&self) {
+        let granted = lock(&self.view).as_ref().is_some_and(|view| view.source.is_some());
+        if granted {
+            tracing::warn!(component = "airplay", event = "relay_failed");
+            let _ =
+                self.requests.try_send(Request::Stop { session_id: None, reason: reason::RELAY_FAILED, reply: None });
         }
     }
 
@@ -993,6 +1010,7 @@ fn stop_reason(stored: &str) -> &'static str {
         reason::RECEIVER_LOST,
         reason::RECEIVER_STOPPED,
         reason::ROUTE_LOST,
+        reason::RELAY_FAILED,
     ]
     .into_iter()
     .find(|known| *known == stored)

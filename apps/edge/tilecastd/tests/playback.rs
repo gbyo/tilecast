@@ -4094,6 +4094,52 @@ async fn airplay_present_outranks_signage_and_a_stop_returns_to_it() {
     player.stop().await;
 }
 
+/// The renderer reports that its relay failed: mirrored video can no longer
+/// reach the screen, so the session ends with a stable reason and signage
+/// returns. A healthy tick, or another degraded reason, changes nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_airplay_session_ends_when_the_renderer_reports_a_failed_relay() {
+    use edge_protocol::ipc::event::{HealthState, RendererHealth};
+    let health = |state, reason: Option<&str>| {
+        Event::RendererHealth(RendererHealth {
+            state,
+            reason_code: reason.map(|reason| ShortToken::new(reason).unwrap()),
+            web_process_terminations: 0,
+            resident_bytes: None,
+        })
+    };
+    let harness = Harness::new().await;
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    renderer.stop();
+    let renderer = airplay_renderer(&player, &asset).await;
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    assert_eq!(command_result(&harness, &prepare).await["code"], "airplay_started");
+    wait_for("the ready page", || renderer.last().filter(|a| external(a).is_some_and(|(_, source)| source.is_some())))
+        .await;
+
+    // Nothing that is not a relay fault ends the session.
+    renderer.client.send_event(health(HealthState::Healthy, None)).await.unwrap();
+    renderer.client.send_event(health(HealthState::Degraded, Some("web_process_terminated"))).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(airplay_row(&player).await.unwrap().state, SessionState::Started);
+    assert_eq!(supervisor.count("stop"), 0);
+
+    renderer
+        .client
+        .send_event(health(HealthState::Degraded, Some(edge_protocol::ipc::HEALTH_EXTERNAL_PRESENTATION_UNAVAILABLE)))
+        .await
+        .unwrap();
+    wait_for("signage again", || renderer.last().filter(|a| shows(a, &asset))).await;
+    wait_for("the stop", || (supervisor.count("stop") == 1).then_some(())).await;
+    assert!(airplay_row(&player).await.is_none(), "the row goes with the session");
+    assert!(!player.context.media_registry.lock().unwrap().present_active(), "the grant is revoked");
+    assert_eq!(heartbeat(&player.context).await["externalPresentationState"], "none");
+    renderer.stop();
+    player.stop().await;
+}
+
 /// A receiver that cannot start ends the session and leaves no row.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn an_airplay_receiver_that_fails_to_start_leaves_nothing_behind() {
