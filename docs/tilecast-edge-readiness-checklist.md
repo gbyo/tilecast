@@ -78,8 +78,10 @@ All of the above, plus:
 1. Field deployment validation across a full release cycle.
 2. Migration and settlement rollback proven on kiosk hardware.
 3. AirPlay-dependent screens have a documented path. AirPlay remains
-   unsupported by Edge. It is out of scope and must not be presented as
-   implemented.
+   unsupported by Edge. [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md)
+   proposes a single-screen receiver. Group sessions stay on the Electron
+   Player. Do not present AirPlay on Edge as implemented before the
+   amendment stages pass qualification.
 
 ## Current blockers
 

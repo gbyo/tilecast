@@ -113,6 +113,12 @@ IDs, and timezone observations and constructs one shared PlayerCore instance.
 - An unconfirmed candidate always rolls back after a reboot, and only the
   previous release's helper (the guard) decides that. A rollback never
   migrates `state.db` backwards or recreates it.
+- AirPlay is a proposed amendment, not an implemented feature
+  (`docs/tilecast-edge-airplay.md`). When it is implemented, UxPlay runs
+  only under the unprivileged, socket-activated `tilecast-airplay` unit.
+  That supervisor is the only Edge process that starts a program, and it
+  starts only the release's `uxplay`. UxPlay never draws to the display:
+  the renderer shows its forwarded RTP. Group AirPlay is out of scope.
 - Peer delivery, mesh, relayed state, the Context Engine and PTP are not part
   of Edge 1 (`docs/tilecast-edge-future.md`). Do not add runtime support for
   them.

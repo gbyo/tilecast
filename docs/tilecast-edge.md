@@ -88,6 +88,8 @@ These are deliberately outside Edge 1. They must not become requirements of Edge
 
 [`tilecast-edge-future.md`](tilecast-edge-future.md) records which of these may return in Edge 1.5 or Edge 2, and under which conditions.
 
+An AirPlay receiver was outside Edge 1 until 2026-11-13. [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) is a proposed amendment that adds a single-screen receiver in a separate unprivileged process. The amendment does not change this document until its Stage 2 merges. Group AirPlay stays outside Edge.
+
 ## 4. Processes and privilege
 
 ### 4.1 `tilecastd`
@@ -124,6 +126,8 @@ Edge 1 adds no general root daemon. Operations that need root keep the existing 
 Display control and input use udev rules and group membership, not root. The udev rule gives HDMI-CEC adapters and the I2C buses of display adapters to the `tilecast-display` group. Only `tilecast-edge.service` joins that group (`SupplementaryGroups=`), and `DevicePolicy=closed` with `DeviceAllow=char-cec rw` and `DeviceAllow=char-i2c rw` limits the daemon to those device classes. The `tilecast` account is not a member, so the renderer and the session bridge do not get the group.
 
 A new root operation needs a written threat-boundary review before it is added.
+
+The proposed AirPlay amendment ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md)) adds no root operation. It adds an unprivileged, socket-activated receiver unit with its own review, [`tilecast-edge-airplay-threat-review.md`](tilecast-edge-airplay-threat-review.md).
 
 M10 adds one root helper, `tilecast-edge-update`, with a written review in [`tilecast-edge-update-threat-review.md`](tilecast-edge-update-threat-review.md). It has five fixed operations (`stage`, `activate`, `confirm`, `rollback`, `status`) on a socket that only `tilecast-edge.service` may use, no network, no device credential, and no path, unit or command input. §15 describes it.
 
