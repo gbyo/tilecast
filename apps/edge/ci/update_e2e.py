@@ -516,8 +516,9 @@ def update_releases():
         if not broken:
             # The daemon reports the version it was built as.
             m.run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p",
-                  "tilecast-edge-update", cwd=EDGE, env=dict(environment, TILECAST_EDGE_VERSION=version))
-        for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"):
+                  "tilecast-edge-update", "-p", "tilecast-airplay", cwd=EDGE,
+                  env=dict(environment, TILECAST_EDGE_VERSION=version))
+        for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"):
             shutil.copyfile(os.path.join(m.TARGET, "debug", name), os.path.join(bin_dir, name))
         if broken:
             # Test-only fixture: a daemon that exits at once, and a helper that
