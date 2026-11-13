@@ -112,7 +112,7 @@ The existing root `tilecast-networkd` boundary does not change. A fresh Edge ins
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                       |
 | 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                         |
-| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no server path. The renderer maps only an unguessable daemon-issued capability (§8).                         |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no server path. The renderer maps only an unguessable daemon-issued capability (§8).          |
 | 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.   |
 | 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                             |
 | 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                              |
