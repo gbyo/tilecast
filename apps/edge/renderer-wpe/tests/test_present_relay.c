@@ -15,7 +15,9 @@
 
 #define SOURCE "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-typedef enum { GRANT_AUDIO, GRANT_VIDEO, GRANT_DENIED } GrantMode;
+/* GRANT_DROP reads the request and closes the connection without a reply,
+ * like a daemon that is restarting or too busy to answer. */
+typedef enum { GRANT_AUDIO, GRANT_VIDEO, GRANT_DENIED, GRANT_DROP } GrantMode;
 
 typedef struct {
   GSocketListener *listener;
@@ -59,6 +61,8 @@ serve (gpointer data)
     g_assert_cmpstr (request, ==, expected);
     g_atomic_int_inc (&daemon->requests);
     GrantMode mode = g_atomic_int_get (&daemon->mode);
+    if (mode == GRANT_DROP)
+      continue;
     const char *reply = mode == GRANT_AUDIO ? audio : mode == GRANT_VIDEO ? video : denied;
     guint32 size = (guint32) strlen (reply);
     guint8 reply_header[4] = { size >> 24, size >> 16, size >> 8, size };
@@ -246,6 +250,82 @@ test_video_only_and_stop (Fixture *f, gconstpointer data)
   g_assert_cmpuint (told, ==, 1);
 }
 
+static void
+run_main_context_for (guint milliseconds)
+{
+  gint64 deadline = g_get_monotonic_time () + (gint64) milliseconds * 1000;
+  while (g_get_monotonic_time () < deadline)
+    g_main_context_iteration (NULL, FALSE), g_usleep (5000);
+}
+
+/* A grant check that gets no answer does not say that the grant ended. The
+ * relay keeps running through a few of them, a good answer starts the count
+ * again, and a daemon that stays silent stops it and is reported as a fault. */
+static void
+test_silent_daemon_does_not_stop_the_relay_at_once (Fixture *f, gconstpointer data)
+{
+  (void) data;
+  g_atomic_int_set (&f->daemon.mode, GRANT_VIDEO);
+  guint told = 0;
+  tc_present_relay_on_stopped (f->relay, on_stopped, &told);
+  Ready ready = { 0 };
+  tc_present_relay_set (f->relay, SOURCE, on_ready, &ready);
+  g_assert_true (wait_for (ready_called, &ready, 5000) && ready.ok);
+  g_autofree char *video = relay_socket (f->dir, "video");
+
+  /* Two silent checks, then an answer: still relaying, count back at zero. */
+  g_atomic_int_set (&f->daemon.mode, GRANT_DROP);
+  run_main_context_for (2400);
+  g_assert_true (tc_present_relay_active (f->relay));
+  g_assert_true (g_file_test (video, G_FILE_TEST_EXISTS));
+  g_atomic_int_set (&f->daemon.mode, GRANT_VIDEO);
+  run_main_context_for (1500);
+  g_assert_true (tc_present_relay_active (f->relay));
+  g_assert_false (tc_present_relay_failed (f->relay));
+
+  /* Two more silent checks would be four in a row without the answer. */
+  g_atomic_int_set (&f->daemon.mode, GRANT_DROP);
+  run_main_context_for (2400);
+  g_assert_true (tc_present_relay_active (f->relay));
+
+  /* Silence that goes on stops the relay, and the stop is a fault. */
+  g_test_expect_message (NULL, G_LOG_LEVEL_WARNING, "*gave no answer*");
+  g_assert_true (wait_for (relay_stopped, f->relay, 8000));
+  g_test_assert_expected_messages ();
+  g_assert_false (g_file_test (video, G_FILE_TEST_EXISTS));
+  g_assert_true (tc_present_relay_failed (f->relay));
+  g_assert_cmpuint (told, ==, 1);
+
+  /* The next request starts clean. */
+  tc_present_relay_set (f->relay, NULL, NULL, NULL);
+  g_assert_false (tc_present_relay_failed (f->relay));
+}
+
+/* A start that fails is a fault until the next request; a denial that ends
+ * a running relay is not. */
+static void
+test_failed_flag_follows_the_fault (Fixture *f, gconstpointer data)
+{
+  (void) data;
+  g_atomic_int_set (&f->daemon.mode, GRANT_DENIED);
+  Ready denied = { 0 };
+  tc_present_relay_set (f->relay, SOURCE, on_ready, &denied);
+  g_assert_true (wait_for (ready_called, &denied, 5000));
+  g_assert_false (denied.ok);
+  g_assert_true (tc_present_relay_failed (f->relay));
+  tc_present_relay_set (f->relay, NULL, NULL, NULL);
+  g_assert_false (tc_present_relay_failed (f->relay));
+
+  g_atomic_int_set (&f->daemon.mode, GRANT_VIDEO);
+  Ready ready = { 0 };
+  tc_present_relay_set (f->relay, SOURCE, on_ready, &ready);
+  g_assert_true (wait_for (ready_called, &ready, 5000) && ready.ok);
+  g_assert_false (tc_present_relay_failed (f->relay));
+  g_atomic_int_set (&f->daemon.mode, GRANT_DENIED);
+  g_assert_true (wait_for (relay_stopped, f->relay, 4000));
+  g_assert_false (tc_present_relay_failed (f->relay));
+}
+
 /* A stop while the grant check waits: the answer that comes later starts
  * nothing and delivers nothing, and the host has nothing to drop. */
 static void
@@ -334,6 +414,10 @@ main (int argc, char **argv)
   g_test_add ("/present-relay/video-only-and-stop", Fixture, NULL, fixture_set_up, test_video_only_and_stop,
               fixture_tear_down);
   g_test_add ("/present-relay/stop-while-pending", Fixture, NULL, fixture_set_up, test_stop_while_pending,
+              fixture_tear_down);
+  g_test_add ("/present-relay/silent-daemon", Fixture, NULL, fixture_set_up,
+              test_silent_daemon_does_not_stop_the_relay_at_once, fixture_tear_down);
+  g_test_add ("/present-relay/failed-flag", Fixture, NULL, fixture_set_up, test_failed_flag_follows_the_fault,
               fixture_tear_down);
   g_test_add ("/present-relay/refusals", Fixture, NULL, fixture_set_up, test_refusals, fixture_tear_down);
   g_test_add_func ("/present-relay/probe", test_probe);
