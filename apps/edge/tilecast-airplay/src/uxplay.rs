@@ -3,9 +3,12 @@
 //!
 //! The options come from typed, validated values only (threat review §5):
 //!
-//! * The receiver name, the PIN and the device ID go into the `-rc` startup
-//!   file ([`rc_file`]), never into a process argument.
-//! * The argument vector ([`arguments`]) is a fixed list. The `-vrtp` and
+//! * The PIN and the device ID go into the `-rc` startup file ([`rc_file`]),
+//!   never into a process argument. Both have fixed grammars, so the file
+//!   never has to encode a free-form value.
+//! * The argument vector ([`arguments`]) is a fixed list. The receiver name
+//!   is one validated, bounded argument after `-n`: no shell reads it, and
+//!   UxPlay's free-form startup-file parser never sees it. The `-vrtp` and
 //!   `-artp` pipeline strings come from a fixed template whose only values
 //!   are the two fixed ports.
 //!
@@ -20,9 +23,9 @@
 //!   did not read the file, it still requires a PIN (a random one that no
 //!   one sees) and no sender can connect.
 //! * `-vrtp` replaces the decoder and the sink with `rtph264pay <options>`,
-//!   so UxPlay does not draw. `-vs 0` must not be used: it turns video off,
-//!   and then the RTP pipeline is never built. `-vs fakesink` keeps a sink
-//!   that cannot draw for any path that does not use RTP.
+//!   so UxPlay does not draw. `-vs 0` must not be used: it would also
+//!   advertise a display limit of 1 frame per second to the sender. Edge
+//!   does not enable `-h265`, so this path is H.264 only.
 //! * `-artp` replaces the audio sink with `rtpL16pay <options>`.
 //! * In `-pin` mode UxPlay answers a wrong PIN with RTSP 470 and lets the
 //!   sender try again, with no limit (`MAX_PW_ATTEMPTS` applies only to
@@ -40,7 +43,7 @@ use edge_protocol::airplay::{
 /// of a longer line is read and dropped.
 pub const MAX_OUTPUT_LINE: usize = 1024;
 
-/// The session values that go into the `-rc` file.
+/// The values of one session.
 #[derive(Debug, Clone)]
 pub struct SessionOptions {
     pub receiver_name: ReceiverName,
@@ -52,13 +55,7 @@ pub struct SessionOptions {
 
 /// The `-rc` file text. One option per line, without the leading `-`.
 pub fn rc_file(options: &SessionOptions) -> String {
-    let quote = options.receiver_name.rc_quote();
-    format!(
-        "n {quote}{name}{quote}\nnh\npin {pin}\nm {mac}\n",
-        name = options.receiver_name.as_str(),
-        pin = options.pin.expose(),
-        mac = options.device_id.expose(),
-    )
+    format!("pin {pin}\nm {mac}\n", pin = options.pin.expose(), mac = options.device_id.expose(),)
 }
 
 /// The UxPlay argument vector, without the program name.
@@ -70,14 +67,15 @@ pub fn arguments(options: &SessionOptions, rc_path: &str) -> Vec<String> {
         // A bare -pin: see the module documentation. The next argument must
         // start with '-'.
         "-pin".into(),
+        "-n".into(),
+        options.receiver_name.as_str().into(),
+        "-nh".into(),
         "-p".into(),
         UXPLAY_PORTS.map(|port| port.to_string()).join(","),
         "-s".into(),
         format!("{width}x{height}"),
         "-fps".into(),
         fps.to_string(),
-        "-vs".into(),
-        "fakesink".into(),
         "-vrtp".into(),
         format!("config-interval=1 ! udpsink host=127.0.0.1 port={VIDEO_RTP_PORT}"),
     ];
@@ -175,14 +173,19 @@ mod tests {
         let options = options("Lobby North", AudioMode::GatewayOnly);
         let args = arguments(&options, "/run/tilecast-airplay-session/session.rc");
         let joined = args.join(" ");
-        assert!(!joined.contains("4096") && !joined.contains("02:11:22") && !joined.contains("Lobby"), "{joined}");
-        assert_eq!(rc_file(&options), "n \"Lobby North\"\nnh\npin 4096\nm 02:11:22:33:44:55\n");
+        assert!(!joined.contains("4096") && !joined.contains("02:11:22"), "{joined}");
+        assert_eq!(rc_file(&options), "pin 4096\nm 02:11:22:33:44:55\n");
     }
 
     #[test]
-    fn a_name_with_a_double_quote_is_enclosed_in_single_quotes() {
-        let rc = rc_file(&options("Room \"A\" East", AudioMode::None));
-        assert!(rc.starts_with("n 'Room \"A\" East'\n"), "{rc}");
+    fn the_name_is_one_argument_whatever_it_contains() {
+        let name = "Room \"A\" it's East";
+        let args = arguments(&options(name, AudioMode::None), "/run/x/session.rc");
+        let position = args.iter().position(|arg| arg == "-n").unwrap();
+        assert_eq!(args[position + 1], name);
+        assert_eq!(args[position + 2], "-nh");
+        assert_eq!(args.iter().filter(|arg| arg.contains("Room")).count(), 1);
+        assert!(!rc_file(&options(name, AudioMode::None)).contains("Room"));
     }
 
     #[test]
@@ -194,14 +197,15 @@ mod tests {
                 "-rc",
                 "/run/x/session.rc",
                 "-pin",
+                "-n",
+                "Lobby",
+                "-nh",
                 "-p",
                 "37000,37001,37002",
                 "-s",
                 "1280x720",
                 "-fps",
                 "30",
-                "-vs",
-                "fakesink",
                 "-vrtp",
                 "config-interval=1 ! udpsink host=127.0.0.1 port=42000",
                 "-artp",
@@ -215,9 +219,9 @@ mod tests {
         let silent = arguments(&options("Lobby", AudioMode::None), "/run/x/session.rc");
         assert_eq!(&silent[silent.len() - 2..], ["-as", "0"]);
         assert!(!silent.iter().any(|arg| arg == "-artp"));
-        // -vs 0 would turn video off and with it the RTP forward.
+        // -vs 0 would advertise a display limit of 1 frame per second.
         for pair in [&args, &silent] {
-            assert!(!pair.windows(2).any(|w| w[0] == "-vs" && w[1] == "0"));
+            assert!(!pair.iter().any(|arg| arg == "-vs"));
         }
     }
 
