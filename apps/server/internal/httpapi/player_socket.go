@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"sync"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
@@ -53,7 +55,7 @@ func (s *server) playerSocket(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	connection.SetReadLimit(livestream.MaxFrameBytes + 1024)
+	connection.SetReadLimit(livestream.MaxSocketMessageBytes)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer connection.Close(websocket.StatusNormalClosure, "connection closed") //nolint:errcheck
@@ -124,23 +126,14 @@ func (s *server) playerSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	var liveStreamRejects rejectLog
 	for ctx.Err() == nil {
 		messageType, data, err := connection.Read(ctx)
 		if err != nil {
 			break
 		}
 		if messageType == websocket.MessageBinary {
-			sessionID, frame, parseErr := livestream.ParseBinaryFrame(data)
-			if parseErr != nil {
-				s.logger.Warn("invalid live stream frame rejected",
-					"error", parseErr, "screen_id", principal.ScreenID)
-				continue
-			}
-			if publishErr := s.liveStreams.Publish(principal.ScreenID, sessionID, frame); publishErr != nil &&
-				!errors.Is(publishErr, livestream.ErrNotFound) {
-				s.logger.Warn("live stream frame rejected",
-					"error", publishErr, "screen_id", principal.ScreenID)
-			}
+			s.handleLiveStreamBinary(principal.ScreenID, data, &liveStreamRejects)
 			continue
 		}
 		if messageType != websocket.MessageText {
@@ -229,5 +222,51 @@ func (s *server) handleSocketStatus(r *http.Request, ctx context.Context, princi
 	}
 	if contactRecorded {
 		s.recordHeartbeatActivity(r, principal.ScreenID, snapshot, time.Now().UTC())
+	}
+}
+
+// rejectLog rate-limits Watch Live rejection warnings on one socket: a
+// misbehaving encoder at 15 FPS must not flood the server log.
+type rejectLog struct {
+	last       time.Time
+	suppressed int
+}
+
+func (l *rejectLog) allow(now time.Time) (bool, int) {
+	if !l.last.IsZero() && now.Sub(l.last) < 10*time.Second {
+		l.suppressed++
+		return false, 0
+	}
+	suppressed := l.suppressed
+	l.last, l.suppressed = now, 0
+	return true, suppressed
+}
+
+// handleLiveStreamBinary routes one TCLS message by version. Version 1 is a
+// JPEG frame and version 2 an H.264 access unit; each is accepted only while
+// the session's selected profile uses that transport.
+func (s *server) handleLiveStreamBinary(screenID uuid.UUID, data []byte, rejects *rejectLog) {
+	var err error
+	switch livestream.BinaryVersion(data) {
+	case 1:
+		sessionID, frame, parseErr := livestream.ParseBinaryFrame(data)
+		err = parseErr
+		if parseErr == nil {
+			err = s.liveStreams.Publish(screenID, sessionID, frame)
+		}
+	case 2:
+		chunk, parseErr := livestream.ParseChunk(data)
+		err = parseErr
+		if parseErr == nil {
+			err = s.liveStreams.PublishChunk(screenID, chunk)
+		}
+	default:
+		err = fmt.Errorf("%w: unsupported binary header", livestream.ErrInvalidFrame)
+	}
+	if err == nil || errors.Is(err, livestream.ErrNotFound) || errors.Is(err, livestream.ErrAwaitingKeyframe) {
+		return
+	}
+	if ok, suppressed := rejects.allow(time.Now()); ok {
+		s.logger.Warn("live stream frame rejected", "error", err, "screen_id", screenID, "suppressed", suppressed)
 	}
 }

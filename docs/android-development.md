@@ -12,6 +12,12 @@ through the application-scoped `PlayerCoreHost`. Production runs Core.
 Kotlin keeps setup discovery, server-address entry, OS effects, the
 trusted WebView renderer, capture, and self-update installation.
 
+Preview and Watch Live capture use the same Android window. The Player discards
+a capture if the window detaches or the capture policy changes to a protected
+state. On Android 10 and later, window PixelCopy waits for a new committed
+frame. Older releases draw the current view tree and copy visible video surfaces
+where the platform supports it.
+
 Kotlin calls `PlayerCoreHost.startDrivers` to open the host and start the
 Core drivers. Core keeps the pairing session and enrollment. The Keystore
 keeps the device credential. The file `player-core/pairing.json` keeps the
@@ -124,6 +130,11 @@ If the check reports a 4 KB alignment, do not ship the APK. Fix the
 toolchain flags first.
 
 ## Production cutover
+
+Power wake requests use `NEW_TASK`, `CLEAR_TOP`, and `SINGLE_TOP` together.
+An existing top `MainActivity` receives the request without a new instance.
+This preserves its ViewModel when configuration applies active-hours policy.
+An explicit Activity restart retains its separate restart behavior.
 
 Core owns pairing, configuration, manifest preparation, the server link,
 presence, commands, activity, renderer recovery, and capture policy.
@@ -517,7 +528,7 @@ is not changed, so HTTPS is never downgraded. The shared fixture in
 heartbeat sends `commissioningState` `complete` after the first enrollment
 of the screen, `commissioningStep` `automatic`, and a `selfTestResult` that
 the current facts give. Accessibility Control and the install permission
-are optional. The maintenance menu opens their Android settings. See
+are optional. The maintenance menu opens their Android settings unless the `managed_kiosk.allow_settings_during_admin` policy is false. See
 [Reliability and power](reliability-and-power.md#unattended-setup-and-readiness).
 
 ### Emulator verification
@@ -549,7 +560,9 @@ The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Build an unsigned,
 
 The single `org.tilecast.player` application ID is suitable for Play Store and direct APK distribution. Do not introduce Fire TV or Google TV variants unless a future store requirement cannot be handled through resources or manifest metadata.
 
-The shared Player Runtime is the only presentation implementation. Playlists, Widgets (including V2 components), Layouts, websites, and YouTube play in the trusted Player Runtime WebView through generic references plus a projection context. The player keeps no Compose renderer and no Media3 dependency. The player skips unsupported entries in ordinary playlists. It keeps the other entries playing and reports the unsupported content. It does not start reliability recovery. A synchronized group stops if any entry cannot render. It must keep one shared timeline for all screens. Tickers and countdown bars project inside the runtime page. Core drives website data clearing through the renderer command channel. The website navigation policy stays host-owned.
+The shared Player Runtime is the only presentation implementation. Playlists, Widgets (including V2 components), and Layouts play in the trusted Player Runtime WebView through generic references plus a projection context. Websites and YouTube use the `host-view` remote-web capability. The Runtime asks the host to create a surface. The host shows that surface in its own WebView above the Runtime view. The player keeps no Compose renderer and no Media3 dependency. The player skips unsupported entries in ordinary playlists. It keeps the other entries playing and reports the unsupported content. It does not start reliability recovery. A synchronized group stops if any entry cannot render. It must keep one shared timeline for all screens. Tickers and countdown bars project inside the runtime page. Core drives website data clearing through the renderer command channel. The website navigation policy stays host-owned. `RemoteWebLayer` (`runtime/RemoteWebLayer.kt`) creates one isolated WebView for each surface that `RemoteWebHostManager.Tracker` holds. A remote WebView never receives the trusted Runtime bridge. The layer places each WebView at the viewport that the Runtime sends. It reports `loaded`, `stream-ready`, `navigation-blocked`, `failed`, `media-ended`, and `process-terminated` to the Runtime. `RemoteWebNavigationPolicy` limits main-frame navigation to the allowed hosts, on the default port for the scheme, without user information. `YouTubeEmbed` builds the host-owned YouTube wrapper document from validated tokens only. Website credentials remain out of scope.
+
+The Android bridge collects device metadata for each Core request. It reports the current display width and height after an orientation change without restarting Core.
 
 Calendar Sources project inside the shared runtime from sanitized manifest data. The Player does not fetch ICS, receive feed URLs, or use WebView for calendar content. Manifest validation bounds event counts and text before activation. Cached manifest startup preserves last-known-good prepared events.
 
@@ -570,7 +583,7 @@ adb devices
 ./gradlew connectedDebugAndroidTest
 ```
 
-Websites render through the trusted shared Player Runtime WebView and its host-owned navigation and isolation rules. Validate exact-host policy, TLS failure, D-pad focus, process termination, and installed WebView versions on supported devices. Player Core accepts effective configuration revisions independently from manifests; platform adapters apply OS effects.
+Websites render through the trusted shared Player Runtime WebView and its host-owned navigation and isolation rules. Validate the remote-web layer on supported devices: viewport placement in multi-zone Layouts, exact-host policy, TLS failure, HTTP errors, D-pad focus, mute and visibility, YouTube playback, process termination, and installed WebView versions. Player Core accepts effective configuration revisions independently from manifests; platform adapters apply OS effects.
 
 The effective configuration is authoritative for every setting the Android
 Player advertises. Cache limits, free-space reserve, download concurrency and
@@ -578,7 +591,10 @@ thresholds, manifest/status intervals, website timeout/cookie/reload policy,
 reliability limits, safe mode, playback defaults, branding, power/display
 policy, and screen-location reporting are validated before application. A
 configuration revision reschedules affected timers and updates supervisors;
-`clearOnRestart` is evaluated only at process startup. Display-control-only
+`clearOnRestart` is evaluated only at process startup: the first installed
+configuration decides it, and the clear is sent to the first ready renderer
+before the first activation. A failed delivery retries on the next ready
+renderer, and a later revision never starts a clear. Display-control-only
 schedules are not assignable to Android screens until Android reports the
 required display capability.
 

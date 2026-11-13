@@ -41,11 +41,39 @@ class TcMediaBridgeTest {
         assertEquals("video/mp4", headers["Content-Type"])
         assertEquals("bytes", headers["Accept-Ranges"])
         assertEquals("100", headers["Content-Length"])
+        // Library font faces load in CORS mode from the trusted runtime origin only.
+        assertEquals(TrustedRuntimeOrigin.origin, headers["Access-Control-Allow-Origin"])
         // The body itself is bounded: draining it reaches EOF at the Content-Range end.
         val body = TcMediaBridge.openStream(resolved)!!.readBytes()
         assertEquals(100, body.size)
         assertEquals(videoBytes[100], body[0])
         assertArrayEquals(videoBytes.copyOfRange(100, 200), body)
+    }
+
+    @Test fun webViewCanSeekOnceToARangeBeyondHalfTheFile() {
+        val resolved = TcMediaBridge.resolve("tcmedia:a1/v1", authorized, setup(), mime(), "bytes=900-909")!!
+        TcMediaBridge.openWebViewStream(resolved)!!.use { stream ->
+            // Chromium validates the requested range against available(), then
+            // skips its start before reading WebResourceResponse.data.
+            assertTrue(stream.available() > resolved.offset)
+            assertEquals(900L, stream.skip(900))
+            assertArrayEquals(videoBytes.copyOfRange(900, 910), stream.readBytes())
+            assertEquals(-1, stream.read())
+        }
+    }
+
+    @Test fun webViewCanReadSuffixAndReopenTheStartForALoop() {
+        val paths = setup()
+        val suffix = TcMediaBridge.resolve("tcmedia:a1/v1", authorized, paths, mime(), "bytes=-10")!!
+        TcMediaBridge.openWebViewStream(suffix)!!.use { stream ->
+            assertEquals(1024, stream.available())
+            assertEquals(1014L, stream.skip(1014))
+            assertArrayEquals(videoBytes.copyOfRange(1014, 1024), stream.readBytes())
+        }
+        val start = TcMediaBridge.resolve("tcmedia:a1/v1", authorized, paths, mime(), "bytes=0-")!!
+        TcMediaBridge.openWebViewStream(start)!!.use { stream ->
+            assertArrayEquals(videoBytes, stream.readBytes())
+        }
     }
 
     @Test fun servesSuffixAndOpenRanges() {

@@ -60,6 +60,8 @@ pub const POLL_INTERVAL: Duration = Duration::from_secs(7);
 /// disrupts anyway; the stored result is resent by the next process.
 pub const REPORT_BEFORE_DISRUPTION_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_REPORTS_PER_PASS: usize = 32;
+const RECOVERY_RETRY_INITIAL: Duration = Duration::from_secs(1);
+const RECOVERY_RETRY_MAX: Duration = Duration::from_secs(30);
 
 /// The server side of the command contract.
 #[async_trait]
@@ -179,7 +181,8 @@ impl<H: Handlers> Coordinator<H> {
     }
 
     /// Settles what a previous run left `executing` and prunes old records.
-    /// Runs at start, before any network access.
+    /// Runs at start, before any network access. [`drive_commands`] calls
+    /// it, and retries it after a state-store failure.
     pub async fn recover(&self) -> Result<usize, player_state::StateError> {
         let now = self.clock.now();
         let interrupted = self.db.run(move |c| commands::recover_interrupted(c, now)).await?;
@@ -188,6 +191,30 @@ impl<H: Handlers> Coordinator<H> {
         }
         let _ = self.db.run(move |c| commands::prune(c, now)).await;
         Ok(interrupted)
+    }
+
+    /// [`Self::recover`], retried with a bounded backoff while the state store
+    /// fails. Returns false when `shutdown` fires first. No command is
+    /// fetched or run until recovery has settled what an earlier run left
+    /// `executing`.
+    async fn recover_until_settled(&self, shutdown: &CancellationToken) -> bool {
+        let mut delay = RECOVERY_RETRY_INITIAL;
+        loop {
+            match self.recover().await {
+                Ok(_) => return true,
+                Err(error) => tracing::error!(
+                    component = "commands",
+                    event = "recovery_failed",
+                    reason = error.reason_code(),
+                    retry_seconds = delay.as_secs()
+                ),
+            }
+            tokio::select! {
+                () = shutdown.cancelled() => return false,
+                () = tokio::time::sleep(delay) => {}
+            }
+            delay = (delay * 2).min(RECOVERY_RETRY_MAX);
+        }
     }
 
     /// One pass: resend stored results, then fetch and handle deliveries.
@@ -287,9 +314,16 @@ impl<H: Handlers> Coordinator<H> {
                 );
                 return self.report(api, &command.idempotency_key, command.id, &result).await;
             }
-            // Only this task executes, and start-up settles every executing
-            // record before the first pass: nothing to do.
-            CommandState::Executing => return Step::Continue,
+            // Only this task executes, and a pass finishes its handler before
+            // the next one starts, so a record still `executing` is one whose
+            // result could not be stored. The handler's effect is unknown:
+            // settle it as interrupted, never run it again, and report that.
+            CommandState::Executing => {
+                if self.recover().await.is_err() {
+                    return Step::Stop(PassOutcome::Interrupted("state_unavailable"));
+                }
+                return self.flush_reports(api).await;
+            }
             CommandState::Received | CommandState::Acknowledged => {}
         }
 
@@ -360,7 +394,7 @@ impl<H: Handlers> Coordinator<H> {
             if let Err(step) = self.complete(&command.idempotency_key, &result, ReportState::Pending).await {
                 // The result could not be stored: the record stays
                 // `executing` and is settled as interrupted by the next
-                // process. Do not disrupt without a durable result.
+                // delivery. Do not disrupt without a durable result.
                 return step;
             }
             let _ = tokio::time::timeout(
@@ -392,9 +426,9 @@ impl<H: Handlers> Coordinator<H> {
     }
 }
 
-/// Drives passes: at once when a server becomes available, every
-/// [`POLL_INTERVAL`] of monotonic time while it stays available, and at once
-/// on `wake`. Returns when `shutdown` fires, a disruptive command started, or
+/// Settles interrupted commands, then drives passes: at once when a server
+/// becomes available, every [`POLL_INTERVAL`] of monotonic time while it stays
+/// available, and at once on `wake`. Returns when `shutdown` fires, a disruptive command started, or
 /// `on_rejected` reports that the credential is gone.
 pub async fn drive_commands<H, A>(
     coordinator: &Coordinator<H>,
@@ -406,6 +440,9 @@ pub async fn drive_commands<H, A>(
     H: Handlers,
     A: CommandApi + Clone,
 {
+    if !coordinator.recover_until_settled(shutdown).await {
+        return;
+    }
     // The first pass is the one at the top of the loop; the cadence starts
     // one interval after it.
     let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + POLL_INTERVAL, POLL_INTERVAL);

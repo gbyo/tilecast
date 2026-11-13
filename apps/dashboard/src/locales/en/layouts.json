@@ -230,6 +230,10 @@
     "toastSubmitted": "Layout submitted for review.",
     "toastRenamed": "Layout renamed.",
     "toastRestored": "Layout revision restored.",
+    "toastPublishFailed": "Layout was not published.",
+    "toastSubmitFailed": "Layout was not submitted for review.",
+    "toastRenameFailed": "Layout was not renamed.",
+    "toastRestoreFailed": "Layout revision was not restored.",
     "previewTitle": "Preview {{name}}",
     "previewDescription": "Playback preview of the current Layout.",
     "conflictTitle": "This Layout changed somewhere else",
@@ -285,7 +289,8 @@
     "snapOff": "Snap: Off",
     "safeAreaOn": "Safe area: On",
     "safeAreaOff": "Safe area: Off",
-    "zoomPresets": "Zoom presets"
+    "zoomPresets": "Zoom presets",
+    "menuDistribute": "Distribute"
   },
   "spanWall": {
     "canvasWidth": "Canvas width",

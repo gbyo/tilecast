@@ -58,6 +58,8 @@ export const descriptions: Record<string, string> = {
     "What remains visible when the player is outside active hours and the television does not sleep.",
   "power.outside_active_hours_text":
     "Centered text shown outside active hours. Leave it empty to use the branding footer text.",
+  "power.outside_active_hours_wake_animation":
+    "When the player returns from the outside-hours screen, play the Tilecast startup animation before showing content. Applies to the bouncing logo, custom text and black screen.",
   "accessibility.allowed_packages":
     "Applications that may remain in front during authorized maintenance.",
   "reliability.mode":
@@ -214,6 +216,7 @@ export const subsectionOrder: Record<
       keys: [
         "power.outside_active_hours_display",
         "power.outside_active_hours_text",
+        "power.outside_active_hours_wake_animation",
       ],
     },
   ],
@@ -425,6 +428,7 @@ export const subsectionOrder: Record<
       ],
     },
   ],
+  fonts: [],
   users: [],
   roles: [],
   security: [

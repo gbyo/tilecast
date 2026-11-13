@@ -237,6 +237,10 @@
     "toastSubmitted": "Diseño enviado a revisión.",
     "toastRenamed": "Diseño renombrado.",
     "toastRestored": "Revisión del diseño restaurada.",
+    "toastPublishFailed": "El diseño no se publicó.",
+    "toastSubmitFailed": "El diseño no se envió a revisión.",
+    "toastRenameFailed": "No se cambió el nombre del diseño.",
+    "toastRestoreFailed": "No se restauró la revisión del diseño.",
     "previewTitle": "Vista previa de {{name}}",
     "previewDescription": "Vista previa de reproducción del diseño actual.",
     "conflictTitle": "Este diseño cambió en otro lugar",
@@ -292,7 +296,8 @@
     "snapOff": "Ajuste: desactivado",
     "safeAreaOn": "Área segura: activada",
     "safeAreaOff": "Área segura: desactivada",
-    "zoomPresets": "Niveles de zoom"
+    "zoomPresets": "Niveles de zoom",
+    "menuDistribute": "Distribuir"
   },
   "spanWall": {
     "canvasWidth": "Ancho del lienzo",

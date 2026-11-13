@@ -67,6 +67,9 @@ declare namespace chrome {
     function getRegisteredContentScripts(options?: {
       ids?: string[];
     }): Promise<RegisteredContentScript[]>;
+    function updateContentScripts(
+      scripts: RegisteredContentScript[],
+    ): Promise<void>;
   }
 
   namespace action {

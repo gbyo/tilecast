@@ -2,8 +2,6 @@
 use crate::daemon::DaemonContext;
 use std::sync::Arc;
 
-pub use player_core::LiveFrame;
-
 #[async_trait::async_trait]
 impl player_core::LiveStreamHost for DaemonContext {
     async fn capture_live_frame(
@@ -17,14 +15,29 @@ impl player_core::LiveStreamHost for DaemonContext {
     async fn presentation_protected(&self) -> bool {
         presentation_protected(self).await
     }
-    fn supports_540p10_watch_live(&self) -> bool {
-        true
+    fn watch_live_capabilities(&self) -> player_core::WatchLiveCapabilities {
+        // MJPEG 960x540 from the presented WPE buffer, plus whatever H.264
+        // profiles the renderer's encoder probe actually negotiated.
+        self.live_encoders.capabilities()
+    }
+    async fn start_live_encoder(
+        &self,
+        config: player_core::EncoderConfig,
+        sink: player_core::EncodedChunkSink,
+    ) -> Result<Box<dyn player_core::LiveEncoder>, player_core::CaptureError> {
+        let session = {
+            let engine = self.presentation.lock().await;
+            let current = engine.current().ok_or(player_core::CaptureError::NothingShown)?;
+            current.renderer_metadata.capture_state.check(false)?;
+            engine.ready_session().ok_or(player_core::CaptureError::RendererNotReady)?
+        };
+        self.live_encoders.start(session, config, sink)
     }
     fn now(&self) -> edge_protocol::Timestamp {
         DaemonContext::now(self)
     }
-    fn live_frames(&self) -> &tokio::sync::watch::Sender<Option<LiveFrame>> {
-        &self.live_frames
+    fn live_outbox(&self) -> &player_core::LiveOutbox {
+        &self.live_outbox
     }
 }
 

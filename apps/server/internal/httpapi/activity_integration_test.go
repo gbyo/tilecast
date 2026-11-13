@@ -399,6 +399,10 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 		lastContact := now.Add(-5 * time.Minute)
 		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{
 			{ID: uuid.New(), Sequence: 1, EventType: "presentation.started", OccurredAt: now.Add(-10 * time.Minute), PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "morning-announcements", ActivitySessionID: "gap-root", Result: "playing"},
+			// Flushed after the outage, before the first heartbeat: this
+			// playback began after the last confirmed contact and is not part
+			// of the gap.
+			{ID: uuid.New(), Sequence: 2, EventType: "content.started", OccurredAt: now.Add(-time.Minute), PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "morning-announcements", ContentType: "image", ContentID: "lunch-menu", ActivitySessionID: "after-gap", ParentSessionID: "gap-root", Result: "playing"},
 		}}, http.StatusAccepted)
 		if _, err := env.pool.Exec(context.Background(), `UPDATE screens SET last_heartbeat_at=$2 WHERE id=$1`, env.screenID, lastContact); err != nil {
 			t.Fatal(err)
@@ -419,6 +423,13 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 		}
 		if result != "unknown" || !endedAt.Equal(lastContact) {
 			t.Fatalf("gap session result=%q endedAt=%v", result, endedAt)
+		}
+		var afterGapEnded *time.Time
+		if err := env.pool.QueryRow(context.Background(), `SELECT ended_at FROM playback_sessions WHERE activity_session_id='after-gap'`).Scan(&afterGapEnded); err != nil {
+			t.Fatal(err)
+		}
+		if afterGapEnded != nil {
+			t.Fatalf("a session that started after the gap was closed at %v", *afterGapEnded)
 		}
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/overview?range=24h", nil)

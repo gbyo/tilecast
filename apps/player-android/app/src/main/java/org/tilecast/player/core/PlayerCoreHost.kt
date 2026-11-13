@@ -896,7 +896,7 @@ class PlayerCoreHost private constructor(
                 CoreBridgeHandler(
                     credentials,
                     File(coreDir, "pairing.json"),
-                    DeviceFacts.collect(app),
+                    { DeviceFacts.collect(app) },
                     sink,
                     executor = executor,
                 )

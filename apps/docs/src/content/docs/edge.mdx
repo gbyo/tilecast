@@ -1,22 +1,22 @@
 ---
 title: Tilecast Edge
-description: Tilecast Edge is the service-based Linux Player with a WPE WebKit renderer. See what the Edge software does today, what still needs hardware qualification, and which guide to read next.
+description: Tilecast Edge is the service-based Linux Player with a WPE WebKit renderer. See what Edge does, how it differs from the AppImage Player, and which guide to read next.
 hero:
-  tagline: The service-based Linux Player for Tilecast. The Edge software is complete and merged into Tilecast. It is still being qualified on physical hardware, so it isn't the production Linux Player yet.
+  tagline: The service-based Linux Player for Tilecast. Every Tilecast release includes it.
   actions:
     - text: Check requirements
       link: requirements/
       icon: right-arrow
-    - text: Compare with the stable Linux Player
+    - text: Compare with the AppImage Player
       link: capabilities/
       variant: minimal
 ---
 
 import { Aside, Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-Tilecast Edge replaces the Electron-based Linux AppImage Player with a Linux system service and a WPE WebKit renderer. The Edge software milestones M1 to M10 and the M11 remote-web implementation are merged into Tilecast. M11 now focuses on qualifying that software on real displays and computers.
+Tilecast Edge is the Linux Player. It replaces the Electron-based AppImage Player with a Linux system service and a WPE WebKit renderer. Each Tilecast release includes an Edge archive for `x86_64` and one for `aarch64`.
 
-Until a Tilecast release lists your hardware as supported, use the [stable Linux Player](../players/install-linux/) on production screens.
+Screens that already run the [AppImage Player](../players/install-linux/) keep running it until you [migrate](migrate/) them.
 
 ## What Edge changes
 
@@ -34,9 +34,9 @@ WPE WebKit renderer
    display
 ```
 
-`tilecastd` is an unprivileged service. It holds the server connection, the Player credential, local state, downloaded content, commands, settings, and hardware features. The WPE WebKit renderer draws the presentation and holds no secrets, so it can restart without losing the Player's state. Edge and the stable Linux Player share the same playback runtime, so content looks and times the same on both.
+`tilecastd` is an unprivileged service. It holds the server connection, the Player credential, local state, downloaded content, commands, settings, and hardware features. The WPE WebKit renderer draws the presentation and holds no secrets, so it can restart without losing the Player's state. Edge and the AppImage Player share the same playback runtime, so content looks and times the same on both.
 
-## What the Edge software does
+## What Edge does
 
 <CardGrid>
   <Card title="Content and schedules" icon="document">
@@ -62,27 +62,21 @@ WPE WebKit renderer
   </Card>
 </CardGrid>
 
-## What still needs qualification
+## Plan your rollout
 
-<Aside type="caution" title="Automated tests only">
+Linux computers, displays, and video files differ. Before you move many screens, run Edge on one screen of each hardware class and watch it for a few days. Check:
 
-Every feature above passes automated tests, including tests with a real Tilecast Server, the real WPE renderer, and real systemd. None of it is qualified on physical signage hardware yet. M11 covers:
+- display output, rotation, and display ownership on that computer;
+- the video codecs and resolutions your content uses, and hardware decoding;
+- CEC on your TVs and DDC/CI on your monitors, if you use Display Control;
+- Presentation Network on your Wi-Fi hardware, if you use it;
+- a restart, a power cut, and an update with its rollback.
 
-- DRM/KMS and Wayland output, display rotation, and display ownership on real computers;
-- video codecs and hardware decoding;
-- CEC on real TVs and DDC/CI on real monitors;
-- Presentation Network on supported Wi-Fi hardware and idle inhibition in the real kiosk session;
-- long playback runs, restarts, and power cuts;
-- updates and rollbacks on reference hardware;
-- remote Website and YouTube content through the isolated helper, including the GPU frame path, physical audio routing, and a real YouTube smoke test.
-
-</Aside>
-
-Follow the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/2) for qualification progress.
+See [Edge requirements](requirements/) and [Edge compatibility](compatibility/) for the details.
 
 ## Not part of Edge 1
 
-- **AirPlay receiver.** Use the stable Linux Player for [AirPlay Present](../operations/airplay-present/).
+- **AirPlay receiver.** Use the AppImage Player for [AirPlay Present](../operations/airplay-present/).
 - **Peer-to-peer content delivery.** Every Edge Player downloads from Tilecast Server. The earlier "Edge Fabric" design is not part of Edge 1.
 - **Android-only features** such as Managed Kiosk and Power Assist.
 
@@ -131,7 +125,7 @@ Follow the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/
   />
   <LinkCard
     title="Edge requirements"
-    description="Check the Linux, display, and network requirements before you use Edge on a real screen."
+    description="Check the Linux, display, and network requirements before you install Edge."
     href="requirements/"
   />
   <LinkCard
@@ -146,11 +140,11 @@ Follow the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/
   />
   <LinkCard
     title="Edge capability matrix"
-    description="Compare Edge with the stable Linux Player, feature by feature."
+    description="Compare Edge with the AppImage Player, feature by feature."
     href="capabilities/"
   />
 </CardGrid>
 
-## Production recommendation
+## Existing AppImage screens
 
-The stable Electron/AppImage Linux Player is still the supported Linux Player, including Player updates from Studio. Existing screens stay on it: updating Tilecast Server never moves a screen to Edge, and an AppImage Player never receives an Edge release. Moving a screen is a [migration](migrate/) that you start on that computer, one screen at a time.
+The AppImage Player keeps working, including Player updates from Studio. Updating Tilecast Server never moves a screen to Edge, and an AppImage Player never receives an Edge release. Moving a screen is a [migration](migrate/) that you start on that computer, one screen at a time.

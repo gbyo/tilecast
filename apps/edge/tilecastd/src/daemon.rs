@@ -99,6 +99,9 @@ pub struct DaemonContext {
     /// Wakes activation when a manifest is prepared or an item boundary passes.
     pub manifest_wake: tokio::sync::Notify,
     pub manifest_item_boundary: std::sync::atomic::AtomicBool,
+    /// Serializes supervision persistence: the read, snapshot, and write
+    /// must not interleave between the supervisor loop and commands.
+    pub supervision_persist: Mutex<()>,
     /// Durable playlist resume, loaded once at startup. Synchronous: the
     /// offline projection path consumes it without awaiting.
     pub resume: std::sync::Mutex<crate::resume::ResumeState>,
@@ -136,6 +139,8 @@ pub struct DaemonContext {
     /// Renderer captures waiting for the renderer's answer, shared by
     /// periodic Live Preview and Watch Live (one capture in flight).
     pub capture: crate::capture::CaptureBroker,
+    /// The renderer's Watch Live H.264 encoder session and probed profiles.
+    pub live_encoders: crate::live_encoder::LiveEncoders,
     /// Periodic Live Preview health (its renderer-fault suspension only).
     pub preview_health: crate::preview::PreviewHealth,
     /// Wakes the preview coordinator when a capture is requested.
@@ -145,7 +150,7 @@ pub struct DaemonContext {
     /// Latest encoded Watch Live frame for the WebSocket owner to send.
     /// Capacity-one: a newer frame supersedes an unsent older frame, so a
     /// slow or disconnected network drops frames instead of queueing video.
-    pub live_frames: tokio::sync::watch::Sender<Option<crate::live_stream::LiveFrame>>,
+    pub live_outbox: player_core::LiveOutbox,
     /// Renderer commands that report a result (`clear_website_data`).
     pub renderer_commands: crate::remote_web::Waiters,
     /// Display Control (M9).
@@ -443,6 +448,7 @@ impl Daemon {
             server_wake: tokio::sync::Notify::new(),
             manifest_wake: tokio::sync::Notify::new(),
             manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
+            supervision_persist: Mutex::new(()),
             resume: std::sync::Mutex::new(resume_state),
             installation_mismatch: std::sync::Mutex::new(mismatch_state),
             preparation: Default::default(),
@@ -462,10 +468,11 @@ impl Daemon {
             activity,
             report_wake: tokio::sync::Notify::new(),
             capture: crate::capture::CaptureBroker::default(),
+            live_encoders: crate::live_encoder::LiveEncoders::default(),
             preview_health: crate::preview::PreviewHealth::default(),
             preview_wake: tokio::sync::Notify::new(),
             live_stream_wake: tokio::sync::Notify::new(),
-            live_frames: tokio::sync::watch::Sender::new(None),
+            live_outbox: player_core::LiveOutbox::default(),
             renderer_commands: crate::remote_web::Waiters::default(),
             display: Arc::new(crate::display_control::DisplayControl::new(&config_for_display)),
             display_wake: tokio::sync::Notify::new(),

@@ -168,6 +168,13 @@ export {
 export type { PluginTargetScope, PluginTargeting } from "../api/types";
 export type { VariantProps } from "class-variance-authority";
 export { FormField } from "../components/FormField";
+// The organization font library choice. A plugin stores the family ID and
+// records its use through Host.Fonts on the Server.
+export {
+  FontPicker,
+  type FontChoice,
+  type FontPickerProps,
+} from "../fonts/FontPicker";
 export {
   localDateTimeToRfc3339,
   rfc3339ToLocalDateTime,
@@ -193,4 +200,6 @@ export {
   ActionMenuButton,
   type StudioAction,
   type StudioActionGroup,
+  type StudioMenuEntry,
+  type StudioSubmenu,
 } from "../components/studio/ActionMenu";

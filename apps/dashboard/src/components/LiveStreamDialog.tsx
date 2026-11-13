@@ -1,10 +1,17 @@
 import { Radio, Video, WifiOff } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { ApiError } from "../api/errors";
 import type { WireLiveStreamSession } from "../api/domains/screens";
 import { endLiveStreamSession } from "../api/liveStreams";
+import { acceptedProfiles } from "../live-stream/h264Support";
+import {
+  H264Surface,
+  MjpegSurface,
+  type SurfaceEvents,
+} from "../live-stream/LiveStreamSurface";
+import { MJPEG_PROFILE_IDS, profileById } from "../live-stream/protocol";
 import { presentationPath } from "../native-presentation/openNativePresentation";
 import { Button } from "./ui/button";
 import {
@@ -17,6 +24,8 @@ import {
 } from "./ui/dialog";
 
 const LEASE_RENEWAL_MILLIS = 3_000;
+/** Renewal cadence while the Player has not yet chosen a profile. */
+const NEGOTIATION_RENEWAL_MILLIS = 500;
 const FRAME_STALE_MILLIS = 5_000;
 const MAX_TRANSPORT_RETRIES = 4;
 const MAX_SESSION_RECOVERIES = 4;
@@ -27,6 +36,26 @@ type LiveStreamViewerError = "start" | "renew" | "connection" | "replaced";
 
 function retryDelay(attempt: number) {
   return Math.min(RETRY_BASE_MILLIS * 2 ** attempt, RETRY_MAX_MILLIS);
+}
+
+type LiveStreamView = "negotiating" | "mjpeg" | "h264";
+
+/**
+ * Which relay a session uses. An older server sends no `transport` and is
+ * always MJPEG. A newer server sends no `profile` until the Player first
+ * reconciles; a viewer that offered H.264 waits for that choice.
+ */
+export function liveStreamView(
+  session: WireLiveStreamSession,
+  offered: readonly string[],
+): LiveStreamView {
+  if (session.transport === undefined) return "mjpeg";
+  if (!session.profile) {
+    return offered.some((id) => profileById(id)?.transport === "h264")
+      ? "negotiating"
+      : "mjpeg";
+  }
+  return session.transport === "h264" ? "h264" : "mjpeg";
 }
 
 /** The native presentation route of a screen's live stream. */
@@ -56,7 +85,12 @@ export function LiveStreamViewer({
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<LiveStreamViewerError | null>(null);
   const [streamAttempt, setStreamAttempt] = useState(0);
+  // After a decoder failure this viewer offers MJPEG only, for as long as
+  // it stays mounted.
+  const [h264Disabled, setH264Disabled] = useState(false);
+  const [offered, setOffered] = useState<readonly string[]>(MJPEG_PROFILE_IDS);
   const sessionRef = useRef<WireLiveStreamSession | null>(null);
+  const renewNow = useRef<() => void>(() => undefined);
   const transportRetryTimer = useRef<number | null>(null);
   const transportRetryCount = useRef(0);
   const lastTransportReconnect = useRef(0);
@@ -110,10 +144,18 @@ export function LiveStreamViewer({
       }
     };
 
+    let offeredProfiles: readonly string[] = MJPEG_PROFILE_IDS;
+
     const scheduleRenewal = (renew: () => void) => {
       clearRenewal();
-      if (active && sessionRef.current) {
-        renewalTimer = window.setTimeout(renew, LEASE_RENEWAL_MILLIS);
+      const current = sessionRef.current;
+      if (active && current) {
+        renewalTimer = window.setTimeout(
+          renew,
+          liveStreamView(current, offeredProfiles) === "negotiating"
+            ? NEGOTIATION_RENEWAL_MILLIS
+            : LEASE_RENEWAL_MILLIS,
+        );
       }
     };
 
@@ -159,8 +201,21 @@ export function LiveStreamViewer({
         .renewLiveStream(screenId, current.id, csrfToken)
         .then((renewed) => {
           if (!active || sessionRef.current?.id !== current.id) return;
+          const changed =
+            liveStreamView(current, offeredProfiles) !==
+              liveStreamView(renewed, offeredProfiles) ||
+            current.profile !== renewed.profile ||
+            current.profileGeneration !== renewed.profileGeneration;
           sessionRef.current = renewed;
           setSession(renewed);
+          if (changed) {
+            // A negotiated or degraded profile: the surface remounts on
+            // the new relay and the stall clock starts over.
+            setPlaying(false);
+            startedAt = Date.now();
+            stalled = false;
+            transportRetryCount.current = 0;
+          }
 
           const sequence = renewed.frameSequence ?? 0;
           const lastFrameMillis = renewed.lastFrameAt
@@ -220,8 +275,16 @@ export function LiveStreamViewer({
     };
 
     const startSession = (recovering: boolean): void => {
-      void api
-        .startLiveStream(screenId, csrfToken)
+      void (
+        h264Disabled
+          ? Promise.resolve([...MJPEG_PROFILE_IDS])
+          : acceptedProfiles()
+      )
+        .then((accept) => {
+          offeredProfiles = accept;
+          setOffered(accept);
+          return api.startLiveStream(screenId, csrfToken, accept);
+        })
         .then((next) => {
           if (!active) {
             void endLiveStreamSession(screenId, next.id, csrfToken).catch(
@@ -240,6 +303,11 @@ export function LiveStreamViewer({
         });
     };
 
+    renewNow.current = () => {
+      clearRenewal();
+      renewSession();
+    };
+
     sessionRef.current = null;
     setSession(null);
     setPlaying(false);
@@ -249,6 +317,7 @@ export function LiveStreamViewer({
 
     return () => {
       active = false;
+      renewNow.current = () => undefined;
       clearRenewal();
       clearRecovery();
       if (transportRetryTimer.current !== null) {
@@ -263,8 +332,36 @@ export function LiveStreamViewer({
         );
       }
     };
-  }, [csrfToken, enabled, retryTransport, screenId]);
+  }, [csrfToken, enabled, h264Disabled, retryTransport, screenId]);
 
+  const surfaceEvents: SurfaceEvents = useMemo(
+    () => ({
+      onPlaying: () => {
+        if (transportRetryTimer.current !== null) {
+          window.clearTimeout(transportRetryTimer.current);
+          transportRetryTimer.current = null;
+        }
+        transportRetryCount.current = 0;
+        setPlaying(true);
+        setError(null);
+      },
+      onTransportEnded: () => {
+        // The relay ends on a profile change too: learn the new profile
+        // before reconnecting.
+        renewNow.current();
+        retryTransport(false);
+      },
+      onDecoderFailed: () => {
+        // Restart the lease offering MJPEG only.
+        setPlaying(false);
+        setH264Disabled(true);
+      },
+    }),
+    [retryTransport],
+  );
+
+  const view = session ? liveStreamView(session, offered) : null;
+  const profile = profileById(session?.profile);
   const errorMessage =
     error === "start"
       ? t("liveStream.startError")
@@ -279,24 +376,22 @@ export function LiveStreamViewer({
   return (
     <>
       <div className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]">
-        {session ? (
-          <img
-            key={`${session.id}:${streamAttempt}`}
-            className="block size-full object-contain"
-            src={`${api.screenLiveStreamUrl(screenId, session.id)}${
+        {session && view === "h264" ? (
+          <H264Surface
+            key={`${session.id}:h264:${session.profileGeneration ?? 0}:${streamAttempt}`}
+            url={api.screenLiveStreamH264Url(screenId, session.id)}
+            sessionId={session.id}
+            alt={t("liveStream.imageAlt", { name: screenName })}
+            events={surfaceEvents}
+          />
+        ) : session && view === "mjpeg" ? (
+          <MjpegSurface
+            key={`${session.id}:mjpeg:${session.profileGeneration ?? 0}:${streamAttempt}`}
+            url={`${api.screenLiveStreamUrl(screenId, session.id)}${
               streamAttempt ? `?retry=${streamAttempt}` : ""
             }`}
             alt={t("liveStream.imageAlt", { name: screenName })}
-            onLoad={() => {
-              if (transportRetryTimer.current !== null) {
-                window.clearTimeout(transportRetryTimer.current);
-                transportRetryTimer.current = null;
-              }
-              transportRetryCount.current = 0;
-              setPlaying(true);
-              setError(null);
-            }}
-            onError={() => retryTransport(false)}
+            events={surfaceEvents}
           />
         ) : null}
         {!playing && (
@@ -327,7 +422,9 @@ export function LiveStreamViewer({
                 <Video className="size-7" aria-hidden="true" />
                 <strong>{t("liveStream.connecting")}</strong>
                 <span className="text-sm text-slate-300">
-                  {t("liveStream.waitingFrame")}
+                  {view === "negotiating"
+                    ? t("liveStream.negotiating")
+                    : t("liveStream.waitingFrame")}
                 </span>
               </>
             )}
@@ -346,17 +443,24 @@ export function LiveStreamViewer({
             i18nKey="liveStream.targetLine"
             ns="alerts"
             values={{
-              target: session
-                ? t("liveStream.targetValue", {
-                    fps: Math.round(1_000 / session.frameIntervalMillis),
-                    width: session.maxWidth,
-                    height: session.maxHeight,
-                  })
-                : t("liveStream.targetValue", {
-                    fps: 8,
-                    width: 640,
-                    height: 360,
-                  }),
+              target:
+                !session || view === "negotiating"
+                  ? t("liveStream.targetNegotiating")
+                  : t(
+                      view === "h264"
+                        ? "liveStream.targetValueH264"
+                        : "liveStream.targetValueMjpeg",
+                      {
+                        fps:
+                          profile?.fps ??
+                          Math.round(1_000 / session.frameIntervalMillis),
+                        width: session.maxWidth,
+                        height: session.maxHeight,
+                        megabits: (
+                          (session.targetBitrate ?? 0) / 1_000_000
+                        ).toFixed(1),
+                      },
+                    ),
             }}
             components={{ strong: <strong /> }}
           />

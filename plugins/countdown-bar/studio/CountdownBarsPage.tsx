@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
 import {
   DateTimeInput,
+  FontPicker,
   FormField,
   PluginPage,
   RegisterCheckbox,
@@ -111,6 +112,8 @@ export function makeCountdownSchema(ct: CountdownT) {
         .int(ct("validation.textScaleRange"))
         .min(25, ct("validation.textScaleRange"))
         .max(500, ct("validation.textScaleRange")),
+      // A font library family ID; empty keeps the Player's own face.
+      fontId: z.string(),
       urgencyEnabled: z.boolean(),
       startingSoonMinutes: z.coerce
         .number({ error: ct("validation.wholeMinutes") })
@@ -217,6 +220,7 @@ function makeCountdownDefaults(ct: CountdownT, timezone: string): FormValues {
     heightPx: 72,
     contentPadding: 4,
     textScale: 100,
+    fontId: "",
     urgencyEnabled: false,
     startingSoonMinutes: 5,
     urgentSeconds: 60,
@@ -482,6 +486,7 @@ export function CountdownBarEditorPage() {
       heightPx: value.heightPx,
       contentPadding: value.contentPadding ?? 4,
       textScale: value.textScale ?? 100,
+      fontId: value.fontId ?? "",
       urgencyEnabled: value.urgencyEnabled ?? false,
       startingSoonMinutes: storedStartingSoon,
       urgentSeconds: storedUrgent,
@@ -588,6 +593,7 @@ export function CountdownBarEditorPage() {
       heightPx: values.heightPx,
       contentPadding: values.contentPadding,
       textScale: values.textScale,
+      fontId: values.fontId || null,
       urgencyEnabled: values.urgencyEnabled,
       startingSoonSeconds: values.startingSoonMinutes * 60,
       urgentSeconds: values.urgentSeconds,
@@ -907,6 +913,35 @@ export function CountdownBarEditorPage() {
                 max={500}
                 error={errors.textScale?.message}
                 {...register("textScale", { valueAsNumber: true })}
+              />
+              <Controller
+                control={control}
+                name="fontId"
+                render={({ field }) => (
+                  <div className="grid content-start gap-1 sm:col-span-2">
+                    <FontPicker
+                      id="countdown-font"
+                      label={ct("editor.fontLabel")}
+                      value={
+                        field.value
+                          ? { kind: "library", id: field.value }
+                          : { kind: "builtIn", value: "player" }
+                      }
+                      onChange={(choice) =>
+                        field.onChange(
+                          choice.kind === "library" ? choice.id : "",
+                        )
+                      }
+                      builtIn={[
+                        { value: "player", label: ct("editor.fontPlayer") },
+                      ]}
+                      builtInLabel={ct("editor.fontPlayerGroup")}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {ct("editor.fontHint")}
+                    </p>
+                  </div>
+                )}
               />
               <FormField
                 id="countdown-priority"

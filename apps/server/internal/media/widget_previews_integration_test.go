@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -84,7 +85,7 @@ func TestWidgetPreviewSurvivesEditsThatDoNotChangeWhatItDepicts(t *testing.T) {
 	if widget.ThumbnailURL != nil {
 		t.Fatalf("a new Widget has no snapshot yet: %v", *widget.ThumbnailURL)
 	}
-	if err := service.StoreWidgetPreview(ctx, widget.ID, user, widgetSnapshot(t)); err != nil {
+	if err := service.StoreWidgetPreview(ctx, widget.ID, user, widgetSnapshot(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := service.GetAsset(ctx, widget.ID)
@@ -115,6 +116,25 @@ func TestWidgetPreviewSurvivesEditsThatDoNotChangeWhatItDepicts(t *testing.T) {
 	}
 	if restyled.ThumbnailURL != nil {
 		t.Error("a configuration change must discard the stale snapshot")
+	}
+
+	// A capture rendered from the configuration read before the edit must not be stored as current.
+	if err := service.StoreWidgetPreview(ctx, widget.ID, user, widgetSnapshot(t), &renamed.UpdatedAt); !errors.Is(err, ErrWidgetPreviewStale) {
+		t.Fatalf("a capture of a superseded configuration should be refused as stale: %v", err)
+	}
+	unchanged, err := service.GetAsset(ctx, widget.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.ThumbnailURL != nil {
+		t.Error("a refused capture must not store a snapshot")
+	}
+	if err := service.StoreWidgetPreview(ctx, widget.ID, user, widgetSnapshot(t), &restyled.UpdatedAt); err != nil {
+		t.Fatalf("a capture of the current configuration should be stored: %v", err)
+	}
+	current, err := service.GetAsset(ctx, widget.ID)
+	if err != nil || current.ThumbnailURL == nil {
+		t.Fatalf("the current capture should be reported as a thumbnail: %v", err)
 	}
 }
 
@@ -165,7 +185,7 @@ func TestDuplicatedWidgetKeepsTheSnapshotItDepicts(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshot := widgetSnapshot(t)
-	if err := service.StoreWidgetPreview(ctx, widget.ID, user, snapshot); err != nil {
+	if err := service.StoreWidgetPreview(ctx, widget.ID, user, snapshot, nil); err != nil {
 		t.Fatal(err)
 	}
 

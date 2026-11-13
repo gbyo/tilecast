@@ -32,6 +32,8 @@ Playback starts as soon as you approve. A new screen shows **No content assigned
 
 The pairing code changes by itself every ten minutes until you approve it. If the TV can't reach the server, it keeps retrying and shows when the next attempt runs.
 
+If your launcher changes the native display orientation, the Player reports the current screen dimensions to the server. A launcher that only rotates its own interface does not change those dimensions.
+
 ## Optional Android permissions
 
 Two Android permissions make a TV more self-sufficient. Neither is needed for playback, and the Player never stops to ask for them.
@@ -45,7 +47,7 @@ Studio shows which of these a screen has on its **Reliability** tab. To grant th
 
 On the remote, press **Back**, **Back**, **Up**, **Down**, then **OK**. The first time, the Player asks you to set a local PIN. Later it asks for that PIN.
 
-The menu can restart the Player, clear safe mode, open the Android settings above, or forget the server so the TV pairs again. While the menu is open, Tilecast pauses its return-to-playback and sleep behavior for up to 15 minutes.
+The menu can restart the Player, clear safe mode, open the Android settings above, or forget the server so the TV pairs again. If an administrator turns off **Allow Settings during maintenance** in the managed kiosk policy, the menu hides the Android settings buttons. While the menu is open, Tilecast pauses its return-to-playback and sleep behavior for up to 15 minutes.
 
 ## If the screen is revoked or moves to a new server
 

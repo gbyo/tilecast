@@ -240,6 +240,9 @@ The same persistent command system carries `display_power_on`,
 `display_mute`, `display_unmute`, `display_set_brightness`, and
 `display_probe`. Payloads are closed and range-checked by the server and the
 Player. Linux executes only fixed shell-free `cec-ctl` or `ddcutil` calls with
-bounded time and output. A Display Control schedule uses the normal manifest
+bounded time and output. A Display Group with a Display Control schedule only
+accepts Linux Players. When group membership moves a screen's Display Control
+schedule to the group, all group members must be Linux Players.
+A Display Control schedule uses the normal manifest
 schedule entry with `displayAction`; it has no playlist or Layout and is
 evaluated by the same timezone, priority, and offline transition resolver.

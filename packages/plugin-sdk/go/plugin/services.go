@@ -44,6 +44,8 @@ var PlayerServices = []PlayerService{
 	{Name: "player.events", Version: 1, Execution: ServiceRuntime,
 		Description:    "Ephemeral typed events between a plugin's native and Shared Runtime parts: declared names, bounded payloads, never state.",
 		HostCapability: "pluginEvents"},
+	{Name: "player.fonts", Version: 1, Execution: ServiceRuntime,
+		Description: "Registers the organization font families that the plugin's current state entries declare and names them for CSS."},
 	{Name: "player.media", Version: 1, Execution: ServiceRuntime,
 		Description: "Addresses for verified media variants that the plugin's current state entries declare."},
 	{Name: "player.presentation.observe", Version: 1, Execution: ServiceRuntime,

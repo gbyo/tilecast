@@ -1,0 +1,8 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 42,
+    "event": "live_encoder.keyframe",
+    "data": { "streamId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d" }
+  }
+}

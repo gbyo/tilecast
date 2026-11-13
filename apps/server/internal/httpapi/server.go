@@ -29,6 +29,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 
+	"github.com/tilecast/tilecast/apps/server/internal/fonts"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
@@ -52,6 +53,7 @@ type Dependencies struct {
 	Auth                 *auth.Service
 	Devices              *devices.Service
 	Media                *media.Service
+	Fonts                *fonts.Service
 	Playlists            *playlists.Service
 	Campaigns            *campaigns.Service
 	Presentations        *presentations.Service
@@ -103,8 +105,10 @@ type server struct {
 	registeredObjectRules         map[string]bool
 	devices                       *devices.Service
 	media                         *media.Service
+	fonts                         *fonts.Service
 	playlists                     *playlists.Service
 	playbackPlan                  *playbackplan.Inspector
+	playbackAgenda                *playbackplan.SnapshotCurrent
 	campaigns                     *campaigns.Service
 	presentations                 *presentations.Service
 	plugins                       *plugins.Service
@@ -173,6 +177,7 @@ func New(deps Dependencies) *API {
 		registeredObjectRules: map[string]bool{},
 		devices:               deps.Devices,
 		media:                 deps.Media,
+		fonts:                 deps.Fonts,
 		playlists:             deps.Playlists,
 		campaigns:             deps.Campaigns,
 		presentations:         deps.Presentations,
@@ -249,7 +254,8 @@ func New(deps Dependencies) *API {
 		s.takeovers = takeovers.NewService(s.db, s.playlists, notifier, time.Duration(s.operations.MaxTakeoverDurationHours)*time.Hour)
 	}
 	if s.db != nil && s.playlists != nil && s.scheduling != nil && s.presentations != nil {
-		s.playbackPlan = playbackplan.NewInspector(playbackplan.NewSnapshotCurrent(s.db, s.playlists, s.scheduling, s.presentations), playbackplan.NewHistory(s.db))
+		s.playbackAgenda = playbackplan.NewSnapshotCurrent(s.db, s.playlists, s.scheduling, s.presentations)
+		s.playbackPlan = playbackplan.NewInspector(s.playbackAgenda, playbackplan.NewHistory(s.db))
 	}
 	return &API{Handler: s.routes(), server: s}
 }

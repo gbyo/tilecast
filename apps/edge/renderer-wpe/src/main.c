@@ -225,6 +225,8 @@ main (int argc, char **argv)
 
   tc_ipc_start (&host);
   tc_remote_web_start (&host);
+  /* Watch Live H.264: probe the encoders off the main loop. */
+  tc_live_encoder_init (&host);
   host.health_source = g_timeout_add_seconds (60, on_health, &host);
   g_unix_signal_add (SIGTERM, on_terminate, &host);
   g_unix_signal_add (SIGINT, on_terminate, &host);
@@ -232,6 +234,7 @@ main (int argc, char **argv)
     g_timeout_add_seconds (host.exit_after_seconds, on_exit_timer, &host);
 
   g_main_loop_run (host.loop);
+  tc_live_encoder_stop_all (&host);
   tc_remote_web_stop (&host);
   g_clear_pointer (&host.runtime_support, json_node_unref);
 

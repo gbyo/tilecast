@@ -66,7 +66,8 @@
       "moveDown": "Переместить вниз",
       "moveTop": "Переместить в начало",
       "moveBottom": "Переместить в конец",
-      "deleteField": "Удалить поле"
+      "deleteField": "Удалить поле",
+      "move": "Переместить"
     },
     "row": {
       "editField": "Редактировать {{name}}",
@@ -370,12 +371,24 @@
   },
   "workflow": {
     "capabilities": {
-      "submit": { "label": "Отправить" },
-      "review": { "label": "Проверить" },
-      "approve": { "label": "Одобрить" },
-      "manage": { "label": "Управлять" },
-      "viewAll": { "label": "Просмотр всех" },
-      "viewOwn": { "label": "Просмотр своих" }
+      "submit": {
+        "label": "Отправить"
+      },
+      "review": {
+        "label": "Проверить"
+      },
+      "approve": {
+        "label": "Одобрить"
+      },
+      "manage": {
+        "label": "Управлять"
+      },
+      "viewAll": {
+        "label": "Просмотр всех"
+      },
+      "viewOwn": {
+        "label": "Просмотр своих"
+      }
     },
     "leaveTitle": "Уйти без сохранения?",
     "leaveBody": "В рабочем процессе есть несохранённые изменения.",

@@ -10,6 +10,7 @@ const weekdays = {
   activeHoursEnd: "17:00",
   outsideActiveHoursDisplay: "custom_text",
   outsideActiveHoursText: "Open at 7:30",
+  outsideActiveHoursWakeAnimation: false,
   unrelated: "dropped",
 };
 const selection = (source: string): SelectionFacts => ({
@@ -39,6 +40,10 @@ const at = (iso: string) => Date.parse(iso);
 describe("rest policy without the server", () => {
   it("keeps only the values the policy reads", () => {
     const snapshot = policy();
+    expect(snapshot.power).toHaveProperty(
+      "outsideActiveHoursWakeAnimation",
+      false,
+    );
     expect(snapshot.power).not.toHaveProperty("unrelated");
     expect(snapshot.branding).toEqual({ textColor: "#112233" });
   });
@@ -53,9 +58,25 @@ describe("rest policy without the server", () => {
         display: "custom_text",
         text: "Open at 7:30",
         textColor: "#112233",
+        wakeAnimation: false,
       },
     });
     expect(decision.reevaluateInMs).toBe(30 * 60_000);
+  });
+
+  it("plays the wake animation when the policy does not turn it off", () => {
+    const on = policyFromConfig(
+      {
+        configRevision: 4,
+        power: { ...weekdays, outsideActiveHoursWakeAnimation: undefined },
+      },
+      selection("schedule"),
+      7,
+      0,
+    );
+    expect(
+      decideRest(on, at("2026-09-24T12:00:00Z")).presentation.wakeAnimation,
+    ).toBe(true);
   });
 
   it("wakes inside active hours", () => {

@@ -11,7 +11,16 @@ A Player release must be published, verified, and cached before Studio can deplo
 
 Open **Settings** > **Player updates**, check the expected release files, and review any verification error.
 
+If the artifact download times out, Studio shows the failure. Select **Prepare artifact** again from the artifact's action menu to retry the download.
+
 GitHub synchronization can stop when the API rate limit is reached. If that happens, connect the configured GitHub account or use the supported GitHub token configuration for your deployment.
+
+Large Player downloads have up to 15 minutes to finish; release-list requests
+use a shorter timeout. If a download is interrupted, retry **Download** on the
+release. If the error says the file could not be saved, check free space and
+permissions on the server's update storage. Size and SHA-256 errors mean the
+downloaded bytes did not match the signed manifest. Retry the download and
+check the network path if the problem repeats. Keep integrity checks enabled.
 
 ## Platform-specific install problems
 
@@ -29,7 +38,7 @@ If Android reports a signing-certificate mismatch, the installed Player and the 
 
 <TabItem label="Linux">
 
-The stable Linux update flow is for Tilecast's managed AppImage installation.
+The AppImage update flow is for Tilecast's managed AppImage installation.
 
 Current Tilecast Linux installs use systemd **user** services, so manage them with `systemctl --user`, not the system service manager.
 
@@ -58,7 +67,7 @@ If the screen shows its recovery screen after a rollback, the new release change
 
 <TabItem label="Windows">
 
-If there is no Windows release in Studio or on GitHub, wait for a published signed Windows Player release. Windows preview packages are not yet available for installation.
+If there is no Windows release in Studio, open **Settings** > **Player updates**, choose **Windows**, and select **Sync from GitHub**. Stable releases always include a signed Windows package.
 
 If the MSIX installation fails:
 

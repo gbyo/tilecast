@@ -118,6 +118,8 @@ data class CorePlaybackUi(
 data class CorePowerDisplay(
     val outsideDisplay: String = "black",
     val outsideText: String = "Powered by Tilecast",
+    /** Absent in configs stored before the setting existed, which read as on. */
+    val wakeAnimation: Boolean = true,
 ) {
     companion object {
         fun parse(root: JsonObject?): CorePowerDisplay {
@@ -126,6 +128,7 @@ data class CorePowerDisplay(
                 CorePowerDisplay(
                     outsideDisplay = root.strOrNull("outsideDisplay") ?: "black",
                     outsideText = root.strOrNull("outsideText") ?: "Powered by Tilecast",
+                    wakeAnimation = root["wakeAnimation"]?.jsonPrimitive?.booleanOrNull ?: true,
                 )
             } catch (_: Exception) {
                 CorePowerDisplay()

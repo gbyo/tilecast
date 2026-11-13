@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "Удалить навсегда"
+      "deletePermanently": "Удалить навсегда",
+      "editDetails": "Изменить сведения",
+      "organize": "Упорядочить…"
     },
     "archiveDialog": {
       "description": "Архивные элементы остаются доступными, пока вы их не восстановите или не удалите навсегда.",
@@ -1123,6 +1125,10 @@
   },
   "dataSources": {
     "deleteSuccess": "Источник данных удалён.",
+    "saved": {
+      "created": "Источник данных создан.",
+      "updated": "Источник данных обновлён."
+    },
     "duplicated": "Источник данных скопирован.",
     "calendar": {
       "addCalendar": "Добавить календарь",

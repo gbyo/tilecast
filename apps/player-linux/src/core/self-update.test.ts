@@ -5,6 +5,7 @@ import {
   parseVersionCode,
   promoteAppImage,
   type SelfUpdateDeps,
+  type StagedJobStore,
 } from "./self-update";
 import type {
   PlayerCommand,
@@ -72,6 +73,9 @@ function deps(overrides: Partial<SelfUpdateDeps> = {}): {
   const restart = vi.fn();
   const promote = vi.fn(async () => {});
   const download = vi.fn(async () => {});
+  // The updater re-reads the clock after every wait step, so the default clock
+  // advances by the time actually slept.
+  let clock = Date.parse("2026-07-20T12:00:00Z");
   const d: SelfUpdateDeps = {
     appImagePath: "/home/tilecast/tilecast-player.AppImage",
     stagePath: path.join(
@@ -92,11 +96,36 @@ function deps(overrides: Partial<SelfUpdateDeps> = {}): {
     authHeaders: () => ({ Authorization: "Bearer device" }),
     promote,
     restart,
-    now: () => Date.parse("2026-07-20T12:00:00Z"),
+    now: () => clock,
+    sleep: async (ms) => {
+      await new Promise<void>((resolve) => setTimeout(resolve, ms));
+      clock += ms;
+    },
     ...overrides,
   };
   return { d, states, reports, restart, promote, download };
 }
+
+function memoryJobStore(initial: unknown = null): StagedJobStore & {
+  value: unknown;
+  clears: number;
+} {
+  const store = {
+    value: initial,
+    clears: 0,
+    load: async () => store.value,
+    save: async (job: unknown) => {
+      store.value = job;
+    },
+    clear: async () => {
+      store.value = null;
+      store.clears += 1;
+    },
+  };
+  return store;
+}
+
+const NOW = Date.parse("2026-07-20T12:00:00Z");
 
 describe("parseVersionCode", () => {
   it("derives a monotonic code from semver", () => {
@@ -358,6 +387,153 @@ describe("SelfUpdater", () => {
         maintenanceWindowStart: "2026-07-20T06:00:00Z",
       }),
     );
+    expect(promote).toHaveBeenCalledOnce();
+    expect(restart).toHaveBeenCalledOnce();
+  });
+
+  describe("staged maintenance-window jobs", () => {
+    it("records the staged job while waiting and clears it before installing", async () => {
+      const stagedJob = memoryJobStore();
+      const { d, promote } = deps({
+        stagedJob,
+        reportStatus: async (_id, body) => {
+          if (body.state === "installing") {
+            expect(stagedJob.value).toBeNull();
+          }
+        },
+      });
+      const run = new SelfUpdater(d).run(
+        command({
+          installationMode: "maintenance_window",
+          maintenanceWindowStart: new Date(NOW + 60).toISOString(),
+        }),
+      );
+      await vi.waitFor(() => expect(stagedJob.value).not.toBeNull());
+      expect(stagedJob.value).toEqual({
+        deploymentId: DEPLOYMENT_ID,
+        maintenanceWindowStart: new Date(NOW + 60).toISOString(),
+        artifactSha256: ARTIFACT_SHA,
+        artifactSizeBytes: 4096,
+      });
+      expect(promote).not.toHaveBeenCalled();
+
+      await run;
+      expect(promote).toHaveBeenCalledOnce();
+      expect(stagedJob.value).toBeNull();
+    });
+
+    it("does not record anything for install_now", async () => {
+      const stagedJob = memoryJobStore();
+      const save = vi.spyOn(stagedJob, "save");
+      const { d } = deps({ stagedJob });
+      await new SelfUpdater(d).run(command());
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it("clears the job when the update fails", async () => {
+      const stagedJob = memoryJobStore({ stale: true });
+      const { d, states } = deps({
+        stagedJob,
+        download: vi.fn(async () => {
+          throw new Error("sha-256 mismatch");
+        }),
+      });
+      await new SelfUpdater(d).run(command());
+      expect(states).toEqual(["downloading", "failed"]);
+      expect(stagedJob.value).toBeNull();
+    });
+
+    it("resumes a recorded job after a restart without the network", async () => {
+      const first = memoryJobStore();
+      const firstRun = deps({ stagedJob: first });
+      const windowStart = new Date(NOW + 60).toISOString();
+      const updater = new SelfUpdater(firstRun.d);
+      const original = updater.run(
+        command({
+          installationMode: "maintenance_window",
+          maintenanceWindowStart: windowStart,
+        }),
+      );
+      await vi.waitFor(() => expect(first.value).not.toBeNull());
+      const recorded = first.value;
+      await original;
+
+      // A new process: the staged file is still on disk, the command is gone.
+      const second = memoryJobStore(recorded);
+      const fetchMetadata = vi.fn(async () => metadata());
+      const resumed = deps({
+        stagedJob: second,
+        stagePath: firstRun.d.stagePath,
+        fetchMetadata,
+      });
+      await new SelfUpdater(resumed.d).resume();
+
+      expect(fetchMetadata).not.toHaveBeenCalled();
+      expect(resumed.d.download).not.toHaveBeenCalled();
+      expect(resumed.states).toEqual(["installing", "reconnecting"]);
+      expect(resumed.promote).toHaveBeenCalledOnce();
+      expect(resumed.restart).toHaveBeenCalledOnce();
+      expect(second.value).toBeNull();
+    });
+
+    it("reports failed and clears the job when the staged file is gone", async () => {
+      const stagedJob = memoryJobStore({
+        deploymentId: DEPLOYMENT_ID,
+        maintenanceWindowStart: new Date(NOW + 60).toISOString(),
+        artifactSha256: ARTIFACT_SHA,
+        artifactSizeBytes: 4096,
+      });
+      const { d, states, promote, restart } = deps({ stagedJob });
+      await new SelfUpdater(d).resume();
+
+      expect(states).toEqual(["failed"]);
+      expect(promote).not.toHaveBeenCalled();
+      expect(restart).not.toHaveBeenCalled();
+      expect(stagedJob.value).toBeNull();
+    });
+
+    it("discards an unreadable record", async () => {
+      const stagedJob = memoryJobStore({ deploymentId: 7 });
+      const { d, states, promote } = deps({ stagedJob });
+      await new SelfUpdater(d).resume();
+      expect(states).toEqual([]);
+      expect(promote).not.toHaveBeenCalled();
+      expect(stagedJob.value).toBeNull();
+    });
+
+    it("does nothing without a record", async () => {
+      const { d, states } = deps({ stagedJob: memoryJobStore() });
+      await new SelfUpdater(d).resume();
+      expect(states).toEqual([]);
+    });
+  });
+
+  it("keeps waiting until a window more than a day away has started", async () => {
+    let now = Date.parse("2026-07-20T12:00:00Z");
+    const sleeps: number[] = [];
+    const { d, states, restart, promote } = deps({
+      now: () => now,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+        now += ms;
+        if (sleeps.length === 1) {
+          // Still waiting after the first step: nothing may be promoted yet.
+          expect(promote).not.toHaveBeenCalled();
+          expect(states).not.toContain("installing");
+        }
+      },
+    });
+    await new SelfUpdater(d).run(
+      command({
+        installationMode: "maintenance_window",
+        maintenanceWindowStart: "2026-07-22T12:00:00Z",
+      }),
+    );
+
+    expect(sleeps.length).toBeGreaterThan(1);
+    expect(sleeps.reduce((sum, ms) => sum + ms, 0)).toBe(48 * 60 * 60 * 1_000);
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(60 * 60 * 1_000);
+    expect(now).toBeGreaterThanOrEqual(Date.parse("2026-07-22T12:00:00Z"));
     expect(promote).toHaveBeenCalledOnce();
     expect(restart).toHaveBeenCalledOnce();
   });

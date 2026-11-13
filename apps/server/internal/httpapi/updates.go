@@ -319,15 +319,21 @@ func (s *server) cachePlayerRelease(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
-		if err := s.updates.Cache(ctx, id); err != nil {
-			message := err.Error()
-			if len(message) > 240 {
-				message = message[:240]
-			}
-			_, _ = s.db.Exec(ctx, `UPDATE player_releases SET cache_status='failed',verification_status='failed',verification_error=$2,updated_at=now() WHERE id=$1`, id, message)
-		}
+		s.cachePlayerReleaseArtifact(ctx, id)
 	}()
 	writeJSON(w, 202, map[string]any{"data": map[string]any{"id": id, "cacheStatus": status}})
+}
+
+func (s *server) cachePlayerReleaseArtifact(ctx context.Context, id uuid.UUID) {
+	if err := s.updates.Cache(ctx, id); err != nil {
+		message := err.Error()
+		if len(message) > 240 {
+			message = message[:240]
+		}
+		statusCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = s.db.Exec(statusCtx, `UPDATE player_releases SET cache_status='failed',verification_status='failed',verification_error=$2,updated_at=now() WHERE id=$1`, id, message)
+	}
 }
 
 // deletePlayerRelease frees the disk a release occupies. Releases that were

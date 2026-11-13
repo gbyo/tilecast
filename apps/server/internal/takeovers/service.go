@@ -108,6 +108,12 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if len(screens) == 0 {
 		return plugin.TakeoverResult{}, nil, ErrNoEligibleScreens
 	}
+	// Serialize activations so a concurrent activation cannot miss this one's
+	// uncommitted rows when it looks for takeovers to replace. The lock is held
+	// to commit, and the replacement query below takes a fresh snapshot.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('tilecast.takeover.activate',0))`); err != nil {
+		return plugin.TakeoverResult{}, nil, err
+	}
 	id := uuid.New()
 	actor := nullableUser(request.ActivatedBy)
 	_, err = tx.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,description,playlist_id,status,activated_by,activated_at,expires_at) VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8)`, id, org, request.Name, request.Description, request.PlaylistID, actor, request.ActivatedAt, request.ExpiresAt)

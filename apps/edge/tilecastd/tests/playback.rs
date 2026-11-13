@@ -2259,10 +2259,13 @@ async fn outside_active_hours_the_screen_rests_until_a_takeover_outranks_it() {
         renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::Sleep { .. }))
     })
     .await;
-    let PresentationDocument::Sleep { display, text, text_color } = &sleeping.presentation else { unreachable!() };
+    let PresentationDocument::Sleep { display, text, text_color, wake_animation } = &sleeping.presentation else {
+        unreachable!()
+    };
     assert_eq!(display.as_ref().map(|d| d.as_str()), Some("custom_text"));
     assert_eq!(text.as_ref().map(|t| t.as_str()), Some("Closed for the night"));
     assert_eq!(text_color.as_ref().map(|t| t.as_str()), Some("#AABBCC"));
+    assert_eq!(*wake_animation, Some(true), "the wake animation is on unless the policy turns it off");
     assert_eq!(heartbeat(&player.context).await["playbackState"], "sleep");
     // Content never reached the screen, so nothing was promoted on evidence.
     let binding = harness.binding();
@@ -2371,6 +2374,10 @@ async fn commands_run_at_most_once_across_redelivery_and_restart() {
     player.stop().await;
 }
 
+async fn stored_safe_mode(player: &Player) -> bool {
+    player.context.db().unwrap().run(|c| edge_state::repo::renderer::get(c)).await.unwrap().safe_mode
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconciles() {
     let harness = Harness::new().await;
@@ -2400,12 +2407,17 @@ async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconcile
     }
     assert!(matches!(renderer.last().unwrap().presentation, PresentationDocument::SafeMode { .. }));
     assert_eq!(heartbeat(&player.context).await["safeMode"], true);
+    // Several overlapping persists, as the supervisor loop and commands issue,
+    // all store the engine's state at their own turn.
+    futures_util::future::join_all((0..8).map(|_| tilecastd::presentation::persist_supervision(&player.context))).await;
+    assert!(stored_safe_mode(&player).await, "safe mode is durable once entered");
 
     let exit = harness.fake.offer("exit_safe_mode", uuid::Uuid::new_v4(), json!({}));
     player.context.command_wake.notify_one();
     wait_for("content after safe mode", || renderer.last().filter(|a| shows(a, &asset))).await;
     wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
     assert_eq!(harness.fake.results_for(&exit)[0]["code"], "safe_mode_cleared");
+    assert!(!stored_safe_mode(&player).await, "exiting safe mode is durable, so a restart stays out of it");
 
     let before = harness.fake.manifest_requests.load(Ordering::SeqCst);
     let sync = harness.fake.offer("sync_now", uuid::Uuid::new_v4(), json!({}));
@@ -2513,8 +2525,12 @@ async fn a_zone_that_never_renders_still_reaches_safe_mode_and_previews_stay_pro
     let (player, renderer, activation, item) = layout_player(&harness).await;
     start_layout(&renderer, &activation, &item, &["clock"]).await;
     let binding = harness.binding();
-    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
-        .await;
+
+    // Promotion needs a first render from every declared zone, so the pending
+    // manifest is not promoted while the banner is silent. Playback health is
+    // a separate judgment and still sees the stalled zone.
+    settle().await;
+    assert!(player.stage(&binding, Stage::Active).await.is_none(), "a silent zone must not promote the layout");
 
     // The Runtime keeps reporting `layout_alive`, so only the zone that owes
     // its first render is wrong. A reactivation restarts the Runtime's item,
@@ -3496,7 +3512,7 @@ async fn watch_live_drops_queued_frames_across_a_protected_reconnect() {
     wait_long("live frames before disconnect", 60, async || live_frames_for(&harness.fake, &session) >= 2).await;
 
     // Drop the socket and refuse reconnects while the producer keeps running,
-    // so a latest frame can remain pending in the watch slot.
+    // so a latest frame can remain pending in the outbox.
     let connections = harness.fake.socket_connections.load(Ordering::SeqCst);
     harness.fake.socket_enabled.store(false, Ordering::SeqCst);
     harness.fake.socket_generation.fetch_add(1, Ordering::SeqCst);
@@ -3518,8 +3534,7 @@ async fn watch_live_drops_queued_frames_across_a_protected_reconnect() {
         renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
     })
     .await;
-    let queued = player.context.live_frames.subscribe();
-    wait_long("the pending live frame to be cleared", 10, async || queued.borrow().is_none()).await;
+    wait_long("the pending live frame to be cleared", 10, async || player.context.live_outbox.is_empty()).await;
     let before_reconnect = live_frames_for(&harness.fake, &session);
 
     // Reconnect while still protected. The socket owner checks the current
@@ -3777,7 +3792,10 @@ async fn explicit_download_beyond_cache_fails_preparation_visibly() {
     assert_eq!(reason.as_deref(), Some("media_cache_too_small"));
     assert!(player.stage(&binding, Stage::Pending).await.is_none());
     assert!(player.stage(&binding, Stage::Active).await.is_none());
-    assert_eq!(heartbeat(&player.context).await["lastSynchronizationError"], "media_cache_too_small");
+    wait_until("cache capacity error in the heartbeat", || async {
+        heartbeat(&player.context).await["lastSynchronizationError"] == "media_cache_too_small"
+    })
+    .await;
     renderer.stop();
     player.stop().await;
 }

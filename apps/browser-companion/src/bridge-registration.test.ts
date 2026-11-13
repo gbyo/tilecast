@@ -18,6 +18,18 @@ function fakeScripting(): BridgeScripting & {
   >();
   return {
     registered,
+    getRegisteredContentScripts: async (options) =>
+      [...registered.values()].filter(
+        (script) =>
+          options?.ids === undefined || options.ids.includes(script.id),
+      ),
+    updateContentScripts: async (scripts) => {
+      for (const script of scripts) {
+        if (!registered.has(script.id))
+          throw new Error("nonexistent script id");
+        registered.set(script.id, script);
+      }
+    },
     registerContentScripts: async (scripts) => {
       for (const script of scripts) {
         if (registered.has(script.id)) throw new Error("duplicate script id");
@@ -63,6 +75,30 @@ describe("bridge registration", () => {
       `${B}/player/*`,
     ]);
     await syncBridgeRegistration(scripting, []);
+    expect(scripting.registered.size).toBe(0);
+  });
+  it("keeps the existing registration if the replacement update fails", async () => {
+    const scripting = fakeScripting();
+    await syncBridgeRegistration(scripting, [A]);
+    const previous = scripting.registered.get(BRIDGE_SCRIPT_ID);
+    scripting.updateContentScripts = async () => {
+      throw new Error("update failed");
+    };
+
+    await expect(syncBridgeRegistration(scripting, [A, B])).rejects.toThrow(
+      "update failed",
+    );
+    expect(scripting.registered.get(BRIDGE_SCRIPT_ID)).toBe(previous);
+    expect(scripting.registered.get(BRIDGE_SCRIPT_ID)?.matches).toEqual([
+      `${A}/player/*`,
+    ]);
+  });
+
+  it("does not unregister a script that was not registered", async () => {
+    const scripting = fakeScripting();
+    await expect(
+      syncBridgeRegistration(scripting, []),
+    ).resolves.toBeUndefined();
     expect(scripting.registered.size).toBe(0);
   });
 });

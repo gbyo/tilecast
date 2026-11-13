@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -36,47 +37,91 @@ internal class PlayerWindowCapture(private val activity: Activity) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val mutex = Mutex()
 
-    suspend fun capture(maxWidth: Int, maxHeight: Int): WindowCapture = mutex.withLock {
+    suspend fun capture(maxWidth: Int, maxHeight: Int, allowed: () -> Boolean): WindowCapture = mutex.withLock {
         withContext(Dispatchers.Main.immediate) {
             val view = activity.window.decorView
-            if (!view.isAttachedToWindow || view.width < 1 || view.height < 1) {
+            if (!allowed() || !view.isAttachedToWindow || view.width < 1 || view.height < 1) {
                 return@withContext WindowCapture.Failure("window_unavailable")
             }
+            // PixelCopy reads the most recently queued window buffer. Wait for
+            // a new eligible frame so a dismissed screen cannot still be in it.
+            val useWindowBuffer = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && view.isHardwareAccelerated
+            if (useWindowBuffer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !awaitCommittedFrame(view)) {
+                return@withContext WindowCapture.Failure("window_frame_unavailable")
+            }
+            if (!allowed()) return@withContext WindowCapture.Failure("window_unavailable")
             val dimensions = scaledDimensions(view.width, view.height, maxWidth, maxHeight)
             val bitmap = runCatching {
                 Bitmap.createBitmap(dimensions.width, dimensions.height, Bitmap.Config.ARGB_8888)
             }.getOrElse { return@withContext WindowCapture.Failure("bitmap_allocation_failed") }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                captureWithPixelCopy(view, bitmap)
+                captureWithPixelCopy(view, bitmap, useWindowBuffer, allowed)
             } else {
                 captureWithCanvas(view, bitmap)
             }
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private suspend fun awaitCommittedFrame(view: View): Boolean {
+        val observer = view.viewTreeObserver
+        if (!observer.isAlive) return false
+        var callback: Runnable? = null
+        return try {
+            withTimeoutOrNull(1_000) {
+                suspendCancellableCoroutine<Boolean> { continuation ->
+                    val ready = Runnable {
+                        if (continuation.isActive) continuation.resume(true)
+                    }
+                    callback = ready
+                    observer.registerFrameCommitCallback(ready)
+                    view.invalidate()
+                }
+            } ?: false
+        } finally {
+            callback?.let { if (observer.isAlive) observer.unregisterFrameCommitCallback(it) }
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
-    private suspend fun captureWithPixelCopy(root: View, bitmap: Bitmap): WindowCapture {
-        val windowResult = copyWindow(bitmap)
-        if (windowResult != PixelCopy.SUCCESS) {
-            bitmap.recycle()
-            return WindowCapture.Failure("pixel_copy_$windowResult")
+    private suspend fun captureWithPixelCopy(
+        root: View,
+        bitmap: Bitmap,
+        useWindowBuffer: Boolean,
+        allowed: () -> Boolean,
+    ): WindowCapture {
+        // Older Android versions cannot confirm a new buffer was submitted.
+        // Draw the current hierarchy and still copy its visible video surfaces.
+        suspend fun captureBase(): WindowCapture = if (useWindowBuffer) {
+            val result = copyWindow(bitmap)
+            if (result == PixelCopy.SUCCESS) WindowCapture.Success(bitmap) else WindowCapture.Failure("pixel_copy_$result")
+        } else {
+            captureWithCanvas(root, bitmap)
+        }
+
+        val base = captureBase()
+        if (base is WindowCapture.Failure) {
+            if (!bitmap.isRecycled) bitmap.recycle()
+            return base
         }
 
         val surfaces = visibleSurfaceViews(root)
         var surfaceFailure = overlaySurfaceViews(root, surfaces, bitmap)
         if (surfaces.isNotEmpty() && (surfaceFailure != null || isNearlyBlack(bitmap))) {
             delay(250)
-            val retry = copyWindow(bitmap)
-            surfaceFailure = if (retry == PixelCopy.SUCCESS) {
-                overlaySurfaceViews(root, surfaces, bitmap)
-            } else {
-                "pixel_copy_$retry"
+            if (!allowed()) {
+                bitmap.recycle()
+                return WindowCapture.Failure("window_unavailable")
+            }
+            surfaceFailure = when (val retry = captureBase()) {
+                is WindowCapture.Success -> overlaySurfaceViews(root, visibleSurfaceViews(root), bitmap)
+                is WindowCapture.Failure -> retry.status
             }
         }
         // A frame missing a visible video surface is not a screenshot of the
         // screen, even when the rest of it has content.
         if (surfaceFailure != null) {
-            bitmap.recycle()
+            if (!bitmap.isRecycled) bitmap.recycle()
             return WindowCapture.Failure(surfaceFailure)
         }
         if (surfaces.isNotEmpty() && isNearlyBlack(bitmap)) {

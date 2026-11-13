@@ -166,6 +166,8 @@ jobs:
           # The .bin shim is a .cmd file; run the executable directly.
           TILECAST_ELECTRON: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
         run: |
+          # Direct execution bypasses the Electron CLI's binary installation.
+          node node_modules/electron/install.js
           node packages/player-runtime/conformance/run.mjs --engine electron \
             --out "$RUNNER_TEMP/conformance"
       - name: Compare the engines

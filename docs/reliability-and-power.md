@@ -27,7 +27,7 @@ Tilecast Player has two reliability modes. **Standard Reliability** works with a
 
 An Android Player starts playback immediately after enrollment. No local step blocks playback.
 
-The Player applies launch after boot, immersive presentation, and keep-awake by itself. Accessibility Control and unknown-app installation are optional local Android permissions. The Player does not request them during setup. The local maintenance menu opens the related Android settings.
+The Player applies launch after boot, immersive presentation, and keep-awake by itself. Accessibility Control and unknown-app installation are optional local Android permissions. The Player does not request them during setup. The local maintenance menu opens the related Android settings. When the `managed_kiosk.allow_settings_during_admin` policy is false, the menu does not show these actions and the Player refuses the Settings launch.
 
 The Player reports its readiness facts in each heartbeat. The Reliability view in Studio shows them:
 
@@ -45,9 +45,15 @@ Active hours use explicit IANA timezones, ISO weekdays (Monday 1 through Sunday 
 
 Outside active hours the player saves state, stops media decoding, releases keep-screen-on, pauses ordinary presentation, and uses a true-black fallback when Android sleep is unavailable. Cached configuration and manifests are used immediately after boot without waiting for the network.
 
+On Android, the status the Kotlin host reads reports `nextTransitionAt` as the start of the next active window while the Rest surface is showing, and Power Assist uses that time to arm the wake alarm. While content plays, it is the committed selection's next transition.
+
+When active hours begin, the Player Runtime plays the Tilecast startup animation before it shows content. The bouncing logo first moves to the center of the screen. The policy key `power.outside_active_hours_wake_animation` controls this behavior. The default value is `true`. The Player configuration carries the value as `power.outsideActiveHoursWakeAnimation`.
+
 ## Power Assist and Display Control
 
 Android Power Assist uses the Android device’s sleep and wake behavior. Compatible devices may relay HDMI-CEC standby or One Touch Play commands to the connected TV, but Tilecast does **not** send raw HDMI-CEC commands from Android and cannot infer that the physical TV changed power or input merely because the Android process resumed.
+
+The Android Player reports a Power Assist command as succeeded only when Android took the action: a device-policy or Accessibility lock request, a queued Accessibility lock, or a launched wake. It reports failed, with the result code, when the action was unsupported (`sleep_unsupported`, `black_screen_only`, `fire_tv_sleep_blocked`), deferred (`maintenance_session_deferred`, `player_update_deferred`), or blocked (`wake_launch_blocked`).
 
 Linux Players have a separate optional [Display Control](display-control.md)
 provider system. When Linux detects `cec-ctl` or `ddcutil` and the Player has
@@ -80,13 +86,13 @@ Progress is recognised from real signals: video position advancing, an item tran
 
 Silence means different things depending on what is on screen, so each kind of content is judged on its own terms. Getting this wrong in either direction is costly: too strict calls a valid still image frozen, too loose lets a genuinely frozen video pass.
 
-| Content           | Progress is                                              | Silence is                                        | Tolerance                                            |
-| ----------------- | -------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------- |
-| Still image       | Displayed successfully                                   | Correct, until it outstays its duration           | Its own duration + 60s, or 30 minutes when unbounded |
-| Video             | The position advancing                                   | A stall                                           | 20 seconds                                           |
-| Website or widget | A first meaningful render                                | Correct once rendered; frame changes are optional | 90 seconds to first render                           |
-| Layout            | Every zone rendering, then every rotating zone advancing | A blank zone, or a rotation that stopped          | 5 minutes per zone                                   |
-| Indefinite        | A periodic renderer health confirmation                  | A stall                                           | 10 minutes                                           |
+| Content           | Progress is                                              | Silence is                                        | Tolerance                                                                   |
+| ----------------- | -------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| Still image       | Displayed successfully                                   | Correct, until it outstays its duration           | Its own duration + 60s, or 30 minutes when unbounded                        |
+| Video             | The position advancing                                   | A stall                                           | 20 seconds                                                                  |
+| Website or widget | A first meaningful render                                | Correct once rendered; frame changes are optional | 90 seconds to first render, or `reliability.webview_stall_seconds` when set |
+| Layout            | Every zone rendering, then every rotating zone advancing | A blank zone, or a rotation that stopped          | 5 minutes per zone                                                          |
+| Indefinite        | A periodic renderer health confirmation                  | A stall                                           | 10 minutes                                                                  |
 
 **A valid long-lived still image is never called frozen for having identical pixels.** That is the case this design exists to protect. For the same reason a fingerprint change _under_ a still image is treated as noise rather than evidence — accepting it would let compression artefacts mask a real overrun.
 
@@ -113,6 +119,8 @@ Network, heartbeat, command, manifest, and configuration failures do not clear c
 The default hidden sequence is Back, Back, Up, Down, Select. The first use creates a 4–12 digit local PIN; only a salted PBKDF2-SHA256 hash is stored. Incorrect attempts are rate-limited and temporarily locked. A maintenance session is time bounded and exposes only fixed actions: Android network/settings pages, Accessibility Settings, unknown-app permission, safe-mode recovery, Tilecast restart, and return to playback. There is no shell or arbitrary app launcher.
 
 Device-owner provisioning can require a factory reset plus ADB, QR, or firmware-specific enrollment during initial setup. Tilecast never attempts to silently convert an existing consumer TV. Installer and Settings access remain allowed only during deliberate update or maintenance flows, and kiosk state is restored afterward when the platform supports it.
+
+When the reliability mode is Managed Kiosk and `managed_kiosk.block_overlays` is true, the Player calls `Window.setHideOverlayWindows(true)` so Android hides application overlay windows while Tilecast is visible. The call needs Android 12 (API 31) or later and the `HIDE_OVERLAY_WINDOWS` permission. On earlier Android versions the setting has no effect. It does not hide system dialogs or overlays from the system itself.
 
 ## Telemetry
 

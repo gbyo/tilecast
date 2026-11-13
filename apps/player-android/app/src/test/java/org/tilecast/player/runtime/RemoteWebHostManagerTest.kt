@@ -62,13 +62,30 @@ class RemoteWebHostManagerTest {
         assertFalse(RemoteWebHostManager.validPage(page().copy(zoomPercent = 10)))
     }
 
+    private fun youTube(
+        videoId: String? = "M7lc1UVf-VE",
+        playlistId: String? = null,
+        startSeconds: Int = 0,
+        volume: Int = 100,
+        captionLanguage: String = "",
+    ) = YouTubeContent(videoId, playlistId, startSeconds, null, false, false, volume, false, captionLanguage, false)
+
     @Test fun youtubeNeedsExactlyOneId() {
-        assertTrue(RemoteWebHostManager.validYouTube(YouTubeContent("v", null, 0, null, false, false, 100, false, "", false)))
-        assertTrue(RemoteWebHostManager.validYouTube(YouTubeContent(null, "p", 0, null, false, false, 100, false, "", false)))
-        assertFalse(RemoteWebHostManager.validYouTube(YouTubeContent("v", "p", 0, null, false, false, 100, false, "", false)))
-        assertFalse(RemoteWebHostManager.validYouTube(YouTubeContent(null, null, 0, null, false, false, 100, false, "", false)))
-        assertFalse(RemoteWebHostManager.validYouTube(YouTubeContent("v", null, -1, null, false, false, 100, false, "", false)))
-        assertFalse(RemoteWebHostManager.validYouTube(YouTubeContent("v", null, 0, null, false, false, 101, false, "", false)))
+        assertTrue(RemoteWebHostManager.validYouTube(youTube()))
+        assertTrue(RemoteWebHostManager.validYouTube(youTube(videoId = null, playlistId = "PLabcdef123")))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(playlistId = "PLabcdef123")))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(videoId = null)))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(startSeconds = -1)))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(volume = 101)))
+    }
+
+    @Test fun youtubeIdsAndLanguageAreTokensOnly() {
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(videoId = "a\"b<script>")))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(videoId = "abc'; x()")))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(videoId = "short")))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(captionLanguage = "english")))
+        assertFalse(RemoteWebHostManager.validYouTube(youTube(captionLanguage = "en'-US")))
+        assertTrue(RemoteWebHostManager.validYouTube(youTube(captionLanguage = "en-US")))
     }
 
     @Test fun trackerEnforcesGenerationAndLifecycle() {
@@ -87,5 +104,13 @@ class RemoteWebHostManagerTest {
         assertEquals(listOf("s1"), tracker.reset(2))
         assertTrue(tracker.snapshot().isEmpty())
         assertTrue(tracker.create(surface(gen = 2)))
+    }
+
+    @Test fun recreatingASurfaceIdGetsANewSerial() {
+        val tracker = RemoteWebHostManager.Tracker(1)
+        assertTrue(tracker.create(surface()))
+        val first = tracker.snapshot().single().serial
+        assertTrue(tracker.create(surface()))
+        assertTrue(tracker.snapshot().single().serial > first)
     }
 }

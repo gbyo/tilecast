@@ -1058,6 +1058,7 @@ impl PresentationEngine {
             "display": power.outside_display,
             "text": power.outside_text,
             "textColor": config.runtime.branding.text(),
+            "wakeAnimation": power.wake_animation,
         });
         if self.showing(ActivationSource::Policy, &document) {
             return;
@@ -1931,6 +1932,32 @@ mod tests {
         assert!(shown, "a shown image is meaningful content evidence");
         assert!(engine.content_evidence_items().contains("item-1"));
         assert!(engine.current_has_activation_evidence());
+    }
+
+    #[test]
+    fn an_activation_with_one_free_queue_slot_posts_neither_message() {
+        let (mut engine, mut commands, session) = test_engine();
+        let digest = Sha256Digest::of(b"pixels");
+        engine
+            .activate(image_document(&digest), image_content(digest), None, ActivationSource::ServerManifest, 1_000)
+            .expect("activate");
+        let ui = engine.renderer.as_ref().expect("live renderer").port().ui();
+        for _ in 0..31 {
+            ui.post(serde_json::json!({"test":true})).expect("fill all but one slot");
+        }
+        engine.renderer_ready(session, ready());
+        let mut posted = Vec::new();
+        while let Ok(command) = commands.try_recv() {
+            match command {
+                crate::ui::UiCommand::Post { message } => posted.push(message),
+                other => panic!("expected a post, got {other:?}"),
+            }
+        }
+        assert_eq!(posted.len(), 31);
+        assert!(
+            posted.iter().all(|message| message == &serde_json::json!({"test":true})),
+            "the presentation must not be queued without its plugin state"
+        );
     }
 
     #[test]

@@ -56,7 +56,13 @@
       "daysAgo_one": "Updated {{count}} day ago",
       "daysAgo_other": "Updated {{count}} days ago",
       "onDate": "Updated {{date}}"
-    }
+    },
+    "actions": {
+      "edit": "Edit playlist",
+      "open": "Open playlist",
+      "duplicate": "Duplicate"
+    },
+    "actionsFor": "Actions for {{name}}"
   },
   "preview": {
     "preparingWidget": "Preparing Widget…",
@@ -368,7 +374,8 @@
     "emptyPlaylistTitle": "This playlist is empty",
     "actions": {
       "inspect": "Inspect",
-      "remove": "Remove from playlist"
+      "remove": "Remove from playlist",
+      "move": "Move"
     }
   },
   "history": {

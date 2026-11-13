@@ -125,6 +125,59 @@ describe("CommandCoordinator", () => {
     expect(client.results[0]!.result.code).toBe("already_executed");
   });
 
+  it("a crash inside a handler does not replay the command after restart", async () => {
+    const store = await makeStore();
+    const client = new FakeClient();
+    client.queue = [command({})];
+    // Simulate the process dying while the handler runs: the handler never
+    // returns, so completion is never recorded.
+    let handlerStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      handlerStarted = resolve;
+    });
+    const crashing = new CommandCoordinator(
+      store,
+      client as unknown as ApiClient,
+      new Map([
+        [
+          "sync_now",
+          () => {
+            handlerStarted();
+            return new Promise<CommandResultReport>(() => {});
+          },
+        ],
+      ]),
+      new Set(),
+      () => {},
+      { onCredentialRejected() {}, onPollError() {}, onCommandCompleted() {} },
+    );
+    void crashing.start();
+    await started;
+    crashing.stop();
+
+    client.queue = [command({ state: "acknowledged" })];
+    client.results = [];
+    const replayed: string[] = [];
+    const second = makeCoordinator(store, client, replayed);
+    await second.coordinator.start();
+    second.coordinator.stop();
+    expect(replayed).toEqual([]);
+    expect(client.results).toHaveLength(1);
+    expect(client.results[0]!.result).toMatchObject({
+      success: false,
+      code: "interrupted",
+    });
+
+    // The settled command is now an ordinary executed key.
+    client.queue = [command({ state: "acknowledged" })];
+    client.results = [];
+    const third = makeCoordinator(store, client, replayed);
+    await third.coordinator.start();
+    third.coordinator.stop();
+    expect(replayed).toEqual([]);
+    expect(client.results[0]!.result.code).toBe("already_executed");
+  });
+
   it("disruptive commands report success before the disruption runs", async () => {
     const store = await makeStore();
     const client = new FakeClient();

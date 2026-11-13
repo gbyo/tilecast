@@ -27,11 +27,12 @@ func TestSessionLifecycleAndLatestFrameDelivery(t *testing.T) {
 	now := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 
-	session := service.Start(screenID)
+	session := service.Start(screenID, nil)
 	if !session.Active || session.FrameIntervalMillis != 125 || notifier.count != 1 {
 		t.Fatalf("unexpected session: %+v notifications=%d", session, notifier.count)
 	}
-	frames, done, cancel, err := service.Subscribe(screenID, session.ID)
+	subscription, cancel, err := service.Subscribe(screenID, session.ID)
+	frames, done := subscription.Frames, subscription.Done
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,8 +93,8 @@ func TestReplacedSessionIsDistinctFromExpiredSession(t *testing.T) {
 	now := time.Now().UTC()
 	service.now = func() time.Time { return now }
 	screenID := uuid.New()
-	first := service.Start(screenID)
-	second := service.Start(screenID)
+	first := service.Start(screenID, nil)
+	second := service.Start(screenID, nil)
 	if first.ID == second.ID {
 		t.Fatal("replacement reused a session id")
 	}
@@ -135,8 +136,9 @@ func TestExpiredSessionStopsSubscribers(t *testing.T) {
 	now := time.Now().UTC()
 	service.now = func() time.Time { return now }
 	screenID := uuid.New()
-	session := service.Start(screenID)
-	_, done, cancel, err := service.Subscribe(screenID, session.ID)
+	session := service.Start(screenID, nil)
+	subscription, cancel, err := service.Subscribe(screenID, session.ID)
+	done := subscription.Done
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,19 +155,16 @@ func TestExpiredSessionStopsSubscribers(t *testing.T) {
 	}
 }
 
-func TestEdgeProfileOptInAndLegacyBounds(t *testing.T) {
+func TestLegacyPlayersKeepTheirMJPEGBounds(t *testing.T) {
 	screenID := uuid.New()
 	service := NewService(nil)
-	initial := service.Start(screenID)
-	if initial.MaxWidth != 640 || initial.MaxHeight != 360 || initial.FrameIntervalMillis != 125 {
+	initial := service.Start(screenID, nil)
+	if initial.MaxWidth != 640 || initial.MaxHeight != 360 || initial.FrameIntervalMillis != 125 || initial.Profile != "" || initial.Transport != TransportMJPEG {
 		t.Fatalf("unexpected default profile: %+v", initial)
 	}
-	unchanged := service.SelectProfile(screenID, false)
-	if unchanged != initial {
-		t.Fatalf("legacy request changed session: %+v", unchanged)
-	}
-	upgraded := service.SelectProfile(screenID, true)
-	if upgraded.ID != initial.ID || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 540 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 {
+	// An older Edge Player names the retired 540p10 query on every poll.
+	upgraded := service.SelectProfile(screenID, LegacyEdgeProfiles(), nil)
+	if upgraded.ID != initial.ID || upgraded.Profile != ProfileMJPEG540p10 || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 540 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 || upgraded.Codec != "" {
 		t.Fatalf("bad negotiated profile: %+v", upgraded)
 	}
 	jpeg := []byte{0xff, 0xd8, 1, 0xff, 0xd9}
@@ -176,7 +175,10 @@ func TestEdgeProfileOptInAndLegacyBounds(t *testing.T) {
 		t.Fatalf("oversized frame accepted: %v", err)
 	}
 	other := uuid.New()
-	legacy := service.Start(other)
+	legacy := service.Start(other, nil)
+	if selected := service.SelectProfile(other, nil, nil); selected.Profile != ProfileMJPEG360p8 {
+		t.Fatalf("a Player that says nothing got %+v", selected)
+	}
 	if err := service.Publish(other, legacy.ID, Frame{CapturedAt: time.Now(), Width: 960, Height: 540, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("unnegotiated high resolution accepted: %v", err)
 	}

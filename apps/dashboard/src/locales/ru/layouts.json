@@ -244,6 +244,10 @@
     "toastSubmitted": "Макет отправлен на проверку.",
     "toastRenamed": "Макет переименован.",
     "toastRestored": "Версия макета восстановлена.",
+    "toastPublishFailed": "Макет не опубликован.",
+    "toastSubmitFailed": "Макет не отправлен на проверку.",
+    "toastRenameFailed": "Макет не переименован.",
+    "toastRestoreFailed": "Версия макета не восстановлена.",
     "previewTitle": "Предпросмотр: {{name}}",
     "previewDescription": "Предпросмотр воспроизведения текущего макета.",
     "conflictTitle": "Этот макет изменён в другом месте",
@@ -299,7 +303,8 @@
     "snapOff": "Привязка: выкл.",
     "safeAreaOn": "Безопасная зона: вкл.",
     "safeAreaOff": "Безопасная зона: выкл.",
-    "zoomPresets": "Масштаб"
+    "zoomPresets": "Масштаб",
+    "menuDistribute": "Распределить"
   },
   "spanWall": {
     "canvasWidth": "Ширина холста",

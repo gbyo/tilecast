@@ -16,7 +16,7 @@ import type { Asset, WidgetDefinition } from "../api/types";
 import { toast } from "../components/ui/toast";
 import { WIDGET_PREVIEW_CAPTURE_VERSION } from "../content/widgetPreviewCapture";
 import { WidgetsPage } from "./WidgetsPage";
-import { builtinCapabilities } from "../test/capabilities";
+import { builtinCapabilities, builtinMyAccess } from "../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "administrator" }));
 
@@ -171,6 +171,7 @@ describe("Widgets library", () => {
   beforeEach(() => {
     auth.role = "administrator";
     stubViewport(false);
+    vi.spyOn(api, "myAccess").mockResolvedValue(builtinMyAccess(auth.role));
   });
   afterEach(() => {
     cleanup();
@@ -619,7 +620,7 @@ describe("Widgets library", () => {
         within(menu)
           .getAllByRole("menuitem")
           .map((item) => item.textContent),
-      ).toEqual(["Edit Widget", "Duplicate"]);
+      ).toEqual(["Edit Widget", "Duplicate", "Delete Widget"]);
     });
 
     it("lets viewers open a Widget but not duplicate it", async () => {

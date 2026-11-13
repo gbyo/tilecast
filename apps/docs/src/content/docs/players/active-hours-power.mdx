@@ -17,6 +17,12 @@ Tilecast uses the selected timezone when evaluating the schedule, including dayl
 
 Outside active hours, normal playback moves to the configured off-hours state. A Takeover can still appear when higher-priority content needs to be shown.
 
+### Startup animation
+
+When active hours begin, the Player plays the Tilecast startup animation before it shows content. If the display was showing the bouncing logo, the logo glides to the center first. This works with the bouncing logo, custom text, and black screen.
+
+To turn it off, clear **Play the startup animation when active hours begin**. The setting is on by default. You can change it only when active hours are turned on.
+
 ## Power controls
 
 <Tabs syncKey="player-platform">
@@ -24,6 +30,8 @@ Outside active hours, normal playback moves to the configured off-hours state. A
 <TabItem label="Android TV">
 
 **Power Assist** uses the Android sleep and wake features available on that device. A command being accepted by the Player does not guarantee that the connected TV physically changed power state.
+
+When playback is already open, a wake request keeps the current Player window. Applying active-hours settings does not restart that window.
 
 </TabItem>
 

@@ -97,6 +97,8 @@ static struct {
   gulong released_handler;
   /* The one buffer the view presented last; a strong reference. */
   WPEBuffer *buffer;
+  /* Presentations so far; see tc_preview_presented_generation(). */
+  guint64 rendered;
   CaptureBackend logged_backend;
   const char *logged_reason;
   char logged_description[96];
@@ -113,6 +115,9 @@ on_buffer_rendered (WPEView *view, WPEBuffer *buffer, gpointer user_data)
 {
   (void) view;
   (void) user_data;
+  /* Every presentation counts, even of a recycled buffer object: Watch Live
+   * reuses its last copy only while this does not change. */
+  presented.rendered++;
   if (presented.buffer == buffer)
     return;
   WPEBuffer *previous = presented.buffer;
@@ -479,6 +484,31 @@ copy_presented_buffer (PreviewRequest *request, char description[96])
   g_snprintf (description, 96, "%dx%d %s %s modifier 0x%" G_GINT64_MODIFIER "x", width, height, kind,
               format == TC_PIXEL_FORMAT_BGRX ? "XRGB8888" : "ARGB8888", modifier);
   return NULL;
+}
+
+guint64
+tc_preview_presented_generation (TcHost *host)
+{
+  (void) host;
+  return presented.rendered;
+}
+
+GBytes *
+tc_preview_copy_presented (TcHost *host, TcPixelFormat *format, guint *width, guint *height, gint64 *elapsed_us)
+{
+  (void) host;
+  PreviewRequest scratch = { 0 };
+  char description[96] = "";
+  gint64 started = g_get_monotonic_time ();
+  const char *reason = copy_presented_buffer (&scratch, description);
+  if (elapsed_us != NULL)
+    *elapsed_us = g_get_monotonic_time () - started;
+  if (reason != NULL)
+    return NULL;
+  *format = scratch.format;
+  *width = scratch.width;
+  *height = scratch.height;
+  return scratch.pixels;
 }
 
 /* --- WebKit snapshot (compatibility fallback) --------------------------- */

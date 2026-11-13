@@ -161,7 +161,6 @@ func (s *Scheduler) RunOnce(ctx context.Context) (int, error) {
 type claimedJob struct {
 	packageID string
 	jobID     string
-	interval  time.Duration
 	epoch     *uuid.UUID
 	token     uuid.UUID
 	claimedAt time.Time
@@ -193,7 +192,7 @@ func claimJobs(ctx context.Context, pool *pgxpool.Pool, limit int, kind string) 
 		  AND job.package_id = claim.package_id
 		  AND job.job_id = claim.job_id
 		RETURNING job.package_id, job.job_id,
-		 COALESCE(job.interval_seconds, job.interval_minutes*60), job.execution_epoch, now()`,
+		 job.execution_epoch, now()`,
 		limit, int(lease.Seconds()), kind, token)
 	if err != nil {
 		return nil, err
@@ -202,11 +201,9 @@ func claimJobs(ctx context.Context, pool *pgxpool.Pool, limit int, kind string) 
 	var claimed []claimedJob
 	for rows.Next() {
 		var job claimedJob
-		var seconds int
-		if err := rows.Scan(&job.packageID, &job.jobID, &seconds, &job.epoch, &job.claimedAt); err != nil {
+		if err := rows.Scan(&job.packageID, &job.jobID, &job.epoch, &job.claimedAt); err != nil {
 			return nil, err
 		}
-		job.interval = time.Duration(seconds) * time.Second
 		job.token = token
 		claimed = append(claimed, job)
 	}
@@ -227,19 +224,21 @@ func recordJobOutcome(ctx context.Context, pool *pgxpool.Pool, job claimedJob, o
 		lastError = truncateError(outcome.err, outcome.status)
 		succeeded = false
 	}
+	// The cadence comes from the stored row, not from the value captured at
+	// claim time: a package update can change the interval while the job runs.
 	_, err := pool.Exec(ctx, `
 		UPDATE external_plugin_jobs
 		SET last_run_at = now(),
 		    next_run_at = CASE WHEN job_kind='realtime' THEN
-		      $9::timestamptz + make_interval(secs => $4::double precision * (floor(GREATEST(0, extract(epoch FROM (now()-$9::timestamptz))) / $4::double precision)::integer+1))
-		      ELSE now() + make_interval(secs => $4::double precision) END,
+		      $8::timestamptz + make_interval(secs => COALESCE(interval_seconds, interval_minutes*60)::double precision * (floor(GREATEST(0, extract(epoch FROM (now()-$8::timestamptz))) / COALESCE(interval_seconds, interval_minutes*60)::double precision)::integer+1))
+		      ELSE now() + make_interval(secs => COALESCE(interval_seconds, interval_minutes*60)::double precision) END,
 		    claim_token = NULL,
 		    last_status = $3,
-		    last_error = $5,
-		    consecutive_failures = CASE WHEN $6 THEN 0 ELSE consecutive_failures + 1 END
-		WHERE package_id = $1 AND job_id = $2 AND claim_token=$7
-		  AND execution_epoch IS NOT DISTINCT FROM $8::uuid`,
-		job.packageID, job.jobID, lastStatus, int(job.interval.Seconds()), lastError, succeeded,
+		    last_error = $4,
+		    consecutive_failures = CASE WHEN $5 THEN 0 ELSE consecutive_failures + 1 END
+		WHERE package_id = $1 AND job_id = $2 AND claim_token=$6
+		  AND execution_epoch IS NOT DISTINCT FROM $7::uuid`,
+		job.packageID, job.jobID, lastStatus, lastError, succeeded,
 		job.token, job.epoch, job.claimedAt)
 	return err
 }

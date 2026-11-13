@@ -337,7 +337,8 @@ async function pairing(
   const api = new PlayerAPI(async (path) => {
     const target = String(path);
     calls.push(target);
-    if (target.endsWith("/session")) return denied();
+    if (target.endsWith("/session") || target.endsWith("/binding"))
+      return denied();
     if (target.endsWith("/pairing-sessions"))
       return ok({
         id: "pairing-id",
@@ -392,4 +393,64 @@ it.each([
   await outcome;
   expect(run.calls).not.toContain("/api/v1/player/browser/enroll");
   vi.useRealTimers();
+});
+
+it("recovers the committed binding by its device key when the enrollment response was lost", async () => {
+  // A fresh unmanaged profile: the key exists but no slot or binding is saved.
+  const db = await openDatabase(new IDBFactory());
+  const identity = await loadIdentity(db, "unmanaged");
+  const nonce = "n".repeat(43);
+  const message = `tilecast-browser-player-v1:${session.slotId}:${session.bindingId}:${nonce}`;
+  const requests: { path: string; body?: Record<string, unknown> }[] = [];
+  const api = new PlayerAPI(async (path, options) => {
+    const target = String(path);
+    requests.push({
+      path: target,
+      body: options?.body
+        ? (JSON.parse(String(options.body)) as Record<string, unknown>)
+        : undefined,
+    });
+    if (target.endsWith("/session")) return denied();
+    if (target.endsWith("/binding"))
+      return ok({ slotId: session.slotId, bindingId: session.bindingId });
+    if (target.endsWith("/challenge"))
+      return ok({
+        nonce,
+        message,
+        expiresAt: new Date(Date.now() + 120000).toISOString(),
+      });
+    if (target.endsWith("/renew")) return ok(session);
+    throw new Error(`unexpected request ${target}`);
+  });
+  const authenticated = await authenticate(
+    api,
+    db,
+    server,
+    identity,
+    "unmanaged",
+    null,
+    metadata,
+    () => {},
+    new AbortController().signal,
+  );
+  expect(authenticated.session).toEqual(session);
+  expect(requests.map((request) => request.path)).toEqual([
+    "/api/v1/player/browser/binding",
+    "/api/v1/player/browser/challenge",
+    "/api/v1/player/browser/renew",
+  ]);
+  expect(requests[0]!.body).toEqual({
+    registration: {
+      installationId: identity.installationId,
+      publicKey: identity.publicKey,
+    },
+  });
+  // The recovered binding is saved, so no pairing session is requested.
+  const saved = await read<{ bindingId?: string }>(
+    db,
+    "identity",
+    "device:unmanaged",
+  );
+  expect(saved?.bindingId).toBe(session.bindingId);
+  db.close();
 });

@@ -410,7 +410,8 @@ Schedule Editor are composed from the generated components by these rules:
   and the fixed image duration. Timeline rows show a drag handle, position,
   media, name, one muted metadata line, the duration, and an overflow menu;
   badges appear only for an override or unavailable media. The overflow menu
-  and the right-click menu render the same action list. On desktop the
+  and the right-click menu use one semantic command set. Move commands use a
+  single submenu; the context menu omits unavailable moves and shortcut hints. On desktop the
   timeline and the inspector scroll independently inside a viewport-height
   region, and the inspector pane exists only while an item is selected.
   Playlist details use General, Content source, and Usage tabs; History stays
@@ -616,12 +617,21 @@ and does not receive danger styling.
 ### Overflow and context actions
 
 Use `ActionMenuButton` for visible object actions. Use `ActionContextMenu` as an
-accelerator on the corresponding resource row or card. Both consume the same
-`StudioActionGroup[]` model. Plugin code imports them from `@tilecast/studio`.
-Resource context menus use the shared 14rem composition: show the resource name
-in a truncated `ContextMenuLabel`, then a separator and the grouped actions.
-Pass the resource name through `title`; keep `label` as the localized
-accessible action label. Context menus must not be the only action path.
+accelerator on the corresponding resource row or card. Define the semantic
+command set once. Dropdown and context menus may present that set differently
+according to the interaction surface. Both consume `StudioActionGroup[]`;
+plugins import that model and both components from `@tilecast/studio`.
+Keep the visible menu for important object actions. The context menu is supplemental.
+
+Context menus hide disabled and unavailable commands. Visible menus can keep
+meaningful disabled commands for discoverability. Shortcut hints appear only in
+visible dropdowns. A `StudioSubmenu` contains commands, never another submenu.
+Empty groups and submenus disappear after filtering. Stable IDs never come from
+translated labels. Unknown semantic icon tokens render text only.
+
+Keep `label` as the localized accessible action label. Use the optional `title`
+for a resource name only when it helps identify the target. Do not add redundant
+headers to every menu.
 
 Keep menus short and relevant to the target. Put common actions first. Separate
 related groups. Limit nesting to one submenu level. Put destructive actions last

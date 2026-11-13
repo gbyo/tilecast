@@ -546,7 +546,9 @@ export function StructuredDataSourceEditor({
     },
     onSuccess: (saved) => {
       toast.add({
-        title: dataSource ? "Data Source updated." : "Data Source created.",
+        title: dataSource
+          ? t("dataSources.saved.updated")
+          : t("dataSources.saved.created"),
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
