@@ -1,0 +1,93 @@
+name: Migrate legacy issue labels to types
+
+on:
+  push:
+    branches:
+      - chore/migrate-legacy-issue-types
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  migrate:
+    if: contains(github.event.head_commit.message, '[run issue type migration]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GitHub CLI supports issue types
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh version
+          gh issue edit --help | grep -q -- '--type'
+
+      - name: Migrate legacy labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          edit_batch() {
+            local type="$1"
+            local remove_labels="$2"
+            shift 2
+            local issues=("$@")
+
+            if (( ${#issues[@]} == 0 )); then
+              return
+            fi
+
+            printf '%s\n' "${issues[@]}" |
+              xargs -r -n 40 gh issue edit --repo "$GITHUB_REPOSITORY" --type "$type" \
+                ${remove_labels}
+          }
+
+          # If an old issue has both labels, Bug wins. This handles #37 and
+          # prevents the later enhancement pass from overwriting the type.
+          mapfile -t both < <(
+            gh issue list --repo "$GITHUB_REPOSITORY" --state all \
+              --label bug --label enhancement --limit 10000 \
+              --json number --jq '.[].number'
+          )
+          edit_batch Bug '--remove-label bug --remove-label enhancement' "${both[@]}"
+
+          mapfile -t bugs < <(
+            gh issue list --repo "$GITHUB_REPOSITORY" --state all \
+              --label bug --limit 10000 --json number --jq '.[].number'
+          )
+          edit_batch Bug '--remove-label bug' "${bugs[@]}"
+
+          mapfile -t features < <(
+            gh issue list --repo "$GITHUB_REPOSITORY" --state all \
+              --label enhancement --limit 10000 --json number --jq '.[].number'
+          )
+          edit_batch Feature '--remove-label enhancement' "${features[@]}"
+
+          # Documentation stays an area label. Only give Task to documentation
+          # issues that are still untyped after the Bug/Feature migration.
+          mapfile -t docs < <(
+            gh issue list --repo "$GITHUB_REPOSITORY" --state all \
+              --label documentation --limit 10000 \
+              --json number,issueType \
+              --jq '.[] | select(.issueType == null) | .number'
+          )
+          if (( ${#docs[@]} > 0 )); then
+            printf '%s\n' "${docs[@]}" |
+              xargs -r -n 40 gh issue edit --repo "$GITHUB_REPOSITORY" --type Task
+          fi
+
+      - name: Verify migration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          bug_count="$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --label bug --limit 10000 --json number --jq 'length')"
+          enhancement_count="$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --label enhancement --limit 10000 --json number --jq 'length')"
+
+          echo "Remaining bug labels: $bug_count"
+          echo "Remaining enhancement labels: $enhancement_count"
+
+          test "$bug_count" -eq 0
+          test "$enhancement_count" -eq 0
