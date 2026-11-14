@@ -94,3 +94,21 @@ jobs:
 
           test "$bug_count" -eq 0
           test "$enhancement_count" -eq 0
+
+      - name: Delete retired label definitions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          delete_label() {
+            local encoded="$1"
+            local name="$2"
+            if gh api --method DELETE "repos/$GITHUB_REPOSITORY/labels/$encoded" >/dev/null 2>&1; then
+              echo "Deleted label: $name"
+            else
+              echo "Label already absent: $name"
+            fi
+          }
+          delete_label bug bug
+          delete_label enhancement enhancement
+          delete_label local%20LLM "local LLM"
