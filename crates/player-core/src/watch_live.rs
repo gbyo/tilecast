@@ -200,6 +200,35 @@ pub trait LiveEncoder: Send + Sync {
     fn request_keyframe(&self);
 }
 
+/// What counts as an unsustainable window for one profile.
+///
+/// Every profile shares the conservative [`Self::STANDARD`] thresholds that
+/// older hardware was tuned around, except the 30 FPS tier: a nominal 30 FPS
+/// stream stuck near 18 to 20 FPS is worse than a steady 15 FPS stream, so
+/// 720p30 must hold about 80 percent of its rate (24 FPS) and tolerates fewer
+/// late frames. Lower profiles are deliberately not made stricter.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SustainabilityPolicy {
+    /// Output below this fraction of the profile's FPS is unsustainable.
+    pub min_fps_ratio: f64,
+    /// Missed or slow frames above this fraction are unsustainable.
+    pub max_late_ratio: f64,
+}
+
+impl SustainabilityPolicy {
+    /// 60 percent of the nominal rate and 30 percent late frames.
+    pub const STANDARD: Self = Self { min_fps_ratio: 0.6, max_late_ratio: 0.3 };
+    /// 80 percent of the nominal rate and 20 percent late frames.
+    pub const HIGH_FRAME_RATE: Self = Self { min_fps_ratio: 0.8, max_late_ratio: 0.2 };
+
+    pub fn for_profile(profile: WatchLiveProfile) -> Self {
+        match profile {
+            WatchLiveProfile::H264_720p30 => Self::HIGH_FRAME_RATE,
+            _ => Self::STANDARD,
+        }
+    }
+}
+
 /// Conservative runtime degradation for one H.264 session. It evaluates
 /// fixed windows after a warm-up and degrades only after
 /// [`Self::BAD_WINDOWS`] consecutive unsustainable windows; a good window
@@ -207,9 +236,23 @@ pub trait LiveEncoder: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct DowngradeMonitor {
     fps: u32,
+    policy: SustainabilityPolicy,
     elapsed: Duration,
     window: Window,
     bad_windows: u32,
+    report: Option<WindowReport>,
+}
+
+/// Measurements of the last judged window, for ephemeral diagnostics. It
+/// holds numbers only, never frame data.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WindowReport {
+    /// Access units delivered per second of the window.
+    pub output_fps: f64,
+    /// Share of timing samples that missed their slot or ran slow.
+    pub late_ratio: f64,
+    pub samples: u32,
+    pub resyncs: u32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -217,8 +260,8 @@ struct Window {
     elapsed: Duration,
     chunks: u32,
     samples: u32,
-    missed: u32,
-    slow_captures: u32,
+    /// Samples that missed their slot or ran slow, each counted once.
+    late: u32,
     resyncs: u32,
 }
 
@@ -235,15 +278,23 @@ impl DowngradeMonitor {
     pub const WARM_UP: Duration = Duration::from_secs(3);
     pub const WINDOW: Duration = Duration::from_secs(5);
     pub const BAD_WINDOWS: u32 = 2;
-    /// Output below this fraction of the profile's FPS is unsustainable.
-    pub const MIN_FPS_RATIO: f64 = 0.6;
-    /// Missed or slow frames above this fraction are unsustainable.
-    pub const MAX_LATE_RATIO: f64 = 0.3;
     /// Outbox or transport resyncs per window that are unsustainable.
     pub const MAX_RESYNCS: u32 = 2;
 
     pub fn new(profile: WatchLiveProfile) -> Self {
-        Self { fps: profile.fps(), elapsed: Duration::ZERO, window: Window::default(), bad_windows: 0 }
+        Self {
+            fps: profile.fps(),
+            policy: SustainabilityPolicy::for_profile(profile),
+            elapsed: Duration::ZERO,
+            window: Window::default(),
+            bad_windows: 0,
+            report: None,
+        }
+    }
+
+    /// The measurements of the window the last [`Self::tick`] judged, once.
+    pub fn take_report(&mut self) -> Option<WindowReport> {
+        self.report.take()
     }
 
     pub fn chunk(&mut self) {
@@ -253,11 +304,9 @@ impl DowngradeMonitor {
     pub fn sample(&mut self, sample: EncoderSample) {
         let budget = Duration::from_micros(1_000_000 / u64::from(self.fps.max(1)));
         self.window.samples += 1;
-        if sample.missed_deadline {
-            self.window.missed += 1;
-        }
-        if sample.capture + sample.encode.unwrap_or_default() > budget || sample.backlog > 2 {
-            self.window.slow_captures += 1;
+        // A sample that is both missed and slow is one late frame, not two.
+        if sample.missed_deadline || sample.capture + sample.encode.unwrap_or_default() > budget || sample.backlog > 2 {
+            self.window.late += 1;
         }
     }
 
@@ -278,13 +327,14 @@ impl DowngradeMonitor {
         }
         let window = std::mem::take(&mut self.window);
         let seconds = window.elapsed.as_secs_f64();
-        let reason = if f64::from(window.chunks) / seconds < f64::from(self.fps) * Self::MIN_FPS_RATIO {
+        let output_fps = f64::from(window.chunks) / seconds;
+        let late_ratio = if window.samples > 0 { f64::from(window.late) / f64::from(window.samples) } else { 0.0 };
+        self.report = Some(WindowReport { output_fps, late_ratio, samples: window.samples, resyncs: window.resyncs });
+        let reason = if output_fps < f64::from(self.fps) * self.policy.min_fps_ratio {
             Some("output_fps")
         } else if window.resyncs >= Self::MAX_RESYNCS {
             Some("transport_resync")
-        } else if window.samples > 0
-            && f64::from(window.missed + window.slow_captures) / f64::from(window.samples) > Self::MAX_LATE_RATIO
-        {
+        } else if window.samples > 0 && late_ratio > self.policy.max_late_ratio {
             Some("frame_deadline")
         } else {
             None
@@ -306,8 +356,8 @@ impl DowngradeMonitor {
     }
 }
 
-/// The next profile down after `profile` fails: 720p15 → 540p15 → 540p10 →
-/// MJPEG. The server picks the exact MJPEG profile from what both sides
+/// The next profile down after `profile` fails: 720p30 → 720p15 → 540p15 →
+/// 540p10 → MJPEG. The server picks the exact MJPEG profile from what both sides
 /// support.
 pub fn degraded_capabilities(
     capabilities: &player_client::live_stream::WatchLiveCapabilities,
@@ -441,11 +491,150 @@ mod tests {
     #[test]
     fn degradation_steps_down_one_profile_at_a_time() {
         let all = player_client::live_stream::WatchLiveCapabilities::new(WatchLiveProfile::ALL);
-        let first = degraded_capabilities(&all, WatchLiveProfile::H264_720p15);
+        assert_eq!(all.profiles()[0], WatchLiveProfile::H264_720p30, "720p30 is rank zero");
+        let top = degraded_capabilities(&all, WatchLiveProfile::H264_720p30);
+        assert_eq!(top.profiles()[0], WatchLiveProfile::H264_720p15);
+        let first = degraded_capabilities(&top, WatchLiveProfile::H264_720p15);
         assert_eq!(first.profiles()[0], WatchLiveProfile::H264_540p15);
         let second = degraded_capabilities(&first, WatchLiveProfile::H264_540p15);
         assert_eq!(second.profiles()[0], WatchLiveProfile::H264_540p10);
         let third = degraded_capabilities(&second, WatchLiveProfile::H264_540p10);
         assert_eq!(third.profiles()[0], WatchLiveProfile::Mjpeg540p10);
+        // Degrading straight out of 720p30 never skips a lower H.264 tier.
+        assert!(top.contains(WatchLiveProfile::H264_540p10) && !top.contains(WatchLiveProfile::H264_720p30));
+    }
+
+    #[test]
+    fn the_30_fps_tier_uses_a_30_frame_gop_and_a_nonzero_frame_slot() {
+        let config = EncoderConfig::for_profile(WatchLiveProfile::H264_720p30);
+        assert_eq!((config.max_width, config.max_height, config.fps), (1280, 720, 30));
+        assert_eq!(config.target_bitrate, 2_500_000);
+        assert_eq!(config.keyframe_interval_frames, 30, "about one second between IDRs");
+        assert_eq!(config.frame_interval(), Duration::from_micros(33_333));
+        for profile in WatchLiveProfile::ALL {
+            let config = EncoderConfig::for_profile(profile);
+            assert!(config.frame_interval() >= Duration::from_millis(33), "{}", profile.id());
+            assert_eq!(config.keyframe_interval_frames, config.fps);
+        }
+    }
+
+    #[test]
+    fn only_the_30_fps_tier_has_the_stricter_policy() {
+        for profile in WatchLiveProfile::ALL {
+            let expected = if profile == WatchLiveProfile::H264_720p30 {
+                SustainabilityPolicy::HIGH_FRAME_RATE
+            } else {
+                SustainabilityPolicy::STANDARD
+            };
+            assert_eq!(SustainabilityPolicy::for_profile(profile), expected, "{}", profile.id());
+        }
+        // 80 percent of 30 FPS is 24 FPS.
+        assert!((SustainabilityPolicy::HIGH_FRAME_RATE.min_fps_ratio * 30.0 - 24.0).abs() < f64::EPSILON * 100.0);
+    }
+
+    #[test]
+    fn a_30_fps_stream_stuck_near_20_fps_degrades_but_a_15_fps_one_would_not() {
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        assert_eq!(
+            run(&mut monitor, 13, 20, None),
+            [Sustainability::Unsustainable("output_fps"), Sustainability::Degrade("output_fps")]
+        );
+        let report = monitor.take_report().expect("a judged window leaves its measurements");
+        assert!((report.output_fps - 20.0).abs() < 0.01, "{report:?}");
+        assert!(monitor.take_report().is_none(), "a report is read once");
+        // The same ratio (two thirds of nominal) is fine for a 15 FPS tier.
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p15);
+        assert!(run(&mut monitor, 30, 10, None).iter().all(|verdict| *verdict == Sustainability::Sustainable));
+        // So is 540p15 at 10 FPS: lower tiers were not made stricter.
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_540p15);
+        assert!(run(&mut monitor, 30, 10, None).iter().all(|verdict| *verdict == Sustainability::Sustainable));
+    }
+
+    #[test]
+    fn a_30_fps_stream_that_holds_the_policy_rate_is_sustainable() {
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        assert!(run(&mut monitor, 60, 30, None).iter().all(|verdict| *verdict == Sustainability::Sustainable));
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        assert!(
+            run(&mut monitor, 60, 25, None).iter().all(|verdict| *verdict == Sustainability::Sustainable),
+            "25 FPS is above the 24 FPS floor"
+        );
+    }
+
+    #[test]
+    fn a_short_dip_in_a_30_fps_stream_does_not_degrade() {
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        let mut verdicts = run(&mut monitor, 8, 30, None);
+        // One second at 10 FPS inside an otherwise healthy window averages
+        // 26 FPS over five seconds.
+        verdicts.extend(run(&mut monitor, 1, 10, None));
+        verdicts.extend(run(&mut monitor, 4, 30, None));
+        // A whole bad window followed by a good one still resets the count.
+        verdicts.extend(run(&mut monitor, 5, 18, None));
+        verdicts.extend(run(&mut monitor, 5, 30, None));
+        assert!(verdicts.iter().all(|verdict| !matches!(verdict, Sustainability::Degrade(_))), "{verdicts:?}");
+        assert!(verdicts.contains(&Sustainability::Unsustainable("output_fps")));
+    }
+
+    #[test]
+    fn frame_deadline_pressure_is_stricter_at_30_fps_only() {
+        // One in four samples late: 25 percent.
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        assert_eq!(run(&mut monitor, 13, 30, Some(4)).last(), Some(&Sustainability::Degrade("frame_deadline")));
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p15);
+        assert!(run(&mut monitor, 30, 15, Some(4)).iter().all(|verdict| *verdict == Sustainability::Sustainable));
+        // One in ten late is tolerated by the 30 FPS tier too.
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        assert!(run(&mut monitor, 30, 30, Some(10)).iter().all(|verdict| *verdict == Sustainability::Sustainable));
+    }
+
+    #[test]
+    fn a_sample_that_is_both_missed_and_slow_counts_as_one_late_frame() {
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        let both =
+            EncoderSample { capture: Duration::from_millis(40), missed_deadline: true, ..EncoderSample::default() };
+        let fine = EncoderSample { capture: Duration::from_millis(2), ..EncoderSample::default() };
+        // 18 of 150 samples are late (12%), each both missed and slow.
+        for window in 0..2 {
+            let _ = monitor.tick(if window == 0 { DowngradeMonitor::WARM_UP } else { Duration::ZERO });
+            for index in 0..150 {
+                monitor.chunk();
+                monitor.sample(if index < 18 { both } else { fine });
+            }
+            assert_eq!(
+                monitor.tick(DowngradeMonitor::WINDOW + Duration::from_millis(1)),
+                Sustainability::Sustainable,
+                "window {window}: 12% late is below the 20% limit"
+            );
+        }
+        assert!(monitor.take_report().is_some_and(|report| (report.late_ratio - 0.12).abs() < 1e-9));
+    }
+
+    #[test]
+    fn a_pipeline_slower_than_the_33_ms_slot_counts_as_late() {
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p30);
+        // 20 ms capture + 20 ms encode overruns a 33.3 ms slot at 30 FPS.
+        let slow = EncoderSample {
+            capture: Duration::from_millis(20),
+            encode: Some(Duration::from_millis(20)),
+            ..EncoderSample::default()
+        };
+        let _ = monitor.tick(DowngradeMonitor::WARM_UP);
+        for _ in 0..150 {
+            monitor.chunk();
+            monitor.sample(slow);
+        }
+        assert_eq!(
+            monitor.tick(DowngradeMonitor::WINDOW + Duration::from_millis(1)),
+            Sustainability::Unsustainable("frame_deadline")
+        );
+        // The same cost fits a 15 FPS slot of 66.7 ms.
+        let mut monitor = DowngradeMonitor::new(WatchLiveProfile::H264_720p15);
+        let _ = monitor.tick(DowngradeMonitor::WARM_UP);
+        for _ in 0..75 {
+            monitor.chunk();
+            monitor.sample(slow);
+        }
+        assert_eq!(monitor.tick(DowngradeMonitor::WINDOW + Duration::from_millis(1)), Sustainability::Sustainable);
     }
 }

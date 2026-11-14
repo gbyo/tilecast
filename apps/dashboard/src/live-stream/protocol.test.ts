@@ -8,6 +8,8 @@ import {
   parseChunk,
   RecordReader,
   TCLS_V2_HEADER_BYTES,
+  profileByCode,
+  profileById,
   WATCH_LIVE_PROFILES,
 } from "./protocol";
 
@@ -26,6 +28,7 @@ interface Fixture {
   tclsV2: {
     valid: {
       name: string;
+      profile: string;
       sessionId: string;
       sequence: number;
       timestampMicros: number;
@@ -80,12 +83,38 @@ describe("Watch Live protocol", () => {
     ).toEqual(WATCH_LIVE_PROFILES);
   });
 
+  it("prefers 720p30 and keeps the shipped wire codes", () => {
+    expect(WATCH_LIVE_PROFILES.map((profile) => profile.id)).toEqual([
+      "h264-720p30",
+      "h264-720p15",
+      "h264-540p15",
+      "h264-540p10",
+      "mjpeg-540p10",
+      "mjpeg-360p8",
+    ]);
+    // Codes are identities, not ranks: these shipped before 720p30.
+    expect(profileById("h264-720p15")?.code).toBe(1);
+    expect(profileById("h264-540p15")?.code).toBe(2);
+    expect(profileById("h264-540p10")?.code).toBe(3);
+    expect(profileById("h264-720p30")?.code).toBe(4);
+    expect(profileByCode(4)?.id).toBe("h264-720p30");
+    expect(profileByCode(1)?.id).toBe("h264-720p15");
+    expect(profileByCode(0)).toBeUndefined();
+    expect(profileByCode(5)).toBeUndefined();
+    const best = WATCH_LIVE_PROFILES[0]!;
+    // Level 3.1 allows 27,648,000 luma samples per second.
+    expect(best.maxWidth * best.maxHeight * best.fps).toBe(27_648_000);
+  });
+
   it("parses the shared TCLS v2 vectors", () => {
+    expect(fixture.tclsV2.valid.map((vector) => vector.profile)).toContain(
+      "h264-720p30",
+    );
     for (const vector of fixture.tclsV2.valid) {
       const { header, payload } = parseChunk(hex(vector.packetHex));
       expect(header).toEqual({
         sessionId: vector.sessionId,
-        profileCode: 2,
+        profileCode: profileById(vector.profile)?.code,
         sequence: vector.sequence,
         timestamp: vector.timestampMicros,
         width: vector.width,
@@ -94,6 +123,27 @@ describe("Watch Live protocol", () => {
       });
       expect(payload).toEqual(hex(vector.payloadHex));
     }
+  });
+
+  it("accepts a 1280x720 packet only for the 720p profiles", () => {
+    const wide = hex(fixture.tclsV2.valid[0]!.packetHex);
+    new DataView(wide.buffer).setUint16(40, 1280);
+    new DataView(wide.buffer).setUint16(42, 720);
+    for (const code of [1, 4]) {
+      const packet = wide.slice();
+      packet[5] = code;
+      expect(parseChunk(packet).header.width, `code ${code}`).toBe(1280);
+    }
+    for (const code of [2, 3]) {
+      const packet = wide.slice();
+      packet[5] = code;
+      expect(() => parseChunk(packet), `code ${code}`).toThrow(
+        LiveStreamProtocolError,
+      );
+    }
+    const unknown = wide.slice();
+    unknown[5] = 5;
+    expect(() => parseChunk(unknown)).toThrow(LiveStreamProtocolError);
   });
 
   it("rejects malformed headers", () => {

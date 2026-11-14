@@ -1,11 +1,28 @@
 import { h264DecoderConfig } from "./h264Support";
-import { LiveStreamProtocolError, parseChunk, RecordReader } from "./protocol";
+import {
+  LiveStreamProtocolError,
+  parseChunk,
+  profileByCode,
+  RecordReader,
+} from "./protocol";
 
 /**
  * Decoded frames the decoder may hold before Studio skips to the next
- * keyframe. Watch Live favors freshness over continuity.
+ * keyframe, at the 15 FPS tiers: about 400 ms. Watch Live favors freshness
+ * over continuity.
  */
 export const MAX_DECODE_QUEUE = 6;
+/** The latency the decode queue may hold before Studio skips, in seconds. */
+const MAX_DECODE_QUEUE_SECONDS = 0.4;
+
+/**
+ * The same time bound at any frame rate: 6 frames up to 15 FPS (unchanged for
+ * the lower tiers) and 12 at 30 FPS, so a short relay burst does not look
+ * like a decoder that is behind.
+ */
+export function maxDecodeQueue(fps: number) {
+  return Math.max(MAX_DECODE_QUEUE, Math.ceil(fps * MAX_DECODE_QUEUE_SECONDS));
+}
 /** Decoder errors in one stream before Studio gives up on H.264. */
 export const MAX_DECODER_ERRORS = 3;
 
@@ -189,7 +206,11 @@ export function startH264Stream(options: H264StreamOptions): () => void {
         }
       }
       awaitingKeyframe = false;
-    } else if (!decoder || decoder.decodeQueueSize > MAX_DECODE_QUEUE) {
+    } else if (
+      !decoder ||
+      decoder.decodeQueueSize >
+        maxDecodeQueue(profileByCode(header.profileCode)?.fps ?? 15)
+    ) {
       // The decoder is behind: skip to the next keyframe instead of
       // building latency. Skipped deltas are never decoded later.
       awaitingKeyframe = true;

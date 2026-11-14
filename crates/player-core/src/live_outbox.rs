@@ -24,7 +24,10 @@ use tokio::sync::{Notify, watch};
 
 use crate::LiveFrame;
 
-/// Largest number of unsent H.264 access units: two seconds at 15 FPS.
+/// Largest number of unsent H.264 access units: two seconds at 15 FPS and
+/// one second (one whole GOP) at 30 FPS. A count, not a time: a stall longer
+/// than that clears the dependent GOP and resumes at a keyframe, and the
+/// downgrade monitor counts the resync.
 pub const MAX_QUEUED_CHUNKS: usize = 30;
 /// Largest number of unsent H.264 bytes.
 pub const MAX_QUEUED_BYTES: usize = 2 * 1024 * 1024;

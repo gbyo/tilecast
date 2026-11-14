@@ -67,7 +67,7 @@ func TestLiveStreamNegotiationOverHTTP(t *testing.T) {
 		}
 		return decodeSession(t, response.Body)
 	}
-	newPlayer := "?profile=h264-720p15&profile=h264-540p15&profile=h264-540p10&profile=mjpeg-540p10&profile=mjpeg-360p8"
+	newPlayer := "?profile=h264-720p30&profile=h264-720p15&profile=h264-540p15&profile=h264-540p10&profile=mjpeg-540p10&profile=mjpeg-360p8"
 
 	// An older Studio sends no body and gets MJPEG even from a new Player.
 	if response := start(""); response.Code != http.StatusCreated {
@@ -78,7 +78,7 @@ func TestLiveStreamNegotiationOverHTTP(t *testing.T) {
 	}
 
 	// A new Studio and an older Edge Player (the retired query) stay on MJPEG.
-	viewer := `{"acceptProfiles":["h264-720p15","h264-540p15","h264-540p10","mjpeg-540p10","mjpeg-360p8"]}`
+	viewer := `{"acceptProfiles":["h264-720p30","h264-720p15","h264-540p15","h264-540p10","mjpeg-540p10","mjpeg-360p8"]}`
 	if response := start(viewer); response.Code != http.StatusCreated {
 		t.Fatalf("start: %d %s", response.Code, response.Body)
 	}
@@ -94,8 +94,25 @@ func TestLiveStreamNegotiationOverHTTP(t *testing.T) {
 		t.Fatalf("an unnegotiated lease must look like the legacy profile: %+v", pending)
 	}
 	session := poll(newPlayer)
-	if session.Profile != livestream.ProfileH264720p15 || session.Codec != livestream.H264Codec || session.TargetBitrate != 1_500_000 {
-		t.Fatalf("both sides support 720p: %+v", session)
+	if session.Profile != livestream.ProfileH264720p30 || session.Codec != livestream.H264Codec || session.TargetBitrate != 2_500_000 {
+		t.Fatalf("both sides support 720p30: %+v", session)
+	}
+
+	// An older Edge (no 720p30 in its list) gets 720p15 from a new Studio.
+	start(viewer)
+	oldEdge := "?profile=h264-720p15&profile=h264-540p15&profile=h264-540p10&profile=mjpeg-540p10&profile=mjpeg-360p8"
+	if session := poll(oldEdge); session.Profile != livestream.ProfileH264720p15 || session.TargetBitrate != 1_500_000 {
+		t.Fatalf("new Studio and old Edge: %+v", session)
+	}
+	// An older Studio (no 720p30 in its list) gets 720p15 from a new Edge.
+	start(`{"acceptProfiles":["h264-720p15","h264-540p15","h264-540p10","mjpeg-540p10","mjpeg-360p8"]}`)
+	if session := poll(newPlayer); session.Profile != livestream.ProfileH264720p15 {
+		t.Fatalf("old Studio and new Edge: %+v", session)
+	}
+	// A newer Studio naming a profile this server does not know is ignored.
+	start(`{"acceptProfiles":["h264-1080p30","h264-720p30","mjpeg-360p8"]}`)
+	if session := poll(newPlayer); session.Profile != livestream.ProfileH264720p30 {
+		t.Fatalf("unknown ID next to 720p30: %+v", session)
 	}
 
 	for name, body := range map[string]string{
