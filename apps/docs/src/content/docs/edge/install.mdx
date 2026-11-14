@@ -65,14 +65,8 @@ Edge runs as system services under a dedicated `tilecast` account, not in a desk
 
 Don't copy, share, or delete `/var/lib/tilecast-edge/`. It holds the screen's pairing, and deleting it means pairing the screen again.
 
-## Add Presentation Network support
+## Presentation Network support
 
-A fresh Edge install doesn't include the Presentation Network helper. If this screen will join a [Presentation Network](../../administration/presentation-networks/), run the installer that your Tilecast Server publishes, and name the `tilecast` account:
-
-```sh
-curl -fsSL https://signage.example.org/install-presentation-network.sh | sudo bash -s -- --user tilecast
-```
-
-Replace `signage.example.org` with your server's address. Without `--user tilecast`, the installer gives access to the account that ran `sudo`, and Edge can't reach the helper. A screen you [migrated](../migrate/) from the AppImage Player keeps the helper it already had. NetworkManager and a Wi-Fi adapter are still needed; see [Presentation Networks](../../administration/presentation-networks/).
+Edge includes the Presentation Network helper, `tilecast-networkd`, in its signed release. Installing or updating Edge installs the helper and its service; you run no extra installer. If this screen will join a [Presentation Network](../../administration/presentation-networks/), the computer also needs Python 3, NetworkManager, and a Wi-Fi adapter. Edge never installs or enables NetworkManager, because that can change the network setup your Ethernet connection depends on. Without NetworkManager, Studio reports Presentation Networks as unsupported for this screen with the reason, and signage plays as usual. See [Presentation Networks](../../administration/presentation-networks/).
 
 Edge releases also include the AirPlay receiver service, `tilecast-airplay.socket`. It starts only when Edge asks for an AirPlay session. AirPlay on Edge is still being qualified on real hardware, so it isn't available yet: use the AppImage Player for [AirPlay Present](../../operations/airplay-present/).

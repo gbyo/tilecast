@@ -235,9 +235,7 @@ Stage 5 joins through `PresentationNetwork::join_for_session`. It uses the exist
 
 The credential path does not change. `tilecastd` fetches the credential only to install a profile, and it never stores it.
 
-A new Edge installation (not a migration) does not install `tilecast-networkd`. The operator runs the Server-published `install-presentation-network.sh`. The public install page for Edge says so (Stage 6).
-
-**Change from the first version of this amendment (Stage 6).** The first version said that the script grants its socket group to the `tilecast` account by default. That is true only when root runs the script directly. The script uses `SUDO_USER` first, so `curl … | sudo bash` grants the group to the administrator who ran `sudo`, and `tilecastd` cannot reach the helper. The Edge install page therefore gives `--user tilecast`. The script does not change.
+A fresh Edge installation carries the helper and its unit already (Stage 3). The Edge install page tells the operator what the feature needs from the host (Python 3, NetworkManager, a Wi-Fi adapter) and does not tell the operator to run `install-presentation-network.sh`.
 
 ## 9. Discovery
 
