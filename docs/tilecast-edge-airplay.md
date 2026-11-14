@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stages 2 to 5 are implemented: the supervisor and its units, UxPlay in the release, the renderer relay and `tcpresent` source, and the `tilecastd` session. Single-screen AirPlay is implemented in software and has automated qualification. Physical hardware qualification is pending, so Edge does not offer AirPlay (§12.1). Group AirPlay is unsupported.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stages 2 to 6 are implemented (Stage 6 is the documentation; its hardware qualification is open): the supervisor and its units, UxPlay in the release, the renderer relay and `tcpresent` source, and the `tilecastd` session. Single-screen AirPlay is implemented in software and has automated qualification. Physical hardware qualification is pending, so Edge does not offer AirPlay (§12.1). Group AirPlay is unsupported.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -235,7 +235,7 @@ Stage 5 joins through `PresentationNetwork::join_for_session`. It uses the exist
 
 The credential path does not change. `tilecastd` fetches the credential only to install a profile, and it never stores it.
 
-A fresh Edge installation must not depend on the Legacy Server install script. Stage 3 carries the existing `tilecast-networkd` helper and its system unit in the signed Edge release and installs them through the same `edge-release` system-file path as the other Edge units. The helper protocol and implementation do not change. Python becomes an explicit Presentation Network host dependency. NetworkManager remains optional and is never installed or enabled by an Edge update; if it is absent, the existing capability probe reports Presentation Networks as unsupported without affecting signage or Ethernet-only AirPlay.
+A fresh Edge installation carries the helper and its unit already (Stage 3). The Edge install page tells the operator what the feature needs from the host (Python 3, NetworkManager, a Wi-Fi adapter) and does not tell the operator to run `install-presentation-network.sh`.
 
 ## 9. Discovery
 

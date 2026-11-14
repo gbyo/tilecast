@@ -22,7 +22,8 @@ Edge brings its own copy of WPE WebKit and the libraries that only WebKit needs,
 - the runtime packages listed in [`system-baseline.txt`](https://github.com/gbyo/tilecast/blob/main/apps/edge/release/system-baseline.txt) (GLib, GStreamer, libsoup, Mesa's GBM and DRM libraries, ICU, and similar);
 - `bubblewrap` and `xdg-dbus-proxy`, which WebKit starts to sandbox web content;
 - the GStreamer plugin sets and Mesa drivers for the video formats and graphics hardware you use.
-- `avahi-daemon` (in the list above). Edge releases include an AirPlay receiver that is still being qualified and is not available yet; it will use avahi-daemon to advertise the screen. Without it, signage plays as usual.
+- `python3`, only for [Presentation Networks](../../administration/presentation-networks/), which use the root helper that Edge carries. NetworkManager and a Wi-Fi adapter are also needed for that feature. Edge never installs or enables NetworkManager.
+- `avahi-daemon` (in the list above), which the AirPlay receiver uses to advertise the screen to iPhone, iPad, and Mac senders. AirPlay on Edge isn't available yet while it's qualified on real hardware. Without `avahi-daemon`, signage plays as usual, and Studio shows that AirPlay can't be advertised.
 
 Edge also needs the kernel to allow unprivileged user namespaces, which is the Debian default.
 
