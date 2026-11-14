@@ -1,6 +1,6 @@
 /*
  * Stage 4 latency spike: the WebKit side. A headless WPE view shows one
- * <video src="tcpresent://session/<id>"> over the whole view, as the Runtime
+ * <video src="tcpresent://cap/<id>"> over the whole view, as the Runtime
  * external-presentation view will. On every composited buffer it reads the
  * center pixel and prints the wall-clock time of each black/white change:
  *
@@ -136,7 +136,7 @@ main (int argc, char **argv)
   g_autofree char *html = g_strdup_printf (
     "<!doctype html><body style='margin:0;background:#808080;overflow:hidden'>"
     "<video id=v autoplay %s style='position:fixed;inset:0;width:100vw;height:100vh;object-fit:fill'"
-    " src='tcpresent://session/%s'></video><script>"
+    " src='tcpresent://cap/%s'></video><script>"
     "var v=document.getElementById('v');"
     "['loadedmetadata','playing','waiting','stalled','error','ended'].forEach(function(e){"
     "v.addEventListener(e,function(){console.log('video '+e+' state='+v.readyState+' size='+v.videoWidth+'x'"

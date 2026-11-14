@@ -198,11 +198,11 @@ test_present (void)
 }
 
 static void
-test_present_invalid_session (void)
+test_present_invalid_capability (void)
 {
   g_autoptr (GError) error = NULL;
   gboolean audio = FALSE;
-  g_assert_false (tc_media_present ("/nonexistent/media.sock", "tcpresent://session/" CAPABILITY, &audio, &error));
+  g_assert_false (tc_media_present ("/nonexistent/media.sock", "tcpresent://cap/" CAPABILITY, &audio, &error));
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT);
   g_clear_error (&error);
   g_assert_false (tc_media_present ("/nonexistent/media.sock", "0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef", &audio, &error));
@@ -220,6 +220,6 @@ main (int argc, char **argv)
   g_test_add_func ("/media/read-frame", test_read_frame);
   g_test_add_func ("/media/invalid-capability", test_invalid_capability);
   g_test_add_func ("/media/present", test_present);
-  g_test_add_func ("/media/present-invalid-session", test_present_invalid_session);
+  g_test_add_func ("/media/present-invalid-capability", test_present_invalid_capability);
   return g_test_run ();
 }

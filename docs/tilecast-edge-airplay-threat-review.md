@@ -15,7 +15,7 @@ The receiver adds no root privilege. Review rule 1 therefore does not require th
    v
  renderer-wpe main process relay (tilecast account; tilecast-renderer.service;
    |                               host network namespace)
-   | ^ grant: opaque session ID to the fixed ports, from tilecastd only,
+   | ^ grant: opaque capability to the fixed ports, from tilecastd only,
    | |  over the media socket
    | unixfdsink sockets in a private 0700 directory
    v
@@ -101,7 +101,7 @@ A Unix-socket transport would remove the risk, but it needs a custom GStreamer s
 
 ## 8. The renderer
 
-The renderer gets one new URI scheme, `tcpresent`. The page supplies only an opaque session ID. The renderer never takes an address, a port, or a path from the page or from the presentation document. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
+The renderer gets one new URI scheme, `tcpresent`. The page supplies only an opaque present capability (`tcpresent://cap/<token>`, 32 random bytes minted per grant and bound to the current renderer instance; it is not an AirPlay session ID). The renderer never takes an address, a port, or a path from the page or from the presentation document. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
 
 WebKit starts the web process with `--unshare-net`, so the web process cannot receive UDP from the host loopback (amendment §5.1). The relay keeps that boundary:
 
@@ -138,7 +138,7 @@ The existing root `tilecast-networkd` boundary does not change. A fresh Edge ins
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                        |
 | 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                          |
-| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque ID (§8).    |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque capability (§8).    |
 | 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.    |
 | 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                              |
 | 6. Crash-point tests for durable transitions                | `tests/playback.rs` interrupts every session transition and resumes, finishes, or deletes the row (amendment §6.1). |

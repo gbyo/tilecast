@@ -108,12 +108,12 @@ test_web_capabilities (void)
 static void
 test_present_uris (void)
 {
-  g_assert_true (tc_is_present_uri ("tcpresent://session/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
-  g_assert_false (tc_is_present_uri ("tcpresent://session/0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef"));
-  g_assert_false (tc_is_present_uri ("tcpresent://session/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef?port=1"));
+  g_assert_true (tc_is_present_uri ("tcpresent://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_present_uri ("tcpresent://cap/0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_present_uri ("tcpresent://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef?port=1"));
   g_assert_false (tc_is_present_uri ("tcpresent://127.0.0.1:42000/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
   g_assert_false (tc_is_present_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
-  g_assert_false (tc_is_present_uri ("tcpresent://session/"));
+  g_assert_false (tc_is_present_uri ("tcpresent://cap/"));
   g_assert_false (tc_is_present_uri (NULL));
 }
 

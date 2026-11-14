@@ -50,6 +50,7 @@ UNITS = [
     "tilecast-edge-update.socket",
     "tilecast-airplay.service",
     "tilecast-airplay.socket",
+    "tilecast-networkd.service",
 ]
 USER_UNITS = ["tilecast-session-bridge.service", "tilecast-session-bridge.path"]
 SYSTEM_FILES = [
@@ -68,6 +69,12 @@ def version_code(version):
     if code is None:
         sys.exit(f"stage-release: {version} is not a valid release version")
     return code
+
+
+# The one source of the Presentation Network helper. Edge carries these exact
+# bytes as bin/tilecast-networkd; the legacy installer serves the same file
+# (docs/tilecast-edge-airplay.md section 8).
+NETWORKD = os.path.join(EDGE, "..", "server", "internal", "httpapi", "install", "tilecast-networkd")
 
 
 def copy(source, out, relative, mode):
@@ -179,6 +186,7 @@ def main():
     copy(args.renderer, out, "bin/tilecast-renderer-wpe", 0o755)
     copy(args.web_renderer, out, "bin/tilecast-web-renderer-wpe", 0o755)
     copy(args.session_bridge, out, "bin/tilecast-session-bridge", 0o755)
+    copy(NETWORKD, out, "bin/tilecast-networkd", 0o755)
     stage_uxplay(args.uxplay_dir, out)
     copy(os.path.join(args.gst_plugin_dir, "libgsttcmedia.so"), out, "lib/gstreamer-1.0/libgsttcmedia.so", 0o644)
     for root, _, names in os.walk(args.runtime_dir):

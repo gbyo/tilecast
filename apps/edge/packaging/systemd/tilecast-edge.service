@@ -2,11 +2,14 @@
 [Unit]
 Description=Tilecast Edge daemon
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
-After=network-online.target time-sync.target tilecast-airplay.socket
+After=network-online.target time-sync.target tilecast-airplay.socket tilecast-networkd.service
 Wants=network-online.target
 # The AirPlay supervisor's socket (docs/tilecast-edge-airplay.md §4.1). A
 # screen that does not have the unit yet starts without it.
 Wants=tilecast-airplay.socket
+# The Presentation Network helper (docs/tilecast-edge-airplay.md section 8).
+# Wanted, never required: signage runs without it.
+Wants=tilecast-networkd.service
 # One owner of the device credential: tilecast-edge-migrate disables the
 # legacy Electron player unit before it enables this unit, and disables this
 # unit before it enables the legacy unit again on a rollback.
@@ -19,9 +22,10 @@ Type=notify
 NotifyAccess=main
 User=tilecast
 Group=tilecast
-# HDMI-CEC and DDC/CI device nodes (udev/70-tilecast-display.rules). Only
-# this unit gets the group; the renderer and session bridge do not.
-SupplementaryGroups=tilecast-display
+# HDMI-CEC and DDC/CI device nodes (udev/70-tilecast-display.rules) and the
+# Presentation Network helper's socket. Only this unit gets these groups; the
+# renderer and session bridge do not.
+SupplementaryGroups=tilecast-display tilecast-network
 ExecStartPre=/opt/tilecast-edge/current/bin/tilecastd check-config
 ExecStart=/opt/tilecast-edge/current/bin/tilecastd run
 Restart=always

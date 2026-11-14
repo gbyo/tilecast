@@ -66,9 +66,9 @@ enum Request {
         #[serde(default)]
         expect: ReadExpect,
     },
-    /// The `tcpresent` source asks for the ports of an AirPlay session.
+    /// The `tcpresent` source asks for the ports behind a present grant.
     /// The answer names only the fixed loopback ports.
-    Present { session: String },
+    Present { capability: String },
 }
 
 /// Which grant usage a channel read expects. Absent means media: renderers
@@ -89,7 +89,7 @@ impl Request {
     fn capability(&self) -> &str {
         match self {
             Self::Head { capability, .. } | Self::Read { capability, .. } => capability,
-            Self::Present { session } => session,
+            Self::Present { capability } => capability,
         }
     }
 
@@ -367,15 +367,15 @@ async fn serve(
         Ok(Ok(request)) => request,
         _ => return deny(&mut stream).await,
     };
-    if let Request::Present { session } = &request {
+    if let Request::Present { capability } = &request {
         let grant = registry.lock().ok().and_then(|registry| {
             let renderer = registry.renderer()?;
             (renderer.uid == credentials.uid() && lineage.belongs_to(renderer, pid))
-                .then(|| registry.resolve_present(renderer.session, session))
+                .then(|| registry.resolve_present(renderer.session, capability))
                 .flatten()
         });
         let Some(grant) = grant else {
-            let retired = registry.lock().is_ok_and(|registry| registry.retired_token(session));
+            let retired = registry.lock().is_ok_and(|registry| registry.retired_token(capability));
             tracing::warn!(
                 component = "media",
                 event = "grant_denied",
@@ -559,9 +559,9 @@ mod fixture_tests {
             "../../../../packages/edge-protocol/fixtures/media/present-request.json"
         ))
         .unwrap();
-        assert!(matches!(&present, Request::Present { session } if session == CAP));
+        assert!(matches!(&present, Request::Present { capability } if capability == CAP));
         assert!(
-            serde_json::from_str::<Request>(&format!(r#"{{"op":"present","session":"{CAP}","port":42000}}"#)).is_err()
+            serde_json::from_str::<Request>(&format!(r#"{{"op":"present","capability":"{CAP}","port":42000}}"#)).is_err()
         );
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(include_str!(

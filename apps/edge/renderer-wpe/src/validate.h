@@ -27,8 +27,8 @@ gboolean tc_frame_refs_valid (JsonNode *node, gboolean plugin_only);
 /* Exact opaque tcweb://cap/<64 lowercase hex> URI of a remote web stream. */
 gboolean tc_is_web_capability_uri (const char *value);
 
-/* Exact opaque tcpresent://session/<64 lowercase hex> URI of an AirPlay
- * session's forwarded stream (docs/tilecast-edge-airplay.md §5). */
+/* Exact opaque tcpresent://cap/<64 lowercase hex> URI of the present
+ * capability for an AirPlay session's forwarded stream (docs/tilecast-edge-airplay.md §5). */
 gboolean tc_is_present_uri (const char *value);
 
 /* The `sourceId` of an external-presentation document, or NULL when the

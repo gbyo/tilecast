@@ -97,7 +97,7 @@ pub const MAX_REQUEST_ID_CHARS: usize = 64;
 pub const RENDERER_FEATURE_WIDGET_FRAMES: &str = "widget-frames-v1";
 pub const RENDERER_FEATURE_PLUGIN_FRAMES: &str = "plugin-frames-v1";
 /// `renderer.ready` feature: the renderer relays an AirPlay session's
-/// loopback RTP to `tcpresent://session/<id>` and the Runtime shows it
+/// loopback RTP to `tcpresent://cap/<token>` and the Runtime shows it
 /// (docs/tilecast-edge-airplay.md §5). The daemon sends `sourceId` only to a
 /// renderer that advertises it.
 pub const RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO: &str = "external-presentation-video-v1";
