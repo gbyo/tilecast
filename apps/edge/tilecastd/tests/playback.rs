@@ -1027,6 +1027,9 @@ struct Harness {
     url: String,
     screen: ScreenId,
     installation: InstallationId,
+    /// The AirPlay qualification gate of the daemon under test (open by default,
+    /// so the scenarios exercise AirPlay itself).
+    airplay_qualified: bool,
 }
 
 struct Player {
@@ -1091,7 +1094,7 @@ impl Harness {
         db.run_blocking(move |c| binding::put(c, &bound, now)).unwrap();
         drop(db);
         FileCredentialStore::write_at(&DeviceCredential::parse(CREDENTIAL).unwrap(), &state.join("identity")).unwrap();
-        Self { _slot: slot, dir, fake, url, screen, installation }
+        Self { _slot: slot, dir, fake, url, screen, installation, airplay_qualified: true }
     }
 
     fn binding(&self) -> Binding {
@@ -1110,6 +1113,7 @@ impl Harness {
         config.dev.hardware_sys_dir = Some(dir.join("hardware/sys"));
         config.dev.networkd_socket = Some(dir.join("hardware/networkd.sock"));
         config.dev.airplay_socket = Some(dir.join("airplay.sock"));
+        config.dev.airplay_qualified = Some(self.airplay_qualified);
         config.dev.idle_inhibit = Some(false);
         config
     }
@@ -4137,6 +4141,38 @@ async fn an_airplay_session_ends_when_the_renderer_reports_a_failed_relay() {
     assert!(!player.context.media_registry.lock().unwrap().present_active(), "the grant is revoked");
     assert_eq!(heartbeat(&player.context).await["externalPresentationState"], "none");
     renderer.stop();
+    player.stop().await;
+}
+
+/// Until hardware qualification is recorded, healthy dependencies are not
+/// enough: Edge refuses the session, does not advertise AirPlay to the Server,
+/// and reports the capability as blocked, while the diagnostics stay visible.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_closed_qualification_gate_withholds_airplay_from_healthy_dependencies() {
+    let mut harness = Harness::new().await;
+    harness.airplay_qualified = false;
+    let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    renderer.stop();
+    let _renderer = airplay_renderer(&player, &asset).await;
+
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    let result = command_result(&harness, &prepare).await;
+    assert_eq!(result["code"], "airplay_not_ready");
+    assert!(result["message"].as_str().unwrap().contains("still being qualified"), "{result}");
+    assert_eq!(supervisor.count("start"), 0, "no receiver starts behind a closed gate");
+
+    let beat = heartbeat(&player.context).await;
+    assert_eq!(beat["airplaySupported"], false);
+    assert!(beat["airplayLimitation"].as_str().unwrap().contains("still being qualified"), "{beat}");
+    assert_eq!(beat["airplayUxPlayInstalled"], true, "the probe's diagnostics stay visible");
+    assert_eq!(beat["airplayAvahiAvailable"], true);
+    assert_eq!(beat["airplayDecoder"], "avdec_h264");
+
+    let capability = tilecastd::airplay::capability(&player.context).await.unwrap();
+    assert_eq!(capability.state, edge_protocol::capability::CapabilityState::Blocked);
+    assert_eq!(capability.reason_code.as_ref().map(|code| code.as_str()), Some("qualification_pending"));
     player.stop().await;
 }
 

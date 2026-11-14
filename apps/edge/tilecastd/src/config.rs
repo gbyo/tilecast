@@ -191,6 +191,11 @@ pub struct DevConfig {
     /// The AirPlay supervisor's control socket. Default
     /// `/run/tilecast-airplay/control.sock`.
     pub airplay_socket: Option<PathBuf>,
+    /// `true` opens the AirPlay qualification gate on this screen, for the
+    /// hardware qualification run and for CI. Without it the release decides
+    /// (`qualification::RELEASE_QUALIFIED`); see docs/tilecast-edge-airplay.md
+    /// section 12.
+    pub airplay_qualified: Option<bool>,
     /// `false` keeps the daemon from taking a systemd-logind idle inhibitor
     /// lock, so a test never changes the host it runs on.
     pub idle_inhibit: Option<bool>,

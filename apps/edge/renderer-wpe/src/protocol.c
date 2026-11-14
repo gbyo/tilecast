@@ -287,7 +287,7 @@ handle_activate (TcHost *host, JsonObject *data, JsonNode *data_node)
   const char *source = presentation != NULL && JSON_NODE_HOLDS_OBJECT (presentation)
                          ? tc_present_source_id (json_node_get_object (presentation))
                          : NULL;
-  /* The Runtime mounts tcpresent://session/<id> as soon as it sees the
+  /* The Runtime mounts tcpresent://cap/<token> as soon as it sees the
    * activation, so the relay must run first: the sender's only keyframe
    * arrives when it connects. The relay calls on_present_relay exactly once
    * for this request (at once when there is nothing to start), and that

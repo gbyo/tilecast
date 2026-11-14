@@ -155,16 +155,16 @@ async fn present_grants_answer_fixed_ports_until_revoked() {
     let denied = json!({"status": "denied"});
 
     let unknown = "a".repeat(64);
-    assert_eq!(ask(&path, json!({"op": "present", "session": unknown})).await.0, denied);
+    assert_eq!(ask(&path, json!({"op": "present", "capability": unknown})).await.0, denied);
     let audio = registry.lock().unwrap().grant_present(session, PresentGrant { audio: true }).unwrap();
-    assert_eq!(audio.present_uri(), format!("tcpresent://session/{}", audio.as_str()));
+    assert_eq!(audio.present_uri(), format!("tcpresent://cap/{}", audio.as_str()));
     assert!(registry.lock().unwrap().present_active());
-    let (reply, payload) = ask(&path, json!({"op": "present", "session": audio.as_str()})).await;
+    let (reply, payload) = ask(&path, json!({"op": "present", "capability": audio.as_str()})).await;
     assert_eq!(reply, json!({"status": "ok", "videoPort": 42000, "audioPort": 42002}));
     assert!(payload.is_empty());
     for request in [
-        json!({"op": "present", "session": audio.as_str(), "videoPort": 5353}),
-        json!({"op": "present", "session": audio.as_str().to_uppercase()}),
+        json!({"op": "present", "capability": audio.as_str(), "videoPort": 5353}),
+        json!({"op": "present", "capability": audio.as_str().to_uppercase()}),
         json!({"op": "head", "capability": audio.as_str()}),
         json!({"op": "read", "capability": audio.as_str(), "offset": 0, "length": 1}),
     ] {
@@ -174,15 +174,15 @@ async fn present_grants_answer_fixed_ports_until_revoked() {
     // A new grant replaces the old one, here without audio.
     let video = registry.lock().unwrap().grant_present(session, PresentGrant { audio: false }).unwrap();
     assert_ne!(video, audio);
-    assert_eq!(ask(&path, json!({"op": "present", "session": audio.as_str()})).await.0, denied);
+    assert_eq!(ask(&path, json!({"op": "present", "capability": audio.as_str()})).await.0, denied);
     assert_eq!(
-        ask(&path, json!({"op": "present", "session": video.as_str()})).await.0,
+        ask(&path, json!({"op": "present", "capability": video.as_str()})).await.0,
         json!({"status": "ok", "videoPort": 42000})
     );
     registry.lock().unwrap().revoke_present();
     assert!(!registry.lock().unwrap().present_active());
     assert!(registry.lock().unwrap().retired_token(video.as_str()));
-    assert_eq!(ask(&path, json!({"op": "present", "session": video.as_str()})).await.0, denied);
+    assert_eq!(ask(&path, json!({"op": "present", "capability": video.as_str()})).await.0, denied);
 
     // A renderer restart ends the grant; the daemon must grant again.
     let again = registry.lock().unwrap().grant_present(session, PresentGrant { audio: true }).unwrap();
@@ -191,14 +191,14 @@ async fn present_grants_answer_fixed_ports_until_revoked() {
         .unwrap()
         .bind_renderer(RendererInstance { session: SessionId::from_uuid(uuid::Uuid::new_v4()), ..renderer });
     assert!(!registry.lock().unwrap().present_active());
-    assert_eq!(ask(&path, json!({"op": "present", "session": again.as_str()})).await.0, denied);
+    assert_eq!(ask(&path, json!({"op": "present", "capability": again.as_str()})).await.0, denied);
     assert!(registry.lock().unwrap().grant_present(session, PresentGrant { audio: true }).is_err());
 
     // A peer outside the renderer's process tree is refused even with a live grant.
     let other = SessionId::from_uuid(uuid::Uuid::new_v4());
     registry.lock().unwrap().bind_renderer(RendererInstance { session: other, pid: 1, start_ticks: 0, ..renderer });
     let live = registry.lock().unwrap().grant_present(other, PresentGrant { audio: true }).unwrap();
-    assert_eq!(ask(&path, json!({"op": "present", "session": live.as_str()})).await.0, denied);
+    assert_eq!(ask(&path, json!({"op": "present", "capability": live.as_str()})).await.0, denied);
     stop.cancel();
     task.await.unwrap().unwrap();
 }

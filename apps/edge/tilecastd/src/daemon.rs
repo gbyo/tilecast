@@ -496,6 +496,10 @@ impl Daemon {
             update_wake: tokio::sync::Notify::new(),
             airplay: crate::airplay::Airplay::new(crate::airplay::socket_path(
                 config_for_display.dev.airplay_socket.as_deref(),
+            ))
+            .with_qualified(crate::qualification::is_qualified(
+                crate::qualification::Feature::Airplay,
+                config_for_display.dev.airplay_qualified,
             )),
         });
 

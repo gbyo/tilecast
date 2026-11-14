@@ -114,3 +114,5 @@ print(f"sandbox check: the release self-test passed in {report['elapsedMs']} ms 
 PY
 # The AirPlay supervisor and the release's UxPlay under their own units.
 "$here/run-airplay-sandbox-check.sh" "$tree"
+# The Presentation Network helper under its own unit, without NetworkManager.
+"$here/run-networkd-sandbox-check.sh" "$tree"

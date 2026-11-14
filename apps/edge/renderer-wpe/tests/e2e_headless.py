@@ -86,6 +86,9 @@ class Stack:
             f'hardware_dev_dir = "{workdir}/hardware/dev"',
             f'hardware_sys_dir = "{workdir}/hardware/sys"',
             f'networkd_socket = "{workdir}/hardware/networkd.sock"',
+            # The headless scenarios exercise AirPlay itself, so they open the
+            # qualification gate (docs/tilecast-edge-airplay.md section 12).
+            "airplay_qualified = true",
             "idle_inhibit = false",
         ]
         if fixture:

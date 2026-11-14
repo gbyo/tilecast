@@ -43,9 +43,9 @@ impl MediaCapability {
     }
 
     /// The URI of the forwarded AirPlay stream for a grant minted by
-    /// [`MediaRegistry::grant_present`]: `tcpresent://session/<opaque>`.
+    /// [`MediaRegistry::grant_present`]: `tcpresent://cap/<opaque>`.
     pub fn present_uri(&self) -> String {
-        format!("tcpresent://session/{}", self.0)
+        format!("tcpresent://cap/{}", self.0)
     }
 
     pub fn as_str(&self) -> &str {
