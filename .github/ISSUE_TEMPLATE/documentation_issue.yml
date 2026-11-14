@@ -1,5 +1,6 @@
 name: "📚 Documentation issue"
 description: Report missing, incorrect, outdated, or confusing Tilecast documentation
+type: Task
 labels: ["documentation"]
 body:
   - type: input
