@@ -1328,7 +1328,9 @@ AIRPLAY_SESSION = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 # Test-only values, distinctive enough to search for.
 AIRPLAY_PIN = "8264"
 AIRPLAY_DEVICE = "02:82:64:5a:6b:7c"
-AIRPLAY_WORK = "/var/tmp/tilecast-airplay-present-e2e"
+# Not under /var/tmp: WebKit's bubblewrap sandbox makes its own /var/tmp and fails
+# ("Can't make symlink at /var/tmp") when a unit's files live there.
+AIRPLAY_WORK = "/srv/tilecast-airplay-present-e2e"
 AIRPLAY_FAKE_CMD = "/run/tilecast-airplay-session/fake-uxplay.cmd"
 
 
