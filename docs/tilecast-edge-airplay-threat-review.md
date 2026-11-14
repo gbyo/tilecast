@@ -133,19 +133,19 @@ The existing root `tilecast-networkd` boundary does not change. A fresh Edge ins
 
 ## 11. Edge review rules
 
-| Rule                                                        | How the receiver meets it                                                                                          |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                       |
-| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                         |
-| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque capability (§8).   |
-| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.   |
-| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                             |
-| 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                              |
-| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                               |
-| 8. IPC change has fixtures and tests on both sides          | Stage 2: the control protocol. Stage 4: the media `present` request and the `external-presentation` document.      |
-| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive. |
-| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                         |
-| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.      |
+| Rule                                                        | How the receiver meets it                                                                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                             |
+| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                               |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque capability (§8). |
+| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.         |
+| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                                   |
+| 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                                    |
+| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                                     |
+| 8. IPC change has fixtures and tests on both sides          | Stage 2: the control protocol. Stage 4: the media `present` request and the `external-presentation` document.            |
+| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive.       |
+| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                               |
+| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.            |
 
 ## 12. Residual risks
 
