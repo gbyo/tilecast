@@ -90,11 +90,36 @@ pub async fn install(context: &DaemonContext, config: Option<PlayerConfig>) {
     if let Some(cas) = &context.cas {
         cas.set_policy(store_policy(context, &effective));
         cas.set_automatic_threshold(effective.native.cache.automatic_threshold_bytes);
+        // Server policy may tighten but never loosen the local operator cap.
+        cas.set_download_concurrency(Some(download_limit(
+            context.config.cas.max_concurrent_downloads,
+            effective.native.cache.concurrent_downloads,
+        )));
     }
     context.presentation.lock().await.apply_player_config(&context.config, &effective);
     context.manifest_wake.notify_one();
     context.network_wake.notify_one();
     context.idle_wake.notify_one();
+}
+
+/// The local operator cap is authoritative, including before pairing.
+fn download_limit(operator_limit: usize, server_limit: Option<u8>) -> u8 {
+    // Validated Edge configuration allows 1..=16, while server policy allows 1..=8.
+    server_limit.map_or(operator_limit, |limit| operator_limit.min(usize::from(limit))) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::download_limit;
+
+    #[test]
+    fn operator_download_limit_cannot_be_loosened_by_server() {
+        assert_eq!(download_limit(1, Some(8)), 1);
+        assert_eq!(download_limit(8, Some(2)), 2);
+        assert_eq!(download_limit(4, None), 4);
+        assert_eq!(download_limit(16, Some(8)), 8);
+        assert_eq!(download_limit(16, None), 16);
+    }
 }
 
 /// The operator's store policy narrowed by the server's: the smaller byte

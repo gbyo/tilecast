@@ -40,6 +40,9 @@ pub enum CasError {
     Task,
 }
 
+/// Required downloads preparation runs at once without a configured limit.
+pub const DEFAULT_DOWNLOAD_CONCURRENCY: usize = 2;
+
 /// Size limits applied to ingest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StorePolicy {
@@ -64,6 +67,7 @@ struct Inner {
     opener: Arc<dyn SecureOpener>,
     policy: Mutex<StorePolicy>,
     automatic_threshold: Mutex<Option<u64>>,
+    download_concurrency: Mutex<usize>,
     eviction: Arc<dyn EvictionPolicy>,
     writers: Mutex<HashMap<Sha256Digest, Weak<tokio::sync::Mutex<()>>>>,
     touches: Mutex<HashMap<Sha256Digest, Timestamp>>,
@@ -147,6 +151,7 @@ impl ContentStore {
                 opener,
                 policy: Mutex::new(policy),
                 automatic_threshold: Mutex::new(None),
+                download_concurrency: Mutex::new(DEFAULT_DOWNLOAD_CONCURRENCY),
                 eviction,
                 writers: Mutex::new(HashMap::new()),
                 touches: Mutex::new(HashMap::new()),
@@ -170,6 +175,17 @@ impl ContentStore {
     /// the cache-limit bound.
     pub fn set_automatic_threshold(&self, threshold: Option<u64>) {
         *self.inner.automatic_threshold.lock().unwrap_or_else(|p| p.into_inner()) = threshold;
+    }
+
+    /// Sets how many required downloads preparation runs at once; `None`
+    /// restores the default.
+    pub fn set_download_concurrency(&self, limit: Option<u8>) {
+        *self.inner.download_concurrency.lock().unwrap_or_else(|p| p.into_inner()) =
+            limit.map_or(DEFAULT_DOWNLOAD_CONCURRENCY, |value| usize::from(value.max(1)));
+    }
+
+    pub fn download_concurrency(&self) -> usize {
+        *self.inner.download_concurrency.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     /// The configured Automatic delivery threshold, capped at half the cache

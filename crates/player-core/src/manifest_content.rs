@@ -1,10 +1,11 @@
 //! Verified manifest content preparation and pin identities.
-use crate::{AssetPolicy, ManifestAsset, NativeManifest, OriginBlobSource, StreamClaim, StreamReason};
+use crate::{AssetPolicy, ManifestAsset, ManifestBundle, NativeManifest, OriginBlobSource, StreamClaim, StreamReason};
+use futures_util::stream::{self, StreamExt, TryStreamExt};
 use player_cas::{BlobSource, CasError, ContentStore, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta};
 use player_client::AuthenticatedServer;
 use player_state::repo::cas::{Domain, SourceKind};
 use player_types::Sha256Digest;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 /// What preparation settled on: verified CAS digests to pin, plus videos
@@ -303,6 +304,47 @@ async fn fetch_frame_object<P: ManifestSourcePlan>(
     }
 }
 
+/// Fetches one required media download. A download the store cannot fit
+/// fails visibly as `CacheTooSmall`; it never streams silently.
+async fn fetch_required_download<P: ManifestSourcePlan>(
+    store: &ContentStore,
+    plan: &P,
+    asset: &ManifestAsset,
+) -> Result<(), ManifestPreparationError> {
+    let meta =
+        IngestMeta { domain: Domain::Media, content_type: Some(asset.mime_type.clone()), source: SourceKind::Origin };
+    fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await.map_err(|error| {
+        match &error {
+            ManifestPreparationError::Fetch(FetchError::Store(
+                CasError::OverLimit | CasError::InsufficientSpace { .. },
+            ))
+            | ManifestPreparationError::Store(CasError::OverLimit | CasError::InsufficientSpace { .. }) => {
+                ManifestPreparationError::CacheTooSmall
+            }
+            _ => error,
+        }
+    })
+}
+
+async fn fetch_required_bundle<P: ManifestSourcePlan>(
+    store: &ContentStore,
+    plan: &P,
+    bundle: &ManifestBundle,
+) -> Result<(), ManifestPreparationError> {
+    let meta = IngestMeta {
+        domain: Domain::WidgetBundle,
+        content_type: Some("text/javascript".to_owned()),
+        source: SourceKind::Origin,
+    };
+    fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await
+}
+
+/// One unified queue avoids delaying Widget bundles behind long media downloads.
+enum RequiredObject {
+    Media(ManifestAsset),
+    Bundle(ManifestBundle),
+}
+
 /// Fetches every variant, Widget bundle, and Widget frame the candidate
 /// needs. The caller persists and pins a candidate only after this
 /// succeeds, so a manifest whose bundle or frame cannot be fetched
@@ -314,9 +356,10 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
     candidate: &NativeManifest,
 ) -> Result<PreparedContent, ManifestPreparationError> {
     let threshold = store.download_threshold_bytes();
-    let mut digests = BTreeSet::new();
+    let mut sizes = BTreeMap::new();
     let mut seen_stream = BTreeSet::new();
     let mut streams = Vec::new();
+    let mut downloads = Vec::new();
     for asset in &candidate.required_downloads {
         if let Some(claim) = stream_claim(asset, threshold) {
             if seen_stream.insert(claim.digest) {
@@ -324,35 +367,32 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
             }
             continue;
         }
-        let meta = IngestMeta {
-            domain: Domain::Media,
-            content_type: Some(asset.mime_type.clone()),
-            source: SourceKind::Origin,
-        };
-        fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await.map_err(
-            |error| match &error {
-                // The partition requires this download and the store
-                // cannot fit it: fail visibly, never stream silently.
-                ManifestPreparationError::Fetch(FetchError::Store(
-                    CasError::OverLimit | CasError::InsufficientSpace { .. },
-                ))
-                | ManifestPreparationError::Store(CasError::OverLimit | CasError::InsufficientSpace { .. }) => {
-                    ManifestPreparationError::CacheTooSmall
-                }
-                _ => error,
-            },
-        )?;
-        digests.insert(asset.digest);
+        match sizes.insert(asset.digest, asset.size_bytes) {
+            Some(size) if size != asset.size_bytes => return Err(ManifestPreparationError::SizeMismatch),
+            Some(_) => {}
+            None => downloads.push(RequiredObject::Media(asset.clone())),
+        }
     }
     for bundle in &candidate.required_bundles {
-        let meta = IngestMeta {
-            domain: Domain::WidgetBundle,
-            content_type: Some("text/javascript".to_owned()),
-            source: SourceKind::Origin,
-        };
-        fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await?;
-        digests.insert(bundle.digest);
+        match sizes.insert(bundle.digest, bundle.size_bytes) {
+            Some(size) if size != bundle.size_bytes => return Err(ManifestPreparationError::SizeMismatch),
+            Some(_) => {}
+            None => downloads.push(RequiredObject::Bundle(bundle.clone())),
+        }
     }
+    // The media and bundles share one bounded queue. Ordered buffering still
+    // runs up to the configured limit concurrently, but propagates errors in
+    // manifest order rather than depending on network completion order.
+    // Items are owned so the futures remain `Send` for spawned workers.
+    stream::iter(downloads.into_iter().map(|object| async move {
+        match object {
+            RequiredObject::Media(asset) => fetch_required_download(store, plan, &asset).await,
+            RequiredObject::Bundle(bundle) => fetch_required_bundle(store, plan, &bundle).await,
+        }
+    }))
+    .buffered(store.download_concurrency())
+    .try_collect::<Vec<()>>()
+    .await?;
     for frame in &candidate.required_frames {
         let meta = IngestMeta {
             domain: Domain::WidgetFrame,
@@ -360,14 +400,14 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
             source: SourceKind::Origin,
         };
         fetch_frame_object(store, plan, frame.digest, frame.size_bytes, &frame.download_path, meta).await?;
-        digests.insert(frame.digest);
+        sizes.insert(frame.digest, frame.size_bytes);
     }
-    for digest in &digests {
+    for digest in sizes.keys() {
         if store.verified_path(digest).await?.is_none() {
             return Err(ManifestPreparationError::Missing);
         }
     }
-    Ok(PreparedContent { verified: digests.into_iter().collect(), streams })
+    Ok(PreparedContent { verified: sizes.into_keys().collect(), streams })
 }
 
 #[cfg(test)]
@@ -472,6 +512,68 @@ mod tests {
             self.calls.lock().unwrap().push(digest);
             let bytes = self.files.get(&digest).cloned().ok_or(ManifestPreparationError::Missing)?;
             Ok(vec![Arc::new(StaticSource { bytes }) as Arc<dyn BlobSource>])
+        }
+
+        fn observer(&self, _digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>> {
+            None
+        }
+    }
+
+    /// Counts actual in-flight source opens instead of just inspecting policy.
+    #[derive(Default)]
+    struct TransferCount {
+        active: std::sync::atomic::AtomicUsize,
+        peak: std::sync::atomic::AtomicUsize,
+    }
+
+    struct CountedSource {
+        bytes: Vec<u8>,
+        count: Arc<TransferCount>,
+    }
+
+    #[async_trait::async_trait]
+    impl BlobSource for CountedSource {
+        fn kind(&self) -> player_cas::SourceKind {
+            player_cas::SourceKind::Local
+        }
+
+        fn label(&self) -> String {
+            "counted".into()
+        }
+
+        async fn open(
+            &self,
+            _digest: &Sha256Digest,
+            size: u64,
+            _offset: u64,
+        ) -> Result<player_cas::SourceStream, player_cas::SourceError> {
+            use std::sync::atomic::Ordering;
+            let active = self.count.active.fetch_add(1, Ordering::SeqCst) + 1;
+            self.count.peak.fetch_max(active, Ordering::SeqCst);
+            tokio::time::sleep(std::time::Duration::from_millis(40)).await;
+            self.count.active.fetch_sub(1, Ordering::SeqCst);
+            use futures_util::stream::StreamExt as _;
+            let body = futures_util::stream::iter([Ok::<_, player_cas::SourceError>(
+                bytes::Bytes::from(self.bytes.clone()),
+            )]).boxed();
+            Ok(player_cas::SourceStream { start: 0, total_length: Some(size), body })
+        }
+    }
+
+    struct CountedPlan {
+        files: HashMap<Sha256Digest, Vec<u8>>,
+        count: Arc<TransferCount>,
+    }
+
+    impl ManifestSourcePlan for CountedPlan {
+        async fn sources(
+            &self,
+            digest: Sha256Digest,
+            _size: u64,
+            _origin_path: &str,
+        ) -> Result<Vec<Arc<dyn BlobSource>>, ManifestPreparationError> {
+            let bytes = self.files.get(&digest).cloned().ok_or(ManifestPreparationError::Missing)?;
+            Ok(vec![Arc::new(CountedSource { bytes, count: self.count.clone() })])
         }
 
         fn observer(&self, _digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>> {
@@ -610,6 +712,78 @@ mod tests {
         let (asset, variant) = asset_ids(600);
         let manifest = candidate(vec![video_asset(asset, variant, digest, 13)], vec![item(asset, variant, "download")]);
         assert!(matches!(manifest.verify_content(&store).await.unwrap_err(), ManifestPreparationError::Missing));
+    }
+
+    #[tokio::test]
+    async fn prepare_checks_sizes_before_deduplicating_downloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let bytes = b"shared object".to_vec();
+        let digest = Sha256Digest::of(&bytes);
+        let size = bytes.len() as u64;
+        let (asset, variant) = asset_ids(700);
+        let mut manifest =
+            candidate(vec![video_asset(asset, variant, digest, size)], vec![item(asset, variant, "download")]);
+        let plan = StaticPlan { files: [(digest, bytes)].into_iter().collect(), calls: Mutex::new(vec![]) };
+
+        let mut duplicate = manifest.required_downloads[0].clone();
+        duplicate.size_bytes += 1;
+        manifest.required_downloads.push(duplicate);
+        assert!(matches!(manifest.prepare_content(&store, &plan).await, Err(ManifestPreparationError::SizeMismatch)));
+        manifest.required_downloads.pop();
+
+        manifest.required_bundles.push(ManifestBundle {
+            package_id: "acme.athletics".into(),
+            package_digest: Sha256Digest::of(b"package"),
+            digest,
+            size_bytes: size + 1,
+            download_path: "/api/v1/player/packages/acme.athletics/widgets/scoreboard".into(),
+        });
+        assert!(matches!(manifest.prepare_content(&store, &plan).await, Err(ManifestPreparationError::SizeMismatch)));
+        assert!(plan.calls.lock().unwrap().is_empty());
+
+        manifest.required_bundles[0].size_bytes = size;
+        let prepared = manifest.prepare_content(&store, &plan).await.unwrap();
+        assert_eq!(prepared.verified, vec![digest]);
+        assert_eq!(*plan.calls.lock().unwrap(), vec![digest]);
+        assert_eq!(manifest.verify_content(&store).await.unwrap(), prepared.verified);
+    }
+
+    #[tokio::test]
+    async fn concurrent_limit_applies_to_media_and_bundles_together() {
+        use std::sync::atomic::Ordering;
+        for (limit, expected_peak) in [(1u8, 1usize), (2, 2), (8, 8)] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = test_store(dir.path(), 1 << 20).await;
+            store.set_download_concurrency(Some(limit));
+            let mut assets = Vec::new();
+            let mut items = Vec::new();
+            let mut files = HashMap::new();
+            for n in 0..7u128 {
+                let bytes = format!("media-{n}").into_bytes();
+                let digest = Sha256Digest::of(&bytes);
+                files.insert(digest, bytes.clone());
+                let (asset, variant) = asset_ids(1000 + n * 2);
+                assets.push(video_asset(asset, variant, digest, bytes.len() as u64));
+                items.push(item(asset, variant, "download"));
+            }
+            let mut manifest = candidate(assets, items);
+            let bundle_bytes = b"widget-bundle".to_vec();
+            let bundle_digest = Sha256Digest::of(&bundle_bytes);
+            manifest.required_bundles.push(ManifestBundle {
+                package_id: "acme.example".into(),
+                package_digest: Sha256Digest::of(b"package"),
+                digest: bundle_digest,
+                size_bytes: bundle_bytes.len() as u64,
+                download_path: "/api/v1/player/packages/acme.example/widgets/test".into(),
+            });
+            files.insert(bundle_digest, bundle_bytes);
+            let count = Arc::new(TransferCount::default());
+            let plan = CountedPlan { files, count: count.clone() };
+            let prepared = manifest.prepare_content(&store, &plan).await.unwrap();
+            assert_eq!(prepared.verified.len(), 8);
+            assert_eq!(count.peak.load(Ordering::SeqCst), expected_peak, "limit {limit}");
+        }
     }
 
     fn frame_candidate(frame: &Sha256Digest, package: &Sha256Digest, size: u64) -> NativeManifest {
