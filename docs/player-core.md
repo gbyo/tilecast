@@ -147,6 +147,13 @@ active, and a changed binding resets trial state. Core drives offline activation
 ordering and wake timers. Hosts project Runtime documents and supply opaque
 comparison keys. Edge retains Runtime document comparison, projection, and
 surface construction. Core checks packaged and connected support before a trial.
+A host can also report an external presentation
+(`OfflineActivationHost::external_presentation`). Core then shows it instead of
+the selection and the active-hours and disabled gates, and holds a pending
+trial. Only a takeover target outranks it: Core calls
+`yield_external_presentation` and shows the takeover. Edge uses this for
+AirPlay Present ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §6.1).
+The other hosts keep the default (no external presentation).
 
 ### Activation trials
 

@@ -9,6 +9,7 @@ from transient units that stand in for tilecastd and the renderer.
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -132,6 +133,9 @@ def setup():
                CARGO_INCREMENTAL="0", PATH="/target/cargo-home/bin:/opt/cargo/bin:" + os.environ.get("PATH", ""))
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-airplay", cwd="/src", env=env)
     step("install the units, the account and the fake UxPlay")
+    # A second setup (the headless airplay scenario) replaces a binary that
+    # a running supervisor may still hold open.
+    run("systemctl", "stop", "tilecast-airplay.socket", "tilecast-airplay.service", check=False)
     os.makedirs(os.path.join(RELEASE, "bin"), exist_ok=True)
     shutil.copy(os.path.join(TARGET, "debug/tilecast-airplay"), os.path.join(RELEASE, "bin/tilecast-airplay"))
     shutil.copy(os.path.join(EDGE, "tilecast-airplay/tests/fake-uxplay"), os.path.join(RELEASE, "bin/uxplay"))
@@ -226,9 +230,11 @@ def no_secret_in_logs():
     step("no secret in the journal")
     run("journalctl", "--sync")
     journal = output("journalctl", "-b", "--no-pager", "-o", "cat")
+    # Digits only as a whole number: the PIN also occurs inside timestamps.
     for secret in (PIN, DEVICE_ID, "82:64"):
-        if secret in journal:
-            line = next(line for line in journal.splitlines() if secret in line)
+        pattern = re.compile(r"(?<![0-9.])" + re.escape(secret) + r"(?![0-9])")
+        line = next((line for line in journal.splitlines() if pattern.search(line)), None)
+        if line is not None:
             fail(f"{secret} is in the journal: {line}")
     supervisor = output("journalctl", "-b", "--no-pager", "-o", "cat", "-u", "tilecast-airplay.service")
     for event in ("advertising", "client_connected", "peer_refused"):
