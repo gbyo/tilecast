@@ -493,10 +493,31 @@ tc_preview_presented_generation (TcHost *host)
   return presented.rendered;
 }
 
+/* While the AirPlay relay runs, Watch Live gets black frames of the
+ * presented size, and the presented pixels are never read: mirrored frames
+ * belong to the presenter (docs/tilecast-edge-airplay-threat-review.md §8). */
+static GBytes *
+excluded_frame (TcPixelFormat *format, guint *width, guint *height)
+{
+  if (presented.buffer == NULL)
+    return NULL;
+  int w = wpe_buffer_get_width (presented.buffer), h = wpe_buffer_get_height (presented.buffer);
+  if (w <= 0 || h <= 0 || w > 8192 || h > 8192)
+    return NULL;
+  *format = TC_PIXEL_FORMAT_BGRX;
+  *width = (guint) w;
+  *height = (guint) h;
+  return g_bytes_new_take (g_malloc0 ((gsize) w * (gsize) h * 4), (gsize) w * (gsize) h * 4);
+}
+
 GBytes *
 tc_preview_copy_presented (TcHost *host, TcPixelFormat *format, guint *width, guint *height, gint64 *elapsed_us)
 {
-  (void) host;
+  if (tc_present_relay_active (host->present)) {
+    if (elapsed_us != NULL)
+      *elapsed_us = 0;
+    return excluded_frame (format, width, height);
+  }
   PreviewRequest scratch = { 0 };
   char description[96] = "";
   gint64 started = g_get_monotonic_time ();
@@ -585,6 +606,10 @@ tc_preview_capture (TcHost *host, JsonObject *data)
   }
   if (host->view == NULL) {
     send_result (host, request_id, NULL, 0, 0, "renderer_not_ready");
+    return;
+  }
+  if (tc_present_relay_active (host->present)) {
+    send_result (host, request_id, NULL, 0, 0, "external_presentation");
     return;
   }
   /* WebKit initializes GStreamer in its web processes, not in this one; the

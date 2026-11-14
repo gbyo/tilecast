@@ -161,6 +161,7 @@ pub(crate) fn metadata(
             PresentationDocument::Setup { .. } => player_core::CaptureState::Setup,
             PresentationDocument::Pairing { .. } => player_core::CaptureState::Pairing,
             PresentationDocument::SafeMode { .. } => player_core::CaptureState::SafeMode,
+            PresentationDocument::ExternalPresentation { .. } => player_core::CaptureState::ExternalPresentation,
             _ => player_core::CaptureState::Presentation,
         }
     };

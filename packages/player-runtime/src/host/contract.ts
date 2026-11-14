@@ -98,6 +98,13 @@ export interface RuntimeCapabilitiesV1 {
    * the runtime does not know, means `"cast"`.
    */
   readonly outsideHoursLogo?: OutsideHoursLogoV1;
+  /**
+   * The host relays a connected AirPlay sender's stream to
+   * `tcpresent://cap/<sourceId>`, and the runtime shows it in the
+   * external-presentation view. Absent means unavailable: the external
+   * receiver then owns the screen while a sender is connected.
+   */
+  readonly externalPresentationVideo?: boolean;
 }
 
 /** Diagnostics only. Behavior must never branch on these values. */
@@ -513,6 +520,11 @@ export type RuntimePresentation =
       transport?: string;
       audioMode?: string;
       presentationNetwork?: "joining" | "connected" | "failed";
+      /**
+       * Opaque ID of the session's stream (64 lowercase hex). Used only with
+       * `capabilities.externalPresentationVideo`.
+       */
+      sourceId?: string;
     };
 
 /**

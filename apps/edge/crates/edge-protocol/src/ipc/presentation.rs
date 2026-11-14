@@ -31,6 +31,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::airplay::{AirplayPin, ReceiverName, SessionId as AirplaySessionId};
 use crate::bounded::{SafeText, ShortToken};
 use crate::digest::Sha256Digest;
 
@@ -171,6 +172,51 @@ pub enum PhoneSetupDocument {
     Unavailable {},
 }
 
+/// The present capability of one AirPlay session's forwarded stream: 64
+/// lowercase hexadecimal characters, the random 32-byte token that
+/// `MediaRegistry::grant_present` mints for each grant. It is not an AirPlay
+/// session ID. The Runtime shows it as `tcpresent://cap/<token>`, and the
+/// renderer relays the session's loopback RTP only for the token of the
+/// current activation (docs/tilecast-edge-airplay.md §5).
+#[derive(Clone, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct PresentSourceId(String);
+
+impl PresentSourceId {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        (value.len() == 64 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+            .then_some(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for PresentSourceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("PresentSourceId(<redacted>)")
+    }
+}
+
+impl<'de> Deserialize<'de> for PresentSourceId {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(d)?;
+        Self::new(value).ok_or_else(|| serde::de::Error::custom("invalid present source ID"))
+    }
+}
+
+/// How the screen's Presentation Network join goes, as the ready page shows
+/// it (docs/presentation-networks.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PresentationNetworkState {
+    Joining,
+    Connected,
+    Failed,
+}
+
 /// The presentation union, tagged by `state` exactly like the web runtime.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "kebab-case", deny_unknown_fields)]
@@ -219,6 +265,29 @@ pub enum PresentationDocument {
         #[serde(default, skip_serializing_if = "Vec::is_empty", deserialize_with = "features")]
         requires: Vec<PresentationFeature>,
     },
+    /// Single-screen AirPlay Present (docs/tilecast-edge-airplay.md §6). The
+    /// Runtime shows the ready page with the PIN until a sender connects.
+    /// `sourceId` is present only for a renderer that advertised
+    /// [`super::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO`]; the Runtime
+    /// then shows the forwarded stream once `connected` is true.
+    ExternalPresentation {
+        #[serde(rename = "sessionId")]
+        session_id: AirplaySessionId,
+        #[serde(rename = "receiverName")]
+        receiver_name: ReceiverName,
+        /// Shown on the screen so a presenter can type it. Not logged.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pin: Option<AirplayPin>,
+        /// RFC 3339, for the "Available until" line.
+        #[serde(rename = "expiresAt")]
+        expires_at: SafeText<40>,
+        #[serde(default)]
+        connected: bool,
+        #[serde(rename = "presentationNetwork", default, skip_serializing_if = "Option::is_none")]
+        presentation_network: Option<PresentationNetworkState>,
+        #[serde(rename = "sourceId", default, skip_serializing_if = "Option::is_none")]
+        source_id: Option<PresentSourceId>,
+    },
 }
 
 fn features<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<PresentationFeature>, D::Error> {
@@ -240,6 +309,7 @@ impl PresentationDocument {
             Self::SafeMode { .. } => "safe-mode",
             Self::Sleep { .. } => "sleep",
             Self::Playing { .. } => "playing",
+            Self::ExternalPresentation { .. } => "external-presentation",
         }
     }
 
@@ -389,6 +459,42 @@ mod tests {
         assert!(
             serde_json::from_value::<PresentationDocument>(json!({"state": "safe-mode", "reason": "x", "more": 1}))
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn external_presentation_carries_only_an_opaque_source() {
+        let source = "0123456789abcdef".repeat(4);
+        let document: PresentationDocument = serde_json::from_value(json!({
+            "state": "external-presentation", "sessionId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+            "receiverName": "Lobby", "pin": "0000", "expiresAt": "2026-11-13T18:00:00Z",
+            "connected": true, "sourceId": source
+        }))
+        .expect("external presentation");
+        assert_eq!(document.state_name(), "external-presentation");
+        assert_eq!(document.required_features(), vec!["status-surfaces-v1"]);
+        let debug = format!("{document:?}");
+        assert!(!debug.contains("0000") && !debug.contains(&source), "{debug}");
+        for source in [
+            "0123456789ABCDEF".repeat(4),
+            "tcpresent://cap/".to_owned() + &"a".repeat(64),
+            "a".repeat(63),
+            "127.0.0.1:42000".to_owned(),
+        ] {
+            assert!(
+                serde_json::from_value::<PresentationDocument>(json!({
+                    "state": "external-presentation", "sessionId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+                    "receiverName": "Lobby", "expiresAt": "2026-11-13T18:00:00Z", "sourceId": source
+                }))
+                .is_err()
+            );
+        }
+        assert!(
+            serde_json::from_value::<PresentationDocument>(json!({
+                "state": "external-presentation", "sessionId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+                "receiverName": "Lobby", "expiresAt": "2026-11-13T18:00:00Z", "videoPort": 42000
+            }))
+            .is_err()
         );
     }
 

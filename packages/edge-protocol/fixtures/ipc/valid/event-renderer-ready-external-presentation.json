@@ -1,0 +1,32 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.ready",
+    "data": {
+      "renderer": {
+        "kind": "wpe",
+        "version": "0.1.0",
+        "engineVersion": "2.54.2",
+        "gstreamerVersion": "1.28.0",
+        "platform": "drm"
+      },
+      "features": [
+        "status-surfaces-v1",
+        "image",
+        "video",
+        "external-presentation-video-v1"
+      ],
+      "display": {
+        "connected": true,
+        "width": 1920,
+        "height": 1080,
+        "refreshMillihertz": 60000
+      },
+      "externalPresentation": {
+        "decoder": "vah264dec",
+        "hardwareDecode": true
+      }
+    }
+  }
+}

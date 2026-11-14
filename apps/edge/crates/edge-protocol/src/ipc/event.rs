@@ -424,6 +424,20 @@ pub struct RendererReady {
     /// Support reported by the running Runtime, never inferred from release metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub support: Option<Box<RuntimeSupport>>,
+    /// The H.264 decoder the renderer's GStreamer selects for a forwarded
+    /// AirPlay stream. Present only with
+    /// [`super::RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_presentation: Option<ExternalPresentationDecoder>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExternalPresentationDecoder {
+    /// The GStreamer element name, for example `vah264dec` or `avdec_h264`.
+    pub decoder: ShortToken,
+    /// The element is a hardware decoder (its class names `Hardware`).
+    pub hardware_decode: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

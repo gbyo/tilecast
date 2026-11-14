@@ -13,8 +13,13 @@ The receiver adds no root privilege. Review rule 1 therefore does not require th
  uxplay (tilecast-airplay account; started by the supervisor)
    | decrypted H.264 RTP and L16 RTP to 127.0.0.1:42000 and :42002
    v
- renderer-wpe tcpresent source (tilecast account; tilecast-renderer.service)
-   ^ grant: unguessable tcpresent capability to ports, from tilecastd only
+ renderer-wpe main process relay (tilecast account; tilecast-renderer.service;
+   |                               host network namespace)
+   | ^ grant: opaque capability to the fixed ports, from tilecastd only,
+   | |  over the media socket
+   | unixfdsink sockets in a private 0700 directory
+   v
+ WebKit web process tcpresent source (bubblewrap; own network namespace)
    |
  tilecastd (tilecast account; tilecast-edge.service)
    | /run/tilecast-airplay/control.sock  root:tilecast 0660
@@ -30,7 +35,7 @@ The receiver adds no root privilege. Review rule 1 therefore does not require th
 | Device credential           | `tilecastd` identity directory                                           | `tilecastd` only. Not changed.                                      |
 | Presentation Network secret | Memory of `tilecastd` during a profile install, then `tilecast-networkd` | Not changed. Never crosses the AirPlay socket.                      |
 | Session PIN and device ID   | Server command, `tilecastd` state row, supervisor `-rc` file             | `tilecastd`, the supervisor, UxPlay. Deleted when the session ends. |
-| Mirrored frames and audio   | UxPlay, loopback RTP, renderer                                           | Never sent to preview, Watch Live, snapshot, or the Server.         |
+| Mirrored frames and audio   | UxPlay, loopback RTP, renderer relay, relay sockets, web process         | Never sent to preview, Watch Live, snapshot, or the Server.         |
 | Display                     | Renderer (DRM master)                                                    | Renderer only. UxPlay never draws.                                  |
 
 ## 3. The new account and unit
@@ -88,16 +93,29 @@ The renderer receives RTP on `127.0.0.1:42000` and `:42002`. Any local process c
 This risk is accepted for these reasons:
 
 - A process that can send on loopback already runs on the signage host.
-- The renderer binds the ports only for an active session, and `tilecastd` exposes them to the Runtime only through a live `tcpresent` capability.
+- The ports are open only during a session. The renderer's main process binds them only while `tilecastd` holds the present grant, and it stops within one second after the grant ends.
+- The relay binds with `reuse=false`. A local process that binds a port first makes the relay fail. It cannot share the stream with the relay.
 - The worst result is wrong video or audio on the screen during a session. Emergency Takeover still has priority.
 
 A Unix-socket transport would remove the risk, but it needs a custom GStreamer source and sink on both sides. Revisit the decision if a deployment runs untrusted local accounts on the signage host.
 
 ## 8. The renderer
 
-The renderer gets one new URI scheme, `tcpresent`. The page receives only `tcpresent://cap/<opaque-token>`. The token is unguessable, scoped to the current presentation generation, and is not the session UUID. The renderer resolves only a live daemon-issued capability to loopback ports. Stop, expiry, replacement, or renderer-generation change revokes it. The renderer never takes an address, a port, a session ID, or a path from the page. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
+The renderer gets one new URI scheme, `tcpresent`. The page supplies only an opaque present capability (`tcpresent://cap/<token>`, 32 random bytes minted per grant and bound to the current renderer instance; it is not an AirPlay session ID). The renderer never takes an address, a port, or a path from the page or from the presentation document. The renderer unit does not change. WebKit's bubblewrap sandbox stays on, and no forbidden directive is added ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4).
 
-Mirrored pixels are part of the presented WPE buffer, so capture policy must stop them before capture starts. Stage 5 adds `CaptureState::ProtectedPresentation` in Player Core and maps active AirPlay to it. Preview, snapshot, MJPEG Watch Live, and H.264 Watch Live must all return `protected_state`. A CSS mask or a Runtime-only omission is not a privacy boundary.
+WebKit starts the web process with `--unshare-net`, so the web process cannot receive UDP from the host loopback (amendment §5.1). The relay keeps that boundary:
+
+- The renderer's main process receives the RTP and copies each packet to a Unix socket in its private 0700 directory under the unit's private `/tmp`. The web process gets only that directory in its sandbox. Other units cannot see the directory, because `PrivateTmp=yes` gives the renderer unit its own `/tmp`.
+- The main process starts the relay only for the `sourceId` of a `tilecastd` activation, and only after `tilecastd` answers the media-socket `present` request for that ID. It asks again each second and stops the relay when the answer is a denial.
+- The media channel answers `present` only for a peer that is the current renderer or its child, with the same rule as media reads. A media or frame capability does not resolve as a present grant, and a present grant does not resolve as a media read.
+- The web process never gets a network socket. A UDP socket from the host network namespace, passed with `SCM_RIGHTS`, would remove the copy. It would also let a compromised web process send UDP to any address on the network, which its own network namespace prevents now. That design was rejected.
+
+Preview, snapshot, and Watch Live must not capture the external-presentation surface. Two layers enforce this (amendment §5.4):
+
+- `tilecastd` treats the `external-presentation` state as protected (`CaptureState::ExternalPresentation`). It refuses a capture before it asks the renderer, and it discards a frame when the state changed during the capture.
+- The renderer refuses a preview with `external_presentation` while the relay runs or waits for its grant. Watch Live gets black frames, and the renderer does not read the presented pixels. The renderer drops its last presented buffer when the relay stops, so a later capture cannot copy a mirrored frame.
+
+Stage 4 tests the daemon state with unit tests and the relay with real sockets. The Stage 5 end-to-end scenario tests the complete path with a running renderer.
 
 ## 9. Discovery and D-Bus
 
@@ -115,19 +133,19 @@ The existing root `tilecast-networkd` boundary does not change. A fresh Edge ins
 
 ## 11. Edge review rules
 
-| Rule                                                        | How the receiver meets it                                                                                          |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                       |
-| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                         |
-| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no server path. The renderer maps only an unguessable daemon-issued capability (§8).          |
-| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.   |
-| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                             |
-| 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                              |
-| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                               |
-| 8. IPC change has fixtures and tests on both sides          | Required in Stage 2 (amendment §4.2).                                                                              |
-| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive. |
-| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                         |
-| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.      |
+| Rule                                                        | How the receiver meets it                                                                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 1. No new root privilege without a review                   | No root privilege. This review exists anyway (introduction).                                                             |
+| 2. No shell with interpolated values                        | §5. `tilecastd` still starts no processes.                                                                               |
+| 3. No arbitrary path from server, renderer, or legacy input | The supervisor takes no path. The relay and `tcpresent` build socket paths only from a validated opaque capability (§8). |
+| 4. Bound every read, body, frame, list, and string          | `edge-protocol` bounded types on the control socket (§4). UxPlay output is parsed with a fixed, bounded grammar.         |
+| 5. Content bytes are verified                               | Not applicable. The stream is live and never enters the content store.                                                   |
+| 6. Crash-point tests for durable transitions                | Required for every session transition (amendment §6).                                                                    |
+| 7. No secret in logs, tests, fixtures, or screenshots       | §10.                                                                                                                     |
+| 8. IPC change has fixtures and tests on both sides          | Stage 2: the control protocol. Stage 4: the media `present` request and the `external-presentation` document.            |
+| 9. Health from playback evidence                            | `client_connected` comes from UxPlay. Video health comes from renderer evidence, not from the process being alive.       |
+| 10. Test release I/O in the packaged sandbox                | Stage 2 and Stage 3 run the real units in the Linux image.                                                               |
+| 11. The previous helper runs an update                      | The supervisor is not part of the update path. An update stops an active session as an ordinary restart does.            |
 
 ## 12. Residual risks
 
@@ -135,3 +153,5 @@ The existing root `tilecast-networkd` boundary does not change. A fresh Edge ins
 - Loopback injection during a session (§7).
 - A four-digit PIN can be guessed. UxPlay has no limit in `-pin` mode (§6). The supervisor's limit of 10 failures for each session leaves a 0.1 % chance for each session. The limit depends on UxPlay's log text; `tilecast-airplay/src/uxplay.rs` names the lines, and a new UxPlay pin must check them again.
 - avahi-daemon is a host service that Tilecast does not update.
+- iOS sends a key frame only when mirroring starts, and the relay cannot ask the sender for another one. If the web process restarts during a connected session, the screen stays black until the sender sends a key frame or connects again. The Runtime mounts the video before a sender connects to prevent this at session start (amendment §5.2).
+- The relay copies mirrored packets in the renderer's main process. That process already shows untrusted web content through WebKit. It does not parse the packets.

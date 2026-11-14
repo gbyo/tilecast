@@ -63,6 +63,7 @@ add_executable(tilecast-renderer-wpe
   src/schemes.c
   src/remote-web.c
   src/frame-navigation.c
+  src/present-relay.c
   src/view.c)
 target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-live-profiles tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
@@ -98,6 +99,14 @@ add_test(NAME media-client COMMAND test-media-client)
 add_library(tilecast-rw-channel STATIC src/rw-channel.c)
 target_link_libraries(tilecast-rw-channel PUBLIC PkgConfig::GIO)
 target_include_directories(tilecast-rw-channel PUBLIC src)
+
+# The AirPlay relay against a fake media socket and real loopback UDP, with
+# unixfdsrc on the far side as the web process uses it.
+add_executable(test-present-relay tests/test_present_relay.c src/present-relay.c)
+target_include_directories(test-present-relay PRIVATE src)
+target_link_libraries(test-present-relay PRIVATE tilecast-media-client PkgConfig::GST)
+target_compile_definitions(test-present-relay PRIVATE TC_MEDIA_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/media")
+add_test(NAME present-relay COMMAND test-present-relay)
 
 add_executable(test-rw-channel tests/test_rw_channel.c)
 target_link_libraries(test-rw-channel PRIVATE tilecast-rw-channel)

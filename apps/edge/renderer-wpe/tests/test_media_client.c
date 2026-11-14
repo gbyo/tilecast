@@ -152,6 +152,63 @@ test_invalid_capability (void)
   g_assert_null (mime);
 }
 
+/* Runs one present exchange. `response` is a fixture name, or an inline
+ * reply when it starts with '{'. */
+static void
+run_present (const char *response, gboolean expect_ok, gboolean expect_audio, gint expect_code)
+{
+  g_autofree char *dir = g_dir_make_tmp ("tilecast-media-client-XXXXXX", NULL);
+  g_autofree char *path = g_build_filename (dir, "media.sock", NULL);
+  g_autoptr (GSocketListener) listener = g_socket_listener_new ();
+  g_autoptr (GSocketAddress) address = g_unix_socket_address_new (path);
+  g_assert_true (g_socket_listener_add_address (listener, address, G_SOCKET_TYPE_STREAM, G_SOCKET_PROTOCOL_DEFAULT,
+                                                 NULL, NULL, NULL));
+  g_autofree char *request = fixture ("present-request.json");
+  g_autofree char *reply = response[0] == '{' ? g_strdup (response) : fixture (response);
+  FixtureServer server = { listener, request, reply, NULL, 0 };
+  GThread *thread = g_thread_new ("media-fixture", serve_fixture, &server);
+  g_autoptr (GError) error = NULL;
+  gboolean audio = !expect_audio;
+  gboolean ok = tc_media_present (path, CAPABILITY, &audio, &error);
+  g_assert_cmpint (ok, ==, expect_ok);
+  if (expect_ok) {
+    g_assert_no_error (error);
+    g_assert_cmpint (audio, ==, expect_audio);
+  } else {
+    g_assert_error (error, G_IO_ERROR, expect_code);
+  }
+  g_thread_join (thread);
+  g_socket_listener_close (listener);
+  g_assert_cmpint (g_unlink (path), ==, 0);
+  g_assert_cmpint (g_rmdir (dir), ==, 0);
+}
+
+static void
+test_present (void)
+{
+  run_present ("present-response.json", TRUE, TRUE, 0);
+  run_present ("present-video-response.json", TRUE, FALSE, 0);
+  run_present ("denied-response.json", FALSE, FALSE, G_IO_ERROR_PERMISSION_DENIED);
+  /* The reply never chooses a port: anything but the fixed pair is refused. */
+  run_present ("{\"status\":\"ok\",\"videoPort\":5353}", FALSE, FALSE, G_IO_ERROR_INVALID_DATA);
+  run_present ("{\"status\":\"ok\",\"videoPort\":42000,\"audioPort\":42004}", FALSE, FALSE,
+               G_IO_ERROR_INVALID_DATA);
+  run_present ("{\"status\":\"ok\",\"audioPort\":42002}", FALSE, FALSE, G_IO_ERROR_INVALID_DATA);
+  run_present ("{\"status\":\"ok\",\"videoPort\":\"42000\"}", FALSE, FALSE, G_IO_ERROR_INVALID_DATA);
+}
+
+static void
+test_present_invalid_capability (void)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean audio = FALSE;
+  g_assert_false (tc_media_present ("/nonexistent/media.sock", "tcpresent://cap/" CAPABILITY, &audio, &error));
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT);
+  g_clear_error (&error);
+  g_assert_false (tc_media_present ("/nonexistent/media.sock", "0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef", &audio, &error));
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -162,5 +219,7 @@ main (int argc, char **argv)
   g_test_add_func ("/media/head-frame", test_head_frame);
   g_test_add_func ("/media/read-frame", test_read_frame);
   g_test_add_func ("/media/invalid-capability", test_invalid_capability);
+  g_test_add_func ("/media/present", test_present);
+  g_test_add_func ("/media/present-invalid-capability", test_present_invalid_capability);
   return g_test_run ();
 }

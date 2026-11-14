@@ -52,6 +52,9 @@ pub enum CaptureState {
     Setup,
     Pairing,
     SafeMode,
+    /// A mirrored AirPlay session. Its frames belong to the presenter and
+    /// never leave the screen (docs/tilecast-edge-airplay-threat-review.md §8).
+    ExternalPresentation,
     Presentation,
 }
 
@@ -59,7 +62,9 @@ impl CaptureState {
     pub fn check(self, safe_mode_source: bool) -> Result<(), CaptureError> {
         if self == Self::NothingShown {
             Err(CaptureError::NothingShown)
-        } else if safe_mode_source || matches!(self, Self::Setup | Self::Pairing | Self::SafeMode) {
+        } else if safe_mode_source
+            || matches!(self, Self::Setup | Self::Pairing | Self::SafeMode | Self::ExternalPresentation)
+        {
             Err(CaptureError::ProtectedState)
         } else {
             Ok(())
@@ -153,7 +158,9 @@ mod tests {
 
     #[test]
     fn protected_states_refuse_capture() {
-        for state in [CaptureState::Setup, CaptureState::Pairing, CaptureState::SafeMode] {
+        for state in
+            [CaptureState::Setup, CaptureState::Pairing, CaptureState::SafeMode, CaptureState::ExternalPresentation]
+        {
             assert_eq!(state.check(false), Err(CaptureError::ProtectedState));
         }
         assert_eq!(CaptureState::Presentation.check(true), Err(CaptureError::ProtectedState));

@@ -194,6 +194,7 @@ impl Renderer {
                                     }),
                                     remote_web: None,
                                     support: None,
+                                    external_presentation: None,
                                 }))
                                 .await;
                         }
