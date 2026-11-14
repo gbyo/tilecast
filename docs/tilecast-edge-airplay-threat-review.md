@@ -119,7 +119,9 @@ Stage 4 tests the daemon state with unit tests and the relay with real sockets. 
 
 ## 9. Discovery and D-Bus
 
-UxPlay 1.73.7 uses the DNS-SD compatibility API. On Debian, `libavahi-compat-libdnssd` supplies that API and reaches the host `avahi-daemon`. The unit gets only the Unix socket or system-bus access that this packaged path proves it needs in the Stage 2 sandbox test. Do not grant a general desktop session bus, and do not enable UxPlay's `-scrsv` option.
+UxPlay 1.73.7 uses the DNS-SD compatibility API. On Debian, `libavahi-compat-libdnssd` supplies that API and reaches the host `avahi-daemon`. Do not grant a general desktop session bus, and do not enable UxPlay's `-scrsv` option.
+
+**Residual limitation.** The unit does not restrict the supervisor to Avahi. `RestrictAddressFamilies=AF_UNIX` lets the `tilecast-airplay` account connect to any Unix socket that the file system and the unit's mounts leave reachable and that its identity may open. That includes the system D-Bus socket. systemd has no per-service filter for the destination of a system-bus connection, and the unit has no D-Bus proxy. What limits the account on the bus is the host's D-Bus policy for an unprivileged user, and what limits it elsewhere is its identity: no supplementary group, no capability, no access to the Edge state and runtime directories (`InaccessiblePaths=`), `ProtectHome=yes`, and a read-only system. A compromised UxPlay could therefore send any system-bus call that the policy allows an unprivileged account, not only Avahi calls. A dedicated proxy such as `xdg-dbus-proxy` filtered to `org.freedesktop.Avahi` would remove this, and it is not part of this stack.
 
 The existing root `tilecast-networkd` boundary does not change. A fresh Edge installation receives that same helper and unit from the signed Edge release instead of running the Legacy Server install script. NetworkManager stays optional and outside the Edge updater's authority.
 

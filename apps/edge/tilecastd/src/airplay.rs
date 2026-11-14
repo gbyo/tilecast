@@ -250,6 +250,11 @@ pub struct Readiness {
 
 const REMEDY: &str = "Install a Tilecast Edge release that includes it.";
 
+/// The reason code and the sentence for a closed qualification gate.
+pub const QUALIFICATION_PENDING: &str = "qualification_pending";
+const QUALIFICATION_PENDING_SENTENCE: &str =
+    "AirPlay on Tilecast Edge is still being qualified on real hardware and is not available yet.";
+
 impl Readiness {
     /// `airplaySupported`: the unit answers `probe` with no limitation,
     /// avahi-daemon is seen, and the renderer shows the stream.
@@ -258,6 +263,22 @@ impl Readiness {
             && self.renderer.connected
             && self.renderer.video
             && self.renderer.decoder.is_some()
+    }
+
+    /// What Edge offers: every dependency is healthy ([`Self::supported`]) and
+    /// the qualification gate is open. Studio and the Server read this.
+    pub fn available(&self, qualified: bool) -> bool {
+        qualified && self.supported()
+    }
+
+    /// [`Self::limitation`] for what Edge offers. A failed dependency keeps its
+    /// own, more useful sentence; a closed gate explains itself only when the
+    /// dependencies are healthy.
+    pub fn offered_limitation(&self, qualified: bool) -> Option<String> {
+        if !qualified && self.supported() {
+            return Some(QUALIFICATION_PENDING_SENTENCE.into());
+        }
+        self.limitation()
     }
 
     /// One sentence for Studio, for the first failed dependency in the
@@ -361,6 +382,9 @@ pub struct Airplay {
     view: std::sync::Mutex<Option<View>>,
     probe: std::sync::Mutex<Option<Option<Probe>>>,
     last_session: std::sync::Mutex<Option<String>>,
+    /// The qualification gate (`crate::qualification`). Closed, the probe and
+    /// the diagnostics still run, but Edge does not offer AirPlay.
+    qualified: bool,
 }
 
 impl std::fmt::Debug for Airplay {
@@ -383,7 +407,20 @@ impl Airplay {
             view: std::sync::Mutex::new(None),
             probe: std::sync::Mutex::new(None),
             last_session: std::sync::Mutex::new(None),
+            qualified: false,
         }
+    }
+
+    /// Sets the qualification gate; see `crate::qualification`.
+    #[must_use]
+    pub fn with_qualified(mut self, qualified: bool) -> Self {
+        self.qualified = qualified;
+        self
+    }
+
+    /// Whether Edge may offer AirPlay once its dependencies are healthy.
+    pub fn qualified(&self) -> bool {
+        self.qualified
     }
 
     /// A session is on screen (or is being prepared for it).
@@ -526,10 +563,11 @@ pub async fn document(context: &DaemonContext) -> Option<PresentationDocument> {
 pub async fn heartbeat(context: &DaemonContext, heartbeat: &mut Value) {
     let Some(probe) = lock(&context.airplay.probe).clone() else { return };
     let readiness = Readiness { probe, renderer: renderer_support(context).await };
+    let qualified = context.airplay.qualified();
     let Some(object) = heartbeat.as_object_mut() else { return };
     let probe = readiness.probe.as_ref();
     let installed = probe.is_some_and(|p| p.limitation.as_deref() != Some(wire::limitation::UXPLAY_MISSING));
-    object.insert("airplaySupported".into(), json!(readiness.supported()));
+    object.insert("airplaySupported".into(), json!(readiness.available(qualified)));
     object.insert("airplayUxPlayInstalled".into(), json!(installed));
     if let Some(version) = probe.and_then(|p| p.uxplay_version.as_deref()) {
         object.insert("airplayUxPlayVersion".into(), json!(version));
@@ -547,7 +585,7 @@ pub async fn heartbeat(context: &DaemonContext, heartbeat: &mut Value) {
     object.insert("airplayAvahiAvailable".into(), json!(avahi));
     object.insert("airplayMdnsAdvertisementAvailable".into(), json!(avahi));
     object.insert("airplayMulticastTestStatus".into(), json!("unsupported"));
-    if let Some(limitation) = readiness.limitation() {
+    if let Some(limitation) = readiness.offered_limitation(qualified) {
         object.insert("airplayLimitation".into(), json!(limitation.chars().take(240).collect::<String>()));
     }
     let view = lock(&context.airplay.view).clone();
@@ -573,35 +611,52 @@ pub async fn heartbeat(context: &DaemonContext, heartbeat: &mut Value) {
     }
 }
 
-/// `external_presentation.airplay`.
-pub async fn capability(context: &DaemonContext) -> Option<player_types::capability::Capability> {
-    use edge_protocol::bounded::{DetailText, ShortText, ShortToken, Token};
-    use edge_protocol::capability::{AttributeValue, Capability, CapabilityId, CapabilityState, ids};
-    let probe = lock(&context.airplay.probe).clone();
-    let readiness = Readiness { probe: probe.clone().flatten(), renderer: renderer_support(context).await };
-    let (state, reason) = match &probe {
+/// The state of `external_presentation.airplay`. A failed dependency reports
+/// its own reason first. When every dependency is healthy, a closed
+/// qualification gate answers `Blocked` with `qualification_pending`, so the
+/// probe's diagnostics stay useful while Studio does not offer AirPlay.
+pub fn capability_state(
+    probe: &Option<Option<Probe>>,
+    renderer: &RendererSupport,
+    qualified: bool,
+) -> (player_types::capability::CapabilityState, Option<String>) {
+    use player_types::capability::CapabilityState;
+    match probe {
         None => (CapabilityState::Supported, Some("not_probed".to_owned())),
         Some(None) => (CapabilityState::Unsupported, Some("receiver_unavailable".to_owned())),
         Some(Some(probe)) if probe.limitation.is_some() => (CapabilityState::Unsupported, probe.limitation.clone()),
         Some(Some(probe)) if !probe.avahi_available => {
             (CapabilityState::Unsupported, Some(wire::limitation::AVAHI_UNAVAILABLE.to_owned()))
         }
-        Some(Some(_)) if !readiness.renderer.connected => {
-            (CapabilityState::Degraded, Some("renderer_not_connected".to_owned()))
-        }
-        Some(Some(_)) if !readiness.renderer.video || readiness.renderer.decoder.is_none() => {
+        Some(Some(_)) if !renderer.connected => (CapabilityState::Degraded, Some("renderer_not_connected".to_owned())),
+        Some(Some(_)) if !renderer.video || renderer.decoder.is_none() => {
             (CapabilityState::Unsupported, Some("renderer_video_unavailable".to_owned()))
         }
+        Some(Some(_)) if !qualified => (CapabilityState::Blocked, Some(QUALIFICATION_PENDING.to_owned())),
         Some(Some(_)) => (CapabilityState::Available, None),
-    };
+    }
+}
+
+/// `external_presentation.airplay`.
+pub async fn capability(context: &DaemonContext) -> Option<player_types::capability::Capability> {
+    use edge_protocol::bounded::{DetailText, ShortText, ShortToken, Token};
+    use edge_protocol::capability::{AttributeValue, Capability, CapabilityId, ids};
+    let probe = lock(&context.airplay.probe).clone();
+    let readiness = Readiness { probe: probe.clone().flatten(), renderer: renderer_support(context).await };
+    let qualified = context.airplay.qualified();
+    let (state, reason) = capability_state(&probe, &readiness.renderer, qualified);
     let mut out = Capability::new(CapabilityId::new(ids::EXTERNAL_PRESENTATION_AIRPLAY).ok()?, state, context.now());
     out.provider = ShortToken::new("tilecast-airplay").ok();
     out.reason_code = reason.and_then(|reason| ShortToken::new(&reason).ok());
-    out.detail = readiness.limitation().as_deref().map(DetailText::lossy);
+    out.detail = readiness.offered_limitation(qualified).as_deref().map(DetailText::lossy);
     if let Some(decoder) = &readiness.renderer.decoder
         && let Ok(key) = Token::<48>::new("decoder")
     {
         out.attributes.insert(key, AttributeValue::Text(ShortText::lossy(decoder)));
+    }
+    if let Ok(key) = Token::<48>::new("qualification") {
+        out.attributes
+            .insert(key, AttributeValue::Text(ShortText::lossy(if qualified { "qualified" } else { "pending" })));
     }
     if let Ok(key) = Token::<48>::new("session") {
         let state = lock(&context.airplay.view).as_ref().map_or("none", |view| view.receiver_state);
@@ -731,11 +786,14 @@ impl Actor {
         }
         let (connection, probe) = self.probe().await;
         let readiness = Readiness { probe, renderer: renderer_support(&self.context).await };
-        let Some(connection) = connection.filter(|_| readiness.supported()) else {
+        let qualified = self.context.airplay.qualified();
+        let Some(connection) = connection.filter(|_| readiness.available(qualified)) else {
             self.context.report_status_soon();
             return CommandResult::failed(
                 "airplay_not_ready",
-                &readiness.limitation().unwrap_or_else(|| "This player is not ready for AirPlay Present.".into()),
+                &readiness
+                    .offered_limitation(qualified)
+                    .unwrap_or_else(|| "This player is not ready for AirPlay Present.".into()),
             );
         };
         let row = session.row(SessionState::Prepared);
@@ -930,8 +988,9 @@ impl Actor {
                     Readiness { probe, renderer: renderer_support(&self.context).await }
                 };
                 self.context.report_status_soon();
-                let supported = readiness.supported();
-                let message = readiness.limitation().unwrap_or_else(|| {
+                let qualified = self.context.airplay.qualified();
+                let supported = readiness.available(qualified);
+                let message = readiness.offered_limitation(qualified).unwrap_or_else(|| {
                     format!("AirPlay ready with {}.", readiness.renderer.decoder.as_deref().unwrap_or("H.264"))
                 });
                 let _ = reply.send(CommandResult::new(
@@ -1222,6 +1281,74 @@ mod tests {
         assert!(software.supported());
         assert_eq!(software.max_profile(), "720p30");
         assert!(software.limitation().unwrap().contains("720p30"));
+    }
+
+    fn healthy() -> (Probe, RendererSupport) {
+        (
+            Probe { uxplay_version: Some("1.73.7".into()), avahi_available: true, limitation: None },
+            RendererSupport { connected: true, video: true, decoder: Some("vah264dec".into()), hardware_decode: true },
+        )
+    }
+
+    #[test]
+    fn a_closed_qualification_gate_blocks_a_healthy_receiver_but_keeps_the_diagnostics() {
+        use player_types::capability::CapabilityState;
+        let (probe, renderer) = healthy();
+        let (state, reason) = capability_state(&Some(Some(probe.clone())), &renderer, false);
+        assert_eq!((state, reason.as_deref()), (CapabilityState::Blocked, Some("qualification_pending")));
+        assert!(!state.is_usable());
+        let readiness = Readiness { probe: Some(probe), renderer };
+        // The dependencies are healthy and visible; only the offer is withheld.
+        assert!(readiness.supported());
+        assert!(!readiness.available(false));
+        assert!(readiness.offered_limitation(false).unwrap().contains("still being qualified"));
+    }
+
+    #[test]
+    fn an_open_qualification_gate_offers_a_healthy_receiver() {
+        use player_types::capability::CapabilityState;
+        let (probe, renderer) = healthy();
+        assert_eq!(capability_state(&Some(Some(probe.clone())), &renderer, true), (CapabilityState::Available, None));
+        let readiness = Readiness { probe: Some(probe), renderer };
+        assert!(readiness.available(true));
+        assert_eq!(readiness.offered_limitation(true), None);
+    }
+
+    #[test]
+    fn a_failed_dependency_keeps_its_own_reason_behind_a_closed_gate() {
+        use player_types::capability::CapabilityState;
+        let (probe, renderer) = healthy();
+        for qualified in [false, true] {
+            let no_avahi = Probe { avahi_available: false, ..probe.clone() };
+            assert_eq!(
+                capability_state(&Some(Some(no_avahi.clone())), &renderer, qualified),
+                (CapabilityState::Unsupported, Some(wire::limitation::AVAHI_UNAVAILABLE.to_owned()))
+            );
+            let missing = Probe { limitation: Some(wire::limitation::UXPLAY_MISSING.into()), ..probe.clone() };
+            assert_eq!(
+                capability_state(&Some(Some(missing)), &renderer, qualified),
+                (CapabilityState::Unsupported, Some(wire::limitation::UXPLAY_MISSING.to_owned()))
+            );
+            let no_video = RendererSupport { decoder: None, ..renderer.clone() };
+            assert_eq!(
+                capability_state(&Some(Some(probe.clone())), &no_video, qualified),
+                (CapabilityState::Unsupported, Some("renderer_video_unavailable".to_owned()))
+            );
+            assert_eq!(
+                capability_state(&Some(Some(probe.clone())), &RendererSupport::default(), qualified),
+                (CapabilityState::Degraded, Some("renderer_not_connected".to_owned()))
+            );
+            assert_eq!(
+                capability_state(&None, &renderer, qualified),
+                (CapabilityState::Supported, Some("not_probed".to_owned()))
+            );
+            let readiness = Readiness { probe: Some(no_avahi), renderer: renderer.clone() };
+            assert!(!readiness.available(qualified));
+            assert!(
+                readiness.offered_limitation(qualified).unwrap().starts_with("Avahi/Bonjour"),
+                "the dependency's sentence, not the gate's"
+            );
+        }
     }
 
     #[test]

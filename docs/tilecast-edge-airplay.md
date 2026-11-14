@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol), Stage 3 (UxPlay in the release), Stage 4 (the renderer relay, the `tcpresent` source, and the Runtime view), and Stage 5 (the `tilecastd` session) are implemented. AirPlay on Edge is not available until Stage 6 records hardware evidence.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stages 2 to 5 are implemented: the supervisor and its units, UxPlay in the release, the renderer relay and `tcpresent` source, and the `tilecastd` session. Single-screen AirPlay is implemented in software and has automated qualification. Physical hardware qualification is pending, so Edge does not offer AirPlay (§12.1). Group AirPlay is unsupported.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -290,14 +290,21 @@ Each stage is a separate pull request. Each pull request stacks on the one befor
 
 **Changes from the proposal, as built (Stages 2 to 5).** The stack keeps these decisions. The proposal text above states what each replaces.
 
-- The page names the relay with the present capability, as the proposal said: `tcpresent://cap/<token>`. The token is the activation's `sourceId`, a random 32-byte value that `MediaRegistry::grant_present` mints for the current renderer instance and revokes with the grant. It is not an AirPlay session ID. The renderer starts a relay only for that token, after `tilecastd` grants it (§5.1), and the page never names an address or a port. The first Stage 4 build used the path `tcpresent://cap/<id>`; that name was misleading and is removed.
+- The page names the relay with the present capability, as the proposal said: `tcpresent://cap/<token>`. The token is the activation's `sourceId`, a random 32-byte value that `MediaRegistry::grant_present` mints for the current renderer instance and revokes with the grant. It is not an AirPlay session ID. The renderer starts a relay only for that token, after `tilecastd` grants it (§5.1), and the page never names an address or a port. The first Stage 4 build used the path `tcpresent://session/<id>`; that name was misleading and is removed.
 - The protected capture state is `CaptureState::ExternalPresentation`. The proposal named `CaptureState::ProtectedPresentation`. As built, `tilecastd` and the renderer refuse capture, and §5.4 states the two layers. A Watch Live H.264 encoder that this stack does not contain must apply the same rule when it merges.
 - Stage 3 carries the `tilecast-networkd` helper and its unit in the signed release, as §8 requires. A fresh Edge installation does not run the Server-published `install-presentation-network.sh`. Python 3 is a host prerequisite.
-- Stage 2 grants `AF_UNIX` to the unit for the control socket and the system D-Bus (avahi-daemon). It does not narrow that to the exact socket that the packaged UxPlay needs (§9).
+- Stage 2 grants `AF_UNIX` to the unit for the control socket and the system D-Bus (avahi-daemon). It does not narrow that to the exact socket that the packaged UxPlay needs. This is a residual sandbox limitation, recorded in §9 and in the threat review (§9), not an isolation that the unit enforces.
 
-These are open items, not accepted risks. Resolve each one, or record a decision, before Stage 6 qualification.
+The D-Bus limitation is the one open item of this list. Resolve it, or record the decision again, before Stage 6 qualification.
 
-Until Stage 6 is recorded, the readiness documents must not show AirPlay on Edge as available, and an AirPlay-dependent screen must stay on the Electron Player.
+### 12.1 The qualification gate
+
+Until Stage 6 is recorded, the readiness documents must not show AirPlay on Edge as available, and an AirPlay-dependent screen must stay on the Electron Player. A release gate enforces this in code, so the stages can merge to `main` without Studio offering unqualified AirPlay.
+
+- `tilecastd/src/qualification.rs` holds the gate. `RELEASE_QUALIFIED` lists the features whose hardware qualification the release records. It is empty.
+- With the gate closed, the probe and every diagnostic still run and appear in the heartbeat (`airplayUxPlayInstalled`, `airplayUxPlayVersion`, `airplayDecoder`, `airplayAvahiAvailable`, and the rest). A failed dependency keeps its own reason code and sentence. When every dependency is healthy, `external_presentation.airplay` is `blocked` with the reason `qualification_pending` and the attribute `qualification` is `pending`. `airplaySupported` is false and `airplayLimitation` says that AirPlay is still being qualified. `prepare_airplay_session` answers `airplay_not_ready` and no receiver starts. The Server needs no change: it already reads `airplaySupported`.
+- The gate changes what Edge offers, never what the feature does, so qualification runs and tests exercise the same code. `[dev] airplay_qualified = true` in `/etc/tilecast-edge/config.toml` opens the gate on one screen. The Stage 6 hardware procedure uses it on its lab screens, and the headless and unit tests use it. It is inert unless set, and the packaged configuration never sets it.
+- To enable AirPlay after qualification, record the hardware evidence in the Stage 6 procedure, then in the same change add `Feature::Airplay` to `RELEASE_QUALIFIED` and update the readiness documents. The next Edge release then reports `available` when the dependencies are healthy. To withdraw AirPlay again, remove the entry. No Server change is needed in either direction.
 
 ## 13. Changes to binding documents
 

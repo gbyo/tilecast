@@ -561,7 +561,8 @@ mod fixture_tests {
         .unwrap();
         assert!(matches!(&present, Request::Present { capability } if capability == CAP));
         assert!(
-            serde_json::from_str::<Request>(&format!(r#"{{"op":"present","capability":"{CAP}","port":42000}}"#)).is_err()
+            serde_json::from_str::<Request>(&format!(r#"{{"op":"present","capability":"{CAP}","port":42000}}"#))
+                .is_err()
         );
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(include_str!(
