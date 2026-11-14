@@ -434,7 +434,12 @@ func (s *Service) ProcessJob(ctx context.Context, _ string, _ *uuid.UUID, payloa
 	var canvas Canvas
 	var panel Panel
 	var sourceKey string
-	if err = s.db.QueryRow(ctx, `SELECT p.screen_group_id,p.screen_id,p.geometry_hash,g.span_canvas_width,g.span_canvas_height,p.x,p.y,p.width,p.height,p.rotation,p.bezel_left,p.bezel_top,p.bezel_right,p.bezel_bottom,v.storage_key FROM span_video_panels p JOIN screen_groups g ON g.id=p.screen_group_id JOIN asset_variants v ON v.id=p.source_variant_id AND v.deleted_at IS NULL WHERE p.id=$1`, request.PanelID).Scan(&groupID, &screenID, &geometryHash, &canvas.Width, &canvas.Height, &panel.X, &panel.Y, &panel.Width, &panel.Height, &panel.Rotation, &panel.BezelLeft, &panel.BezelTop, &panel.BezelRight, &panel.BezelBottom, &sourceKey); err != nil {
+	// The wall geometry lives in screen_group_panels; span_video_panels keeps
+	// only the hash it was queued for and, once ready, the output size. The
+	// whole Panel, panel order included, is hashed exactly as PrepareVideo did.
+	if err = s.db.QueryRow(ctx, `SELECT p.screen_group_id,p.screen_id,p.geometry_hash,g.span_canvas_width,g.span_canvas_height,gp.panel_order,gp.x,gp.y,gp.width,gp.height,gp.rotation,gp.bezel_left,gp.bezel_top,gp.bezel_right,gp.bezel_bottom,v.storage_key FROM span_video_panels p JOIN screen_groups g ON g.id=p.screen_group_id JOIN screen_group_panels gp ON gp.screen_group_id=p.screen_group_id AND gp.screen_id=p.screen_id JOIN asset_variants v ON v.id=p.source_variant_id AND v.deleted_at IS NULL WHERE p.id=$1`, request.PanelID).Scan(&groupID, &screenID, &geometryHash, &canvas.Width, &canvas.Height, &panel.PanelOrder, &panel.X, &panel.Y, &panel.Width, &panel.Height, &panel.Rotation, &panel.BezelLeft, &panel.BezelTop, &panel.BezelRight, &panel.BezelBottom, &sourceKey); errors.Is(err, pgx.ErrNoRows) {
+		return errors.New("Span panel, its wall position, or its source no longer exists")
+	} else if err != nil {
 		return err
 	}
 	panel.ScreenID = screenID
