@@ -1,0 +1,61 @@
+# Tilecast Presentation Network helper (docs/presentation-networks.md).
+#
+# The narrow root-owned boundary between tilecastd and NetworkManager. It is
+# the same helper, protocol and socket (/run/tilecast/networkd.sock) as the
+# legacy Electron player's; only its location differs. The release carries it
+# as bin/tilecast-networkd, in the root-owned release tree, so no installer
+# script is needed. The helper can ask NetworkManager for five validated
+# operations on connections named tilecast-presentation-<uuid> and nothing
+# else.
+#
+# NetworkManager and Wi-Fi are optional host prerequisites. A release never
+# installs or enables NetworkManager. Without it the helper still runs and
+# reports Presentation Networks as unsupported; signage and Ethernet-only
+# AirPlay are not affected. tilecast-edge.service wants this unit but does not
+# require it, and nothing here enables it. If python3 is missing the unit
+# fails and tilecastd reports the capability as unavailable.
+#
+# On a machine that also ran the legacy installer this file replaces the
+# legacy unit of the same name. Only one of the two players owns the socket.
+[Unit]
+Description=Tilecast Presentation Network helper
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/presentation-networks.md
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+# The interpreter and the script are both fixed and root-owned. The release
+# tree is root-owned and signed, and the tilecast account cannot write it.
+ExecStart=/usr/bin/python3 /opt/tilecast-edge/current/bin/tilecast-networkd
+User=root
+Group=root
+Restart=always
+RestartSec=2
+# /run/tilecast holds the socket. The helper narrows its group to
+# tilecast-network on startup; only tilecast-edge.service joins that group.
+RuntimeDirectory=tilecast
+RuntimeDirectoryMode=0750
+# The installed-revision metadata and any CA certificate. No credential is
+# ever written there.
+StateDirectory=tilecast
+StateDirectoryMode=0700
+
+# ProtectSystem is "true" rather than "strict" or "full": the helper writes
+# /etc/NetworkManager/system-connections, and /usr and /boot are read-only.
+NoNewPrivileges=yes
+ProtectSystem=true
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+# The local socket and the nmcli subprocess only. No listening network socket.
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

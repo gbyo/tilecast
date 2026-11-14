@@ -112,6 +112,56 @@ class HomeTests(unittest.TestCase):
         self.assertRegex(sysusers, r"(?m)^u tilecast-web - \"[^\"]*\" /var/lib/tilecast-web ")
 
 
+class PresentationNetworkHelperTests(unittest.TestCase):
+    """The release carries the existing root helper (docs/tilecast-edge-airplay.md
+    section 8); it must stay narrow, optional and out of the renderer's reach."""
+
+    def test_the_helper_runs_from_the_root_owned_release_tree(self):
+        service = parse("tilecast-networkd.service")
+        self.assertEqual(service["User"], ["root"])
+        self.assertEqual(service["ExecStart"],
+                         ["/usr/bin/python3 /opt/tilecast-edge/current/bin/tilecast-networkd"])
+        self.assertEqual(service["NoNewPrivileges"], ["yes"])
+        self.assertEqual(service["RestrictAddressFamilies"], ["AF_UNIX AF_NETLINK AF_INET AF_INET6"])
+
+    def test_the_helper_never_installs_or_requires_network_manager(self):
+        text = (UNITS / "tilecast-networkd.service").read_text()
+        directives = [l for l in text.splitlines() if l and not l.lstrip().startswith("#")]
+        self.assertIn("Wants=NetworkManager.service", directives)
+        for line in directives:
+            self.assertFalse(line.startswith(("Requires=", "BindsTo=", "Requisite=")), line)
+        self.assertNotRegex("\n".join(directives), r"apt-get|dpkg|systemctl enable")
+
+    def test_the_daemon_wants_the_helper_without_requiring_it(self):
+        daemon = (UNITS / "tilecast-edge.service").read_text()
+        directives = [l for l in daemon.splitlines() if not l.lstrip().startswith("#")]
+        self.assertIn("Wants=tilecast-networkd.service", directives)
+        for line in directives:
+            if line.startswith(("Requires=", "BindsTo=", "Requisite=")):
+                self.assertNotIn("tilecast-networkd", line)
+        self.assertIn("tilecast-network", parse("tilecast-edge.service")["SupplementaryGroups"][0].split())
+
+    def test_only_the_daemon_joins_the_helper_group(self):
+        for path in UNITS.glob("*.service"):
+            groups = [g for v in parse(path.name).get("SupplementaryGroups", []) for g in v.split()]
+            if path.name != "tilecast-edge.service":
+                self.assertNotIn("tilecast-network", groups, path.name)
+        sysusers = (UNITS.parent / "sysusers.d" / "tilecast-edge.conf").read_text()
+        self.assertRegex(sysusers, r"(?m)^g tilecast-network -")
+        self.assertNotRegex(sysusers, r"(?m)^m \S+ tilecast-network")
+        # The renderer inherits the account's groups, so the helper's socket
+        # directory stays hidden from it.
+        self.assertTrue(any(v.startswith("/run/tilecast:") for v in parse("tilecast-renderer.service")["TemporaryFileSystem"]))
+
+    def test_the_release_stages_the_servers_helper_bytes(self):
+        stage = (Path(__file__).with_name("stage-release.py")).read_text()
+        self.assertIn('"bin/tilecast-networkd"', stage)
+        source = Path(__file__).resolve().parents[2] / "server" / "internal" / "httpapi" / "install" / "tilecast-networkd"
+        self.assertTrue(source.is_file())
+        self.assertTrue(source.read_text().startswith("#!/usr/bin/env python3"))
+        self.assertIn('"tilecast-networkd.service"', stage)
+
+
 class SelfTestRuntimeTests(unittest.TestCase):
     def test_the_self_test_host_keeps_its_ephemeral_runtime_directory(self):
         service = parse("tilecast-edge-selftest.service")
