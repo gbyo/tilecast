@@ -107,6 +107,10 @@ stays the default route. If Ethernet stops being the default route, the player
 disconnects the temporary Wi-Fi connection and reports
 `ethernet_default_route_lost`.
 
+### Tilecast Edge
+
+A signed Tilecast Edge release carries the same helper as `bin/tilecast-networkd` and the unit `tilecast-networkd.service`, and installs them with its other units and system files. The Edge install does not run `/install-presentation-network.sh`, and the helper's protocol, socket, and root boundary are the same. Edge's unit runs the helper from the root-owned release tree (`/opt/tilecast-edge/current/bin/tilecast-networkd`) instead of `/usr/local/lib/tilecast`. On a screen that also ran the Electron installer, the Edge unit replaces the Electron unit of the same name, and only one of the two players owns the socket. Python 3, NetworkManager, and a Wi-Fi adapter are host prerequisites. Edge never installs or enables NetworkManager. Without it, Presentation Networks report as unsupported, and signage and Ethernet-only AirPlay run normally. See [`apps/edge/packaging/README.md`](../apps/edge/packaging/README.md) and [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §8.
+
 ## Studio and AirPlay behavior
 
 Create networks under Settings → Presentation Networks, then assign one to a
