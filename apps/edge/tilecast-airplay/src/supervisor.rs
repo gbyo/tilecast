@@ -29,6 +29,9 @@ use crate::uxplay::{self, MAX_OUTPUT_LINE, OutputEvent, SessionOptions};
 
 /// The `-rc` file in the session directory.
 pub const RC_FILE: &str = "session.rc";
+/// Wrong PINs that end a session. Ten tries of 10,000 PINs is a 0.1 %
+/// chance for a guessing sender.
+pub const MAX_PIN_FAILURES: u32 = 10;
 /// The supervisor exits when no allowed peer connects for this long.
 pub const IDLE_EXIT: Duration = Duration::from_secs(30);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -148,6 +151,7 @@ struct Session {
     child: Child,
     advertised: bool,
     connected: bool,
+    pin_failures: u32,
     start_deadline: Instant,
 }
 
@@ -226,6 +230,17 @@ impl Supervisor {
                 },
                 Some((tagged, output)) = output_rx.recv() => {
                     match session.as_mut().filter(|s| s.generation == tagged) {
+                        Some(current) if output == OutputEvent::AuthenticationFailed => {
+                            current.pin_failures += 1;
+                            tracing::warn!(component = "airplay", event = "pin_rejected", count = current.pin_failures);
+                            match session.take_if(|s| s.pin_failures >= MAX_PIN_FAILURES) {
+                                Some(ended) => {
+                                    self.terminate(ended.child).await;
+                                    send(&mut write, &ControlEvent::failed(&ended.id, failure::PIN_ATTEMPTS_EXCEEDED)).await
+                                }
+                                None => Ok(()),
+                            }
+                        }
                         Some(current) => self.on_output(current, output, &mut write).await,
                         None => Ok(()),
                     }
@@ -316,6 +331,7 @@ impl Supervisor {
                             child,
                             advertised: false,
                             connected: false,
+                            pin_failures: 0,
                             start_deadline: Instant::now() + self.config.start_timeout,
                         });
                         Ok(())
@@ -369,21 +385,22 @@ impl Supervisor {
         let rc_path = self.config.rc_path();
         let rc_text = rc_path.to_str().ok_or(failure::SESSION_FILE_FAILED)?.to_owned();
         write_private(&rc_path, uxplay::rc_file(options).as_bytes()).map_err(|_| failure::SESSION_FILE_FAILED)?;
-        let mut command = self.command();
-        command.args(uxplay::arguments(options, &rc_text)).stdout(Stdio::piped()).stderr(Stdio::piped());
-        let mut child = match command.spawn() {
-            Ok(child) => child,
+        let started = output_terminal().and_then(|(reader, terminal)| {
+            let mut command = self.command();
+            command
+                .args(uxplay::arguments(options, &rc_text))
+                .stdout(Stdio::from(terminal.try_clone()?))
+                .stderr(Stdio::from(terminal));
+            Ok((command.spawn()?, reader))
+        });
+        let (child, reader) = match started {
+            Ok(started) => started,
             Err(_) => {
                 remove_quietly(&rc_path);
                 return Err(failure::UXPLAY_START_FAILED);
             }
         };
-        if let Some(stdout) = child.stdout.take() {
-            tokio::spawn(forward_output(stdout, generation, output.clone()));
-        }
-        if let Some(stderr) = child.stderr.take() {
-            tokio::spawn(forward_output(stderr, generation, output));
-        }
+        tokio::spawn(forward_output(tokio::fs::File::from_std(reader), generation, output));
         Ok(child)
     }
 
@@ -465,6 +482,31 @@ impl Supervisor {
             Some(version) => (Some(version), None),
         }
     }
+}
+
+/// A pseudo-terminal for UxPlay's standard output and standard error. UxPlay
+/// writes its log with `printf` and never flushes it, so through a pipe its
+/// lines would wait in a 4 KiB buffer; on a terminal, the C library writes
+/// each line at once. Output processing is off, so lines end in `\n`. The
+/// supervisor reads the controller side and UxPlay gets the terminal side.
+fn output_terminal() -> std::io::Result<(std::fs::File, std::os::fd::OwnedFd)> {
+    use rustix::fs::{Mode, OFlags};
+    use rustix::pty::{OpenptFlags, grantpt, openpt, ptsname, unlockpt};
+    use rustix::termios::{OptionalActions, OutputModes, tcgetattr, tcsetattr};
+    #[cfg(target_os = "linux")]
+    let controller = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY | OpenptFlags::CLOEXEC)?;
+    #[cfg(not(target_os = "linux"))]
+    let controller = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY)?;
+    // UxPlay must not hold the controller, or its end would never be seen.
+    rustix::io::fcntl_setfd(&controller, rustix::io::FdFlags::CLOEXEC)?;
+    grantpt(&controller)?;
+    unlockpt(&controller)?;
+    let name = ptsname(&controller, Vec::new())?;
+    let terminal = rustix::fs::open(name.as_c_str(), OFlags::RDWR | OFlags::NOCTTY | OFlags::CLOEXEC, Mode::empty())?;
+    let mut settings = tcgetattr(&terminal)?;
+    settings.output_modes.remove(OutputModes::OPOST);
+    tcsetattr(&terminal, OptionalActions::Now, &settings)?;
+    Ok((std::fs::File::from(controller), terminal))
 }
 
 async fn child_exit(session: &mut Option<Session>) -> std::io::Result<ExitStatus> {

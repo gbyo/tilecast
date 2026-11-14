@@ -61,3 +61,13 @@ libgpg-error0
 libtasn1-6
 libatk1.0-0t64
 libatk-bridge2.0-0t64
+# AirPlay (docs/tilecast-edge-airplay.md §9, §11). UxPlay parses sender input
+# with libplist and OpenSSL, so the operating system keeps patching them
+# instead of the release carrying a copy. avahi-daemon advertises the
+# receiver over the system D-Bus; UxPlay reaches it through the DNS-SD
+# compatibility library. Without avahi-daemon, AirPlay reports a limitation
+# and signage is not affected.
+libplist-2.0-4
+libssl3t64
+libavahi-compat-libdnssd1
+avahi-daemon

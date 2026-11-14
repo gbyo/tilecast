@@ -13,7 +13,7 @@ clap.workspace = true
 edge-ipc.workspace = true
 edge-platform.workspace = true
 edge-protocol.workspace = true
-rustix = { workspace = true, features = ["fs", "process"] }
+rustix = { workspace = true, features = ["fs", "process", "pty", "termios"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "net", "time", "process", "io-util", "sync"] }
 tracing.workspace = true

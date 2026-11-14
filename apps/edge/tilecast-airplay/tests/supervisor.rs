@@ -368,3 +368,21 @@ async fn a_stale_rc_file_is_deleted_at_start() {
     tokio::time::timeout(Duration::from_secs(5), serve).await.unwrap().unwrap();
     assert!(!dir.join("session.rc").exists());
 }
+
+#[tokio::test]
+async fn too_many_wrong_pins_end_the_session() {
+    let harness = harness();
+    let mut client = harness.connect().await;
+    client.send(&fixture("request-start.json")).await;
+    assert_eq!(client.event().await.unwrap()["type"], "advertising");
+    let pid = harness.record()["pid"].as_i64().unwrap();
+    harness.set("fake-uxplay.cmd", &"wrong-pin\n".repeat(9));
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(alive(pid), "nine wrong PINs are allowed");
+    harness.set("fake-uxplay.cmd", "wrong-pin\n");
+    assert_eq!(
+        client.event().await.unwrap(),
+        json!({"type": "failed", "sessionId": SESSION, "code": "pin_attempts_exceeded"})
+    );
+    until(|| !alive(pid)).await;
+}

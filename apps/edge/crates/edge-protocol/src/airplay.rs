@@ -353,6 +353,9 @@ pub mod failure {
     pub const UXPLAY_START_TIMEOUT: &str = "uxplay_start_timeout";
     /// UxPlay exited during the session.
     pub const UXPLAY_EXITED: &str = "uxplay_exited";
+    /// Senders entered a wrong PIN too many times. UxPlay itself has no
+    /// limit in `-pin` mode.
+    pub const PIN_ATTEMPTS_EXCEEDED: &str = "pin_attempts_exceeded";
     /// `rejected`: another connection is being served.
     pub const CONNECTION_BUSY: &str = "connection_busy";
     /// `rejected`: the peer is not `tilecastd` (`edge_platform::peer`).
@@ -483,6 +486,7 @@ mod tests {
             failure::UXPLAY_START_FAILED,
             failure::UXPLAY_START_TIMEOUT,
             failure::UXPLAY_EXITED,
+            failure::PIN_ATTEMPTS_EXCEEDED,
             failure::CONNECTION_BUSY,
             failure::PEER_NOT_ALLOWED,
             failure::PEER_UNKNOWN,

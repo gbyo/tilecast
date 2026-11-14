@@ -22,6 +22,7 @@ Edge brings its own copy of WPE WebKit and the libraries that only WebKit needs,
 - the runtime packages listed in [`system-baseline.txt`](https://github.com/gbyo/tilecast/blob/main/apps/edge/release/system-baseline.txt) (GLib, GStreamer, libsoup, Mesa's GBM and DRM libraries, ICU, and similar);
 - `bubblewrap` and `xdg-dbus-proxy`, which WebKit starts to sandbox web content;
 - the GStreamer plugin sets and Mesa drivers for the video formats and graphics hardware you use.
+- `avahi-daemon` (in the list above). Edge releases include an AirPlay receiver that is still being qualified and is not available yet; it will use avahi-daemon to advertise the screen. Without it, signage plays as usual.
 
 Edge also needs the kernel to allow unprivileged user namespaces, which is the Debian default.
 
