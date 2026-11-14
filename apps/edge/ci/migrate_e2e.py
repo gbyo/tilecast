@@ -236,7 +236,9 @@ def setup():
     # The update helper as it ships, without the integration-test feature.
     # The base release stands for Edge 0.2.0, whose update helper does not
     # know the field-workaround cleanup, so it is built to behave like it.
-    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE, env=base)
+    # tilecast-airplay is a binary of every release (stage-release.py).
+    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p", "tilecast-airplay",
+        cwd=EDGE, env=base)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-update", "--features", "legacy-helper-emulation",
         cwd=EDGE, env=base)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-migrate", "--features", "integration-test",

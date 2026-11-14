@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** proposed amendment to [`tilecast-edge.md`](tilecast-edge.md). This document records the decision and its tradeoffs, but nothing in it is implemented yet. Edge continues to answer the AirPlay commands with `unsupported_command` until the stages in §12 merge and pass their acceptance evidence.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stage 2 (the supervisor, its units and its protocol) is implemented. Edge continues to answer the AirPlay commands with `unsupported_command` until Stage 5 merges, and AirPlay on Edge is not available until Stage 6 records hardware evidence.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -55,10 +55,14 @@ The Electron Player starts `uxplay` and `gst-launch-1.0` from the kiosk process.
 `tilecast-airplay` is a small Rust supervisor in `apps/edge/tilecast-airplay/`.
 
 - It runs in `tilecast-airplay.service` as the new system account `tilecast-airplay`. `sysusers.d` creates the account. The account is not a member of `tilecast`, `tilecast-display`, `tilecast-network`, `tilecast-web`, `video`, `render`, `input`, or `audio`.
-- `tilecast-airplay.socket` starts it. The socket is `/run/tilecast-airplay/control.sock`, owned `root:tilecast` with mode 0660. The supervisor accepts a peer only if `SO_PEERCRED` gives the `tilecast` UID and the peer cgroup is `tilecast-edge.service`. The renderer and the session bridge use the same UID, so the cgroup check refuses them. This is the same rule as `tilecast-edge-update.socket`.
-- It holds one control connection. When the connection closes, the supervisor stops UxPlay and exits. systemd starts it again at the next connection.
+- `tilecast-airplay.socket` starts it. The socket is `/run/tilecast-airplay/control.sock`, owned `root:tilecast` with mode 0660. The supervisor accepts a peer only if `SO_PEERCRED` gives the `tilecast` UID and the peer process is in the `tilecast-edge.service` cgroup. The renderer and the session bridge use the same UID, so the cgroup check refuses them. This is the same rule as `tilecast-edge-update.socket`. The unit has `ProtectProc=invisible`, so the supervisor cannot read the peer's `/proc/<pid>/cgroup`. It reads `/sys/fs/cgroup/system.slice/tilecast-edge.service/cgroup.procs` instead (`edge_platform::peer::allow_daemon_listed`). That list has only the processes in that cgroup, not in a child cgroup, so the rule does not change.
+- `tilecast-edge.service` pulls the socket in with `Wants=tilecast-airplay.socket`. No installer enables the socket. An update installs the units of the new release, but the installer is the previous release's helper, and it installs only the unit names that it knows ([`tilecast-edge-update-threat-review.md`](tilecast-edge-update-threat-review.md) §4.5). The `sysusers.d` file has a fixed name, so the account arrives with the first AirPlay release. The two AirPlay units arrive with the next update after it, or at once on a new migration. Until then, `tilecastd` cannot connect, and AirPlay reports a limitation. Signage is not affected.
+- It holds one control connection. It refuses other connections while it serves one (`rejected` with `connection_busy`). When the connection closes, the supervisor stops UxPlay and exits. systemd starts it again at the next connection.
 - It is the only Edge process that may start a program. It starts exactly one program: the release's `bin/uxplay`, with a fixed path. It builds the argument vector from validated typed fields and never uses a shell.
-- It writes the PIN and device ID to a 0600 file at a fixed path in its private `RuntimeDirectory` and passes that fixed path with `-rc`. Those values have fixed grammars, so the file does not need to serialize a free-form name. The receiver name stays one validated, bounded argument to `execve`; no shell interprets it. The PIN and device ID never appear in a process argument. The supervisor deletes the file when the session ends and at start.
+- It writes the PIN and device ID to a 0600 file at a fixed path in its private `RuntimeDirectory` and passes that fixed path with `-rc`. Those values have fixed grammars, so the file does not need to serialize a free-form name. The receiver name stays one validated, bounded argument to `execve`; no shell interprets it. The PIN and device ID never appear in a process argument. The supervisor deletes the file when UxPlay reports that its server sockets are open (UxPlay reads the file before that), when the session ends, and at start.
+- The argument vector also has a bare `-pin`. UxPlay parses the `-rc` file first and the command line after it, and a bare `-pin` keeps the PIN of the file. If UxPlay could not open the file, it ignores it and continues. The bare `-pin` then still requires a random PIN that no one sees, so no sender can connect.
+- It clears the environment of UxPlay. It sets `HOME` and the GStreamer registry to the session directory and passes only a fixed list of library and plugin path variables.
+- UxPlay prints the PIN on its output when a sender starts pairing. The supervisor reads UxPlay's output only to classify lines. It never logs or forwards a line.
 - `KillMode=control-group` and `TimeoutStopSec=` make sure that no `uxplay` process lives longer than the unit.
 
 The supervisor owns no durable Tilecast state, no playback policy, and no Server connection. It receives no device credential and no Presentation Network secret.
@@ -72,12 +76,17 @@ The protocol uses the bounded types in `edge-protocol`. Fixtures go in `packages
 | `tilecastd` → unit | `start`               | `sessionId`, `receiverName` (bounded, validated), `pin` (four digits), `deviceId` (locally administered MAC), `profile` (`1080p30`, `720p30`), `audioMode` (`gateway_only`, `none`), `videoPort`, `audioPort` |
 | `tilecastd` → unit | `stop`                | `sessionId`                                                                                                                                                                                                   |
 | `tilecastd` → unit | `probe`               | none                                                                                                                                                                                                          |
-| unit → `tilecastd` | `probe_result`        | `uxplayVersion`, `avahiAvailable`, `limitation`. The renderer reports the H.264 decoder, because UxPlay does not decode in RTP mode.                                                                          |
+| unit → `tilecastd` | `probe_result`        | `uxplayVersion`, `avahiAvailable`, `limitation` (a stable code, see below). The renderer reports the H.264 decoder, because UxPlay does not decode in RTP mode.                                               |
 | unit → `tilecastd` | `advertising`         | `sessionId`                                                                                                                                                                                                   |
 | unit → `tilecastd` | `client_connected`    | `sessionId`                                                                                                                                                                                                   |
 | unit → `tilecastd` | `client_disconnected` | `sessionId`                                                                                                                                                                                                   |
 | unit → `tilecastd` | `failed`              | `sessionId`, `code` (stable code)                                                                                                                                                                             |
 | unit → `tilecastd` | `stopped`             | `sessionId`                                                                                                                                                                                                   |
+| unit → `tilecastd` | `rejected`            | `code`. The last line did not decode, or the peer is refused. The supervisor closes the connection after it.                                                                                                  |
+
+The types are `edge_protocol::airplay`. A line is at most 4096 bytes. `videoPort` decodes only as 42000 and `audioPort` only as 42002. The receiver name must not have a control character or a line separator, must not start with `-` or white space. The supervisor passes it to UxPlay as one argument after `-n`, so quote characters need no special handling. `tilecastd` (Stage 5) normalizes a Server name that breaks these rules before it sends `start`.
+
+`limitation` is a code, not a sentence: `uxplay_missing`, `uxplay_not_executable`, `uxplay_version_failed`, `uxplay_version_unrecognized`, `uxplay_version_unsupported`, `avahi_unavailable`, in the Electron order. `tilecastd` maps the code to the Electron sentence (Stage 5), so the operator text stays in one process. A second `start` for the running session is answered with its current state. A `start` for another session fails with `session_active`.
 
 The supervisor derives `client_connected` and `client_disconnected` from UxPlay's own output. Those lines are bounded and parsed with a fixed grammar. Raw UxPlay output never crosses the socket, and it never goes to the Server. The PIN never goes to a log.
 
@@ -191,7 +200,7 @@ Until Stage 6 is recorded, the readiness documents must not show AirPlay on Edge
 
 ## 13. Changes to binding documents
 
-When Stage 2 merges, these changes take effect:
+Stage 2 makes these changes:
 
 - [`tilecast-edge.md`](tilecast-edge.md) §4 adds `tilecast-airplay` as a fourth Edge process (§4.5). It is unprivileged and it is the only Edge process that starts a program.
 - §3 no longer lists AirPlay as out of scope. Group AirPlay is still out of scope.

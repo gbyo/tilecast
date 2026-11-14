@@ -2,8 +2,11 @@
 [Unit]
 Description=Tilecast Edge daemon
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
-After=network-online.target time-sync.target
+After=network-online.target time-sync.target tilecast-airplay.socket
 Wants=network-online.target
+# The AirPlay supervisor's socket (docs/tilecast-edge-airplay.md §4.1). A
+# screen that does not have the unit yet starts without it.
+Wants=tilecast-airplay.socket
 # One owner of the device credential: tilecast-edge-migrate disables the
 # legacy Electron player unit before it enables this unit, and disables this
 # unit before it enables the legacy unit again on a rollback.

@@ -11,6 +11,8 @@
 //! * **Local IPC** — [`ipc`]: the length-prefixed daemon ↔ renderer/CLI
 //!   protocol. It never carries credentials or server responses to a
 //!   renderer; it carries prepared, already-verified presentation state.
+//! * **AirPlay supervisor** — [`airplay`]: the line-delimited control
+//!   protocol between `tilecastd` and `tilecast-airplay`.
 //!
 //! Rules for anything added here:
 //!
@@ -24,6 +26,7 @@
 //!   are shared with the renderer. A change here that alters bytes on the
 //!   wire must update those fixtures in the same commit.
 
+pub mod airplay;
 pub mod bounded;
 pub mod capability;
 pub mod digest;

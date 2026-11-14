@@ -16,7 +16,7 @@ def load(name):
 
 sbom = load("sbom")
 inputs = load("inputs")
-BINARIES = ["tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"]
+BINARIES = ["tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"]
 
 
 def build_fixture():
@@ -31,7 +31,7 @@ def build_fixture():
     artifacts = [{"reason": "compiler-artifact", "package_id": p["id"],
                   "executable": f"/target/release/{p['name']}" if p["name"] in BINARIES else None,
                   "target": {"kind": ["bin" if p["name"] in BINARIES else "lib"]}, "fresh": True}
-                 for p in packages[:6]]
+                 for p in packages[:len(BINARIES) + 2]]
     artifacts.append({"reason": "build-finished", "success": True})
     return artifacts, {"packages": packages}, lock
 
@@ -40,11 +40,12 @@ class SbomTests(unittest.TestCase):
     def test_only_actual_build_packages_are_included_even_for_cached_builds(self):
         artifacts, metadata, lock = build_fixture()
         components = sbom.built_cargo_components(artifacts, metadata, lock)
-        self.assertEqual(len(components), 6)
+        self.assertEqual(len(components), len(BINARIES) + 2)
         self.assertEqual({p["name"] for p in components}, {*BINARIES, "shared-library"})
         versions = [p for p in components if p["name"] == "shared-library"]
         self.assertEqual([p["version"] for p in versions], ["1.0.0", "2.0.0"])
-        self.assertEqual([p["hashes"][0]["content"] for p in versions], ["4" * 64, "5" * 64])
+        self.assertEqual([p["hashes"][0]["content"] for p in versions],
+                         [str(len(BINARIES)) * 64, str(len(BINARIES) + 1) * 64])
         self.assertEqual(components, sbom.built_cargo_components(list(reversed(artifacts)), metadata, lock))
 
     def test_empty_failed_unknown_and_incomplete_builds_fail_closed(self):

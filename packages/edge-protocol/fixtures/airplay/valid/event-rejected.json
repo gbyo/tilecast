@@ -1,0 +1,7 @@
+{
+  "direction": "event",
+  "message": {
+    "type": "rejected",
+    "code": "invalid_request"
+  }
+}

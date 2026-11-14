@@ -1,0 +1,15 @@
+{
+  "direction": "request",
+  "message": {
+    "type": "start",
+    "sessionId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+    "role": "gateway",
+    "receiverName": "Lobby",
+    "pin": "0000",
+    "deviceId": "02:00:00:00:00:01",
+    "profile": "1080p30",
+    "audioMode": "gateway_only",
+    "videoPort": 42000,
+    "audioPort": 42002
+  }
+}

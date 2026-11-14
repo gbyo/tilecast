@@ -2195,6 +2195,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "tilecast-airplay"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "clap",
+ "edge-ipc",
+ "edge-platform",
+ "edge-protocol",
+ "rustix",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zbus",
+]
+
+[[package]]
 name = "tilecast-edge-migrate"
 version = "0.1.0"
 dependencies = [
@@ -2363,6 +2381,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "tilecast-airplay",
  "tilecast-edge-update",
  "time",
  "tokio",

@@ -33,12 +33,12 @@ def built_cargo_components(artifacts, metadata, lock):
     packages = {p["id"]: p for p in metadata["packages"]}
     if not package_ids or package_ids - packages.keys():
         raise ValueError("Cargo build artifacts are empty or do not match the locked metadata")
-    shipped = {"tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"}
+    shipped = {"tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"}
     binaries = {packages[a["package_id"]]["name"] for a in artifacts
                 if a.get("reason") == "compiler-artifact" and a.get("executable")
                 and "bin" in a.get("target", {}).get("kind", [])}
     if binaries != shipped:
-        raise ValueError("Cargo build artifacts must describe exactly the four shipped Edge Rust binaries")
+        raise ValueError("Cargo build artifacts must describe exactly the five shipped Edge Rust binaries")
     if not any(a.get("reason") == "build-finished" and a.get("success") for a in artifacts):
         raise ValueError("Cargo release build did not finish successfully")
     locked = {(p["name"], p["version"], p.get("source")): p for p in lock["package"]}

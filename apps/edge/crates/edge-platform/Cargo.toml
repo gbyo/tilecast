@@ -12,7 +12,7 @@ player-types.workspace = true
 time.workspace = true
 async-trait.workspace = true
 edge-protocol.workspace = true
-rustix = { workspace = true, features = ["fs", "process"] }
+rustix = { workspace = true, features = ["fs", "process", "net"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time", "sync", "rt", "net", "macros"] }
 tracing.workspace = true

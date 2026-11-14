@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""A stand-in for UxPlay 1.73.7, for the supervisor tests and the systemd
+integration test (ci/run-airplay-e2e.sh). It is never part of a release.
+
+The supervisor clears the environment and sets HOME to its session
+directory, so the fake takes its instructions from files there:
+
+* fake-uxplay.mode: "ready" (default), "hang" (never opens its sockets),
+  "crash" (exits at once), "ignore-term" (survives SIGTERM).
+* fake-uxplay.version: what -v reports (default 1.73.7).
+* fake-uxplay.cmd: lines that the fake acts on and then deletes:
+  "mirroring", "disconnect", "exit <status>".
+
+It records what it saw in fake-uxplay.json: the arguments, the -rc file's
+mode, the option names in the -rc file, and its process ID. It records no
+option value from the -rc file. Like UxPlay, it prints the PIN when it
+starts, to prove that the supervisor drops that output.
+"""
+import json
+import os
+import signal
+import sys
+import time
+
+home = os.environ.get("HOME", ".")
+
+
+def read(name, default=""):
+    try:
+        with open(os.path.join(home, name)) as handle:
+            return handle.read().strip()
+    except OSError:
+        return default
+
+
+args = sys.argv[1:]
+if args == ["-v"]:
+    print(f'UxPlay version {read("fake-uxplay.version", "1.73.7")}; for help, use option "-h"', flush=True)
+    sys.exit(0)
+
+mode = read("fake-uxplay.mode", "ready")
+rc_path = args[args.index("-rc") + 1] if "-rc" in args else None
+rc_mode = None
+rc_options = []
+pin = None
+if rc_path is not None:
+    if not os.path.exists(rc_path):
+        sys.exit(0)  # UxPlay 1.73.7 exits with status 0 when the -rc file is missing.
+    rc_mode = oct(os.stat(rc_path).st_mode & 0o777)
+    with open(rc_path) as handle:
+        for line in handle:
+            words = line.split(" ", 1)
+            rc_options.append(words[0].strip())
+            if words[0] == "pin":
+                pin = words[1].strip()
+with open(os.path.join(home, "fake-uxplay.json"), "w") as handle:
+    json.dump({"argv": args, "rcMode": rc_mode, "rcOptions": rc_options, "pid": os.getpid(), "env": sorted(os.environ)}, handle)
+
+if mode == "crash":
+    sys.exit(1)
+if mode == "ignore-term":
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+else:
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+
+print(f"UxPlay: reading configuration from  {rc_path}", flush=True)
+print("UxPlay 1.73.7: An Open-Source AirPlay mirroring and audio-streaming server.", flush=True)
+if pin is not None:
+    print(f'*** CLIENT MUST NOW ENTER PIN = "{pin}" AS AIRPLAY PASSWORD', flush=True)
+    print(f'*** CLIENT MUST NOW ENTER PIN = "{pin}" AS AIRPLAY PASSWORD', file=sys.stderr, flush=True)
+if mode != "hang":
+    print("Initialized server socket(s)", flush=True)
+
+commands = os.path.join(home, "fake-uxplay.cmd")
+while True:
+    try:
+        with open(commands) as handle:
+            lines = handle.read().splitlines()
+        os.remove(commands)
+    except OSError:
+        lines = []
+    for line in lines:
+        if line == "mirroring":
+            print("raop_rtp_mirror starting mirroring", flush=True)
+        elif line == "disconnect":
+            print("raop_rtp_mirror->running is no longer true", file=sys.stderr, flush=True)
+        elif line.startswith("exit "):
+            sys.exit(int(line.split()[1]))
+    time.sleep(0.02)

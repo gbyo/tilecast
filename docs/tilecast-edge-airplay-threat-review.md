@@ -41,18 +41,22 @@ The unit must have:
 
 - `User=tilecast-airplay`, `NoNewPrivileges=yes`, an empty `CapabilityBoundingSet=`.
 - `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`.
-- `InaccessiblePaths=` for `/var/lib/tilecast-edge`, `/run/tilecast-edge-update`, `/run/tilecast`, and `/run/tilecast-web`.
+- `InaccessiblePaths=` for `/var/lib/tilecast-edge`, `/run/tilecast-edge`, `/run/tilecast-edge-update`, `/run/tilecast`, and `/run/tilecast-web`.
 - `RuntimeDirectory=tilecast-airplay-session` with mode 0700 for the `-rc` file.
-- `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`. `AF_UNIX` is for the control socket and for the DNS-SD compatibility path if the packaged Avahi client uses the system bus.
-- `ProtectKernelTunables=yes`, `ProtectKernelLogs=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictNamespaces=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallArchitectures=native`. WebKit does not run in this unit, so the bubblewrap exceptions of the renderer unit do not apply. Stage 2 must confirm that GStreamer in UxPlay works with `MemoryDenyWriteExecute=yes`. If it does not, record the reason in this section.
+- `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`. `AF_UNIX` is for the control socket and the system D-Bus.
+- `ProtectKernelTunables=yes`, `ProtectKernelLogs=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictNamespaces=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallArchitectures=native`. WebKit does not run in this unit, so the bubblewrap exceptions of the renderer unit do not apply. Stage 2 ran the unit with a fake UxPlay, so it cannot show how GStreamer in UxPlay behaves with `MemoryDenyWriteExecute=yes` and `SystemCallFilter=@system-service`. Stage 3 confirms both with the packaged UxPlay. If either fails, Stage 3 records the reason in this section. Stage 3 also confirms that UxPlay needs no `AF_NETLINK`.
 - `KillMode=control-group`, so no `uxplay` process lives longer than the unit.
-- `ProtectProc=invisible` and `ProcSubset=pid`.
+- `ProtectProc=invisible` and `ProcSubset=pid`. Because of this, the supervisor cannot read the peer's `/proc` entry, and the peer check reads the daemon unit's `cgroup.procs` instead (§4).
+
+In the Stage 2 systemd test, `systemd-analyze security` gives the unit an exposure of 1.5.
 
 The supervisor writes nothing outside its runtime directory. The release check (`run-sandbox-check.sh`) must start the unit with these options.
 
 ## 4. The control socket
 
-The socket follows `tilecast-edge-update.socket`: `root:tilecast`, mode 0660. The supervisor checks the peer with `SO_PEERCRED` and refuses a peer whose UID is not `tilecast` or whose cgroup is not `tilecast-edge.service`. The renderer and the session bridge use the `tilecast` UID, so the cgroup check is what refuses them. Stage 2 must test that refusal.
+The socket follows `tilecast-edge-update.socket`: `root:tilecast`, mode 0660. The supervisor checks the peer with `SO_PEERCRED` and refuses a peer whose UID is not `tilecast` or whose process is not listed in `/sys/fs/cgroup/system.slice/tilecast-edge.service/cgroup.procs`. The renderer and the session bridge use the `tilecast` UID, so the cgroup check is what refuses them. `ci/run-airplay-e2e.sh` tests the refusal of a `tilecast` process in `tilecast-renderer.service` and of root in `tilecast-edge.service`. A PID can be reused between `SO_PEERCRED` and the read; the update helper has the same window, and a process that wins it must already run as `tilecast` in the daemon's unit.
+
+The supervisor serves one connection. It refuses other connections while it serves one.
 
 Every message is bounded and strictly parsed. The supervisor refuses an unknown field. It takes no path, no program name, no port outside the fixed range, and no option string from a message.
 
@@ -62,7 +66,8 @@ The supervisor is the only Edge process that starts a program. Review rule 2 app
 
 - It starts one program, at the fixed release path `bin/uxplay`.
 - It builds the argument vector from typed values only. It never uses a shell.
-- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two port numbers from the fixed range.
+- The `-vrtp` and `-artp` pipeline strings come from a fixed template. The only values in them are the two fixed port numbers.
+- UxPlay gets a cleared environment with a fixed list of variables.
 - The `-rc` file contains only the PIN and locally administered device ID. Both have fixed grammars. The receiver name stays one bounded, validated `execve` argument, so UxPlay's free-form startup-file parser never has to encode it.
 - The video template uses `-vrtp` without `-vs 0`. UxPlay 1.73.7 already bypasses rendering for `-vrtp`; `-vs 0` would also advertise a 1 fps display limit to the sender. Edge does not enable `-h265`.
 
@@ -102,7 +107,8 @@ The existing root `tilecast-networkd` boundary does not change. A fresh Edge ins
 ## 10. Secrets
 
 - The PIN and the device ID never appear in a process argument, a log line, a heartbeat, audit metadata, or a fixture with a real value.
-- The supervisor deletes the `-rc` file when the session ends and when it starts.
+- The supervisor deletes the `-rc` file when UxPlay has opened its server sockets (it has read the file then), when the session ends, and when it starts. The file is created with `O_EXCL` and mode 0600, so a planted link is not followed.
+- UxPlay prints the PIN on its output when a sender starts pairing (`raop_handlers.h`). The supervisor never logs or forwards a line of UxPlay output. `ci/run-airplay-e2e.sh` checks that a test PIN and device ID are in no `/proc/*/cmdline` and nowhere in the journal, with a fake UxPlay that prints the PIN on both outputs.
 - `tilecastd` deletes the PIN and the device ID from SQLite when the session ends. The Server already clears them from the command row.
 - The Presentation Network credential never crosses the AirPlay socket.
 
