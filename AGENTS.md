@@ -340,6 +340,10 @@ This repository may have user-owned uncommitted work. Inspect `git status` befor
 
 Use `rg` and `rg --files` for searches. Keep modules focused and comments limited to behavior that is not obvious from the code.
 
+## Issue metadata
+
+When creating or triaging GitHub issues, follow [`.github/ISSUE_TAXONOMY.md`](.github/ISSUE_TAXONOMY.md). Use native Bug, Feature, or Task types; use Priority and Effort issue fields for planning; use labels only for area/component or cross-cutting/automation metadata. Never add the retired `bug`, `enhancement`, or `local LLM` labels.
+
 ## Documentation requirements
 
 Update documentation with the implementation, not afterward as an approximation. Relevant files include:
