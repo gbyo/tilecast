@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - chore/migrate-legacy-issue-types
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -11,7 +14,7 @@ permissions:
 
 jobs:
   migrate:
-    if: contains(github.event.head_commit.message, '[run issue type migration]')
+    if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[run issue type migration]')
     runs-on: ubuntu-latest
     steps:
       - name: Check GitHub CLI supports issue types
