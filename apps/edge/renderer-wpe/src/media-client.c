@@ -173,14 +173,14 @@ tc_media_read_frame (const char *socket_path, const char *capability, guint64 of
 }
 
 gboolean
-tc_media_present (const char *socket_path, const char *session, gboolean *audio, GError **error)
+tc_media_present (const char *socket_path, const char *capability, gboolean *audio, GError **error)
 {
   g_return_val_if_fail (audio != NULL, FALSE);
-  if (!tc_is_sha256_hex (session)) {
-    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "invalid present session");
+  if (!tc_is_sha256_hex (capability)) {
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "invalid present capability");
     return FALSE;
   }
-  g_autofree char *request = g_strdup_printf ("{\"op\":\"present\",\"session\":\"%s\"}", session);
+  g_autofree char *request = g_strdup_printf ("{\"op\":\"present\",\"capability\":\"%s\"}", capability);
   g_autoptr (GSocketConnection) connection = NULL;
   g_autoptr (JsonParser) parser = NULL;
   if (!exchange (socket_path, request, &connection, &parser, error))

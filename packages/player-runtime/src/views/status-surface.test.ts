@@ -259,7 +259,7 @@ describe("status-surface external presentation video", () => {
     const view = renderExternal({ sourceId: SOURCE, connected: false }, true);
     await view.updateComplete;
     const video = view.querySelector<HTMLVideoElement>("video");
-    expect(video?.getAttribute("src")).toBe(`tcpresent://session/${SOURCE}`);
+    expect(video?.getAttribute("src")).toBe(`tcpresent://cap/${SOURCE}`);
     expect(video?.hasAttribute("autoplay")).toBe(true);
     expect(
       video?.classList.contains("external-presentation__video--waiting"),
@@ -323,7 +323,7 @@ describe("status-surface external presentation video", () => {
     await view.updateComplete;
     await view.updateComplete;
     expect(view.querySelector("video")?.getAttribute("src")).toBe(
-      `tcpresent://session/${next}`,
+      `tcpresent://cap/${next}`,
     );
     view.remove();
   });

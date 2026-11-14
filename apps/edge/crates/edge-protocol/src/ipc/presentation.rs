@@ -172,11 +172,12 @@ pub enum PhoneSetupDocument {
     Unavailable {},
 }
 
-/// The opaque ID of one AirPlay session's forwarded stream: 64 lowercase
-/// hexadecimal characters, random for each grant. The Runtime shows it as
-/// `tcpresent://session/<id>`, and the renderer relays the session's loopback
-/// RTP only for the ID of the current activation
-/// (docs/tilecast-edge-airplay.md §5).
+/// The present capability of one AirPlay session's forwarded stream: 64
+/// lowercase hexadecimal characters, the random 32-byte token that
+/// `MediaRegistry::grant_present` mints for each grant. It is not an AirPlay
+/// session ID. The Runtime shows it as `tcpresent://cap/<token>`, and the
+/// renderer relays the session's loopback RTP only for the token of the
+/// current activation (docs/tilecast-edge-airplay.md §5).
 #[derive(Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct PresentSourceId(String);
@@ -476,7 +477,7 @@ mod tests {
         assert!(!debug.contains("0000") && !debug.contains(&source), "{debug}");
         for source in [
             "0123456789ABCDEF".repeat(4),
-            "tcpresent://session/".to_owned() + &"a".repeat(64),
+            "tcpresent://cap/".to_owned() + &"a".repeat(64),
             "a".repeat(63),
             "127.0.0.1:42000".to_owned(),
         ] {

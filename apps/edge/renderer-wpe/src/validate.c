@@ -295,7 +295,7 @@ tc_is_web_capability_uri (const char *value)
 gboolean
 tc_is_present_uri (const char *value)
 {
-  static const char prefix[] = "tcpresent://session/";
+  static const char prefix[] = "tcpresent://cap/";
   return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
 }
 

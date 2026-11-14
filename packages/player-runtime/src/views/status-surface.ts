@@ -343,7 +343,7 @@ export class StatusSurface extends LitElement {
             "external-presentation__video": true,
             "external-presentation__video--waiting": !p.connected,
           })}
-          src=${`tcpresent://session/${source}`}
+          src=${`tcpresent://cap/${source}`}
           @error=${() => {
             this.videoFailed = source;
           }}

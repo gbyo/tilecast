@@ -98,7 +98,7 @@ A presentation provider is a Runtime service, so it needs no host capability. Th
 
 `outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
-`externalPresentationVideo` is optional. A host sets it when it relays a connected AirPlay sender's stream to `tcpresent://session/<sourceId>`. The external-presentation view then shows that stream in a `<video>` element when the presentation has a `sourceId` of 64 lowercase hexadecimal characters. The view mounts the element when the session starts, under the ready page, and shows it when `connected` is true. If a host does not set the capability, or the presentation has no valid `sourceId`, the external receiver owns the screen while a sender is connected. The Edge WPE bridge sets it. See [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §5.
+`externalPresentationVideo` is optional. A host sets it when it relays a connected AirPlay sender's stream to `tcpresent://cap/<sourceId>`. The external-presentation view then shows that stream in a `<video>` element when the presentation has a `sourceId` of 64 lowercase hexadecimal characters. The view mounts the element when the session starts, under the ready page, and shows it when `connected` is true. If a host does not set the capability, or the presentation has no valid `sourceId`, the external receiver owns the screen while a sender is connected. The Edge WPE bridge sets it. See [`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §5.
 
 `info` (host name and version, engine name and version) is for diagnostics only.
 

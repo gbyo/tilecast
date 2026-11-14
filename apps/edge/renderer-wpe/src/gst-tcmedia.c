@@ -1,7 +1,7 @@
 /*
  * tcmediasrc: GStreamer source for tcmedia://cap/<opaque capability>,
  * tcwebsrc: GStreamer source for tcweb://cap/<opaque capability>, and
- * tcpresentsrc: GStreamer source for tcpresent://session/<opaque id> (below).
+ * tcpresentsrc: GStreamer source for tcpresent://cap/<opaque capability> (below).
  *
  * WPE's media pipeline uses this URI handler for seekable Tilecast media.
  * The source makes bounded reads from tilecastd's media socket. It never
@@ -293,8 +293,9 @@ tc_web_src_uri_handler_init (gpointer iface, gpointer data)
 
 /* ------------------------------------------------------------- tcpresentsrc
  *
- * tcpresent://session/<id>: the RTP streams of an AirPlay session
- * (docs/tilecast-edge-airplay.md §5). The page names only the opaque ID.
+ * tcpresent://cap/<token>: the RTP streams of an AirPlay session
+ * (docs/tilecast-edge-airplay.md §5). The page names only the opaque
+ * present capability.
  * WebKit's sandbox gives this web process its own network namespace, so the
  * renderer's main process receives UxPlay's loopback RTP for a granted ID and
  * relays each stream to <TILECAST_PRESENT_DIR>/<id>-video.sock and
@@ -444,7 +445,7 @@ static gboolean
 present_uri_set_uri (GstURIHandler *handler, const gchar *uri, GError **error)
 {
   TcPresentSrc *self = TC_PRESENT_SRC (handler);
-  static const char prefix[] = "tcpresent://session/";
+  static const char prefix[] = "tcpresent://cap/";
   if (self->built || !tc_is_present_uri (uri)) {
     g_set_error (error, GST_URI_ERROR, GST_URI_ERROR_BAD_URI, "not a Tilecast presentation URI");
     return FALSE;
