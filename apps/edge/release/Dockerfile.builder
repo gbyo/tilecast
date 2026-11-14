@@ -16,7 +16,9 @@
 # libplist, OpenSSL and the Avahi DNS-SD compatibility library are UxPlay's
 # (build-uxplay.sh, docs/tilecast-edge-airplay.md §11). avahi-daemon is in
 # the system baseline, and runtime_closure.py needs every baseline package
-# installed here. Like every change to
+# installed here. The GStreamer plugin packages are for the renderer's own
+# tests (present-relay needs udpsrc, unixfdsink, the RTP elements and
+# h264parse); none of their files ship. Like every change to
 # this file, they change the WPE inputs key (inputs.py), so the next release
 # compiles WebKit unless wpe-prebuild.yml has published the new key first.
 #
@@ -43,6 +45,7 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources \
       libwebp-dev libwpe-1.0-dev libwpebackend-fdo-1.0-dev libxkbcommon-dev libxml2-utils libxslt1-dev \
       wayland-protocols libjson-glib-dev libglib2.0-dev libwireplumber-0.5-dev ffmpeg openssl jq \
       libplist-dev libssl-dev libavahi-compat-libdnssd-dev avahi-daemon \
+      gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     && rm -rf /var/lib/apt/lists/*
 # The Rust toolchain named by the root rust-toolchain.toml.
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
