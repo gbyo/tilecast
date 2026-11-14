@@ -47,6 +47,12 @@ add_library(tilecast-preview-pixels STATIC src/preview-pixels.c)
 target_link_libraries(tilecast-preview-pixels PUBLIC PkgConfig::GIO PkgConfig::DRM)
 target_include_directories(tilecast-preview-pixels PUBLIC src)
 
+# Watch Live H.264 qualification tiers (GLib only, so the probe ladder is
+# unit tested without VA-API).
+add_library(tilecast-live-profiles STATIC src/live-profiles.c)
+target_link_libraries(tilecast-live-profiles PUBLIC PkgConfig::GIO)
+target_include_directories(tilecast-live-profiles PUBLIC src)
+
 add_executable(tilecast-renderer-wpe
   src/main.c
   src/drm-probe.c
@@ -59,7 +65,7 @@ add_executable(tilecast-renderer-wpe
   src/frame-navigation.c
   src/present-relay.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-live-profiles tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.
@@ -78,6 +84,10 @@ add_test(NAME validate COMMAND test-validate)
 add_executable(test-preview-pixels tests/test_preview_pixels.c)
 target_link_libraries(test-preview-pixels PRIVATE tilecast-preview-pixels)
 add_test(NAME preview-pixels COMMAND test-preview-pixels)
+
+add_executable(test-live-profiles tests/test_live_profiles.c)
+target_link_libraries(test-live-profiles PRIVATE tilecast-live-profiles)
+add_test(NAME live-profiles COMMAND test-live-profiles)
 
 add_executable(test-media-client tests/test_media_client.c)
 target_link_libraries(test-media-client PRIVATE tilecast-media-client)

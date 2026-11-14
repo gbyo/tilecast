@@ -12126,8 +12126,15 @@ components:
           description: >-
             Selected Watch Live profile. Absent until the Player first
             reconciles the lease; the limits are then the legacy profile.
-          enum:
-            [h264-720p15, h264-540p15, h264-540p10, mjpeg-540p10, mjpeg-360p8]
+          x-extensible-enum:
+            [
+              h264-720p30,
+              h264-720p15,
+              h264-540p15,
+              h264-540p10,
+              mjpeg-540p10,
+              mjpeg-360p8,
+            ]
         transport: { type: string, enum: [h264, mjpeg] }
         codec:
           type: string

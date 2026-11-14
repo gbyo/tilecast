@@ -36,13 +36,24 @@ Changing Studio language does not restart the live-stream lease.
 A session uses one profile from a closed vocabulary. The order is the
 preference order:
 
-| Profile        | Transport | Maximum size | Frame rate | Initial encoder target |
-| -------------- | --------- | -----------: | ---------: | ---------------------: |
-| `h264-720p15`  | H.264     |     1280×720 |     15 FPS |             1.5 Mbit/s |
-| `h264-540p15`  | H.264     |      960×540 |     15 FPS |             900 kbit/s |
-| `h264-540p10`  | H.264     |      960×540 |     10 FPS |             700 kbit/s |
-| `mjpeg-540p10` | MJPEG     |      960×540 |     10 FPS |  up to 100 KiB a frame |
-| `mjpeg-360p8`  | MJPEG     |      640×360 |      8 FPS |  up to 100 KiB a frame |
+| Profile        | Transport | Maximum size | Frame rate | Initial encoder target | TCLS v2 code |
+| -------------- | --------- | -----------: | ---------: | ---------------------: | -----------: |
+| `h264-720p30`  | H.264     |     1280×720 |     30 FPS |             2.5 Mbit/s |            4 |
+| `h264-720p15`  | H.264     |     1280×720 |     15 FPS |             1.5 Mbit/s |            1 |
+| `h264-540p15`  | H.264     |      960×540 |     15 FPS |             900 kbit/s |            2 |
+| `h264-540p10`  | H.264     |      960×540 |     10 FPS |             700 kbit/s |            3 |
+| `mjpeg-540p10` | MJPEG     |      960×540 |     10 FPS |  up to 100 KiB a frame |            — |
+| `mjpeg-360p8`  | MJPEG     |      640×360 |      8 FPS |  up to 100 KiB a frame |            — |
+
+The preference order is `720p30 → 720p15 → 540p15 → 540p10 → MJPEG`.
+`h264-720p30` is the normal best profile, and the server selects it when the
+Player and Studio both offer it. There is no quality switch in Studio.
+
+The order and the profile code are two different things. A profile code is a
+permanent identity on the wire. It is not a rank. `h264-720p30` was added
+after the others, so it has code 4, and codes 1 to 3 keep the meaning they
+had in earlier releases. Never renumber a code: a rolling upgrade has older
+Studio, server, and Player releases that still use them.
 
 The bitrates are initial encoder targets, not contract rates. Capture,
 encoding, Player load, and network latency can lower the actual frame rate.
@@ -52,7 +63,9 @@ The server (`internal/livestream`), `player-client`, and Studio
 
 H.264 profiles are Constrained Baseline, 8-bit 4:2:0, with no B-frames, an
 IDR about once a second, and no audio. The WebCodecs codec string is
-`avc1.42e01f` (level 3.1, which covers 1280×720 at 15 FPS).
+`avc1.42e01f` (Constrained Baseline, level 3.1). Level 3.1 allows 27,648,000
+luma samples each second. 1280×720 at 30 FPS is exactly 27,648,000, so level
+3.1 is enough for every profile and Tilecast does not raise the level.
 
 ## Negotiation
 
@@ -64,7 +77,9 @@ Three parties take part, and the server selects:
    means MJPEG only. Studio lists an H.264 profile only when
    `window.isSecureContext` is true, `VideoDecoder` exists, and
    `VideoDecoder.isConfigSupported()` accepts `avc1.42e01f` at that
-   profile's size. This is feature detection, never user-agent sniffing.
+   profile's size. The decoder configuration has no frame rate, so 720p30 and
+   720p15 share one check, and each distinct size is asked once. This is
+   feature detection, never user-agent sniffing.
 2. **The Player** lists the profiles it can produce now on its authoritative
    session poll: `GET /api/v1/player/live-stream-session?profile=...`,
    repeated, at most 16 values. A poll without `profile` (an older Player)
@@ -87,6 +102,14 @@ Compatibility:
 - An older Studio with a newer server gets MJPEG.
 - A newer Studio without WebCodecs gets MJPEG.
 - A newer Studio with an older Player gets MJPEG.
+- An older Studio (no `h264-720p30` in its list) with a newer server and
+  Player gets `h264-720p15` or another profile both sides offer.
+- A newer Studio with an older server: the older server ignores the unknown
+  `h264-720p30` ID, so `h264-720p15` stays available and is selected.
+- A newer Studio and server with an older Edge: the older Edge never offers
+  `h264-720p30`, so `h264-720p15` or a lower profile is selected.
+- An unknown profile ID, or an unknown TCLS version 2 profile code, is
+  ignored or refused as before. It never causes a different profile.
 - A newer Player with an older server never sends TCLS version 2. The Player
   encodes H.264 only when the session explicitly selects an H.264 profile
   with transport `h264` and codec `avc1.42e01f`. An inconsistent H.264
@@ -101,8 +124,20 @@ warm-up it judges five-second windows. A window is unsustainable when output
 is below 60% of the profile frame rate, when 30% of frames missed their slot
 or overran the frame budget, or when the outbox resynchronized twice. Two
 consecutive unsustainable windows (hysteresis) degrade the session one
-level: `720p15 → 540p15 → 540p10 → MJPEG`. An encoder that fails to start or
-reports a failure degrades at once.
+level: `720p30 → 720p15 → 540p15 → 540p10 → MJPEG`. An encoder that fails to
+start or reports a failure degrades at once.
+
+`h264-720p30` has a stricter policy. A 30 FPS stream that stays near 18 to
+20 FPS is worse than a steady 15 FPS stream. For this profile a window is
+unsustainable when output is below 80% of the rate (24 FPS), or when more
+than 20% of frames missed their slot or overran the 33 ms budget. The
+hysteresis is the same, so one short dip does not degrade the session. The
+other profiles keep the values above: they are not made stricter.
+
+The reasons are `output_fps`, `frame_deadline`, `transport_resync`,
+`encoder_start`, `encoder_failed`, `encoder_stopped`, and
+`profile_unavailable`. They appear in the Player log (see "Diagnostics on a
+Player").
 
 To degrade, Core stops the encoder first. Its next poll carries
 `degradedSession` and `degradedProfile`. The server then selects a lower
@@ -129,19 +164,19 @@ markers.
 One complete H.264 Annex B access unit per binary message, after a fixed
 48-byte big-endian header:
 
-| Offset | Size | Field                                               |
-| -----: | ---: | --------------------------------------------------- |
-|      0 |    4 | `TCLS`                                              |
-|      4 |    1 | version `2`                                         |
-|      5 |    1 | profile code (1 720p15, 2 540p15, 3 540p10)         |
-|      6 |    1 | flags: bit 0 keyframe; other bits must be zero      |
-|      7 |    1 | reserved, zero                                      |
-|      8 |   16 | session UUID                                        |
-|     24 |    8 | sequence, increasing within a session               |
-|     32 |    8 | presentation timestamp in microseconds              |
-|     40 |    2 | width (even, at least 16, within the profile)       |
-|     42 |    2 | height (even, at least 16, within the profile)      |
-|     44 |    4 | access-unit length (must equal the remaining bytes) |
+| Offset | Size | Field                                                 |
+| -----: | ---: | ----------------------------------------------------- |
+|      0 |    4 | `TCLS`                                                |
+|      4 |    1 | version `2`                                           |
+|      5 |    1 | profile code (1 720p15, 2 540p15, 3 540p10, 4 720p30) |
+|      6 |    1 | flags: bit 0 keyframe; other bits must be zero        |
+|      7 |    1 | reserved, zero                                        |
+|      8 |   16 | session UUID                                          |
+|     24 |    8 | sequence, increasing within a session                 |
+|     32 |    8 | presentation timestamp in microseconds                |
+|     40 |    2 | width (even, at least 16, within the profile)         |
+|     42 |    2 | height (even, at least 16, within the profile)        |
+|     44 |    4 | access-unit length (must equal the remaining bytes)   |
 
 An access unit is at most 512 KiB. Every keyframe carries SPS and PPS before
 its IDR slice, so a decoder can start at any keyframe without an earlier
@@ -181,7 +216,8 @@ dependency-aware at every stage:
   in the middle of a dependency chain. A connection that accepts no bytes for
   ten seconds is closed.
 - **Studio.** Studio decodes the newest data only. If the decoder has more
-  than six frames queued, Studio skips to the next keyframe. Only the newest
+  than 400 ms of frames queued (6 frames up to 15 FPS, 12 frames at 30 FPS),
+  Studio skips to the next keyframe. Only the newest
   decoded frame is painted, and every `VideoFrame` is closed promptly.
 
 ## Studio transport
@@ -206,12 +242,12 @@ viewer.
 
 ## Platforms
 
-| Player                | Watch Live                                                                      |
-| --------------------- | ------------------------------------------------------------------------------- |
-| Tilecast Edge         | H.264 when its encoder probe finds a working encoder; otherwise `mjpeg-540p10`. |
-| Windows native Player | `mjpeg-360p8`. H.264 through Media Foundation is a separate change.             |
-| Android Player        | `mjpeg-360p8`. H.264 through MediaCodec is a separate change.                   |
-| Linux Legacy          | `mjpeg-360p8`, unchanged. Linux Legacy (Electron) does not get H.264.           |
+| Player                | Watch Live                                                                                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tilecast Edge         | H.264 when its encoder probe finds a working encoder (up to `h264-720p30` for a hardware encoder, `h264-540p15` for software); otherwise `mjpeg-540p10`. |
+| Windows native Player | `mjpeg-360p8`. H.264 through Media Foundation is a separate change.                                                                                      |
+| Android Player        | `mjpeg-360p8`. H.264 through MediaCodec is a separate change.                                                                                            |
+| Linux Legacy          | `mjpeg-360p8`, unchanged. Linux Legacy (Electron) does not get H.264.                                                                                    |
 
 ### Edge encoder
 
@@ -219,12 +255,35 @@ The WPE renderer owns the presented WPE buffer and already uses GStreamer.
 It probes encoders at runtime on a worker thread, in this order:
 `vah264lpenc`, `vah264enc`, `openh264enc`. Each installed candidate must
 encode real frames into a Constrained Baseline keyframe with SPS, PPS, and an
-IDR slice. A VA-API encoder that passes at 1280×720 advertises `h264-720p15`
-and below. A software encoder (OpenH264) starts at `h264-540p15`. When no
-candidate passes, the renderer advertises no H.264 profile and Watch Live
-uses MJPEG. The probe result reaches `tilecastd` as
-`renderer.live_capabilities`, and the renderer logs it once, for example
+IDR slice, and its SPS must say Constrained Baseline at level 3.1 or lower.
+The probe uses the real frame rate and initial bitrate of the profile
+(2.5 Mbit/s for 720p30, 1.5 Mbit/s for 720p15, 900 kbit/s for 540p15).
+
+A hardware encoder (`vah264lpenc` or `vah264enc`) tries three stages and
+keeps the first that passes:
+
+| Stage       | Advertised profiles                                        |
+| ----------- | ---------------------------------------------------------- |
+| 1280×720@30 | `h264-720p30`, `h264-720p15`, `h264-540p15`, `h264-540p10` |
+| 1280×720@15 | `h264-720p15`, `h264-540p15`, `h264-540p10`                |
+| 960×540@15  | `h264-540p15`, `h264-540p10`                               |
+
+A software encoder (OpenH264) only tries 960×540@15. 720p30 is
+hardware-encoder-only on Edge, and software H.264 stays at the conservative
+`h264-540p15` ceiling because 720p video would use too much CPU on a Player
+without hardware encoding. When no candidate passes, the renderer advertises
+no H.264 profile and Watch Live uses MJPEG. The probe result reaches
+`tilecastd` as `renderer.live_capabilities`, and the renderer logs it once,
+for example
+`live-encoder: H.264 Watch Live uses vah264lpenc (hardware, up to 720p30)`,
+`live-encoder: H.264 Watch Live uses vah264lpenc (hardware, up to 720p15)`, or
 `live-encoder: H.264 Watch Live uses openh264enc (software, up to 540p15)`.
+
+A probe proves that the encoder starts and makes a restartable keyframe at
+the profile. It does not prove that capture, pixel conversion, and encoding
+keep up for a long time. The runtime downgrade (above) judges that, and it
+protects playback. The renderer also refuses a `live_encoder.start` for a
+profile above the qualified stage.
 Edge uses the GStreamer plugins that the Edge release carries, so the
 encoders available depend on them and on the host's VA-API drivers.
 Tilecast does not add `plugins-ugly` or x264.
@@ -240,14 +299,41 @@ more are dropped and counted. A copy that takes more than a quarter of the
 frame interval skips the next frames, so Watch Live never takes more than
 about a quarter of the main loop. Conversion and encoding run on GStreamer
 threads. `h264parse config-interval=-1` writes SPS and PPS before every IDR.
-VA-API runs with CBR, no B-frames, and one reference frame. OpenH264 runs in
+VA-API runs with CBR, no B-frames, one reference frame, and a key-frame
+interval equal to the frame rate (30 frames at 30 FPS). The timer period is the
+nearest whole millisecond and is never zero (33 ms at 30 FPS). The limit of
+two raw frames in flight is 67 ms at 30 FPS: a slow chain drops frames and
+degrades instead of building a queue. OpenH264 runs in
 screen-content mode, low complexity, with bitrate control and a GOP of one
 second. Each access unit reaches `tilecastd` as `renderer.live_chunk`.
 
-Hardware qualification: the e2e image has OpenH264 only. VA-API encoders
-(`vah264lpenc`, `vah264enc`) and the 720p profile need a physical Edge
-device to qualify. Until then, treat a hardware encoder's 720p advertisement
-as probed, not qualified.
+Hardware qualification: the e2e image has OpenH264 only, so CI proves the
+software ceiling (`up to 540p15`, never 720p). The probe ladder itself is unit
+tested with a fake probe (`test-live-profiles`). VA-API encoders
+(`vah264lpenc`, `vah264enc`) and the 720p profiles need a physical Edge
+device to qualify. Until a device test, treat a hardware encoder's 720p30
+advertisement as probed, not qualified. The 2012-era Intel HD 3000 devices
+(Acer Veriton) are the reference test: see "Diagnostics on a Player".
+
+## Diagnostics on a Player
+
+Edge writes these lines to the journal. They hold names and numbers only,
+never frames, access units, or credentials, and nothing is stored.
+
+| Question                              | Where to look                                                                                                                                                                                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Did VA-API qualify 720p30?            | Renderer: `live-encoder: H.264 Watch Live uses <encoder> (hardware, up to 720p30)`, and `live-encoder: <encoder> 720p30 probe passed … level_idc 31` or `did not qualify 720p30`. Daemon: `event=encoder_probe encoder=… hardware=… highest_profile=h264-720p30` |
+| Did the session select 720p30?        | Daemon: `event=encoded_stream_started profile=h264-720p30 profile_generation=0 highest_offered=…`. Renderer: `live-encoder: stream started: h264-720p30 on <encoder> (hardware), 1280x720 at 30 fps …`                                                           |
+| What output FPS did it sustain?       | Daemon, every five seconds after warm-up: `event=profile_window profile=… output_fps=… nominal_fps=30 late_percent=… resyncs=… verdict=…`                                                                                                                        |
+| Did it fall back, and why?            | Daemon: `event=profile_degraded from=h264-720p30 to=h264-720p15 reason=output_fps`. `to` is the next profile the Player offers. The server confirms it with the next `encoded_stream_started`                                                                    |
+| How many frames did the encoder drop? | Renderer, when the stream ends: `live-encoder: stream ended: N access units delivered, M raw frames dropped before encoding`                                                                                                                                     |
+
+For example, on an Edge device:
+
+```sh
+journalctl -u tilecast-edge -u tilecast-renderer --since "10 min ago" \
+  | grep -E 'live-encoder:|live_stream'
+```
 
 ## Transport and storage boundary
 
