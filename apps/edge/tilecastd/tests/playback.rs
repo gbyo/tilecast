@@ -4216,11 +4216,11 @@ async fn an_airplay_receiver_that_fails_to_start_leaves_nothing_behind() {
     let (player, renderer) = harness.committed(&asset, 3).await;
     renderer.stop();
     let renderer = airplay_renderer(&player, &asset).await;
-    // No supervisor: the unit is not installed yet.
+    // No supervisor is listening.
     let missing = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
     let result = command_result(&harness, &missing).await;
     assert_eq!(result["code"], "airplay_not_ready");
-    assert!(result["message"].as_str().unwrap().contains("not installed yet"), "{result}");
+    assert_eq!(result["message"], "The Tilecast Edge AirPlay receiver service is unavailable.");
     assert_eq!(heartbeat(&player.context).await["airplaySupported"], false);
 
     let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
