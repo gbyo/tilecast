@@ -136,13 +136,13 @@ Before activation, and again before a rollback uses the previous release, the he
 
 The installer gets the system files from the verified manifest of the release being made current. The following directories and configuration paths are fixed in the installer.
 
-| Signed release path | Host directory |
-| --- | --- |
-| `packaging/systemd/<unit>` | `/etc/systemd/system` |
-| `packaging/systemd-user/<unit>` | `/etc/systemd/user` |
-| `packaging/sysusers.d/tilecast-edge.conf` | `/usr/lib/sysusers.d` |
-| `packaging/tmpfiles.d/tilecast-edge.conf` | `/usr/lib/tmpfiles.d` |
-| `packaging/udev/70-tilecast-display.rules` | `/usr/lib/udev/rules.d` |
+| Signed release path                           | Host directory            |
+| --------------------------------------------- | ------------------------- |
+| `packaging/systemd/<unit>`                    | `/etc/systemd/system`     |
+| `packaging/systemd-user/<unit>`               | `/etc/systemd/user`       |
+| `packaging/sysusers.d/tilecast-edge.conf`     | `/usr/lib/sysusers.d`     |
+| `packaging/tmpfiles.d/tilecast-edge.conf`     | `/usr/lib/tmpfiles.d`     |
+| `packaging/udev/70-tilecast-display.rules`    | `/usr/lib/udev/rules.d`   |
 | `packaging/modules-load.d/tilecast-edge.conf` | `/usr/lib/modules-load.d` |
 
 The manifest requires the core lifecycle units. Extra units must have a flat `tilecast-` basename with lowercase ASCII letters and digits in hyphen-separated parts and one of `.service`, `.socket`, `.path`, `.timer` or `.target` as the extension. The update guard namespace is reserved. Templates, drop-ins, links, other packaging paths, and files larger than 256 KiB are refused. During a remote update, a new unit name cannot replace a different local file or a mask in its destination directory. An explicit operator install can replace a legacy Tilecast service. The installer checks the copied bytes against the manifest again, then writes a temporary file, sets mode 0644, syncs, renames and syncs the directory.
@@ -207,6 +207,8 @@ The socket-activated helper runs the same check each time it starts, before it s
 
 Rollback is idempotent. The helper saves `RollbackIntent`, stops the Edge stack and verifies the previous tree against the recorded manifest digest. It stops candidate-only system units and removes the candidate-only system and user unit files that still match their signed bytes. It leaves local replacements and accounts created by sysusers in place. It installs the previous release's system files, switches `current`, applies sysusers and tmpfiles, reloads systemd, starts the previous stack, disarms the guard and archives `RolledBack`. Activation uses the same comparison to remove units that the new release drops.
 
+If auxiliary unit cleanup fails, the helper still restores and starts the previous stack. It records that only cleanup is pending and leaves the guard armed. The guard retries cleanup and reloads systemd without stopping the restored stack again. The record includes this marker only for transactions that use manifest-driven installation.
+
 - If the previous tree does not verify, the helper starts whatever `current` names, so the screen does not stay dark, keeps the transaction in `RollbackIntent` with `previous_release_corrupt`, and the guard tries again. It never switches to an unverified tree.
 - A rollback that the daemon or an operator asks for waits up to 60 s for the previous daemon's status, to record a refused newer state schema (§8). A rollback by the guard does not wait: the Edge units are ordered after the guard, so the previous daemon cannot start until the guard exits.
 - The candidate stays installed until a later confirmation's retention removes it. It is never activated again unless the server deploys it again.
@@ -215,7 +217,7 @@ Rollback is idempotent. The helper saves `RollbackIntent`, stops the Edge stack 
 
 The candidate is provisional until it confirms. An unconfirmed candidate is rolled back after a power loss even if it was healthy before it: the guard sees a different boot ID and rolls back before the Edge units start. The next deployment decides whether to try it again. This keeps one rule, "a release that did not confirm in the boot it was activated in is not trusted", instead of a second probation that would have to prove health after a boot.
 
-Crash and power-loss tests cover every durable transition: 19 crash points for activation, confirmation and rollback, each with and without a power loss (`tilecast-edge-update/src/crash_tests.rs`), and a real power loss of the systemd container while a healthy candidate is provisional (`update_e2e.py`, scenario B).
+Crash and power-loss tests cover the durable points for activation, confirmation and rollback, each with and without a power loss (`tilecast-edge-update/src/crash_tests.rs`). The systemd test also cuts power while a healthy candidate is provisional (`update_e2e.py`, scenario B).
 
 ## 6. Confirmation
 

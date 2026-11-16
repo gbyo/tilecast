@@ -257,8 +257,12 @@ async fn every_rollback_crash_point_finishes_the_rollback() {
             let world = World::new();
             world.staged("0.2.0").await;
             world.updater(None).activate("0.2.0").await.unwrap();
+            if point == CrashPoint::AfterRollbackCleanupPending {
+                world.host.with(|s| s.refuse_stop.insert("tilecast-airplay.service".into()));
+            }
             let error = world.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
             assert!(matches!(error, UpdateError::Crashed(p) if p == point));
+            world.host.with(|s| s.refuse_stop.clear());
             world.recover(power_loss).await;
             world.assert_consistent(Phase::RolledBack);
             assert_eq!(world.latest().reason.as_deref(), Some("candidate_safe_mode"), "{point:?}");
@@ -371,6 +375,42 @@ async fn a_new_release_unit_cannot_overwrite_a_local_mask() {
     assert_eq!(std::fs::read_link(unit).unwrap(), std::path::Path::new("/dev/null"));
     assert!(world.store.load().unwrap().is_none());
     assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+}
+
+#[tokio::test]
+async fn activation_preserves_a_mask_added_after_the_intent() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    let updater = world.updater(None);
+    let intent = updater.begin_activation("0.2.0").unwrap();
+    let unit = world.layout.unit_dir.join("tilecast-airplay.socket");
+    std::os::unix::fs::symlink("/dev/null", &unit).unwrap();
+    assert_eq!(updater.run_activation(intent).await.unwrap().phase, Phase::RolledBack);
+    assert_eq!(std::fs::read_link(unit).unwrap(), std::path::Path::new("/dev/null"));
+    assert!(world.host.is_active(EDGE_DAEMON));
+    assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+}
+
+#[tokio::test]
+async fn auxiliary_stop_failure_restores_playback_and_retries_without_stopping_it() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    let updater = world.updater(None);
+    updater.activate("0.2.0").await.unwrap();
+    let unit = "tilecast-airplay.service";
+    world.host.with(|s| s.refuse_stop.insert(unit.into()));
+
+    assert_eq!(updater.rollback("operator_requested").await.unwrap_err().reason_code(), "rollback_cleanup_pending");
+    assert!(world.latest().rollback_cleanup_pending);
+    assert_eq!(world.host.with(|s| s.running_version.clone()).as_deref(), Some("0.1.0"));
+    assert!(world.layout.unit_dir.join(unit).exists());
+    assert!(world.host.with(|s| s.guard_armed_for.is_some()));
+    let log = world.host.with(|s| s.log.len());
+    assert!(updater.guard().await.is_err(), "the persistent stop error keeps the guard armed");
+    world.host.with(|s| s.refuse_stop.clear());
+    updater.guard().await.unwrap();
+    assert!(world.host.with(|s| !s.log[log..].iter().any(|event| event == "stop tilecast-edge.service")));
+    world.assert_consistent(Phase::RolledBack);
 }
 
 #[tokio::test]

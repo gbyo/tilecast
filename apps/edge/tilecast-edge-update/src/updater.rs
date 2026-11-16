@@ -121,6 +121,7 @@ pub enum CrashPoint {
     AfterRollbackCurrent,
     AfterRollbackReload,
     AfterRollbackStarted,
+    AfterRollbackCleanupPending,
     AfterRollbackGuardDisarmed,
 }
 
@@ -139,13 +140,14 @@ impl CrashPoint {
     ];
     pub const CONFIRMATION: [CrashPoint; 3] =
         [Self::AfterConfirmIntent, Self::AfterGuardDisarmed, Self::AfterRetention];
-    pub const ROLLBACK: [CrashPoint; 7] = [
+    pub const ROLLBACK: [CrashPoint; 8] = [
         Self::AfterRollbackIntent,
         Self::AfterRollbackStopped,
         Self::AfterRollbackSystemFiles,
         Self::AfterRollbackCurrent,
         Self::AfterRollbackReload,
         Self::AfterRollbackStarted,
+        Self::AfterRollbackCleanupPending,
         Self::AfterRollbackGuardDisarmed,
     ];
 
@@ -402,6 +404,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             renderer_restarts_base: None,
             reason: None,
             schema_incompatible: false,
+            rollback_cleanup_pending: false,
             events: vec![],
             updated_at_ms: 0,
         };
@@ -452,6 +455,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             return Err(ReleaseError::InstalledCorrupt(transaction.previous.version_name.clone()).into());
         }
         self.remove_outgoing_units(&previous, &verified).await?;
+        check_new_unit_destinations(&self.layout, &verified, &previous)?;
         install_system_files(&self.layout, &verified)?;
         self.crash(CrashPoint::AfterSystemFiles)?;
         switch_current(&self.layout, &transaction.candidate.version_name)?;
@@ -587,6 +591,29 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             self.save(transaction, Phase::RollbackIntent, reason)?;
             self.crash(CrashPoint::AfterRollbackIntent)?;
         }
+        if transaction.rollback_cleanup_pending {
+            let previous = verify_manifest(&self.layout.version_dir(&transaction.previous.version_name), &self.key)?;
+            if previous.manifest_sha256 != transaction.previous.manifest_sha256 {
+                return Err(UpdateError::RollbackIncomplete("previous_release_corrupt"));
+            }
+            self.remove_candidate_units(transaction, &previous).await?;
+            self.host.reload().await?;
+            transaction.rollback_cleanup_pending = false;
+        } else {
+            self.restore_previous(transaction).await?;
+        }
+        self.host.disarm_guard().await?;
+        self.crash(CrashPoint::AfterRollbackGuardDisarmed)?;
+        let detail = format!("rolled back to {}", transaction.previous.version_name);
+        self.save(transaction, Phase::RolledBack, &detail)?;
+        if watch == Watch::Previous {
+            self.watch_previous(transaction).await?;
+        }
+        self.store.archive(transaction)?;
+        Ok(())
+    }
+
+    async fn restore_previous(&self, transaction: &mut Transaction) -> Result<(), UpdateError> {
         let _ = self.host.stop(EDGE_WEB).await;
         let _ = self.host.stop(EDGE_RENDERER).await;
         let _ = self.host.stop(EDGE_DAEMON).await;
@@ -605,15 +632,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             let _ = self.host.start(EDGE_RENDERER).await;
             return Err(UpdateError::RollbackIncomplete("previous_release_corrupt"));
         };
-        // Older helpers did not write an inventory and never installed units
-        // dynamically. Keep their transaction record readable in both directions.
-        match verify_manifest(&self.candidate_manifest_dir(), &self.key) {
-            Ok(candidate) if candidate.manifest_sha256 == transaction.candidate.manifest_sha256 => {
-                self.remove_outgoing_units(&candidate, &verified).await?;
-            }
-            Err(ReleaseError::MissingManifest) | Ok(_) => {}
-            Err(error) => return Err(error.into()),
-        }
+        let cleanup = self.remove_candidate_units(transaction, &verified).await;
         install_system_files(&self.layout, &verified)?;
         self.crash(CrashPoint::AfterRollbackSystemFiles)?;
         switch_current(&self.layout, &transaction.previous.version_name)?;
@@ -629,15 +648,33 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             self.host.start(unit).await?;
         }
         self.crash(CrashPoint::AfterRollbackStarted)?;
-        self.host.disarm_guard().await?;
-        self.crash(CrashPoint::AfterRollbackGuardDisarmed)?;
-        let detail = format!("rolled back to {}", transaction.previous.version_name);
-        self.save(transaction, Phase::RolledBack, &detail)?;
-        if watch == Watch::Previous {
-            self.watch_previous(transaction).await?;
+        if let Err(error) = cleanup {
+            tracing::warn!(component = "update", event = "rollback_cleanup_pending", error = %error);
+            transaction.rollback_cleanup_pending = true;
+            self.save(
+                transaction,
+                Phase::RollbackIntent,
+                "previous release restored with auxiliary unit cleanup pending",
+            )?;
+            self.crash(CrashPoint::AfterRollbackCleanupPending)?;
+            return Err(UpdateError::RollbackIncomplete("rollback_cleanup_pending"));
         }
-        self.store.archive(transaction)?;
         Ok(())
+    }
+
+    async fn remove_candidate_units(
+        &self,
+        transaction: &Transaction,
+        previous: &VerifiedRelease,
+    ) -> Result<(), UpdateError> {
+        // Older helpers did not write an inventory and never installed units dynamically.
+        match verify_manifest(&self.candidate_manifest_dir(), &self.key) {
+            Ok(candidate) if candidate.manifest_sha256 == transaction.candidate.manifest_sha256 => {
+                self.remove_outgoing_units(&candidate, previous).await
+            }
+            Err(ReleaseError::MissingManifest) | Ok(_) => Ok(()),
+            Err(error) => Err(error.into()),
+        }
     }
 
     fn candidate_manifest_dir(&self) -> PathBuf {
