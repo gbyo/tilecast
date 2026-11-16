@@ -8,7 +8,7 @@ import {
 } from "../data/screens";
 
 import { formatBytes } from "../lib/formatBytes";
-import { settingsQueries } from "../data/settings";
+import { settingsKeys, settingsQueries } from "../data/settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -2617,10 +2617,7 @@ export function ScreenDetailPage() {
   const playerHistory = useQuery({
     ...screenQueries.playerHistory(id),
   });
-  const screenPolicy = useQuery({
-    queryKey: ["screen", id, "policy"],
-    queryFn: () => api.screenPolicy(id),
-  });
+  const screenPolicy = useQuery(settingsQueries.screenPolicy(id));
   const airplayBetaMutation = useMutation({
     mutationFn: (enabled: boolean) => {
       if (!screenPolicy.data) throw new Error("Screen policy is not loaded.");
@@ -2637,7 +2634,7 @@ export function ScreenDetailPage() {
     onSuccess: async (updated, enabled) => {
       queryClient.setQueryData(["screen", id, "policy"], updated);
       await queryClient.invalidateQueries({
-        queryKey: ["screens", id, "effective-policy"],
+        queryKey: settingsKeys.effectiveScreenPolicy(id),
       });
       toast.add({
         title: enabled
