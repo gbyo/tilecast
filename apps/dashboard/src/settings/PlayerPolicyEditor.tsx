@@ -61,6 +61,8 @@ type PolicyGroupDescriptionKey =
 
 // Group headings hold translation keys, never rendered text. The titleKey
 // doubles as the stable identifier for expansion state.
+const dedicatedPolicyKeys = new Set(["edge.airplay.beta_enabled"]);
+
 const policyGroups: {
   titleKey: PolicyGroupTitleKey;
   descriptionKey: PolicyGroupDescriptionKey;
@@ -196,12 +198,40 @@ export function PlayerPolicyEditor({
     },
   });
   const reset = useMutation({
-    mutationFn: () =>
-      target === "group"
+    mutationFn: () => {
+      const preserved = Object.fromEntries(
+        Object.entries(policy.data?.values ?? {}).filter(([key]) =>
+          dedicatedPolicyKeys.has(key),
+        ),
+      );
+      if (Object.keys(preserved).length) {
+        return target === "group"
+          ? api.putGroupPolicy(
+              id,
+              policy.data?.revision ?? 0,
+              priority,
+              preserved,
+              auth.status?.csrfToken ?? "",
+            )
+          : api.putScreenPolicy(
+              id,
+              policy.data?.revision ?? 0,
+              preserved,
+              auth.status?.csrfToken ?? "",
+            );
+      }
+      return target === "group"
         ? api.deleteGroupPolicy(id, auth.status?.csrfToken ?? "")
-        : api.deleteScreenPolicy(id, auth.status?.csrfToken ?? ""),
+        : api.deleteScreenPolicy(id, auth.status?.csrfToken ?? "");
+    },
     onSuccess: async () => {
-      setValues({});
+      setValues(
+        Object.fromEntries(
+          Object.entries(policy.data?.values ?? {}).filter(([key]) =>
+            dedicatedPolicyKeys.has(key),
+          ),
+        ),
+      );
       initializedRevision.current = null;
       await policy.refetch();
       await effective.refetch();
@@ -229,7 +259,9 @@ export function PlayerPolicyEditor({
       })),
     [definitions, normalizedSearch],
   );
-  const overrideCount = Object.keys(values).length;
+  const overrideCount = Object.keys(values).filter(
+    (key) => !dedicatedPolicyKeys.has(key),
+  ).length;
 
   const cancelChanges = () => {
     setValues(baselineValues);
