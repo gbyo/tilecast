@@ -151,6 +151,9 @@ func (s *Service) OrganizationValues(ctx context.Context) (map[string]any, error
 	return document.Values, nil
 }
 func (s *Service) UpdateOrganization(ctx context.Context, user uuid.UUID, revision int64, values map[string]any) (Document, error) {
+	if _, ok := values["edge.airplay.beta_enabled"]; ok {
+		return Document{}, errors.New("setting_not_allowed_at_scope: edge.airplay.beta_enabled")
+	}
 	validated, err := Validate(values, ScopeOrganization)
 	if err != nil {
 		return Document{}, err

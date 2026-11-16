@@ -863,6 +863,13 @@ impl Actor {
             connection: Some(connection),
         });
         self.show_changed();
+        // The Beta flag can turn off while `prepare` was suspended. `set_beta_enabled`
+        // queues a Stop only for a published view, so check again now that the view is
+        // visible. The lock hand-off orders the two sides: one of them sees the other.
+        if !self.context.airplay.enabled() {
+            self.stop(reason::BETA_DISABLED).await;
+            return CommandResult::failed("airplay_not_ready", "AirPlay is not enabled for this player.");
+        }
         if let Some(network_id) = session.network_id.clone() {
             let provisioner = crate::network_task::ServerProvisioner::new(&self.context);
             let context = Arc::clone(&self.context);

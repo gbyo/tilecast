@@ -4659,6 +4659,7 @@ export function ScreenDetailPage() {
               target="screen"
               id={id}
               onDirtyChange={setPolicyDirty}
+              disabled={airplayBetaMutation.isPending}
             />
           </TabsContent>
         )}

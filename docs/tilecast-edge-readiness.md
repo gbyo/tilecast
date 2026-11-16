@@ -215,8 +215,10 @@ rollback on a real disk.
 - Single-screen AirPlay is implemented in Edge software and has automated
   qualification. Physical hardware qualification is pending. Until it is
   recorded, single-screen AirPlay must be labeled Beta rather than
-  production-qualified. It is off by default and reports `beta_disabled`
-  until an administrator enables it for that Edge screen in Studio
+  production-qualified. It is off by default. While its dependencies are healthy, it reports
+  `beta_disabled` until an administrator enables it for that Edge screen in
+  Studio. If a dependency fails while the Beta is off, Edge reports the
+  dependency reason instead
   ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §12). Group AirPlay
   stays unsupported.
 - The readiness plan references `docs/tilecast-edge-sandbox-review.md`.

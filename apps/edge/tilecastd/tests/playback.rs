@@ -4203,7 +4203,8 @@ async fn the_airplay_beta_switch_applies_live_and_stops_an_active_session_when_d
     let beat = heartbeat(&player.context).await;
     assert_eq!(beat["airplaySupported"], false);
     assert_eq!(beat["airplayBetaEnabled"], false);
-    assert!(airplay_row(&player).await.is_none());
+    // The Stop is recorded before the actor deletes the row, so wait for the delete.
+    wait_until("the AirPlay session row removed", || async { airplay_row(&player).await.is_none() }).await;
     player.stop().await;
 }
 

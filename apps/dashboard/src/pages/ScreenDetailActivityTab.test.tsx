@@ -86,7 +86,10 @@ function stubApi() {
   vi.spyOn(api, "layouts").mockResolvedValue(empty);
   vi.spyOn(api, "screenCommands").mockResolvedValue(empty);
   vi.spyOn(api, "screenReliability").mockResolvedValue(empty);
-  vi.spyOn(api, "screenPolicy").mockResolvedValue(empty);
+  vi.spyOn(api, "screenPolicy").mockResolvedValue({
+    revision: 0,
+    values: {},
+  } as never);
   vi.spyOn(api, "screenSnapshots").mockResolvedValue({
     items: [],
     enabled: true,

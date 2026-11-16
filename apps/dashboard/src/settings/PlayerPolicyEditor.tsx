@@ -114,14 +114,17 @@ export function PlayerPolicyEditor({
   target,
   id,
   onDirtyChange,
+  disabled = false,
 }: {
   target: "group" | "screen";
   id: string;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Locks editing while another write refreshes this policy. */
+  disabled?: boolean;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
-  const manageable = hasCapability(auth.status, "screen.manage");
+  const manageable = hasCapability(auth.status, "screen.manage") && !disabled;
   const settings = useQuery(settingsQueries.organization());
   const policy = useQuery({
     queryKey:
