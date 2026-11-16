@@ -224,3 +224,14 @@ class ReleaseVersionNumbering(unittest.TestCase):
         for name in ("0.26.0-rc.1", "1.2.3-hotfix", "21.0.0"):
             with self.assertRaises(SystemExit, msg=name):
                 self.stage.version_code(name)
+
+    def test_bootstrap_omits_the_prerequisite_and_followup_releases_require_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            config = Path(root, "updater-compatibility.txt")
+            config.write_text("bootstrap\n")
+            self.assertIsNone(self.stage.configured_updater_floor(config, "0.26.0-beta.1"))
+            config.write_text("0.26.0-beta.1\n")
+            self.assertIsNone(self.stage.configured_updater_floor(config, "0.2.2"))
+            self.assertEqual(self.stage.configured_updater_floor(config, "0.26.0-beta.2"), "0.26.0-beta.1")
+            with self.assertRaises(SystemExit):
+                self.stage.configured_updater_floor(config, "0.26.0-beta.1")

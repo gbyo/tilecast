@@ -77,7 +77,7 @@ impl World {
     /// Builds a signed release, its archive and envelope, and puts the
     /// archive where `tilecastd` would have: in the content store.
     fn candidate(&self, version: &str) -> Candidate {
-        self.candidate_with(version, |tree| {
+        self.candidate_with(version, None, |tree| {
             for unit in AIRPLAY_UNITS {
                 std::fs::write(tree.join("packaging/systemd").join(unit), "[Unit]\n").unwrap();
             }
@@ -85,11 +85,15 @@ impl World {
         })
     }
 
-    fn candidate_with(&self, version: &str, change: impl FnOnce(&std::path::Path)) -> Candidate {
+    fn candidate_with(&self, version: &str, minimum: Option<&str>, change: impl FnOnce(&std::path::Path)) -> Candidate {
         let tree = self.root.path().join(format!("tree-{version}"));
         self.signer.write_release(&tree, version);
         change(&tree);
-        self.signer.sign(&tree, &serde_json::to_vec(&rehash(&tree)).unwrap());
+        let mut manifest = rehash(&tree);
+        if let Some(minimum) = minimum {
+            manifest["minimumUpdaterVersion"] = serde_json::json!(minimum);
+        }
+        self.signer.sign(&tree, &serde_json::to_vec(&manifest).unwrap());
         let archive = self.root.path().join(format!("{version}.tar.zst"));
         write_archive(&tree, &archive);
         let envelope = self.signer.envelope_bytes(&tree, &archive, 6);
@@ -346,7 +350,7 @@ async fn rollback_removes_new_units_even_if_the_candidate_tree_is_lost() {
 async fn signed_candidates_cannot_install_host_or_guard_units() {
     for unit in ["sshd.service", "tilecast-edge-update-guard.service", "tilecast-airplay.socket.d/override.conf"] {
         let world = World::new();
-        let candidate = world.candidate_with("0.2.0", |tree| {
+        let candidate = world.candidate_with("0.2.0", None, |tree| {
             let path = tree.join("packaging/systemd").join(unit);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, "[Unit]\n").unwrap();
@@ -367,6 +371,24 @@ async fn a_new_release_unit_cannot_overwrite_a_local_mask() {
     assert_eq!(std::fs::read_link(unit).unwrap(), std::path::Path::new("/dev/null"));
     assert!(world.store.load().unwrap().is_none());
     assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+}
+
+#[tokio::test]
+async fn a_signed_updater_prerequisite_is_checked_at_stage_and_activation() {
+    let world = World::new();
+    let candidate = world.candidate_with("0.3.0", Some("0.2.0"), |_| {});
+    assert_eq!(world.stage(&candidate).await.unwrap_err().reason_code(), "update_bootstrap_required");
+    // A previously staged tree cannot skip the check when current has rolled back.
+    edge_release::install::stage_from_dir(&world.root.path().join("tree-0.3.0"), &world.layout, &world.signer.public())
+        .unwrap();
+    assert_eq!(world.updater(None).activate("0.3.0").await.unwrap_err().reason_code(), "update_bootstrap_required");
+    assert!(world.store.load().unwrap().is_none());
+
+    world.staged("0.2.0").await;
+    world.updater(None).activate("0.2.0").await.unwrap();
+    world.updater(None).confirm("0.2.0").await.unwrap();
+    assert_eq!(world.stage(&candidate).await.unwrap(), StageOutcome::AlreadyStaged { version: "0.3.0".into() });
+    assert_eq!(world.updater(None).activate("0.3.0").await.unwrap().phase, Phase::Provisional);
 }
 
 #[tokio::test]

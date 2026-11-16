@@ -20,10 +20,13 @@ use edge_protocol::ipc::method::{DiscoveredServer, DiscoveryListResult, MAX_DISC
 use edge_server::url_policy::normalize_server_url;
 use futures_util::StreamExt as _;
 use zbus::zvariant::OwnedObjectPath;
+use zbus::{MatchRule, MessageStream, message::Type};
 
 use crate::daemon::DaemonContext;
 
 pub const SERVICE_TYPE: &str = "_tilecast._tcp";
+const AVAHI: &str = "org.freedesktop.Avahi";
+const BROWSER_INTERFACE: &str = "org.freedesktop.Avahi.ServiceBrowser";
 const BROWSE_DEADLINE: Duration = Duration::from_secs(3);
 const RESOLVE_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_TXT_BYTES: usize = 1024;
@@ -36,8 +39,8 @@ const UNSPEC: i32 = -1;
     default_path = "/"
 )]
 trait AvahiServer {
-    #[zbus(name = "ServiceBrowserPrepare")]
-    fn service_browser_prepare(
+    #[zbus(name = "ServiceBrowserNew")]
+    fn service_browser_new(
         &self,
         interface: i32,
         protocol: i32,
@@ -62,20 +65,7 @@ trait AvahiServer {
 
 #[zbus::proxy(interface = "org.freedesktop.Avahi.ServiceBrowser", default_service = "org.freedesktop.Avahi")]
 trait ServiceBrowser {
-    fn start(&self) -> zbus::Result<()>;
     fn free(&self) -> zbus::Result<()>;
-    #[zbus(signal)]
-    fn item_new(
-        &self,
-        interface: i32,
-        protocol: i32,
-        name: String,
-        service_type: String,
-        domain: String,
-        flags: u32,
-    ) -> zbus::Result<()>;
-    #[zbus(signal)]
-    fn all_for_now(&self) -> zbus::Result<()>;
 }
 
 /// TXT entries as `key=value` pairs, bounded.
@@ -107,25 +97,37 @@ pub fn server_url(txt: &HashMap<String, String>, host: &str, port: u16) -> Optio
 async fn browse() -> zbus::Result<Vec<DiscoveredServer>> {
     let connection = zbus::Connection::system().await?;
     let server = AvahiServerProxy::new(&connection).await?;
-    let path = server.service_browser_prepare(UNSPEC, UNSPEC, SERVICE_TYPE, "", 0).await?;
-    let browser = ServiceBrowserProxy::builder(&connection).path(path)?.build().await?;
-    let mut items = browser.receive_item_new().await?;
-    let mut done = browser.receive_all_for_now().await?;
-    browser.start().await?;
+    // The classic Server API works on Avahi before and after 0.8. Subscribe
+    // before New can send cached results, and read ItemNew and AllForNow in
+    // their original order.
+    let owner = zbus::fdo::DBusProxy::new(&connection).await?.get_name_owner(AVAHI.try_into()?).await?;
+    let rule = MatchRule::builder().msg_type(Type::Signal).sender(owner)?.interface(BROWSER_INTERFACE)?.build();
+    let mut signals = MessageStream::for_match_rule(rule, &connection, Some(128)).await?;
+    let path = server.service_browser_new(UNSPEC, UNSPEC, SERVICE_TYPE, "", 0).await?;
+    let browser = ServiceBrowserProxy::builder(&connection).path(path.clone())?.build().await?;
     let mut found: Vec<(i32, i32, String, String)> = Vec::new();
     let deadline = tokio::time::sleep(BROWSE_DEADLINE);
     tokio::pin!(deadline);
     loop {
         tokio::select! {
             () = &mut deadline => break,
-            _ = done.next() => break,
-            item = items.next() => {
-                let Some(item) = item else { break };
-                if let Ok(args) = item.args()
+            signal = signals.next() => {
+                let Some(Ok(signal)) = signal else { break };
+                let header = signal.header();
+                if header.path().map(|path| path.as_str()) != Some(path.as_str()) {
+                    continue;
+                }
+                let member = header.member().map(|member| member.as_str());
+                if member == Some("AllForNow") {
+                    break;
+                }
+                if member == Some("ItemNew")
                     && found.len() < MAX_DISCOVERED_SERVERS
-                    && !found.iter().any(|(_, _, name, _)| *name == args.name)
+                    && let Ok((interface, protocol, name, _, domain, _)) =
+                        signal.body().deserialize::<(i32, i32, String, String, String, u32)>()
+                    && !found.iter().any(|(_, _, known, _)| *known == name)
                 {
-                    found.push((args.interface, args.protocol, args.name.clone(), args.domain.clone()));
+                    found.push((interface, protocol, name, domain));
                 }
             }
         }

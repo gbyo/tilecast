@@ -78,6 +78,12 @@ def main():
         "sbomSha256": sha256(os.path.join(args.tree, "share/doc/tilecast-edge/sbom.cdx.json")),
         "stateSchemaVersion": args.state_schema,
     }
+    if "minimumUpdaterVersion" in manifest:
+        minimum = manifest["minimumUpdaterVersion"]
+        minimum_code = release_version.version_code(minimum) if isinstance(minimum, str) else None
+        if minimum_code is None or not 0 < minimum_code < code:
+            sys.exit("envelope: the minimum updater version must be an older Edge version")
+        envelope["minimumUpdaterVersion"] = minimum
     with open(args.out, "w") as handle:
         json.dump(envelope, handle, indent=2, sort_keys=True)
         handle.write("\n")

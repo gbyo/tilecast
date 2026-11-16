@@ -33,7 +33,8 @@ use edge_release::install::{
     verify_installed, write_atomic,
 };
 use edge_release::manifest::{
-    MANIFEST_NAME, ReleaseError, SIGNATURE_NAME, VerifiedRelease, hex, is_version_name, verify_manifest, version_code,
+    MANIFEST_NAME, ReleaseError, SIGNATURE_NAME, VerifiedRelease, hex, is_version_name, updater_version_allowed,
+    verify_manifest, version_code,
 };
 use edge_release::protocol::{HelperStatus, MAX_LISTED_VERSIONS, Phase, ReleaseRef};
 use sha2::{Digest as _, Sha256};
@@ -276,6 +277,10 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         if envelope.envelope.artifact_sha256 != artifact_sha256 {
             return Err(UpdateError::Refused("artifact_mismatch"));
         }
+        let current_code = current_version(&self.layout).as_deref().and_then(version_code);
+        if !updater_version_allowed(envelope.envelope.minimum_updater_version.as_deref(), current_code) {
+            return Err(UpdateError::Refused("update_bootstrap_required"));
+        }
         let version = envelope.envelope.version_name.clone();
         let dir = self.layout.version_dir(&version);
         if std::fs::symlink_metadata(&dir).is_ok() {
@@ -286,9 +291,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             }
             return Ok(StageOutcome::AlreadyStaged { version });
         }
-        if let Some(current) = current_version(&self.layout)
-            && version_code(&current).is_some_and(|code| code >= envelope.envelope.version_code)
-        {
+        if current_code.is_some_and(|code| code >= envelope.envelope.version_code) {
             return Err(UpdateError::Refused("update_not_newer"));
         }
         remove_leftovers(&self.layout)?;
@@ -370,6 +373,12 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         let candidate = verify_installed(&candidate_dir, &self.key)?;
         if candidate.manifest.version_code <= previous.manifest.version_code {
             return Err(UpdateError::Refused("update_not_newer"));
+        }
+        if !updater_version_allowed(
+            candidate.manifest.minimum_updater_version.as_deref(),
+            Some(previous.manifest.version_code),
+        ) {
+            return Err(UpdateError::Refused("update_bootstrap_required"));
         }
         check_new_unit_destinations(&self.layout, &candidate, Some(&previous))?;
         // Persist the verified inventory before the intent. The guard can

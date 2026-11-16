@@ -454,6 +454,29 @@ build against the shipped helper. The workflow runs the oracle for x86_64.
 Android screens need no bridge: Android compares only the `versionCode` integer,
 and every unified code is larger.
 
+### Edge system unit bootstrap
+
+The updater that starts a transaction controls activation. A release with the
+fixed-list updater cannot install an unfamiliar unit during that activation.
+
+1. Build and publish a normal coordinated release with
+   `apps/edge/release/updater-compatibility.txt` set to `bootstrap`. Choose a
+   version newer than every published release with a fixed-list updater. This
+   release installs the manifest-driven updater and uses the update format the
+   older helper can read. Confirm it on a canary before rollout.
+2. Record that published Edge version in `updater-compatibility.txt` before
+   the next coordinated release. The build signs it as
+   `minimumUpdaterVersion` in the release manifest and update envelope. The
+   version must be lower than the candidate's version. The legacy version-code
+   bridge keeps its legacy format.
+3. Deploy a follow-up release to screens after they confirm the bootstrap.
+   Studio reports the prerequisite in deployment preview and creation. Edge
+   checks it again before download, staging, and activation. It retries briefly
+   if the socket still has the helper that confirmed the bootstrap running.
+
+See the [Edge update threat review](tilecast-edge-update-threat-review.md#45-system-files)
+for the signed system file rules and rollback behavior.
+
 ## WPE WebKit prebuilds
 
 The private WPE WebKit build takes about two hours. `wpe-prebuild.yml` builds

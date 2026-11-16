@@ -150,6 +150,20 @@ def require_plugin_bridge(tree):
         sys.exit("stage-release: the packaged WPE bridge does not enable external plugin frames")
 
 
+def configured_updater_floor(path, version):
+    # The legacy version-code bridge must remain readable by the old helper.
+    if path is None or release_version.version_channel(version) is None:
+        return None
+    with open(path, encoding="utf-8") as handle:
+        floor = handle.read().strip()
+    if floor == "bootstrap":
+        return None
+    code = release_version.version_code(floor)
+    if code is None or not 0 < code < version_code(version):
+        sys.exit("stage-release: the minimum updater version must be an older Edge version")
+    return floor
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
@@ -157,7 +171,9 @@ def main():
                  "--wpe-version", "--base-distribution"):
         parser.add_argument(name, required=True)
     parser.add_argument("--wpe-lib-dir", help="a private WPE WebKit build to carry under lib/wpe")
+    parser.add_argument("--updater-compatibility-file", help="the production Edge updater prerequisite")
     args = parser.parse_args()
+    minimum_updater_version = configured_updater_floor(args.updater_compatibility_file, args.version)
     out = os.path.abspath(args.out)
     if os.path.exists(out):
         shutil.rmtree(out)
@@ -214,6 +230,8 @@ def main():
         "baseDistribution": args.base_distribution,
         "files": files,
     }
+    if minimum_updater_version is not None:
+        manifest["minimumUpdaterVersion"] = minimum_updater_version
     with open(os.path.join(out, "tilecast-edge-release.json"), "w") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True)
         handle.write("\n")

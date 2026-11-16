@@ -20,7 +20,7 @@
 [Unit]
 Description=Tilecast Presentation Network helper
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/presentation-networks.md
-After=NetworkManager.service
+After=NetworkManager.service tilecast-edge-update-guard.service
 Wants=NetworkManager.service
 
 [Service]

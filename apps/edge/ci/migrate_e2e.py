@@ -81,10 +81,10 @@ def stage_uxplay_inputs():
     return directory
 
 
-def remove_airplay_from_fixture(tree, manifest):
-    """Model a signed release from before AirPlay with the new updater."""
+def remove_optional_services_from_fixture(tree, manifest):
+    """Model a signed release from before AirPlay and Networkd."""
     remove = {"packaging/systemd/tilecast-airplay.service", "packaging/systemd/tilecast-airplay.socket",
-              "bin/tilecast-airplay", "bin/uxplay"}
+              "packaging/systemd/tilecast-networkd.service", "bin/tilecast-airplay", "bin/uxplay", "bin/tilecast-networkd"}
     for path in remove:
         os.remove(os.path.join(tree, path))
     manifest["files"] = [entry for entry in manifest["files"] if entry["path"] not in remove]
@@ -93,8 +93,10 @@ def remove_airplay_from_fixture(tree, manifest):
         target = os.path.join(tree, path)
         with open(target) as handle:
             lines = handle.readlines()
-        data = "".join(line.replace(" tilecast-airplay.socket", "") for line in lines
-                       if not line.startswith(("u tilecast-airplay ", "Wants=tilecast-airplay.socket"))).encode()
+        omitted = ("u tilecast-airplay ", "g tilecast-network ", "Wants=tilecast-airplay.socket",
+                   "Wants=tilecast-networkd.service")
+        data = "".join(line.replace(" tilecast-airplay.socket", "").replace(" tilecast-networkd.service", "")
+                       .replace(" tilecast-network\n", "\n") for line in lines if not line.startswith(omitted)).encode()
         with open(target, "wb") as handle:
             handle.write(data)
         entry = next(entry for entry in manifest["files"] if entry["path"] == path)
@@ -313,7 +315,7 @@ def setup():
     manifest = os.path.join(RELEASE, "tilecast-edge-release.json")
     with open(manifest) as handle:
         installed = json.load(handle)
-    remove_airplay_from_fixture(RELEASE, installed)
+    remove_optional_services_from_fixture(RELEASE, installed)
     with open(manifest, "w") as handle:
         json.dump(installed, handle)
     signature = subprocess.run(["openssl", "pkeyutl", "-sign", "-rawin", "-inkey", key, "-in", manifest],
@@ -576,12 +578,30 @@ def accept():
     assert status["server"]["screenId"] == screen["screenId"] and status["link"]["state"] == "connected", status
     check_hardware_packaging()
     check_webkit_sandbox()
+    check_lan_discovery()
     save("accepted-status.json", {"startedAt": status["startedAt"],
                                   "lastProgressAt": status["renderer"]["lastProgressAt"]})
     rollback = subprocess.run([MIGRATE, "rollback"], capture_output=True, text=True)
     assert rollback.returncode != 0 and "rollback window has ended" in rollback.stderr, rollback.stderr
     print(f"accept: accepted after {elapsed:.0f} s of migration; Edge plays the server presentation, the legacy "
           "player is disabled and its files are unchanged, and rollback is refused")
+
+
+def check_lan_discovery():
+    name = "Edge discovery regression"
+    url = "http://edge-discovery.local:8080"
+    with subprocess.Popen(["avahi-publish-service", name, "_tilecast._tcp", "8080", f"base-url={url}"],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as advertiser:
+        try:
+            def discover():
+                assert advertiser.poll() is None, "Avahi test advertisement exited"
+                result = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "discover"))
+                assert result["available"], result
+                return {"name": name, "serverUrl": url} in result["servers"]
+
+            e2e.wait_for(discover, "Tilecast discovery to resolve the real Avahi advertisement", 30)
+        finally:
+            advertiser.terminate()
 
 
 def tilecast_systemctl(*argv):

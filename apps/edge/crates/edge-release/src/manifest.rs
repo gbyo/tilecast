@@ -172,6 +172,10 @@ pub struct ReleaseManifest {
     pub arch: String,
     pub version_name: String,
     pub version_code: u64,
+    /// Old releases omit the prerequisite so the fixed-list helper can
+    /// accept a bootstrap release.
+    #[serde(default)]
+    pub minimum_updater_version: Option<String>,
     /// The WPE WebKit build that the release carries and was qualified with.
     pub wpe_webkit_version: String,
     /// The distribution whose system libraries the release was built against.
@@ -294,6 +298,7 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
     if !is_version_name(&manifest.version_name) || manifest.version_code == 0 {
         return Err(ReleaseError::Invalid("invalid version"));
     }
+    validate_updater_floor(manifest.minimum_updater_version.as_deref(), manifest.version_code)?;
     if manifest.files.is_empty() || manifest.files.len() > MAX_FILES {
         return Err(ReleaseError::Invalid("file count out of range"));
     }
@@ -349,6 +354,21 @@ pub fn is_version_name(value: &str) -> bool {
         && numbers.iter().all(|n| !n.is_empty() && n.len() <= 9 && n.bytes().all(|b| b.is_ascii_digit()))
         && pre.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.')
         && (value.contains('-') == !pre.is_empty())
+}
+
+pub(crate) fn validate_updater_floor(minimum: Option<&str>, candidate_code: u64) -> Result<(), ReleaseError> {
+    if minimum.is_some_and(|version| !version_code(version).is_some_and(|code| code > 0 && code < candidate_code)) {
+        return Err(ReleaseError::Invalid("minimum updater version must be a valid older Edge version"));
+    }
+    Ok(())
+}
+
+/// Checks the source version against an already verified updater prerequisite.
+pub fn updater_version_allowed(minimum: Option<&str>, current_code: Option<u64>) -> bool {
+    match minimum {
+        None => true,
+        Some(version) => version_code(version).zip(current_code).is_some_and(|(required, current)| current >= required),
+    }
 }
 
 /// The legacy code of the first coordinated release, 0.26.0. Every version

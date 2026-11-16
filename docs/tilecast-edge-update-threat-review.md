@@ -149,6 +149,8 @@ The manifest requires the core lifecycle units. Extra units must have a flat `ti
 
 Only the fixed session bridge path gets its existing link in `default.target.wants`. Additional units start through systemd dependencies or operator action. The Server and the daemon never provide destination paths or systemd unit names. Releases that introduce units require a running manifest-driven updater. See the [packaging guide](../apps/edge/packaging/README.md) for the transition from fixed-list helpers.
 
+Follow-up Edge releases record an optional `minimumUpdaterVersion` in both the signed envelope and the signed inner manifest. The helper compares the two values when it verifies the archive. The Server checks the reported source version at deployment preview and creation. The daemon checks the prerequisite before download. The helper checks it again before staging and before activation, including when a staged release survives a rollback. The bootstrap release omits the field so the old strict parser can read it.
+
 ## 5. The transaction, activation and rollback
 
 ### 5.1 The root transaction record

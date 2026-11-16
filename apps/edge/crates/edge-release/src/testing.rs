@@ -94,6 +94,7 @@ impl Signer {
             arch,
             version_code: version_code(&version).unwrap(),
             version_name: version,
+            minimum_updater_version: manifest["minimumUpdaterVersion"].as_str().map(str::to_owned),
             channel: "stable".into(),
             release_notes: String::new(),
             artifact_size_bytes: archive_bytes.len() as u64,

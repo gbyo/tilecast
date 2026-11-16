@@ -10,7 +10,7 @@
 FROM tilecast-edge-e2e
 RUN apt-get update && apt-get install -y --no-install-recommends \
       systemd systemd-sysv dbus dbus-user-session libpam-systemd systemd-container \
-      zstd iproute2 avahi-daemon \
+      zstd iproute2 avahi-daemon avahi-utils \
     && rm -rf /var/lib/apt/lists/* \
     && systemctl mask getty@tty1.service console-getty.service systemd-firstboot.service \
     && systemctl set-default multi-user.target

@@ -92,6 +92,7 @@ stage() {
     --session-bridge /cache/bridge/tilecast-session-bridge \
     --gst-plugin-dir /cache/renderer/gstreamer-1.0 --runtime-dir /cache/runtime --sbom "$1" \
     --uxplay-dir /cache/uxplay-out \
+    --updater-compatibility-file "$release/updater-compatibility.txt" \
     --wpe-version "$wpe_version" --base-distribution "debian-13-snapshot-$snapshot" --wpe-lib-dir "$wpe_prefix"
 }
 echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > /cache/sbom-placeholder.json

@@ -25,7 +25,9 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
-use crate::manifest::{ReleaseError, hex, is_version_name, verify_signature, version_channel, version_code};
+use crate::manifest::{
+    ReleaseError, hex, is_version_name, validate_updater_floor, verify_signature, version_channel, version_code,
+};
 
 pub const ENVELOPE_SCHEMA_VERSION: u32 = 1;
 /// The Player release family of Tilecast Edge. The server also knows
@@ -49,6 +51,8 @@ pub struct UpdateEnvelope {
     pub arch: String,
     pub version_name: String,
     pub version_code: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_updater_version: Option<String>,
     pub channel: String,
     #[serde(default)]
     pub release_notes: String,
@@ -125,6 +129,7 @@ fn validate(envelope: &UpdateEnvelope) -> Result<(), ReleaseError> {
     if !is_version_name(&envelope.version_name) || version_code(&envelope.version_name) != Some(envelope.version_code) {
         return Err(ReleaseError::Invalid("invalid version"));
     }
+    validate_updater_floor(envelope.minimum_updater_version.as_deref(), envelope.version_code)?;
     if !matches!(envelope.channel.as_str(), "stable" | "beta") {
         return Err(ReleaseError::Invalid("invalid channel"));
     }
