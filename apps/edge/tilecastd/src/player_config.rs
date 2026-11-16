@@ -275,10 +275,8 @@ impl PlayerConfig {
         };
 
         let features = section(object, "features");
-        let airplay_beta_enabled = features
-            .and_then(|values| values.get("airplayBetaEnabled"))
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let airplay_beta_enabled =
+            features.and_then(|values| values.get("airplayBetaEnabled")).and_then(Value::as_bool).unwrap_or(false);
         let presentation_network = object.get("presentationNetwork").filter(|value| value.is_object()).cloned();
         let website_section = section(object, "website");
         let token = |key: &str, allowed: &[&str]| {
