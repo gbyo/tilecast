@@ -681,8 +681,14 @@ pub async fn capability(context: &DaemonContext) -> Option<player_types::capabil
         out.attributes.insert(key, AttributeValue::Text(ShortText::lossy(decoder)));
     }
     if let Ok(key) = Token::<48>::new("qualification") {
-        out.attributes
-            .insert(key, AttributeValue::Text(ShortText::lossy(if context.airplay.release_qualified() { "qualified" } else { "pending" })));
+        out.attributes.insert(
+            key,
+            AttributeValue::Text(ShortText::lossy(if context.airplay.release_qualified() {
+                "qualified"
+            } else {
+                "pending"
+            })),
+        );
     }
     if let Ok(key) = Token::<48>::new("beta") {
         out.attributes.insert(
