@@ -13,6 +13,7 @@ Run with:  python3 -m unittest discover -s apps/player-linux/helper
 
 from __future__ import annotations
 
+import ast
 import importlib.machinery
 import importlib.util
 import json
@@ -276,6 +277,25 @@ class TestProfileInstall(HelperTestCase):
         self.assertEqual(first, second)
         self.assertNotEqual(first, self.helper.connection_uuid(OTHER_NETWORK_ID))
         uuid.UUID(first)
+
+    def test_connection_uuid_equals_the_standard_version_5_uuid(self) -> None:
+        # The helper computes it with hashlib because python3-minimal has no
+        # uuid module. Existing profiles keep the identifiers they already have.
+        for network_id in (NETWORK_ID, OTHER_NETWORK_ID, "ünï"):
+            expected = uuid.uuid5(uuid.NAMESPACE_URL, "tilecast-presentation-network:" + network_id)
+            self.assertEqual(self.helper.connection_uuid(network_id), str(expected))
+
+    def test_the_helper_imports_only_modules_that_python3_minimal_has(self) -> None:
+        # The Edge release runs the helper on python3-minimal. tempfile, uuid
+        # and shutil are not in it, and the release sandbox check failed on that.
+        allowed = {"__future__", "errno", "grp", "hashlib", "json", "os", "re", "socket", "subprocess", "sys"}
+        imported = set()
+        for node in ast.walk(ast.parse(HELPER_SOURCE.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+        self.assertEqual(imported - allowed, set())
 
     def test_a_rejected_profile_leaves_no_credential_behind(self) -> None:
         self.nmcli.reload_result = (1, "", "Error: reload failed.")
