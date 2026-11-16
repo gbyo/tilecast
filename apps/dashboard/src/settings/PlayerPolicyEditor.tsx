@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import { api } from "../api/client";
-import { settingsQueries } from "../data/settings";
+import { settingsKeys, settingsQueries } from "../data/settings";
 import type { SettingDefinition } from "../api/types";
 import type { TFunction } from "i18next";
 import { useAuth } from "../auth/AuthProvider";
@@ -123,14 +123,14 @@ export function PlayerPolicyEditor({
   const auth = useAuth();
   const manageable = hasCapability(auth.status, "screen.manage");
   const settings = useQuery(settingsQueries.organization());
-  const policy = useQuery(
-    target === "screen"
-      ? settingsQueries.screenPolicy(id)
-      : {
-          queryKey: [target, id, "policy"],
-          queryFn: () => api.groupPolicy(id),
-        },
-  );
+  const policy = useQuery({
+    queryKey:
+      target === "screen"
+        ? settingsKeys.screenPolicy(id)
+        : settingsKeys.groupPolicy(id),
+    queryFn: () =>
+      target === "screen" ? api.screenPolicy(id) : api.groupPolicy(id),
+  });
   const effective = useQuery({
     ...settingsQueries.effectiveScreenPolicy(id),
     enabled: target === "screen",
