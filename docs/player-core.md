@@ -581,20 +581,28 @@ The experimental Browser Player in `apps/player-web` uses Player Runtime and
 shared presentation contracts without native appliance Core; see
 [Browser Player](browser-player.md) for its separately qualified host model.
 Other browser-based platforms may reuse that family after qualification.
-This project does not currently build a macOS, Tizen, or webOS Player.
+This project does not currently build a Tizen or webOS Player.
 The Windows Player (`apps/player-windows`) is the second native host: it
 proves the extraction by composing the same shared crates with a WebView2
 renderer instead of a second Player implementation.
 It does not replace Runtime or Presentation Model, rewrite shipped migrations,
 create a universal updater or IPC framework, change Player API behavior,
-relax privilege boundaries, or decide macOS process topology.
+or relax privilege boundaries.
+The macOS Player (`apps/player-macos`) is the third native host. It is in
+development; see [`tilecast-macos.md`](tilecast-macos.md).
+The Windows and macOS hosts share one composition crate,
+`crates/webview-host`. It is a host layer, not a sixth shared Player crate:
+no shared Player crate depends on it, and it calls no OS API. Each platform
+supplies narrow seams (`webview_host::host`) for identity, device facts, the
+renderer, capture, updates, sealing, free space, and secure opening.
 
 At completion, a new native host needs platform composition, a renderer host,
 capability providers, lifecycle, distribution, and secure media delivery.
 It must not need another implementation of pairing, reconciliation, manifests,
 offline selection, idempotency, Activity, recovery, or content verification.
-Record remaining macOS work in a readiness review. Do not create the app.
-The current review is [`player-core-readiness.md`](player-core-readiness.md).
+The readiness review is [`player-core-readiness.md`](player-core-readiness.md).
+The macOS platform contract and its remaining work are in
+[`tilecast-macos.md`](tilecast-macos.md).
 
 ## Current characterization
 

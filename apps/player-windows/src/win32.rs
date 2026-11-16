@@ -497,13 +497,7 @@ mod imp {
         (width > 0 && height > 0).then_some((width as u32, height as u32))
     }
 
-    /// One captured window: tight BGRA rows, top to bottom.
-    #[derive(Debug)]
-    pub struct CapturedBgra {
-        pub width: u32,
-        pub height: u32,
-        pub pixels: Vec<u8>,
-    }
+    pub use webview_host::capture::CapturedBgra;
 
     /// Captures the final composed output of the player's own window with
     /// Windows Graphics Capture: the DWM frame, including the trusted
@@ -875,13 +869,7 @@ mod imp {
         None
     }
 
-    /// One captured window: tight BGRA rows, top to bottom.
-    #[derive(Debug)]
-    pub struct CapturedBgra {
-        pub width: u32,
-        pub height: u32,
-        pub pixels: Vec<u8>,
-    }
+    pub use webview_host::capture::CapturedBgra;
 
     pub fn capture_window_bgra(
         _window: *mut std::ffi::c_void,

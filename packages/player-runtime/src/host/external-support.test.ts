@@ -13,6 +13,7 @@ const wpeBridge = import.meta.glob<string>(
 const gatedHosts = import.meta.glob<string>(
   [
     "../../../../apps/player-windows/src/**/*.rs",
+    "../../../../crates/webview-host/src/**/*.rs",
     "../../../../apps/player-android/app/src/main/**/*.kt",
     "../../../../apps/player-android/app/src/main/**/*.java",
     "../../../../apps/player-android/native/src/**/*.rs",

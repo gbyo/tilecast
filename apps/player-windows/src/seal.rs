@@ -1,14 +1,11 @@
-//! At-rest protection for the private stores. Production seals with
-//! user-scoped DPAPI; the seal is injected so the store logic stays
-//! testable where DPAPI does not exist.
+//! User-scoped DPAPI sealing for the private stores
+//! ([`webview_host::seal::Sealer`]).
 
 use std::sync::Arc;
 
-/// Encrypts small secrets for storage and decrypts them back.
-pub trait Sealer: Send + Sync + std::fmt::Debug {
-    fn seal(&self, plaintext: &[u8]) -> std::io::Result<Vec<u8>>;
-    fn open(&self, sealed: &[u8]) -> std::io::Result<Vec<u8>>;
-}
+pub use webview_host::seal::Sealer;
+#[cfg(any(test, feature = "test-util"))]
+pub use webview_host::seal::TestSealer;
 
 /// User-scoped DPAPI: only this Windows user on this machine can unseal.
 /// Machine-scoped protection is never used: any local user could unseal it.
@@ -27,23 +24,6 @@ impl Sealer for DpapiSealer {
 
 pub fn production_sealer() -> Arc<dyn Sealer> {
     Arc::new(DpapiSealer)
-}
-
-/// A reversible transform for tests. It is not encryption and never leaves
-/// test builds: production always wires [`DpapiSealer`].
-#[cfg(any(test, feature = "test-util"))]
-#[derive(Debug, Default, Clone, Copy)]
-pub struct TestSealer;
-
-#[cfg(any(test, feature = "test-util"))]
-impl Sealer for TestSealer {
-    fn seal(&self, plaintext: &[u8]) -> std::io::Result<Vec<u8>> {
-        Ok(plaintext.iter().map(|byte| byte ^ 0x5a).collect())
-    }
-
-    fn open(&self, sealed: &[u8]) -> std::io::Result<Vec<u8>> {
-        self.seal(sealed)
-    }
 }
 
 #[cfg(test)]

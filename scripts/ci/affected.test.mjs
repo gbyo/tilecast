@@ -175,6 +175,12 @@ test("the Windows host selects only Windows validation", () => {
     assert.deepEqual(selected([path]), ["windows"], path);
   assert.equal(affected(["apps/player-windows/src/main.rs"]).edge_rust, false);
 });
+test("the shared WebView host selects the Windows lane and the shared Rust matrix", () => {
+  const result = affected(["crates/webview-host/src/link.rs"]);
+  assert.equal(result.windows, true);
+  assert.equal(result.player_core, true);
+  assert.equal(result.dashboard, false);
+});
 test("the Presentation Model selects Studio and production runtime consumers", () => {
   assert.deepEqual(
     selected(["packages/presentation-model/src/availability.ts"]),
