@@ -207,7 +207,7 @@ The session lives in `apps/edge/tilecastd/src/airplay.rs`. One task owns it and 
 
 Heartbeat uses the existing `airplay*` fields (`apps/server/internal/devices/airplay_heartbeat.go`):
 
-- `airplaySupported` is true only if the unit is installed, UxPlay answers `probe`, avahi-daemon is reachable, and the renderer advertises `external-presentation-video-v1` (§5.2).
+- `airplaySupported` is true only when this screen may offer AirPlay (the per-screen Beta is enabled or the release is qualified), the unit is installed, UxPlay answers `probe`, avahi-daemon is reachable, and the renderer advertises `external-presentation-video-v1` (§5.2).
 - `airplayHardwareDecode` and `airplayDecoder` report the decoder that the renderer's GStreamer selects (`renderer.ready` `externalPresentation`, §5.2).
 - `airplayGroupSupported` is always false.
 - `airplayLimitation` names the first failed dependency in one sentence, in the Electron order, so that Studio can show it unchanged.
