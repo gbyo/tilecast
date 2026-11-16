@@ -56,14 +56,13 @@ from __future__ import annotations
 
 import errno
 import grp
+import hashlib
 import json
 import os
 import re
 import socket
 import subprocess
 import sys
-import tempfile
-import uuid
 
 HELPER_VERSION = "1"
 
@@ -71,6 +70,8 @@ HELPER_VERSION = "1"
 # newer protocol than the installed helper must report a capability limitation
 # rather than guessing, which is what this number is for.
 PROTOCOL_VERSION = 1
+# uuid.NAMESPACE_URL (6ba7b811-9dad-11d1-80b4-00c04fd430c8) as bytes.
+URL_NAMESPACE = bytes.fromhex("6ba7b8119dad11d180b400c04fd430c8")
 
 SOCKET_PATH = os.environ.get("TILECAST_NETWORKD_SOCKET", "/run/tilecast/networkd.sock")
 SOCKET_GROUP = os.environ.get("TILECAST_NETWORKD_GROUP", "tilecast-network")
@@ -279,7 +280,13 @@ def connection_uuid(network_id: str) -> str:
     replaces the existing connection instead of accumulating a second one that
     NetworkManager might autoconnect or that cleanup would miss.
     """
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, "tilecast-presentation-network:" + network_id))
+    # A version 5 UUID in the URL namespace, computed with hashlib: the helper
+    # runs on python3-minimal, which has no uuid module.
+    digest = bytearray(hashlib.sha1(URL_NAMESPACE + ("tilecast-presentation-network:" + network_id).encode()).digest()[:16])
+    digest[6] = (digest[6] & 0x0F) | 0x50
+    digest[8] = (digest[8] & 0x3F) | 0x80
+    hexadecimal = digest.hex()
+    return "-".join((hexadecimal[:8], hexadecimal[8:12], hexadecimal[12:16], hexadecimal[16:20], hexadecimal[20:]))
 
 
 def render_keyfile(profile: dict, ca_path: str) -> str:
@@ -554,7 +561,10 @@ def write_file(path: str, contents: str, mode: int) -> None:
     """
     directory = os.path.dirname(path)
     os.makedirs(directory, mode=0o700, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=directory, prefix=".tilecast-", suffix=".tmp")
+    # Created exclusively at mode 0600 with a random name, like tempfile.mkstemp,
+    # which python3-minimal cannot import (it needs shutil).
+    temporary = os.path.join(directory, ".tilecast-" + os.urandom(8).hex() + ".tmp")
+    handle = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600)
     try:
         # The mode is applied to the descriptor before anything is written, so a
         # credential is never briefly readable by another account.
