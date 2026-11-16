@@ -49,6 +49,8 @@ Raw HDMI-CEC is not a supported Android player setting. Android Power Assist use
 
 The registry intentionally does not expose scheduling keys that have no runtime effect. Scheduling defaults are the typed schedule fields and the production resolver's built-in precedence, not hidden write-only policy values.
 
+The policy key `edge.airplay.beta_enabled` defaults to `false` and is managed by the dedicated **AirPlay · Beta** card on an Edge screen's Settings page rather than the generic policy editor. The Server projects it as `features.airplayBetaEnabled`. Edge applies a new configuration revision immediately: enabling it allows single-screen AirPlay when the receiver dependencies are healthy, and disabling it ends an active AirPlay session. The setting does not enable Display Group AirPlay.
+
 ## Sign-in security
 
 `security.mfa_required_scope` is an organization-scoped enum: `none`, `administrators`, or `all`. It controls who must enroll a second factor, not how anyone signs in — enrollment itself is always available to every account from **My Account → Sign-in security**. A malformed or unknown stored value is read as `none`, so a bad value cannot lock an installation out.

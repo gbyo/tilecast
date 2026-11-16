@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import { api } from "../api/client";
-import { settingsQueries } from "../data/settings";
+import { settingsKeys, settingsQueries } from "../data/settings";
 import type { SettingDefinition } from "../api/types";
 import type { TFunction } from "i18next";
 import { useAuth } from "../auth/AuthProvider";
@@ -61,6 +61,8 @@ type PolicyGroupDescriptionKey =
 
 // Group headings hold translation keys, never rendered text. The titleKey
 // doubles as the stable identifier for expansion state.
+const dedicatedPolicyKeys = new Set(["edge.airplay.beta_enabled"]);
+
 const policyGroups: {
   titleKey: PolicyGroupTitleKey;
   descriptionKey: PolicyGroupDescriptionKey;
@@ -112,23 +114,28 @@ export function PlayerPolicyEditor({
   target,
   id,
   onDirtyChange,
+  disabled = false,
 }: {
   target: "group" | "screen";
   id: string;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Locks editing while another write refreshes this policy. */
+  disabled?: boolean;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
-  const manageable = hasCapability(auth.status, "screen.manage");
+  const manageable = hasCapability(auth.status, "screen.manage") && !disabled;
   const settings = useQuery(settingsQueries.organization());
   const policy = useQuery({
-    queryKey: [target, id, "policy"],
+    queryKey:
+      target === "screen"
+        ? settingsKeys.screenPolicy(id)
+        : settingsKeys.groupPolicy(id),
     queryFn: () =>
-      target === "group" ? api.groupPolicy(id) : api.screenPolicy(id),
+      target === "screen" ? api.screenPolicy(id) : api.groupPolicy(id),
   });
   const effective = useQuery({
-    queryKey: ["screens", id, "effective-policy"],
-    queryFn: () => api.effectivePolicy(id),
+    ...settingsQueries.effectiveScreenPolicy(id),
     enabled: target === "screen",
   });
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -196,12 +203,45 @@ export function PlayerPolicyEditor({
     },
   });
   const reset = useMutation({
-    mutationFn: () =>
-      target === "group"
-        ? api.deleteGroupPolicy(id, auth.status?.csrfToken ?? "")
-        : api.deleteScreenPolicy(id, auth.status?.csrfToken ?? ""),
+    mutationFn: async () => {
+      const preserved = Object.fromEntries(
+        Object.entries(policy.data?.values ?? {}).filter(([key]) =>
+          dedicatedPolicyKeys.has(key),
+        ),
+      );
+      if (Object.keys(preserved).length) {
+        if (target === "group") {
+          await api.putGroupPolicy(
+            id,
+            policy.data?.revision ?? 0,
+            priority,
+            preserved,
+            auth.status?.csrfToken ?? "",
+          );
+        } else {
+          await api.putScreenPolicy(
+            id,
+            policy.data?.revision ?? 0,
+            preserved,
+            auth.status?.csrfToken ?? "",
+          );
+        }
+        return;
+      }
+      if (target === "group") {
+        await api.deleteGroupPolicy(id, auth.status?.csrfToken ?? "");
+      } else {
+        await api.deleteScreenPolicy(id, auth.status?.csrfToken ?? "");
+      }
+    },
     onSuccess: async () => {
-      setValues({});
+      setValues(
+        Object.fromEntries(
+          Object.entries(policy.data?.values ?? {}).filter(([key]) =>
+            dedicatedPolicyKeys.has(key),
+          ),
+        ),
+      );
       initializedRevision.current = null;
       await policy.refetch();
       await effective.refetch();
@@ -229,7 +269,9 @@ export function PlayerPolicyEditor({
       })),
     [definitions, normalizedSearch],
   );
-  const overrideCount = Object.keys(values).length;
+  const overrideCount = Object.keys(values).filter(
+    (key) => !dedicatedPolicyKeys.has(key),
+  ).length;
 
   const cancelChanges = () => {
     setValues(baselineValues);

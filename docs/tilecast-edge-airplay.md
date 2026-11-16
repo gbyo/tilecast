@@ -1,6 +1,6 @@
 # Tilecast Edge AirPlay receiver: architecture amendment
 
-**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stages 2 to 6 are implemented (Stage 6 is the documentation; its hardware qualification is open): the supervisor and its units, UxPlay in the release, the renderer relay and `tcpresent` source, and the `tilecastd` session. Single-screen AirPlay is implemented in software and has automated qualification. Physical hardware qualification is pending, so Edge does not offer AirPlay (§12.1). Group AirPlay is unsupported.
+**Status:** amendment to [`tilecast-edge.md`](tilecast-edge.md), implemented in stages (§12). Stages 2 to 6 are implemented (Stage 6 hardware qualification remains open): the supervisor and its units, UxPlay in the release, the renderer relay and `tcpresent` source, and the `tilecastd` session. Single-screen AirPlay is an opt-in **Beta** on Edge while physical hardware qualification is pending (§12.1). Group AirPlay is unsupported.
 
 **Scope:** single-screen AirPlay Present on Tilecast Edge, plus the Presentation Network join for that screen. Group sessions (gateway, follower, fan-out, multicast) are not part of this amendment.
 
@@ -207,7 +207,7 @@ The session lives in `apps/edge/tilecastd/src/airplay.rs`. One task owns it and 
 
 Heartbeat uses the existing `airplay*` fields (`apps/server/internal/devices/airplay_heartbeat.go`):
 
-- `airplaySupported` is true only if the unit is installed, UxPlay answers `probe`, avahi-daemon is reachable, and the renderer advertises `external-presentation-video-v1` (§5.2).
+- `airplaySupported` is true only when this screen may offer AirPlay (the per-screen Beta is enabled or the release is qualified), the unit is installed, UxPlay answers `probe`, avahi-daemon is reachable, and the renderer advertises `external-presentation-video-v1` (§5.2).
 - `airplayHardwareDecode` and `airplayDecoder` report the decoder that the renderer's GStreamer selects (`renderer.ready` `externalPresentation`, §5.2).
 - `airplayGroupSupported` is always false.
 - `airplayLimitation` names the first failed dependency in one sentence, in the Electron order, so that Studio can show it unchanged.
@@ -297,14 +297,15 @@ Each stage is a separate pull request. Each pull request stacks on the one befor
 
 The D-Bus limitation is the one open item of this list. Resolve it, or record the decision again, before Stage 6 qualification.
 
-### 12.1 The qualification gate
+### 12.1 Beta opt-in and release qualification
 
-Until Stage 6 is recorded, the readiness documents must not show AirPlay on Edge as available, and an AirPlay-dependent screen must stay on the Electron Player. A release gate enforces this in code, so the stages can merge to `main` without Studio offering unqualified AirPlay.
+Until Stage 6 hardware qualification is recorded, single-screen AirPlay is available as an explicit per-screen **Beta** instead of being enabled fleet-wide.
 
-- `tilecastd/src/qualification.rs` holds the gate. `RELEASE_QUALIFIED` lists the features whose hardware qualification the release records. It is empty.
-- With the gate closed, the probe and every diagnostic still run and appear in the heartbeat (`airplayUxPlayInstalled`, `airplayUxPlayVersion`, `airplayDecoder`, `airplayAvahiAvailable`, and the rest). A failed dependency keeps its own reason code and sentence. When every dependency is healthy, `external_presentation.airplay` is `blocked` with the reason `qualification_pending` and the attribute `qualification` is `pending`. `airplaySupported` is false and `airplayLimitation` says that AirPlay is still being qualified. `prepare_airplay_session` answers `airplay_not_ready` and no receiver starts. The Server needs no change: it already reads `airplaySupported`.
-- The gate changes what Edge offers, never what the feature does, so qualification runs and tests exercise the same code. `[dev] airplay_qualified = true` in `/etc/tilecast-edge/config.toml` opens the gate on one screen. The Stage 6 hardware procedure uses it on its lab screens, and the headless and unit tests use it. It is inert unless set, and the packaged configuration never sets it.
-- To enable AirPlay after qualification, record the hardware evidence in the Stage 6 procedure, then in the same change add `Feature::Airplay` to `RELEASE_QUALIFIED` and update the readiness documents. The next Edge release then reports `available` when the dependencies are healthy. To withdraw AirPlay again, remove the entry. No Server change is needed in either direction.
+- Studio stores `edge.airplay.beta_enabled` as an ordinary screen policy. It is off by default and reaches Edge through Player configuration as `features.airplayBetaEnabled`; `config.changed` applies it without a daemon restart.
+- With the beta off, the probe and every diagnostic still run. Healthy dependencies produce `external_presentation.airplay = blocked` with reason `beta_disabled`, `airplaySupported = false`, and `prepare_airplay_session` returns `airplay_not_ready`. Failed dependencies keep their more useful reason instead.
+- With the beta on, healthy dependencies make the capability available and Studio may start a single-screen session. Turning the switch off stops an active session immediately and restores signage.
+- `tilecastd/src/qualification.rs` still records release qualification. `RELEASE_QUALIFIED` is empty while hardware qualification is pending; once `Feature::Airplay` is recorded there, releases may offer AirPlay without the beta switch. `[dev] airplay_qualified = true` remains a local CI/qualification override, not the operator workflow.
+- Group AirPlay remains unsupported regardless of the beta switch.
 
 ## 13. Changes to binding documents
 
