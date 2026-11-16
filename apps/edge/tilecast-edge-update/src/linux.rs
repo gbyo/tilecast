@@ -3,7 +3,8 @@
 //!
 //! Boundaries (docs/tilecast-edge-update-threat-review.md):
 //!
-//! * Unit names are the constants of `host.rs`.
+//! * Lifecycle unit names are fixed. Stopping an obsolete release unit also
+//!   accepts a validated name from the verified outgoing manifest.
 //! * `systemd-sysusers` and `systemd-tmpfiles --create` run with their fixed
 //!   configuration paths, a cleared environment and a timeout. No shell.
 //! * The guard units are written from `guard_units.rs`; the only variable
@@ -122,8 +123,15 @@ async fn run_fixed(program: &str, args: &[&str]) -> Result<(), HostError> {
 #[async_trait]
 impl UpdateHost for LinuxHost {
     async fn stop(&self, unit: &str) -> Result<(), HostError> {
-        let job = self.manager().await?.stop_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
-        self.wait_job(&job, JOB_TIMEOUT).await
+        match self.manager().await?.stop_unit(unit, "replace").await {
+            Ok(job) => self.wait_job(&job, JOB_TIMEOUT).await,
+            // A crash can leave a unit on disk before the manager has loaded
+            // it, or after the manager has already forgotten it.
+            Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" => {
+                Ok(())
+            }
+            Err(error) => Err(failed(unit, error)),
+        }
     }
 
     async fn start(&self, unit: &str) -> Result<(), HostError> {

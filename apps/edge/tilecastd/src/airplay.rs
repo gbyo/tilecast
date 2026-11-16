@@ -291,10 +291,7 @@ impl Readiness {
     pub fn limitation(&self) -> Option<String> {
         let baseline = wire::UXPLAY_BASELINE;
         let Some(probe) = &self.probe else {
-            return Some(
-                "The AirPlay receiver service is not installed yet. It arrives with the next Tilecast Edge update."
-                    .into(),
-            );
+            return Some("The Tilecast Edge AirPlay receiver service is unavailable.".into());
         };
         use wire::limitation as code;
         let uxplay = match probe.limitation.as_deref() {
@@ -1290,7 +1287,7 @@ mod tests {
 
         let missing = Readiness { probe: None, renderer: renderer.clone() };
         assert!(!missing.supported());
-        assert!(missing.limitation().unwrap().contains("next Tilecast Edge update"));
+        assert_eq!(missing.limitation().as_deref(), Some("The Tilecast Edge AirPlay receiver service is unavailable."));
 
         // UxPlay comes first, before the renderer and Avahi.
         let old = Readiness {

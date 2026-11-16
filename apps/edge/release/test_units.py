@@ -159,7 +159,6 @@ class PresentationNetworkHelperTests(unittest.TestCase):
         source = Path(__file__).resolve().parents[2] / "server" / "internal" / "httpapi" / "install" / "tilecast-networkd"
         self.assertTrue(source.is_file())
         self.assertTrue(source.read_text().startswith("#!/usr/bin/env python3"))
-        self.assertIn('"tilecast-networkd.service"', stage)
 
 
 class SelfTestRuntimeTests(unittest.TestCase):

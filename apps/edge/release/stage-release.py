@@ -35,24 +35,6 @@ import runtime_closure
 
 EDGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "system-baseline.txt")
-UNITS = [
-    "tilecast-edge.service",
-    "tilecast-renderer.service",
-    "tilecast-web-renderer.service",
-    "tilecast-edge-migrate.service",
-    "tilecast-edge-migrate-recover.service",
-    "tilecast-edge-selftest.service",
-    "tilecast-renderer-selftest.service",
-    "tilecast-renderer-probe.service",
-    "tilecast-edge-compat.service",
-    "tilecast-edge-import.service",
-    "tilecast-edge-update.service",
-    "tilecast-edge-update.socket",
-    "tilecast-airplay.service",
-    "tilecast-airplay.socket",
-    "tilecast-networkd.service",
-]
-USER_UNITS = ["tilecast-session-bridge.service", "tilecast-session-bridge.path"]
 SYSTEM_FILES = [
     ("sysusers.d/tilecast-edge.conf", "packaging/sysusers.d/tilecast-edge.conf"),
     ("tmpfiles.d/tilecast-edge.conf", "packaging/tmpfiles.d/tilecast-edge.conf"),
@@ -200,10 +182,12 @@ def main():
         # The renderer binaries are already staged: their NEEDED libraries
         # and those of the private WebKit decide what else must travel.
         runtime_closure.carry(out, SYSTEM_BASELINE)
-    for unit in UNITS:
-        copy(os.path.join(EDGE, "packaging", "systemd", unit), out, f"packaging/systemd/{unit}", 0o644)
-    for unit in USER_UNITS:
-        copy(os.path.join(EDGE, "packaging", "systemd-user", unit), out, f"packaging/systemd-user/{unit}", 0o644)
+    for directory in ("packaging/systemd", "packaging/systemd-user"):
+        with os.scandir(os.path.join(EDGE, directory)) as units:
+            for unit in sorted(units, key=lambda entry: entry.name):
+                if not unit.is_file(follow_symlinks=False):
+                    sys.exit(f"stage-release: unexpected entry {unit.path}")
+                copy(unit.path, out, f"{directory}/{unit.name}", 0o644)
     for source, target in SYSTEM_FILES:
         copy(os.path.join(EDGE, "packaging", source), out, target, 0o644)
     copy(args.sbom, out, "share/doc/tilecast-edge/sbom.cdx.json", 0o644)

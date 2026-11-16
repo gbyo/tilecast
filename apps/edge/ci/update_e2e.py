@@ -43,6 +43,7 @@ import base64
 import hashlib
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import sys
@@ -474,6 +475,8 @@ def stage_tree(version, bin_dir, out):
     manifest_path = os.path.join(out, "tilecast-edge-release.json")
     with open(manifest_path) as handle:
         manifest = json.load(handle)
+    if version in ("0.2.0", "0.5.0"):
+        m.remove_airplay_from_fixture(out, manifest)
     with open(os.path.join(out, unit), "rb") as handle:
         data = handle.read()
     for entry in manifest["files"]:
@@ -746,6 +749,9 @@ def settle_field_workaround():
 
 def update_provisional():
     wait_healthy("0.2.0", "before B")
+    assert subprocess.run(["getent", "passwd", "tilecast-airplay"], capture_output=True).returncode == 2
+    for unit in ("tilecast-airplay.service", "tilecast-airplay.socket"):
+        assert not os.path.lexists(f"/etc/systemd/system/{unit}")
     release = artifact_of("0.3.0")
     deployment = deploy(owner(), release["releaseId"], "E2E update to 0.3.0, power loss")
     m.save("deployment-b.json", {"id": deployment})
@@ -754,6 +760,13 @@ def update_provisional():
     assert_state_files("B provisional")
     # Healthy: running, reconnected and playing, but not yet confirmed.
     wait_healthy("0.3.0", "B provisional", 180)
+    for unit in ("tilecast-airplay.service", "tilecast-airplay.socket"):
+        path = f"/etc/systemd/system/{unit}"
+        assert mode_of(path) == (0, 0, "0o644"), path
+    assert pwd.getpwnam("tilecast-airplay").pw_shell == "/usr/sbin/nologin"
+    assert show("tilecast-airplay.socket", "ActiveState", "SubState") == {"ActiveState": "active", "SubState": "listening"}
+    assert os.access(f"{INSTALL}/current/bin/tilecast-airplay", os.X_OK)
+    assert "UxPlay version 1.73.7" in output("runuser", "-u", "tilecast-airplay", "--", f"{INSTALL}/current/bin/uxplay", "-v")
     e2e.wait_for(lambda: server_target(deployment)[0] == "reconnecting", "the server to see the candidate", 120)
     assert open_transaction()["phase"] == "provisional", "B must be cut before the stable period ends"
     print("update-provisional: 0.3.0 is healthy and provisional; the driver now cuts the power")
@@ -770,6 +783,9 @@ def update_after_reboot():
     assert_guard_disarmed("B after reboot")
     assert_state_files("B after reboot")
     wait_healthy("0.2.0", "B after reboot", 240)
+    for unit in ("tilecast-airplay.service", "tilecast-airplay.socket"):
+        assert not os.path.lexists(f"/etc/systemd/system/{unit}"), f"rollback left {unit} installed"
+    assert show("tilecast-airplay.socket", "ActiveState")["ActiveState"] == "inactive"
 
     def this_boot(unit):
         return [e for e in journal("-u", unit) if int(e["__MONOTONIC_TIMESTAMP"]) > booted]

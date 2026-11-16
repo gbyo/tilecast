@@ -6,10 +6,9 @@
 //! fixed arguments and a cleared environment. The crash-point tests use an
 //! in-memory implementation with the same contract.
 //!
-//! Every unit name is a constant of this crate. Nothing from a request, the
-//! daemon or the server becomes a unit name, a path to execute or an
-//! argument. The only variable part of a written file is the guard's
-//! `ExecStart=`, which names the previous release by its validated version.
+//! Lifecycle unit names are constants. Obsolete units may be stopped by
+//! their validated names from the signed outgoing release. No request, daemon
+//! or server value becomes a unit name, an executable path or an argument.
 
 use std::time::Duration;
 

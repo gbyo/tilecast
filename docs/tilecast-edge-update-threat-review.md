@@ -134,19 +134,26 @@ Before activation, and again before a rollback uses the previous release, the he
 
 ### 4.5 System files
 
-The activation and the rollback install system files only from the release being made current, and only these fixed files ([`edge-release/src/manifest.rs`](../apps/edge/crates/edge-release/src/manifest.rs), `UNITS` and `USER_UNITS`):
+The installer gets the system files from the verified manifest of the release being made current. The following directories and configuration paths are fixed in the installer.
 
-- the units in `packaging/systemd/` (the Edge daemon, the renderer, the migration and self-test units, and the helper's socket and service) into `/etc/systemd/system`;
-- `packaging/sysusers.d/tilecast-edge.conf` into `/usr/lib/sysusers.d`, `packaging/tmpfiles.d/tilecast-edge.conf` into `/usr/lib/tmpfiles.d`, `packaging/udev/70-tilecast-display.rules` into `/usr/lib/udev/rules.d` and `packaging/modules-load.d/tilecast-edge.conf` into `/usr/lib/modules-load.d`;
-- the session bridge's user units into `/etc/systemd/user`, and its path unit's link in `default.target.wants`.
+| Signed release path | Host directory |
+| --- | --- |
+| `packaging/systemd/<unit>` | `/etc/systemd/system` |
+| `packaging/systemd-user/<unit>` | `/etc/systemd/user` |
+| `packaging/sysusers.d/tilecast-edge.conf` | `/usr/lib/sysusers.d` |
+| `packaging/tmpfiles.d/tilecast-edge.conf` | `/usr/lib/tmpfiles.d` |
+| `packaging/udev/70-tilecast-display.rules` | `/usr/lib/udev/rules.d` |
+| `packaging/modules-load.d/tilecast-edge.conf` | `/usr/lib/modules-load.d` |
 
-Each is written with a temporary file, `fsync`, `rename(2)` and a directory `fsync`, mode 0644. The names are constants of the crate; a release cannot add a file to this list. The guard units are not release files (§5.3).
+The manifest requires the core lifecycle units. Extra units must have a flat `tilecast-` basename with lowercase ASCII letters and digits in hyphen-separated parts and one of `.service`, `.socket`, `.path`, `.timer` or `.target` as the extension. The update guard namespace is reserved. Templates, drop-ins, links, other packaging paths, and files larger than 256 KiB are refused. A new unit name cannot replace a different local file or a mask in its destination directory. The installer checks the copied bytes against the manifest again, then writes a temporary file, sets mode 0644, syncs, renames and syncs the directory.
+
+Only the fixed session bridge path gets its existing link in `default.target.wants`. Additional units start through systemd dependencies or operator action. The Server and the daemon never provide destination paths or systemd unit names. Releases that introduce units require a running manifest-driven updater. See the [packaging guide](../apps/edge/packaging/README.md) for the transition from fixed-list helpers.
 
 ## 5. The transaction, activation and rollback
 
 ### 5.1 The root transaction record
 
-`/var/lib/tilecast-edge-update/transaction.json` is the helper's only durable state (directory 0700, file 0600, owner root, at most 256 KiB). A finished transaction moves to `previous.json`. It holds:
+`/var/lib/tilecast-edge-update/transaction.json` is the helper's durable transaction record (directory 0700, file 0600, owner root, at most 256 KiB). A finished transaction moves to `previous.json`. The helper saves a private copy of the candidate's signed manifest before it writes the activation intent. The guard uses that copy and checks its signature and recorded digest so it can remove candidate-only units even if the candidate tree is lost. The transaction record format stays compatible with the fixed-list helper. It holds:
 
 - a schema version (1) and a random transaction ID;
 - the candidate and the previous release: version name, version code and the SHA-256 of the signed release manifest;
@@ -165,7 +172,7 @@ A phase is written durably before the side effects that it names, and every step
 3. It arms the guard (§5.3) before anything that runs changes.
 4. It stops `tilecast-renderer.service`, then `tilecast-edge.service`, and waits for both stop jobs. The renderer stops first because WPE WebKit finds its helper processes under `/opt/tilecast-edge/current/lib/wpe`.
 5. It verifies the candidate tree again, installs the candidate's system files (§4.5) and switches `current` with one `rename(2)`.
-6. `daemon-reload`, then `systemd-sysusers` and `systemd-tmpfiles --create` with their fixed Edge configuration files.
+6. `systemd-sysusers` and `systemd-tmpfiles --create` with their fixed Edge configuration files, then `daemon-reload`.
 7. `Provisional`, with the boot ID and a 600 s deadline.
 8. It starts the daemon and then the renderer. `start` clears the unit's failed state, which also sets systemd's `NRestarts` to zero, so the candidate's restarts count from zero.
 
@@ -196,7 +203,7 @@ The socket-activated helper runs the same check each time it starts, before it s
 
 ### 5.4 Rollback
 
-Rollback is idempotent: `RollbackIntent`, stop the renderer and the daemon, verify the previous tree against the recorded manifest digest, install the previous release's system files, switch `current`, `daemon-reload`, `systemd-sysusers` and `systemd-tmpfiles`, start the daemon and the renderer, disarm the guard, `RolledBack`, archive.
+Rollback is idempotent. The helper saves `RollbackIntent`, stops the Edge stack and verifies the previous tree against the recorded manifest digest. It stops candidate-only system units and removes the candidate-only system and user unit files that still match their signed bytes. It leaves local replacements and accounts created by sysusers in place. It installs the previous release's system files, switches `current`, applies sysusers and tmpfiles, reloads systemd, starts the previous stack, disarms the guard and archives `RolledBack`. Activation uses the same comparison to remove units that the new release drops.
 
 - If the previous tree does not verify, the helper starts whatever `current` names, so the screen does not stay dark, keeps the transaction in `RollbackIntent` with `previous_release_corrupt`, and the guard tries again. It never switches to an unverified tree.
 - A rollback that the daemon or an operator asks for waits up to 60 s for the previous daemon's status, to record a refused newer state schema (§8). A rollback by the guard does not wait: the Edge units are ordered after the guard, so the previous daemon cannot start until the guard exits.
@@ -245,9 +252,9 @@ The helper unit is not enabled and has no dependency on `tilecast-edge.service`,
 
 ### 7.2 What the helper runs
 
-- systemd, over D-Bus: `StartUnit`, `StopUnit`, `ResetFailedUnit`, `LoadUnit` and properties (`ActiveState`, `NRestarts`, job `State`), `EnableUnitFiles`, `DisableUnitFiles` and `Reload`. The unit names are the constants `tilecast-edge.service`, `tilecast-renderer.service`, `tilecast-edge-update-guard.service` and `tilecast-edge-update-guard.timer`.
+- systemd, over D-Bus: `StartUnit`, `StopUnit`, `ResetFailedUnit`, `LoadUnit` and properties (`ActiveState`, `NRestarts`, job `State`), `EnableUnitFiles`, `DisableUnitFiles` and `Reload`. Lifecycle calls use the fixed Edge stack and guard names. `StopUnit` also accepts validated obsolete system unit names from a verified outgoing manifest when the installed file matches the signed bytes.
 - Two programs: `/usr/bin/systemd-sysusers /usr/lib/sysusers.d/tilecast-edge.conf` and `/usr/bin/systemd-tmpfiles --create /usr/lib/tmpfiles.d/tilecast-edge.conf`, with fixed absolute paths, fixed arguments, a cleared environment (`LANG=C` only), no standard input, and a 120 s timeout. There is no shell.
-- Nothing else. No request, release, server string or daemon status becomes a unit name, a path to execute, an argument or an environment variable. The guard units' `ExecStart=` contains a version name that passed `is_version_name` (digits, dots and an optional `-` suffix of `[0-9A-Za-z.]`).
+- No request, Server string or daemon status becomes a unit name, an executable path, an argument or an environment variable. The guard units' `ExecStart=` contains the previous release's validated version name. The helper has no network and runs no package manager.
 
 ### 7.3 Removal of the Edge 0.2.0 field workaround
 
@@ -313,7 +320,7 @@ How the remaining risk is reduced and reported:
 - **A signed release is trusted to run.** The key signs releases, and a signed release installs its units and runs as `tilecast` (the daemon) and as root (the helper's next start). The protection is the key, the release workflow and the server's authority. A signed but broken release is rolled back; a signed malicious release is not detected.
 - **A compromised `tilecast` account can undo or delay.** It can ask for a rollback of a provisional release, withhold a confirmation until the deadline, or fake a good status to the helper. It cannot install an unsigned or older release, choose a path, or make the helper run anything. A faked status can only confirm the release that is already current and signed.
 - **Root parses untrusted archive data.** The envelope and the manifest are parsed with `serde_json` after a size bound. The archive is decoded by `ruzstd` and `tar` in the root process, after the outer digest matched a signed envelope, so only bytes that the Tilecast key vouches for reach the decoders.
-- **`/etc` is writable to the helper.** It needs to write units and lets `systemd-sysusers` replace the account files. A mistake in the helper could change other files in `/etc`. The writes are to constant names only.
+- **`/etc` is writable to the helper.** This permits atomic account database replacement by `systemd-sysusers` and the fixed-directory unit installation in §4.5. A signed release is trusted to supply the contents of its units and configuration.
 - **The session bridge is not restarted by an update.** It is a user unit of the `tilecast` session. It keeps the binary it started with until the session restarts it, and it speaks the versioned IPC, so a new daemon accepts it or refuses it with a typed reason.
 - **Transaction schema across releases.** The previous release's helper must read a transaction that the candidate's helper wrote (for a confirmation) and the other way round. Both refuse a newer transaction schema. A future change to the record must stay readable by the release before it, or the guard of an update across that change cannot finish.
 - **Physical hardware.** The real-systemd test runs in a privileged container with headless WPE. Update and rollback on reference hardware, with DRM output and a real power cut, is M11.
@@ -321,8 +328,8 @@ How the remaining risk is reduced and reported:
 ## 11. Review checklist for changes
 
 - A new side effect gets a durable phase or a crash point, and the crash matrix covers it with and without a power loss.
-- A new unit name or system file is a constant of the crate, and is in the release manifest's required files.
-- Nothing from a request, the server, a release file or the daemon's status becomes a unit name, a path to execute, an argument or an environment variable.
+- A new unit must pass the signed packaging path rules in §4.5. A new root configuration class needs a fixed destination and a threat-boundary review.
+- A request, a Server response and daemon status supply no unit name, executable path, command argument or environment variable.
 - A new read of `tilecast`-owned data uses the no-link, owner-checked open, and root uses only a private copy that it verified.
 - The guard stays independent of the candidate: its binary is the previous release's, and its units are not release files.
 - The helper's sandbox changes only with a real-systemd test run that shows why.

@@ -3,7 +3,7 @@
 # tilecast-edge-migrate runs against real units, a lingering kiosk account and
 # a real legacy user unit, and tilecast-edge-update against the same units
 # (zstd packs test releases; tc slows a download so it can be interrupted;
-# avahi-daemon, from the Edge system baseline, lets the AirPlay supervisor's
+# the optional host avahi-daemon lets the AirPlay supervisor's
 # probe pass in the headless airplay scenario).
 #
 #   docker build -t tilecast-edge-migrate-e2e -f apps/edge/ci/Dockerfile.migrate apps/edge/ci

@@ -44,9 +44,6 @@ pub const REQUIRED_FILES: &[&str] = &[
     "bin/tilecast-web-renderer-wpe",
     "bin/tilecast-edge-migrate",
     "bin/tilecast-edge-update",
-    "bin/tilecast-airplay",
-    "bin/uxplay",
-    "bin/tilecast-networkd",
     "bin/tilecast-session-bridge",
     "lib/gstreamer-1.0/libgsttcmedia.so",
     "share/tilecast/renderer-web/index.html",
@@ -58,16 +55,13 @@ pub const REQUIRED_FILES: &[&str] = &[
     "packaging/modules-load.d/tilecast-edge.conf",
 ];
 
-/// The user units a release installs for the tilecast account's session
-/// (`packaging/systemd-user`). Only the path unit is enabled; it starts the
-/// bridge while `tilecastd`'s socket exists.
-pub const USER_UNITS: &[&str] = &["tilecast-session-bridge.service", "tilecast-session-bridge.path"];
+/// The path unit starts the session bridge while the daemon's socket exists.
+pub const REQUIRED_USER_UNITS: &[&str] = &["tilecast-session-bridge.service", "tilecast-session-bridge.path"];
 pub const USER_UNIT_ENABLED: &str = "tilecast-session-bridge.path";
 
-/// The systemd units a release installs. The installers only ever install,
-/// enable, start or stop units from this list, plus the update guard units
-/// that `tilecast-edge-update` writes itself.
-pub const UNITS: &[&str] = &[
+/// The core lifecycle units. Additional units can be installed from a signed
+/// manifest without making them mandatory in older releases.
+pub const REQUIRED_UNITS: &[&str] = &[
     "tilecast-edge.service",
     "tilecast-renderer.service",
     "tilecast-web-renderer.service",
@@ -80,10 +74,41 @@ pub const UNITS: &[&str] = &[
     "tilecast-edge-import.service",
     "tilecast-edge-update.service",
     "tilecast-edge-update.socket",
-    "tilecast-airplay.service",
-    "tilecast-airplay.socket",
-    "tilecast-networkd.service",
 ];
+
+pub const MAX_SYSTEM_FILE_BYTES: u64 = 256 * 1024;
+pub const SYSTEM_UNITS_DIR: &str = "packaging/systemd";
+pub const USER_UNITS_DIR: &str = "packaging/systemd-user";
+
+fn valid_unit_name(name: &str) -> bool {
+    let Some((stem, kind)) = name.rsplit_once('.') else { return false };
+    let Some(suffix) = stem.strip_prefix("tilecast-") else { return false };
+    !stem.starts_with("tilecast-edge-update-guard")
+        && suffix
+            .split('-')
+            .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+        && matches!(kind, "service" | "socket" | "path" | "timer" | "target")
+}
+
+fn validate_system_file(file: &ReleaseFile) -> Result<(), ReleaseError> {
+    let Some(path) = file.path.strip_prefix("packaging/") else {
+        return if file.path == "packaging" { Err(ReleaseError::Invalid("invalid system file path")) } else { Ok(()) };
+    };
+    let valid = match path.split_once('/') {
+        Some(("systemd" | "systemd-user", name)) => valid_unit_name(name),
+        _ => matches!(
+            path,
+            "sysusers.d/tilecast-edge.conf"
+                | "tmpfiles.d/tilecast-edge.conf"
+                | "udev/70-tilecast-display.rules"
+                | "modules-load.d/tilecast-edge.conf"
+        ),
+    };
+    if !valid || file.size > MAX_SYSTEM_FILE_BYTES || file.mode != "0644" {
+        return Err(ReleaseError::Invalid("invalid packaged system file"));
+    }
+    Ok(())
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReleaseError {
@@ -287,6 +312,7 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
         {
             return Err(ReleaseError::Invalid("invalid file entry"));
         }
+        validate_system_file(file)?;
         total = total.saturating_add(file.size);
     }
     if total > MAX_TOTAL_BYTES {
@@ -304,14 +330,11 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
             return Err(ReleaseError::Invalid("a required file is missing"));
         }
     }
-    for unit in UNITS {
-        if !paths.contains(format!("packaging/systemd/{unit}").as_str()) {
-            return Err(ReleaseError::Invalid("a required unit is missing"));
-        }
-    }
-    for unit in USER_UNITS {
-        if !paths.contains(format!("packaging/systemd-user/{unit}").as_str()) {
-            return Err(ReleaseError::Invalid("a required unit is missing"));
+    for (directory, units) in [(SYSTEM_UNITS_DIR, REQUIRED_UNITS), (USER_UNITS_DIR, REQUIRED_USER_UNITS)] {
+        for unit in units {
+            if !paths.contains(format!("{directory}/{unit}").as_str()) {
+                return Err(ReleaseError::Invalid("a required unit is missing"));
+            }
         }
     }
     Ok(())
@@ -536,6 +559,34 @@ mod tests {
             matches!(verify_manifest(&shadow, &signer.public()), Err(ReleaseError::Invalid(_))),
             "a listed file may not replace the manifest itself"
         );
+    }
+
+    #[test]
+    fn system_files_must_be_flat_bounded_and_non_executable() {
+        let file = |path: &str, size, mode: &str| ReleaseFile {
+            path: path.into(),
+            size,
+            mode: mode.into(),
+            sha256: "0".repeat(64),
+        };
+        for path in
+            ["packaging/systemd/tilecast-airplay.service", "packaging/systemd-user/tilecast-session-bridge.path"]
+        {
+            assert!(validate_system_file(&file(path, MAX_SYSTEM_FILE_BYTES, "0644")).is_ok());
+            assert!(validate_system_file(&file(path, MAX_SYSTEM_FILE_BYTES + 1, "0644")).is_err());
+            assert!(validate_system_file(&file(path, 1, "0755")).is_err());
+        }
+        for path in [
+            "packaging/systemd/tilecast-foo@.service",
+            "packaging/systemd/tilecast-foo..service",
+            "packaging/systemd/tilecast-.service",
+            "packaging/systemd/tilecast-foo.mount",
+            "packaging/systemd/tilecast-foo.service.d/override.conf",
+            "packaging/sysusers.d/override.conf",
+            "packaging/systemd/../tilecast-foo.service",
+        ] {
+            assert!(validate_system_file(&file(path, 1, "0644")).is_err(), "{path}");
+        }
     }
 
     fn shipped_unit(name: &str) -> String {

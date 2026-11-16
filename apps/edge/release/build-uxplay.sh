@@ -10,7 +10,8 @@
 # identical to that commit's archive.
 #
 # The binary loads the release's carried libraries (runtime_closure.py) from
-# ../lib/wpe/lib, like the renderer. It is built without X11 and without
+# ../lib/wpe/lib. DT_RPATH also applies to transitive dependencies such as
+# the Avahi client libraries used by libdns_sd. It is built without X11 and without
 # -march=native, so one build serves every machine of the architecture.
 #
 #   build-uxplay.sh OUTDIR [WORKDIR]
@@ -36,6 +37,7 @@ cmake -S "$work/src" -B "$work/build" -G Ninja \
   -DNO_MARCH_NATIVE=ON \
   -DCMAKE_C_FLAGS="-ffile-prefix-map=$work/src=. -O2" \
   -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$work/src=. -O2" \
+  -DCMAKE_EXE_LINKER_FLAGS="-Wl,--disable-new-dtags" \
   -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
   "-DCMAKE_INSTALL_RPATH=\$ORIGIN/../lib/wpe/lib" >/dev/null
 cmake --build "$work/build" --target uxplay

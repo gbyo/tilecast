@@ -28,10 +28,13 @@ use std::time::Duration;
 
 use edge_release::envelope::verify_envelope;
 use edge_release::install::{
-    Layout, StageOutcome, current_version, free_bytes, install_system_files, installed_versions, remove_leftovers,
-    remove_version, switch_current, verify_installed,
+    Layout, StageOutcome, check_new_unit_destinations, current_version, free_bytes, install_system_files,
+    installed_versions, obsolete_system_units, remove_leftovers, remove_obsolete_units, remove_version, switch_current,
+    verify_installed, write_atomic,
 };
-use edge_release::manifest::{ReleaseError, hex, is_version_name, verify_manifest, version_code};
+use edge_release::manifest::{
+    MANIFEST_NAME, ReleaseError, SIGNATURE_NAME, VerifiedRelease, hex, is_version_name, verify_manifest, version_code,
+};
 use edge_release::protocol::{HelperStatus, MAX_LISTED_VERSIONS, Phase, ReleaseRef};
 use sha2::{Digest as _, Sha256};
 
@@ -368,6 +371,15 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         if candidate.manifest.version_code <= previous.manifest.version_code {
             return Err(UpdateError::Refused("update_not_newer"));
         }
+        check_new_unit_destinations(&self.layout, &candidate, Some(&previous))?;
+        // Persist the verified inventory before the intent. The guard can
+        // remove candidate-only units even if that release's tree is lost.
+        self.store.ensure()?;
+        let snapshot = self.candidate_manifest_dir();
+        std::fs::DirBuilder::new().recursive(true).mode(0o700).create(&snapshot)?;
+        write_atomic(&snapshot, MANIFEST_NAME, &candidate.manifest_bytes, 0o600)?;
+        write_atomic(&snapshot, SIGNATURE_NAME, &candidate.signature_bytes, 0o600)?;
+        edge_release::install::sync_dir(self.store.dir())?;
         let mut transaction = Transaction {
             schema_version: SCHEMA_VERSION,
             transaction_id: uuid::Uuid::new_v4().to_string(),
@@ -426,13 +438,18 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         if verified.manifest_sha256 != transaction.candidate.manifest_sha256 {
             return Err(ReleaseError::InstalledCorrupt(transaction.candidate.version_name.clone()).into());
         }
-        install_system_files(&candidate_dir, &self.layout)?;
+        let previous = verify_manifest(&self.layout.version_dir(&transaction.previous.version_name), &self.key)?;
+        if previous.manifest_sha256 != transaction.previous.manifest_sha256 {
+            return Err(ReleaseError::InstalledCorrupt(transaction.previous.version_name.clone()).into());
+        }
+        self.remove_outgoing_units(&previous, &verified).await?;
+        install_system_files(&self.layout, &verified)?;
         self.crash(CrashPoint::AfterSystemFiles)?;
         switch_current(&self.layout, &transaction.candidate.version_name)?;
         tracing::info!(component = "update", event = "current_switched", version = %transaction.candidate.version_name);
         self.crash(CrashPoint::AfterCurrentSwitched)?;
-        self.host.reload().await?;
         self.host.apply_system_configuration().await?;
+        self.host.reload().await?;
         self.crash(CrashPoint::AfterReload)?;
         let now = self.host.boottime_ms();
         transaction.boot_id = Some(self.host.boot_id());
@@ -569,7 +586,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         let verified = verify_installed(&previous_dir, &self.key)
             .ok()
             .filter(|release| release.manifest_sha256 == transaction.previous.manifest_sha256);
-        if verified.is_none() {
+        let Some(verified) = verified else {
             // Never leave the screen dark: run whatever is current, and keep
             // the transaction open so the guard keeps trying and status says why.
             transaction.record(self.host.now_ms(), "the previous release does not verify");
@@ -578,16 +595,25 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             let _ = self.host.start(EDGE_WEB).await;
             let _ = self.host.start(EDGE_RENDERER).await;
             return Err(UpdateError::RollbackIncomplete("previous_release_corrupt"));
+        };
+        // Older helpers did not write an inventory and never installed units
+        // dynamically. Keep their transaction record readable in both directions.
+        match verify_manifest(&self.candidate_manifest_dir(), &self.key) {
+            Ok(candidate) if candidate.manifest_sha256 == transaction.candidate.manifest_sha256 => {
+                self.remove_outgoing_units(&candidate, &verified).await?;
+            }
+            Err(ReleaseError::MissingManifest) | Ok(_) => {}
+            Err(error) => return Err(error.into()),
         }
-        install_system_files(&previous_dir, &self.layout)?;
+        install_system_files(&self.layout, &verified)?;
         self.crash(CrashPoint::AfterRollbackSystemFiles)?;
         switch_current(&self.layout, &transaction.previous.version_name)?;
         tracing::info!(component = "update", event = "current_switched", version = %transaction.previous.version_name);
         self.crash(CrashPoint::AfterRollbackCurrent)?;
-        tracing::info!(component = "update", event = "rollback_reloading");
-        self.host.reload().await?;
         tracing::info!(component = "update", event = "rollback_applying_system");
         self.host.apply_system_configuration().await?;
+        tracing::info!(component = "update", event = "rollback_reloading");
+        self.host.reload().await?;
         self.crash(CrashPoint::AfterRollbackReload)?;
         for unit in [EDGE_DAEMON, EDGE_WEB, EDGE_RENDERER] {
             tracing::info!(component = "update", event = "rollback_starting", unit);
@@ -602,6 +628,22 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             self.watch_previous(transaction).await?;
         }
         self.store.archive(transaction)?;
+        Ok(())
+    }
+
+    fn candidate_manifest_dir(&self) -> PathBuf {
+        self.store.dir().join("candidate-manifest")
+    }
+
+    async fn remove_outgoing_units(
+        &self,
+        outgoing: &VerifiedRelease,
+        incoming: &VerifiedRelease,
+    ) -> Result<(), UpdateError> {
+        for unit in obsolete_system_units(&self.layout, outgoing, incoming)? {
+            self.host.stop(unit).await?;
+        }
+        remove_obsolete_units(&self.layout, outgoing, incoming)?;
         Ok(())
     }
 

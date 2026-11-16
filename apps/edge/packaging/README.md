@@ -148,6 +148,12 @@ An update goes through these steps:
 4. **Confirm**: the candidate daemon reconnects to the server and shows its presentation with fresh playback evidence. After 120 seconds of stable evidence it asks the helper to confirm, then reports success to the server. The helper disarms the guard and removes releases older than the previous one.
 5. **Roll back**: a candidate that does not confirm in time, keeps restarting, or runs after a reboot is rolled back by the guard, which runs the previous release's helper. The previous units and `current` come back, the previous daemon starts, and it reports the failure to the server. The same deployment does not try the release again.
 
+The updater reads system and user unit files from the signed candidate manifest. It installs new `tilecast-*` units in the same activation, applies the fixed sysusers and tmpfiles configuration, then reloads systemd before it starts Edge. Declare startup dependencies in the packaged units. The helper does not enable additional system or user units. On rollback it stops and removes unchanged candidate-only system units, removes unchanged candidate-only user unit files, and restores the previous release's system files. Accounts created by sysusers stay on the host.
+
+The updater that is installed at the start of the update owns activation. For installations with the older fixed-list updater, deploy a compatible release with the manifest-driven updater before you deploy a release that adds units. If a device already runs a release whose units were skipped, use that release's `tilecast-edge-migrate install --from <release>` to install its signed system files and restart Edge.
+
+The runtime package list must stay within `release/shipped-system-baseline.txt`. The release carries shared libraries outside that baseline. AirPlay uses the optional host `avahi-daemon` service for discovery and carries the DNS-SD compatibility library in the release.
+
 To inspect or undo an update, as root:
 
 ```sh

@@ -16,7 +16,7 @@ use edge_release::install::{
     Layout, StageOutcome, current_version, install_with_key, installed_versions, verify_installed,
 };
 use edge_release::protocol::{HelperRequest, Phase};
-use edge_release::testing::{Signer, layout, write_archive};
+use edge_release::testing::{Signer, layout, rehash, write_archive};
 
 use crate::fake::{Behavior, FakeHost};
 use crate::host::{EDGE_DAEMON, EDGE_RENDERER, EDGE_WEB};
@@ -30,6 +30,8 @@ const TIMING: Timing = Timing {
     after_rollback_wait: Duration::from_secs(10),
     poll: Duration::from_secs(1),
 };
+const AIRPLAY_UNITS: &[&str] = &["tilecast-airplay.service", "tilecast-airplay.socket"];
+const FUTURE_USER_UNIT: &str = "tilecast-future.path";
 
 struct Candidate {
     envelope: Vec<u8>,
@@ -75,8 +77,19 @@ impl World {
     /// Builds a signed release, its archive and envelope, and puts the
     /// archive where `tilecastd` would have: in the content store.
     fn candidate(&self, version: &str) -> Candidate {
+        self.candidate_with(version, |tree| {
+            for unit in AIRPLAY_UNITS {
+                std::fs::write(tree.join("packaging/systemd").join(unit), "[Unit]\n").unwrap();
+            }
+            std::fs::write(tree.join("packaging/systemd-user").join(FUTURE_USER_UNIT), "[Path]\n").unwrap();
+        })
+    }
+
+    fn candidate_with(&self, version: &str, change: impl FnOnce(&std::path::Path)) -> Candidate {
         let tree = self.root.path().join(format!("tree-{version}"));
         self.signer.write_release(&tree, version);
+        change(&tree);
+        self.signer.sign(&tree, &serde_json::to_vec(&rehash(&tree)).unwrap());
         let archive = self.root.path().join(format!("{version}.tar.zst"));
         write_archive(&tree, &archive);
         let envelope = self.signer.envelope_bytes(&tree, &archive, 6);
@@ -135,6 +148,10 @@ impl World {
         let wanted = if expected == Phase::Confirmed { "0.2.0" } else { "0.1.0" };
         assert_eq!(current, wanted);
         assert_eq!(self.units_version(), wanted, "system files describe the current release");
+        for unit in AIRPLAY_UNITS {
+            assert_eq!(self.layout.unit_dir.join(unit).exists(), expected == Phase::Confirmed);
+        }
+        assert_eq!(self.layout.user_unit_dir.join(FUTURE_USER_UNIT).exists(), expected == Phase::Confirmed);
         assert!(self.host.with(|s| s.guard_armed_for.is_none()), "the guard ends with the transaction");
         assert!(
             self.host.is_active(EDGE_DAEMON) && self.host.is_active(EDGE_WEB) && self.host.is_active(EDGE_RENDERER),
@@ -309,6 +326,47 @@ async fn a_power_loss_while_provisional_rolls_back_before_edge_starts() {
     assert_eq!(world.latest().reason.as_deref(), Some("rebooted_while_provisional"));
     world.host.boot_edge();
     world.assert_consistent(Phase::RolledBack);
+}
+
+#[tokio::test]
+async fn rollback_removes_new_units_even_if_the_candidate_tree_is_lost() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    world.updater(None).activate("0.2.0").await.unwrap();
+    assert!(world.layout.unit_dir.join("tilecast-airplay.socket").is_file());
+    std::fs::remove_dir_all(world.layout.version_dir("0.2.0")).unwrap();
+    let transaction = world.updater(None).rollback("operator_requested").await.unwrap();
+    assert_eq!(transaction.phase, Phase::RolledBack);
+    assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+    assert!(!world.layout.unit_dir.join("tilecast-airplay.socket").exists());
+    assert!(world.host.with(|s| s.log.iter().any(|entry| entry == "stop tilecast-airplay.socket")));
+}
+
+#[tokio::test]
+async fn signed_candidates_cannot_install_host_or_guard_units() {
+    for unit in ["sshd.service", "tilecast-edge-update-guard.service", "tilecast-airplay.socket.d/override.conf"] {
+        let world = World::new();
+        let candidate = world.candidate_with("0.2.0", |tree| {
+            let path = tree.join("packaging/systemd").join(unit);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "[Unit]\n").unwrap();
+        });
+        assert_eq!(world.stage(&candidate).await.unwrap_err().reason_code(), "release_manifest_invalid");
+        assert!(!world.layout.unit_dir.join(unit).exists());
+        assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+    }
+}
+
+#[tokio::test]
+async fn a_new_release_unit_cannot_overwrite_a_local_mask() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    let unit = world.layout.unit_dir.join("tilecast-airplay.socket");
+    std::os::unix::fs::symlink("/dev/null", &unit).unwrap();
+    assert!(world.updater(None).activate("0.2.0").await.is_err());
+    assert_eq!(std::fs::read_link(unit).unwrap(), std::path::Path::new("/dev/null"));
+    assert!(world.store.load().unwrap().is_none());
+    assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
 }
 
 #[tokio::test]

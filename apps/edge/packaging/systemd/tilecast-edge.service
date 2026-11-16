@@ -4,8 +4,8 @@ Description=Tilecast Edge daemon
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
 After=network-online.target time-sync.target tilecast-airplay.socket tilecast-networkd.service
 Wants=network-online.target
-# The AirPlay supervisor's socket (docs/tilecast-edge-airplay.md §4.1). A
-# screen that does not have the unit yet starts without it.
+# The AirPlay supervisor's socket (docs/tilecast-edge-airplay.md §4.1).
+# Wanted so signage can start if the receiver is unavailable.
 Wants=tilecast-airplay.socket
 # The Presentation Network helper (docs/tilecast-edge-airplay.md section 8).
 # Wanted, never required: signage runs without it.

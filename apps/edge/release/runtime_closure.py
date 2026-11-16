@@ -25,6 +25,7 @@ library in the tree does not resolve there.
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -46,6 +47,19 @@ def read_baseline(path):
                 names.append(line)
     if not names:
         raise ValueError(f"{path} names no packages")
+    return names
+
+
+def compatible_baseline(path):
+    names = read_baseline(path)
+    shipped = read_baseline(Path(__file__).with_name("shipped-system-baseline.txt"))
+    added = set(names) - set(shipped)
+    if added:
+        raise ValueError(
+            "host packages outside the shipped Edge baseline: "
+            + ", ".join(sorted(added))
+            + ". Bundle new libraries or document how installed devices will receive these packages."
+        )
     return names
 
 
@@ -204,7 +218,7 @@ def bundled_sonames(tree):
 
 def carry(tree, baseline_path):
     """Copies the missing libraries into the staged tree and records them."""
-    baseline = read_baseline(baseline_path)
+    baseline = compatible_baseline(baseline_path)
     packages = installed_packages()
     closure = dependency_closure(baseline, packages)
     chosen = plan(tree, closure, ldconfig_map(), owner_package, bundled_sonames=bundled_sonames(tree))
