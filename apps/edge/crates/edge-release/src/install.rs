@@ -206,8 +206,8 @@ pub fn activate(layout: &Layout, version: &str, key: &[u8; 32]) -> Result<Verifi
         return Err(ReleaseError::NotInstalled(version.to_owned()));
     }
     let release = verify_installed(&dir, key)?;
-    let previous = current_version(layout).and_then(|version| verify_manifest(&layout.version_dir(&version), key).ok());
-    check_new_unit_destinations(layout, &release, previous.as_ref())?;
+    // An operator install can replace a legacy Tilecast unit such as
+    // Networkd. Remote activation checks for local conflicts first.
     install_system_files(layout, &release)?;
     switch_current(layout, version)?;
     Ok(release)
@@ -373,7 +373,7 @@ fn matches_system_file(path: &Path, file: &ReleaseFile) -> Result<bool, ReleaseE
 pub fn check_new_unit_destinations(
     layout: &Layout,
     release: &VerifiedRelease,
-    previous: Option<&VerifiedRelease>,
+    previous: &VerifiedRelease,
 ) -> Result<(), ReleaseError> {
     for (file, dir, name) in system_files(layout, release) {
         let required = if dir == layout.unit_dir {
@@ -383,7 +383,7 @@ pub fn check_new_unit_destinations(
         } else {
             continue;
         };
-        if required.contains(&name) || previous.is_some_and(|prev| prev.manifest.file(&file.path).is_some()) {
+        if required.contains(&name) || previous.manifest.file(&file.path).is_some() {
             continue;
         }
         let path = dir.join(name);
@@ -602,7 +602,26 @@ pub fn free_bytes(path: &Path) -> std::io::Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{Signer, layout};
+    use crate::testing::{Signer, layout, rehash};
+
+    #[test]
+    fn an_operator_install_replaces_the_legacy_networkd_unit() {
+        let root = tempfile::tempdir().unwrap();
+        let signer = Signer::new();
+        let source = root.path().join("unpacked");
+        signer.write_release(&source, "0.2.0");
+        let unit = "tilecast-networkd.service";
+        let packaged = b"[Service]\nExecStart=/opt/tilecast-edge/current/bin/tilecast-networkd\n";
+        std::fs::write(source.join("packaging/systemd").join(unit), packaged).unwrap();
+        signer.sign(&source, &serde_json::to_vec(&rehash(&source)).unwrap());
+        let layout = layout(root.path());
+        std::fs::create_dir(&layout.unit_dir).unwrap();
+        let target = layout.unit_dir.join(unit);
+        std::fs::write(&target, b"[Service]\nExecStart=/usr/local/bin/tilecast-networkd\n").unwrap();
+
+        install_with_key(&source, &layout, &signer.public()).unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), packaged);
+    }
 
     #[test]
     fn a_signed_release_installs_once_and_switches_current() {

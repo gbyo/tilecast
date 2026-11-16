@@ -380,7 +380,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         ) {
             return Err(UpdateError::Refused("update_bootstrap_required"));
         }
-        check_new_unit_destinations(&self.layout, &candidate, Some(&previous))?;
+        check_new_unit_destinations(&self.layout, &candidate, &previous)?;
         // Persist the verified inventory before the intent. The guard can
         // remove candidate-only units even if that release's tree is lost.
         self.store.ensure()?;
