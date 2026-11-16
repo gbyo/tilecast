@@ -469,7 +469,8 @@ fixed-list updater cannot install an unfamiliar unit during that activation.
    `minimumUpdaterVersion` in the release manifest and update envelope. The
    version must be lower than the candidate's version. The legacy version-code
    bridge keeps its legacy format.
-3. Deploy a follow-up release to screens after they confirm the bootstrap.
+3. Run the Server from the bootstrap release or later before you import a
+   follow-up Edge release. Deploy it to screens after they confirm the bootstrap.
    Studio reports the prerequisite in deployment preview and creation. Edge
    checks it again before download, staging, and activation. It retries briefly
    if the socket still has the helper that confirmed the bootstrap running.
