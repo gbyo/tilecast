@@ -98,7 +98,7 @@ records code evidence, not documentation claims. Each row uses one status:
 | Core handler parity                    | Implemented and verified   | Same reference result codes. No action.                                                                                                                                                                                                                                                                                             |
 | `clear_website_data`                   | Implemented and verified   | The type is now in `plan()` with a routing-table regression test. No action.                                                                                                                                                                                                                                                        |
 | `restart_activity`                     | Partially implemented      | Legacy relaunches the process. Edge restarts the renderer only and reports `activity_restarted`. Action: ratify the renderer-only semantic or match legacy.                                                                                                                                                                         |
-| AirPlay commands                       | Implemented, not qualified | Single-screen AirPlay is implemented in software and has automated tests. Hardware qualification is pending, so Edge keeps the capability `blocked` (`qualification_pending`) and refuses the commands with `airplay_not_ready`. Group roles answer `airplay_group_unsupported`. Retirement must exclude AirPlay-dependent screens. |
+| AirPlay commands                       | Beta, qualification pending | Single-screen AirPlay is implemented and available as an opt-in Beta per Edge screen. It is off by default (`beta_disabled`); enabling the Studio switch makes healthy players available without a restart. Physical qualification is still pending. Group roles answer `airplay_group_unsupported`. |
 | Autostart commands                     | Intentionally unsupported  | The installer owns the system service. No action.                                                                                                                                                                                                                                                                                   |
 
 ## 9. Screenshots, previews and Watch Live
@@ -214,10 +214,11 @@ rollback on a real disk.
   failures. Phase 3 finishes all three without competing implementations.
 - Single-screen AirPlay is implemented in Edge software and has automated
   qualification. Physical hardware qualification is pending. Until it is
-  recorded, AirPlay on Edge must not be presented as available or
-  production-qualified, and Edge keeps it `blocked` with the reason
-  `qualification_pending` ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md)
-  §12). Group AirPlay stays unsupported.
+  recorded, single-screen AirPlay must be labeled Beta rather than
+  production-qualified. It is off by default and reports `beta_disabled`
+  until an administrator enables it for that Edge screen in Studio
+  ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §12). Group AirPlay
+  stays unsupported.
 - The readiness plan references `docs/tilecast-edge-sandbox-review.md`.
   That file does not exist. Sandbox material lives in
   `docs/tilecast-edge-remote-web-threat-review.md` and
