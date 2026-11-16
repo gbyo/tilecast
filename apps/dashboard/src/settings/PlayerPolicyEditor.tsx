@@ -123,14 +123,16 @@ export function PlayerPolicyEditor({
   const auth = useAuth();
   const manageable = hasCapability(auth.status, "screen.manage");
   const settings = useQuery(settingsQueries.organization());
-  const policy = useQuery({
-    queryKey: [target, id, "policy"],
-    queryFn: () =>
-      target === "group" ? api.groupPolicy(id) : api.screenPolicy(id),
-  });
+  const policy = useQuery(
+    target === "screen"
+      ? settingsQueries.screenPolicy(id)
+      : {
+          queryKey: [target, id, "policy"],
+          queryFn: () => api.groupPolicy(id),
+        },
+  );
   const effective = useQuery({
-    queryKey: ["screens", id, "effective-policy"],
-    queryFn: () => api.effectivePolicy(id),
+    ...settingsQueries.effectiveScreenPolicy(id),
     enabled: target === "screen",
   });
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -198,31 +200,36 @@ export function PlayerPolicyEditor({
     },
   });
   const reset = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const preserved = Object.fromEntries(
         Object.entries(policy.data?.values ?? {}).filter(([key]) =>
           dedicatedPolicyKeys.has(key),
         ),
       );
       if (Object.keys(preserved).length) {
-        return target === "group"
-          ? api.putGroupPolicy(
-              id,
-              policy.data?.revision ?? 0,
-              priority,
-              preserved,
-              auth.status?.csrfToken ?? "",
-            )
-          : api.putScreenPolicy(
-              id,
-              policy.data?.revision ?? 0,
-              preserved,
-              auth.status?.csrfToken ?? "",
-            );
+        if (target === "group") {
+          await api.putGroupPolicy(
+            id,
+            policy.data?.revision ?? 0,
+            priority,
+            preserved,
+            auth.status?.csrfToken ?? "",
+          );
+        } else {
+          await api.putScreenPolicy(
+            id,
+            policy.data?.revision ?? 0,
+            preserved,
+            auth.status?.csrfToken ?? "",
+          );
+        }
+        return;
       }
-      return target === "group"
-        ? api.deleteGroupPolicy(id, auth.status?.csrfToken ?? "")
-        : api.deleteScreenPolicy(id, auth.status?.csrfToken ?? "");
+      if (target === "group") {
+        await api.deleteGroupPolicy(id, auth.status?.csrfToken ?? "");
+      } else {
+        await api.deleteScreenPolicy(id, auth.status?.csrfToken ?? "");
+      }
     },
     onSuccess: async () => {
       setValues(
