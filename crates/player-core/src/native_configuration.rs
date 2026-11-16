@@ -40,6 +40,8 @@ pub struct Cache {
     pub minimum_free_bytes: Option<u64>,
     /// `automatic` videos above this size stream instead of downloading.
     pub automatic_threshold_bytes: Option<u64>,
+    /// How many required downloads run at once, 1 through 8.
+    pub concurrent_downloads: Option<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,6 +149,9 @@ impl NativeConfiguration {
             maximum_bytes: bytes(cache_values, "maximumBytes"),
             minimum_free_bytes: bytes(cache_values, "minimumFreeBytes"),
             automatic_threshold_bytes: bytes(cache_values, "automaticThresholdBytes"),
+            concurrent_downloads: number(cache_values, "concurrentDownloads")
+                .filter(|value| value.fract() == 0.0 && (1.0..=8.0).contains(value))
+                .map(|value| value as u8),
         };
 
         let sync_values = section(object, "sync");
@@ -273,7 +278,12 @@ mod tests {
         assert_eq!(parsed.revision, 7);
         assert_eq!(
             parsed.cache,
-            Cache { maximum_bytes: Some(123), minimum_free_bytes: None, automatic_threshold_bytes: None }
+            Cache {
+                maximum_bytes: Some(123),
+                minimum_free_bytes: None,
+                automatic_threshold_bytes: None,
+                concurrent_downloads: None,
+            }
         );
         assert_eq!(
             parsed.sync,
