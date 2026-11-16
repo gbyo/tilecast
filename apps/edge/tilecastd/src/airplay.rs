@@ -255,7 +255,7 @@ const REMEDY: &str = "Install a Tilecast Edge release that includes it.";
 /// The reason code and sentence when the screen has not opted into the beta.
 pub const BETA_DISABLED: &str = "beta_disabled";
 const BETA_DISABLED_SENTENCE: &str =
-    "AirPlay is a beta feature on Tilecast Edge. Enable AirPlay in this screen\'s Settings in Studio.";
+    "AirPlay is a beta feature on Tilecast Edge. Enable AirPlay in this screen's Settings in Studio.";
 
 impl Readiness {
     /// `airplaySupported`: the unit answers `probe` with no limitation,
@@ -639,13 +639,12 @@ pub async fn heartbeat(context: &DaemonContext, heartbeat: &mut Value) {
 }
 
 /// The state of `external_presentation.airplay`. A failed dependency reports
-/// its own reason first. When every dependency is healthy, a closed
-/// qualification gate answers `Blocked` with `qualification_pending`, so the
-/// probe's diagnostics stay useful while Studio does not offer AirPlay.
+/// its own reason first. When every dependency is healthy but this screen has
+/// not opted into the beta, diagnostics stay visible while AirPlay stays blocked.
 pub fn capability_state(
     probe: &Option<Option<Probe>>,
     renderer: &RendererSupport,
-    qualified: bool,
+    enabled: bool,
 ) -> (player_types::capability::CapabilityState, Option<String>) {
     use player_types::capability::CapabilityState;
     match probe {
@@ -819,13 +818,13 @@ impl Actor {
         }
         let (connection, probe) = self.probe().await;
         let readiness = Readiness { probe, renderer: renderer_support(&self.context).await };
-        let qualified = self.context.airplay.enabled();
+        let enabled = self.context.airplay.enabled();
         let Some(connection) = connection.filter(|_| readiness.available(enabled)) else {
             self.context.report_status_soon();
             return CommandResult::failed(
                 "airplay_not_ready",
                 &readiness
-                    .offered_limitation(qualified)
+                    .offered_limitation(enabled)
                     .unwrap_or_else(|| "This player is not ready for AirPlay Present.".into()),
             );
         };
@@ -1326,21 +1325,21 @@ mod tests {
     }
 
     #[test]
-    fn a_closed_qualification_gate_blocks_a_healthy_receiver_but_keeps_the_diagnostics() {
+    fn a_disabled_beta_blocks_a_healthy_receiver_but_keeps_the_diagnostics() {
         use player_types::capability::CapabilityState;
         let (probe, renderer) = healthy();
         let (state, reason) = capability_state(&Some(Some(probe.clone())), &renderer, false);
-        assert_eq!((state, reason.as_deref()), (CapabilityState::Blocked, Some("qualification_pending")));
+        assert_eq!((state, reason.as_deref()), (CapabilityState::Blocked, Some("beta_disabled")));
         assert!(!state.is_usable());
         let readiness = Readiness { probe: Some(probe), renderer };
-        // The dependencies are healthy and visible; only the offer is withheld.
+        // The dependencies are healthy and visible; only the beta opt-in is off.
         assert!(readiness.supported());
         assert!(!readiness.available(false));
-        assert!(readiness.offered_limitation(false).unwrap().contains("still being qualified"));
+        assert!(readiness.offered_limitation(false).unwrap().contains("beta feature"));
     }
 
     #[test]
-    fn an_open_qualification_gate_offers_a_healthy_receiver() {
+    fn an_enabled_beta_offers_a_healthy_receiver() {
         use player_types::capability::CapabilityState;
         let (probe, renderer) = healthy();
         assert_eq!(capability_state(&Some(Some(probe.clone())), &renderer, true), (CapabilityState::Available, None));
@@ -1350,31 +1349,31 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_dependency_keeps_its_own_reason_behind_a_closed_gate() {
+    fn a_failed_dependency_keeps_its_own_reason_when_the_beta_is_disabled() {
         use player_types::capability::CapabilityState;
         let (probe, renderer) = healthy();
-        for qualified in [false, true] {
+        for enabled in [false, true] {
             let no_avahi = Probe { avahi_available: false, ..probe.clone() };
             assert_eq!(
-                capability_state(&Some(Some(no_avahi.clone())), &renderer, qualified),
+                capability_state(&Some(Some(no_avahi.clone())), &renderer, enabled),
                 (CapabilityState::Unsupported, Some(wire::limitation::AVAHI_UNAVAILABLE.to_owned()))
             );
             let missing = Probe { limitation: Some(wire::limitation::UXPLAY_MISSING.into()), ..probe.clone() };
             assert_eq!(
-                capability_state(&Some(Some(missing)), &renderer, qualified),
+                capability_state(&Some(Some(missing)), &renderer, enabled),
                 (CapabilityState::Unsupported, Some(wire::limitation::UXPLAY_MISSING.to_owned()))
             );
             let no_video = RendererSupport { decoder: None, ..renderer.clone() };
             assert_eq!(
-                capability_state(&Some(Some(probe.clone())), &no_video, qualified),
+                capability_state(&Some(Some(probe.clone())), &no_video, enabled),
                 (CapabilityState::Unsupported, Some("renderer_video_unavailable".to_owned()))
             );
             assert_eq!(
-                capability_state(&Some(Some(probe.clone())), &RendererSupport::default(), qualified),
+                capability_state(&Some(Some(probe.clone())), &RendererSupport::default(), enabled),
                 (CapabilityState::Degraded, Some("renderer_not_connected".to_owned()))
             );
             assert_eq!(
-                capability_state(&None, &renderer, qualified),
+                capability_state(&None, &renderer, enabled),
                 (CapabilityState::Supported, Some("not_probed".to_owned()))
             );
             let readiness = Readiness { probe: Some(no_avahi), renderer: renderer.clone() };
