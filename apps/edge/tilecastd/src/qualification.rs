@@ -6,14 +6,14 @@
 //! *reports as available*. It never changes what the feature does, so
 //! qualification runs and automated tests exercise the same code.
 //!
-//! One decision per feature, in the release's source, never from the Server:
+//! Release qualification decides when a feature can be offered by default.
+//! A feature may still expose an explicit per-screen beta opt-in while its
+//! hardware qualification is open.
 //!
-//! * [`RELEASE_QUALIFIED`] lists the features this release has qualified. A
-//!   feature is added by the change that records its hardware qualification,
-//!   and the gate is removed with it.
+//! * [`RELEASE_QUALIFIED`] lists features that no longer need a beta opt-in.
 //! * `[dev] airplay_qualified = true` in `/etc/tilecast-edge/config.toml`
-//!   opens one gate on one screen. It exists for the qualification run
-//!   itself and for CI, and it is inert unless set.
+//!   remains a local qualification/CI override; operators use Studio's beta
+//!   switch instead.
 
 /// A feature behind a qualification gate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,8 +26,8 @@ pub enum Feature {
 /// Stage 6 qualification passes on real hardware.
 pub const RELEASE_QUALIFIED: &[Feature] = &[];
 
-/// Whether `feature` may be offered: the release qualified it, or this screen's
-/// development configuration opened its gate.
+/// Whether `feature` is release-qualified, or a local development override
+/// opens the release gate. Product beta opt-ins are applied separately.
 pub fn is_qualified(feature: Feature, configured: Option<bool>) -> bool {
     configured.unwrap_or(false) || RELEASE_QUALIFIED.contains(&feature)
 }
