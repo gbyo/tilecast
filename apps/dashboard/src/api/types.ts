@@ -1621,7 +1621,7 @@ export type PluginTargeting = {
 };
 
 export type ScheduleTarget = {
-  type: "screen" | "group";
+  type: "screen" | "group" | "location";
   id: string;
   name?: string;
 };

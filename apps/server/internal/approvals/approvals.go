@@ -873,15 +873,13 @@ func (s *Service) populateImpact(ctx context.Context, item *Submission) error {
 		screenQuery = `SELECT count(DISTINCT x.screen_id) FROM (
 			SELECT screen_id FROM screen_playlist_assignments WHERE playlist_id=$1
 			UNION SELECT m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.playlist_id=$1
-			UNION SELECT t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.playlist_id=$1 AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL
-			UNION SELECT m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.playlist_id=$1 AND s.deleted_at IS NULL
+			UNION SELECT t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.playlist_id=$1 AND s.deleted_at IS NULL
 		)x`
 	case TypeLayout:
 		screenQuery = `SELECT count(DISTINCT x.screen_id) FROM (
 			SELECT screen_id FROM screen_playlist_assignments WHERE layout_id=$1
 			UNION SELECT m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.layout_id=$1
-			UNION SELECT t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.layout_id=$1 AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL
-			UNION SELECT m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.layout_id=$1 AND s.deleted_at IS NULL
+			UNION SELECT t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.layout_id=$1 AND s.deleted_at IS NULL
 		)x`
 	case TypeCampaign:
 		// A campaign submission may not have materialized schedules yet. Its
@@ -909,9 +907,9 @@ func (s *Service) populateImpact(ctx context.Context, item *Submission) error {
 			UNION SELECT m.screen_id FROM destinations d JOIN screen_group_memberships m ON m.screen_group_id=d.id WHERE d.type='group'
 		) SELECT count(DISTINCT sc.location_id) FROM screens sc JOIN affected a ON a.screen_id=sc.id WHERE sc.archived_at IS NULL AND sc.location_id IS NOT NULL`
 	} else if item.ContentType == TypePlaylist {
-		locationQuery = `SELECT count(DISTINCT sc.location_id) FROM screens sc WHERE sc.archived_at IS NULL AND sc.location_id IS NOT NULL AND sc.id IN (SELECT screen_id FROM screen_playlist_assignments WHERE playlist_id=$1 UNION SELECT m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.playlist_id=$1 UNION SELECT t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.playlist_id=$1 AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL UNION SELECT m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.playlist_id=$1 AND s.deleted_at IS NULL)`
+		locationQuery = `SELECT count(DISTINCT sc.location_id) FROM screens sc WHERE sc.archived_at IS NULL AND sc.location_id IS NOT NULL AND sc.id IN (SELECT screen_id FROM screen_playlist_assignments WHERE playlist_id=$1 UNION SELECT m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.playlist_id=$1 UNION SELECT t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.playlist_id=$1 AND s.deleted_at IS NULL)`
 	} else {
-		locationQuery = `SELECT count(DISTINCT sc.location_id) FROM screens sc WHERE sc.archived_at IS NULL AND sc.location_id IS NOT NULL AND sc.id IN (SELECT screen_id FROM screen_playlist_assignments WHERE layout_id=$1 UNION SELECT m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.layout_id=$1 UNION SELECT t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.layout_id=$1 AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL UNION SELECT m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.layout_id=$1 AND s.deleted_at IS NULL)`
+		locationQuery = `SELECT count(DISTINCT sc.location_id) FROM screens sc WHERE sc.archived_at IS NULL AND sc.location_id IS NOT NULL AND sc.id IN (SELECT screen_id FROM screen_playlist_assignments WHERE layout_id=$1 UNION SELECT m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.layout_id=$1 UNION SELECT t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.layout_id=$1 AND s.deleted_at IS NULL)`
 	}
 	return s.db.QueryRow(ctx, locationQuery, impactArg).Scan(&item.AffectedLocationCount)
 }
@@ -981,8 +979,7 @@ func (s *Service) enrichSubmissionList(ctx context.Context, items []Submission) 
 			affected AS (
 				SELECT a.playlist_id AS content_id,a.screen_id FROM screen_playlist_assignments a WHERE a.playlist_id=ANY($1::uuid[])
 				UNION SELECT a.playlist_id,m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.playlist_id=ANY($1::uuid[])
-				UNION SELECT s.playlist_id,t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.playlist_id=ANY($1::uuid[]) AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL
-				UNION SELECT s.playlist_id,m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.playlist_id=ANY($1::uuid[]) AND s.deleted_at IS NULL
+				UNION SELECT s.playlist_id,t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.playlist_id=ANY($1::uuid[]) AND s.deleted_at IS NULL
 			)
 			SELECT r.content_id,COALESCE(d.name,p.name,''),COALESCE(d.revision,p.revision,0),p.revision,
 			       count(DISTINCT sc.id)::int,count(DISTINCT sc.location_id)::int
@@ -1027,8 +1024,7 @@ func (s *Service) enrichSubmissionList(ctx context.Context, items []Submission) 
 			affected AS (
 				SELECT a.layout_id AS content_id,a.screen_id FROM screen_playlist_assignments a WHERE a.layout_id=ANY($1::uuid[])
 				UNION SELECT a.layout_id,m.screen_id FROM screen_group_playlist_assignments a JOIN screen_group_memberships m ON m.screen_group_id=a.screen_group_id WHERE a.layout_id=ANY($1::uuid[])
-				UNION SELECT s.layout_id,t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.layout_id=ANY($1::uuid[]) AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL
-				UNION SELECT s.layout_id,m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.layout_id=ANY($1::uuid[]) AND s.deleted_at IS NULL
+				UNION SELECT s.layout_id,t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.layout_id=ANY($1::uuid[]) AND s.deleted_at IS NULL
 			)
 			SELECT r.content_id,COALESCE(l.name,''),COALESCE(l.draft_revision,0),lr.revision,
 			       count(DISTINCT sc.id)::int,count(DISTINCT sc.location_id)::int

@@ -43,6 +43,12 @@ type presentationQuery interface {
 // ValidatePresentationTargets checks the content reachable from one playlist or
 // published Layout against every explicitly targeted screen and group member.
 func (s *Service) ValidatePresentationTargets(ctx context.Context, playlistID, layoutID *uuid.UUID, screenIDs, groupIDs []uuid.UUID) error {
+	return s.ValidatePresentationTargetsAt(ctx, playlistID, layoutID, screenIDs, groupIDs, nil)
+}
+
+// ValidatePresentationTargetsAt also resolves locations to the screens a
+// schedule would reach there, including the members of their Display Groups.
+func (s *Service) ValidatePresentationTargetsAt(ctx context.Context, playlistID, layoutID *uuid.UUID, screenIDs, groupIDs, locationIDs []uuid.UUID) error {
 	if (playlistID == nil) == (layoutID == nil) {
 		return errors.New("presentation requires exactly one playlist or Layout")
 	}
@@ -58,8 +64,9 @@ func (s *Service) ValidatePresentationTargets(ctx context.Context, playlistID, l
 		FROM screens sc
 		LEFT JOIN screen_group_memberships membership ON membership.screen_id=sc.id
 		WHERE sc.deleted_at IS NULL
-		  AND (sc.id=ANY($1::uuid[]) OR membership.screen_group_id=ANY($2::uuid[]))
-		ORDER BY sc.id`, screenIDs, groupIDs)
+		  AND (sc.id=ANY($1::uuid[]) OR membership.screen_group_id=ANY($2::uuid[])
+		       OR sc.id IN (SELECT screen_id FROM location_target_screens($3::uuid[])))
+		ORDER BY sc.id`, screenIDs, groupIDs, locationIDs)
 	if err != nil {
 		return err
 	}

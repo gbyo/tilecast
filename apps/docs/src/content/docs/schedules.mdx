@@ -1,6 +1,6 @@
 ---
 title: Create a recurring weekday schedule
-description: Set a Playlist or published Layout to play on selected screens or Display Groups at weekday times.
+description: Set a Playlist or published Layout to play on selected screens, Display Groups, or locations at weekday times.
 ---
 
 import Screenshot from "../../components/Screenshot.astro";
@@ -42,7 +42,7 @@ The editor is one page that reads from top to bottom: what the schedule is, what
 10. Enter the **Starts** and **Ends** times.
 11. Check the **Timezone**. It starts as your organization's default. Search by city or region to choose another.
 12. Under **Targets**, select **Add targets**.
-13. Search for screens and Display Groups, then choose one or more. Each target appears as a row you can remove.
+13. Search for screens, Display Groups, and locations, then choose one or more. Each target appears as a row you can remove.
 14. Select **Create schedule**. You stay in the editor, now showing the saved schedule.
 
 </Steps>
@@ -63,9 +63,11 @@ While you edit, the pane keeps the last answer and marks it **Checking…** unti
 
 ## Control which schedule wins
 
-Open **Conflict handling** only when this schedule shares screens with another one. A higher priority is preferred when active schedules overlap on a screen. Choose **Important** or **Special event** when this schedule should take precedence, or **Custom** to enter a number from -999 to 999. When priorities match, the schedule that targets a screen directly wins, then the one that started later. The next-run check shows the result.
+Open **Conflict handling** only when this schedule shares screens with another one. A higher priority is preferred when active schedules overlap on a screen. Choose **Important** or **Special event** when this schedule should take precedence, or **Custom** to enter a number from -999 to 999. When priorities match, the schedule that names a screen directly wins over one that reaches it through a Display Group or a location, then the one that started later. The next-run check shows the result.
 
 In the target picker, a screen that belongs to a Display Group is offered as that group. Choosing the group schedules all its members together. Outside an active schedule window, the assigned fallback content continues to play.
+
+Choose a location to schedule every screen at that place, for example one building, without listing each screen. A location schedule also reaches every member of a Display Group that includes a screen at the location, because the members of a group always play the same schedule. Display Control schedules can target screens and Display Groups, but not locations.
 
 ## Time and playback behavior
 
@@ -79,7 +81,7 @@ Tilecast resolves unusual daylight-saving wall times consistently:
 - If the clock jumps forward across a scheduled start, a time that does not exist, such as 02:30 on that day, starts at the first real local minute after the gap.
 - If the clock moves backward and a start time occurs twice, Tilecast uses the first occurrence. When an end time occurs twice, it uses the later occurrence. This keeps a window from ending early only because the clock repeated an hour.
 
-A schedule aimed at a Display Group follows the group's current membership; it is not a frozen list captured when you published the schedule. Adding or removing a screen causes that screen's manifest to be reconciled. An online screen adopts the new group result after the change reaches it. An offline screen cannot learn the membership change until it reconnects.
+A schedule aimed at a Display Group or a location follows its current membership; it is not a frozen list captured when you published the schedule. Moving a screen to another location, or archiving it, changes which location schedules it receives. Adding or removing a screen causes that screen's manifest to be reconciled. An online screen adopts the new group result after the change reaches it. An offline screen cannot learn the membership change until it reconnects.
 
 Players evaluate timing with a server-corrected clock from the last schedule manifest they received. The measured server offset is kept for cached scheduling after a restart. During a server or network outage, recurring rules already in the manifest can continue switching at their known boundaries, but the Player cannot receive a new one-time schedule or later edits until it reconnects. If the device's clock changes significantly while it remains offline after the last server sample, its effective schedule time can be wrong until it reconnects and measures the server again.
 
@@ -95,7 +97,7 @@ To remove a schedule, open **More actions** in the header and choose **Delete sc
 - **Status**: **Enabled** or **Disabled**. This is the saved setting. It doesn't say whether the schedule is playing right now.
 - **When**: the days and hours, then any date range and the schedule's timezone. A window that ends the next day says so.
 - **Presentation**: the Playlist or Layout it shows, or the Display Control action it runs.
-- **Targets**: the first two screens or Display Groups, then a count such as **+3**. Hover or focus the count to see them all.
+- **Targets**: the first two screens, Display Groups, or locations, then a count such as **+3**. Hover or focus the count to see them all.
 - **Priority**: the exact number. A higher priority wins when eligible schedules overlap.
 - **Updated**: when the schedule last changed.
 

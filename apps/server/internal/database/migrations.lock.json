@@ -796,5 +796,11 @@
     "file": "00134_countdown_bar_font.sql",
     "owner": "countdown_bar",
     "sha256": "d3159a567cccbfb58cebc50f5ac580a8ea52efdda0ed6a13d6fde1ed7b94739c"
+  },
+  {
+    "version": 135,
+    "file": "00135_schedule_location_targets.sql",
+    "owner": "core",
+    "sha256": "6362cd756b8cc6dddf27004b83755e13acd8e033aaf9f64c3d4d39a4bf0bcf5f"
   }
 ]

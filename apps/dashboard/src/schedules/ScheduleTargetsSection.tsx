@@ -1,9 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { Monitor, MonitorSpeaker, X } from "lucide-react";
+import { MapPin, Monitor, MonitorSpeaker, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import type { ScheduleTarget, Screen, ScreenGroup } from "../api/types";
+import type {
+  Location,
+  ScheduleTarget,
+  Screen,
+  ScreenGroup,
+} from "../api/types";
 import { screenQueries } from "../data/screens";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -49,7 +54,7 @@ type TargetOption = {
   search: string;
 };
 type TargetGroup = {
-  value: "groups" | "screens";
+  value: "groups" | "locations" | "screens";
   label: string;
   items: TargetOption[];
 };
@@ -59,7 +64,7 @@ const groupsQuery = {
   queryFn: () => api.screenGroups(),
 } as const;
 
-/** Where the schedule applies: Display Groups and individual screens. */
+/** Where the schedule applies: Display Groups, locations, and screens. */
 export function ScheduleTargetsSection({
   session,
 }: {
@@ -76,9 +81,15 @@ export function ScheduleTargetsSection({
     enabled: catalogWanted,
   });
   const groups = useQuery({ ...groupsQuery, enabled: catalogWanted });
+  const locations = useQuery({
+    queryKey: ["locations"],
+    queryFn: api.locations,
+    enabled: catalogWanted,
+  });
   const catalog = useMemo(
-    () => buildCatalog(screens.data?.items, groups.data?.items, t),
-    [screens.data?.items, groups.data?.items, t],
+    () =>
+      buildCatalog(screens.data?.items, groups.data?.items, locations.data, t),
+    [screens.data?.items, groups.data?.items, locations.data, t],
   );
   const known = useMemo(
     () =>
@@ -88,8 +99,10 @@ export function ScheduleTargetsSection({
   const selected = draft.targets.map(
     (target) => known.get(targetKey(target)) ?? optionOf(target, t),
   );
-  const loading = catalogWanted && (screens.isPending || groups.isPending);
-  const failed = screens.isError || groups.isError;
+  const loading =
+    catalogWanted &&
+    (screens.isPending || groups.isPending || locations.isPending);
+  const failed = screens.isError || groups.isError || locations.isError;
   const remove = (target: ScheduleTarget) => {
     edit((current) => ({
       ...current,
@@ -150,8 +163,8 @@ export function ScheduleTargetsSection({
           <ComboboxContent className="min-w-80">
             <ComboboxInput
               showTrigger={false}
-              placeholder={t("targets.search")}
-              aria-label={t("targets.search")}
+              placeholder={t("targets.searchAll")}
+              aria-label={t("targets.searchAll")}
             />
             {loading ? (
               <p
@@ -159,12 +172,12 @@ export function ScheduleTargetsSection({
                 className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground"
               >
                 <Spinner aria-hidden="true" />
-                {t("targets.loading")}
+                {t("targets.loadingAll")}
               </p>
             ) : failed ? (
               <div className="grid gap-2 p-3">
                 <p className="text-sm text-destructive">
-                  {t("targets.loadError")}
+                  {t("targets.loadErrorAll")}
                 </p>
                 <Button
                   type="button"
@@ -173,6 +186,7 @@ export function ScheduleTargetsSection({
                   onClick={() => {
                     void screens.refetch();
                     void groups.refetch();
+                    void locations.refetch();
                   }}
                 >
                   {t("targets.retry")}
@@ -180,7 +194,7 @@ export function ScheduleTargetsSection({
               </div>
             ) : (
               <>
-                <ComboboxEmpty>{t("targets.empty")}</ComboboxEmpty>
+                <ComboboxEmpty>{t("targets.emptyAll")}</ComboboxEmpty>
                 <ComboboxList>
                   {(group: TargetGroup) => (
                     <ComboboxGroup key={group.value} items={group.items}>
@@ -221,7 +235,13 @@ export function ScheduleTargetsSection({
           {selected.map((option) => (
             <Item key={option.key} role="listitem" variant="outline" size="sm">
               <ItemMedia variant="icon" aria-hidden="true">
-                {option.type === "group" ? <MonitorSpeaker /> : <Monitor />}
+                {option.type === "group" ? (
+                  <MonitorSpeaker />
+                ) : option.type === "location" ? (
+                  <MapPin />
+                ) : (
+                  <Monitor />
+                )}
               </ItemMedia>
               <ItemContent>
                 <ItemTitle>{option.name}</ItemTitle>
@@ -251,6 +271,11 @@ export function ScheduleTargetsSection({
           <AlertDescription>{t("targets.sharedNote")}</AlertDescription>
         </Alert>
       )}
+      {selected.some((option) => option.type === "location") && (
+        <Alert>
+          <AlertDescription>{t("targets.locationNote")}</AlertDescription>
+        </Alert>
+      )}
     </EditorSection>
   );
 }
@@ -264,19 +289,22 @@ function optionOf(target: ScheduleTarget, t: SchedulesT): TargetOption {
     detail:
       target.type === "group"
         ? t("targets.kindGroup")
-        : t("targets.kindScreen"),
+        : target.type === "location"
+          ? t("targets.kindLocation")
+          : t("targets.kindScreen"),
     search: (target.name ?? "").toLowerCase(),
   };
 }
 
 /**
- * Display Groups first, then screens that belong to no group. A grouped
- * screen schedules through its group, as the server normalizes it, so it is
- * found by its own name but offered as the group.
+ * Display Groups first, then locations, then screens that belong to no group.
+ * A grouped screen schedules through its group, as the server normalizes it,
+ * so it is found by its own name but offered as the group.
  */
 function buildCatalog(
   screens: Screen[] | undefined,
   groups: ScreenGroup[] | undefined,
+  locations: Location[] | undefined,
   t: SchedulesT,
 ): TargetGroup[] {
   const grouped = new Set(
@@ -293,6 +321,14 @@ function buildCatalog(
       search: [group.name, ...members].join(" ").toLowerCase(),
     };
   });
+  const locationOptions: TargetOption[] = (locations ?? []).map((location) => ({
+    key: `location:${location.id}`,
+    type: "location",
+    id: location.id,
+    name: location.name,
+    detail: t("targets.locationDetail", { count: location.screenCount }),
+    search: [location.name, location.city].join(" ").toLowerCase(),
+  }));
   const screenOptions: TargetOption[] = (screens ?? [])
     .filter((screen) => !grouped.has(screen.id))
     .map((screen) => ({
@@ -307,6 +343,11 @@ function buildCatalog(
     }));
   return [
     { value: "groups", label: t("targets.groups"), items: groupOptions },
+    {
+      value: "locations",
+      label: t("targets.locations"),
+      items: locationOptions,
+    },
     { value: "screens", label: t("targets.screens"), items: screenOptions },
   ].filter((group) => group.items.length > 0) as TargetGroup[];
 }

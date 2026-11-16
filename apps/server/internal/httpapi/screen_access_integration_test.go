@@ -374,6 +374,35 @@ func TestScreenAccessMatrix(t *testing.T) {
 			if count(`SELECT count(*) FROM schedules`) != before {
 				t.Error("a refused schedule was stored")
 			}
+			// A location target reaches its screens and their Display Group
+			// peers. West is granted, but its Gym shares a group with an East
+			// screen the operator cannot reach, so the operator cannot target
+			// it. East is not reachable at all.
+			schedule["targets"] = []map[string]any{{"type": "location", "id": f.west}}
+			env.must("location with an unreachable group peer", f.adminWest.post("/api/v1/schedules", schedule), http.StatusForbidden)
+			schedule["targets"] = []map[string]any{{"type": "location", "id": f.east}}
+			env.must("location out of reach", f.adminWest.post("/api/v1/schedules", schedule), http.StatusForbidden)
+			// North passes the authorization decision: its one screen is reachable
+			// through the Direct group. The fixture playlist is empty, so the
+			// request stops at presentation readiness instead.
+			schedule["targets"] = []map[string]any{{"type": "location", "id": f.north}}
+			env.must("location whose screens are all reachable", f.adminWest.post("/api/v1/schedules", schedule), http.StatusUnprocessableEntity)
+			// Reading follows the same rule for a stored location schedule.
+			stored := func(location uuid.UUID) uuid.UUID {
+				id := uuid.New()
+				start := time.Now().UTC().Add(72 * time.Hour)
+				if _, err := env.pool.Exec(context.Background(), `INSERT INTO schedules(id,organization_id,name,playlist_id,type,timezone,one_time_start,one_time_end) VALUES($1,$2,'By location',$3,'one_time','UTC',$4,$5)`, id, f.org, f.playlist, start, start.Add(time.Hour)); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := env.pool.Exec(context.Background(), `INSERT INTO schedule_targets(schedule_id,target_type,location_id) VALUES($1,'location',$2)`, id, location); err != nil {
+					t.Fatal(err)
+				}
+				return id
+			}
+			schWest, schNorth := stored(f.west), stored(f.north)
+			env.must("unreachable group peer hides the schedule", f.adminWest.get("/api/v1/schedules/"+schWest.String()), http.StatusNotFound)
+			env.must("reachable location schedule reads", f.adminWest.get("/api/v1/schedules/"+schNorth.String()), http.StatusOK)
+			env.must("whole fleet reads the West schedule", f.adminAll.get("/api/v1/schedules/"+schWest.String()), http.StatusOK)
 		})
 
 		t.Run("takeovers, Quick Present, and AirPlay", func(t *testing.T) {
