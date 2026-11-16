@@ -14,12 +14,12 @@ use std::path::{Path, PathBuf};
 
 use player_cas::space::SpaceProbe;
 use player_cas::store::VerifyOutcome;
-use player_cas::{CasError, ContentStore, IngestMeta, LruByDomain, StorePolicy};
+use player_cas::{CasError, ContentStore, IngestMeta, LruByDomain, StorePolicy, UnixSecureOpener};
 use player_state::repo::cas::{Domain, PinReason, SourceKind};
 use player_state::{OpenOptions, StateDb};
 use player_types::Sha256Digest;
 
-use crate::host::{AndroidSecureOpener, StatvfsProbe, SystemClock};
+use crate::host::{StatvfsProbe, SystemClock};
 
 /// One qualification check and its outcome. Details stay short and carry no
 /// paths: the scratch location is an app-private implementation detail.
@@ -66,7 +66,7 @@ async fn open_scratch(scratch: &Path) -> Result<(StateDb, ContentStore, PathBuf,
         db.clone(),
         clock,
         std::sync::Arc::new(StatvfsProbe),
-        std::sync::Arc::new(AndroidSecureOpener),
+        std::sync::Arc::new(UnixSecureOpener),
         policy,
         std::sync::Arc::new(LruByDomain),
     )

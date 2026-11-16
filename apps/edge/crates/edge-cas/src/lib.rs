@@ -1,8 +1,6 @@
 //! Linux adapters for the shared Player content store.
-//! Generic CAS behavior lives in player-cas; Edge supplies free-space facts
-//! and secure file opening.
+//! Generic CAS behavior, including the Unix no-follow `UnixSecureOpener`,
+//! lives in player-cas; Edge supplies free-space facts.
 
 pub use player_cas::*;
-pub use secure::UnixSecureOpener;
-pub mod secure;
 pub mod space;

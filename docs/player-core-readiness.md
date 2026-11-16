@@ -93,7 +93,7 @@ stage does not qualify a later changed head.
 | Five shared crates; no host dependency                   | Root workspace; `check-player-architecture.py`; dependency-direction tests (shared/host, Windows/Edge/Electron, OS-leak directions) |
 | No I/O in generic values                                 | `player-types`; host-supplied clocks and IDs                                                                                        |
 | SQLite durability and migration compatibility            | `player-state` state tests and migration baseline; unchanged shipped migration bytes                                                |
-| Verified CAS, resume, pins, eviction, crash recovery     | `player-cas` tests; Edge and Windows `SpaceProbe` adapters; secure no-follow opening on Linux, Windows, and macOS                   |
+| Verified CAS, resume, pins, eviction, crash recovery     | `player-cas` tests, with the Unix no-follow opener on Linux and macOS; Windows opener tests; Edge and Windows `SpaceProbe` adapters |
 | Identity before credentials; redacted secrets            | `player-client` identity gate and credential tests; Core pairing and relationship tests                                             |
 | Private credential persistence                           | Edge file stores and Windows DPAPI stores; existing owner-only and atomic-write tests                                               |
 | Native schedule and temporary-presentation precedence    | Core selection tests and shared schedule corpus                                                                                     |

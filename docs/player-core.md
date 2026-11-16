@@ -106,9 +106,11 @@ Edge supplies statvfs. Audit secure object opening on each host. A portable
 adapter must preserve link and regular-file checks.
 The shared CAS is implemented in `crates/player-cas`. Linux free-space providers
 live in `edge-cas::space` and call `edge-platform::disk::available_bytes`.
-The shared crate has no Edge dependency. Its secure Unix opening uses the same
-no-follow, nonblocking flags and opened-file checks on Linux and macOS, and its
-Windows opening rejects reparse points and non-regular files. Privileged
+The shared crate has no Edge dependency. It owns the one Unix opener,
+`player_cas::UnixSecureOpener`, which only Unix builds compile. Edge, Android,
+and macOS use it. Do not write another Unix opener in a host. It uses no-follow,
+nonblocking flags and opened-file checks. The Windows host supplies its own
+opener, which rejects reparse points and non-regular files. Privileged
 Edge helpers do not depend on CAS, state, the server client, or Core.
 
 ## Server identity and credentials
