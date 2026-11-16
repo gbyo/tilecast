@@ -77,6 +77,19 @@ describe("Schedule draft", () => {
     expect(draft.dailyStart).toBe("07:15");
   });
 
+  it("keeps location targets and leaves out a target kind it cannot send", () => {
+    const draft = draftFromSchedule({
+      ...saved,
+      targets: [
+        { type: "location", id: "location-1", name: "Main Library" },
+        { type: "region", id: "region-1", name: "North" },
+      ],
+    });
+    expect(draft.targets).toEqual([
+      { type: "location", id: "location-1", name: "Main Library" },
+    ]);
+  });
+
   it("reads a layout schedule by its layout name", () => {
     const draft = draftFromSchedule({
       ...saved,

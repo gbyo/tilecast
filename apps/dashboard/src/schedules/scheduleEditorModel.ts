@@ -12,9 +12,11 @@
  */
 import type {
   DisplayControlAction,
+  SavedScheduleTarget,
   Schedule,
   ScheduleInput,
   ScheduleTarget,
+  ScheduleTargetType,
 } from "../api/types";
 import { isTimezoneIdentifier } from "../settings/settingValues";
 import type { SchedulesT } from "./scheduleBuilderModel";
@@ -121,9 +123,26 @@ export function draftFromSchedule(schedule: Schedule): ScheduleDraft {
     oneTimeStart: schedule.oneTimeStart ?? "",
     oneTimeEnd: schedule.oneTimeEnd ?? "",
     priority: schedule.priority,
-    targets: schedule.targets.map(({ type, id, name }) => ({ type, id, name })),
+    targets: schedule.targets
+      .filter(isEditableTarget)
+      .map(({ type, id, name }) => ({ type, id, name })),
   };
 }
+
+const editableTargetTypes: ReadonlySet<string> = new Set<ScheduleTargetType>([
+  "screen",
+  "group",
+  "location",
+]);
+
+/**
+ * The contract reports a saved target's type as an open string. A schedule
+ * request accepts only the kinds Studio knows, and Studio ships with the
+ * Server that reports them.
+ */
+const isEditableTarget = (
+  target: SavedScheduleTarget,
+): target is ScheduleTarget => editableTargetTypes.has(target.type);
 
 /** Exactly what a save sends: only the active branches, targets as type and id. */
 export function draftToInput(draft: ScheduleDraft): ScheduleInput {

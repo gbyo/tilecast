@@ -169,7 +169,9 @@ export function mockEditorApi() {
       page: 1,
       pageSize: 100,
     }),
-    locations: vi.spyOn(api, "locations").mockResolvedValue([library]),
+    locations: vi
+      .spyOn(api, "locations")
+      .mockResolvedValue({ items: [library], total: 1 }),
     screen: vi.spyOn(api, "screen"),
     screenGroup: vi.spyOn(api, "screenGroup"),
   };

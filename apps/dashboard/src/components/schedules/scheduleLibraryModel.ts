@@ -1,7 +1,7 @@
 import type {
   Schedule,
   ScheduleListParams,
-  ScheduleTarget,
+  SavedScheduleTarget,
 } from "../../api/types";
 import {
   displayActionLabel,
@@ -309,7 +309,7 @@ export type ScheduleTargetSummary = {
 };
 
 export function scheduleTargetSummary(
-  targets: readonly ScheduleTarget[],
+  targets: readonly SavedScheduleTarget[],
   t: SchedulesT,
 ): ScheduleTargetSummary {
   const names = targets.map((target) => target.name || t("targets.unknown"));

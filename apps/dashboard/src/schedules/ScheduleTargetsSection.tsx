@@ -88,8 +88,13 @@ export function ScheduleTargetsSection({
   });
   const catalog = useMemo(
     () =>
-      buildCatalog(screens.data?.items, groups.data?.items, locations.data, t),
-    [screens.data?.items, groups.data?.items, locations.data, t],
+      buildCatalog(
+        screens.data?.items,
+        groups.data?.items,
+        locations.data?.items,
+        t,
+      ),
+    [screens.data?.items, groups.data?.items, locations.data?.items, t],
   );
   const known = useMemo(
     () =>
