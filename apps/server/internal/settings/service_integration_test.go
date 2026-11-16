@@ -114,6 +114,9 @@ func TestSettingsPolicyInheritanceAndRevision(t *testing.T) {
 	if document.Values["power.active_hours_end"] != "16:00" {
 		t.Fatalf("active hours end=%#v", document.Values["power.active_hours_end"])
 	}
+	if _, err := service.PutGroupPolicy(ctx, owner.User.ID, group, 0, 100, map[string]any{"edge.airplay.beta_enabled": true}); err == nil || err.Error() != "setting_not_allowed_at_scope: edge.airplay.beta_enabled" {
+		t.Fatalf("AirPlay beta group policy should be rejected, got %v", err)
+	}
 	groupPolicy, err := service.PutGroupPolicy(ctx, owner.User.ID, group, 0, 100, map[string]any{"player.playback.default_volume": 0.4, "reliability.mode": "managed_kiosk"})
 	if err != nil || groupPolicy.Revision != 1 {
 		t.Fatalf("group policy: %#v %v", groupPolicy, err)
