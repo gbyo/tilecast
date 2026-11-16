@@ -2632,7 +2632,7 @@ export function ScreenDetailPage() {
       );
     },
     onSuccess: async (updated, enabled) => {
-      queryClient.setQueryData(["screen", id, "policy"], updated);
+      queryClient.setQueryData(settingsKeys.screenPolicy(id), updated);
       await queryClient.invalidateQueries({
         queryKey: settingsKeys.effectiveScreenPolicy(id),
       });
@@ -4618,7 +4618,9 @@ export function ScreenDetailPage() {
                     {t("detail.airplayBetaTitle")}
                     <Badge variant="secondary">{t("detail.betaBadge")}</Badge>
                   </CardTitle>
-                  <CardDescription>{t("detail.airplayBetaBody")}</CardDescription>
+                  <CardDescription>
+                    {t("detail.airplayBetaBody")}
+                  </CardDescription>
                   <CardAction>
                     <Switch
                       id="edge-airplay-beta"
