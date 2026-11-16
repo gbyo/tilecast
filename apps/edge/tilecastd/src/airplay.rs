@@ -19,6 +19,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use edge_protocol::airplay::{
@@ -59,6 +60,7 @@ pub mod reason {
     pub const RECEIVER_STOPPED: &str = "receiver_stopped";
     pub const ROUTE_LOST: &str = "ethernet_default_route_lost";
     pub const RELAY_FAILED: &str = "relay_failed";
+    pub const BETA_DISABLED: &str = "beta_disabled";
 }
 
 // ------------------------------------------------------------ payload
@@ -250,10 +252,10 @@ pub struct Readiness {
 
 const REMEDY: &str = "Install a Tilecast Edge release that includes it.";
 
-/// The reason code and the sentence for a closed qualification gate.
-pub const QUALIFICATION_PENDING: &str = "qualification_pending";
-const QUALIFICATION_PENDING_SENTENCE: &str =
-    "AirPlay on Tilecast Edge is still being qualified on real hardware and is not available yet.";
+/// The reason code and sentence when the screen has not opted into the beta.
+pub const BETA_DISABLED: &str = "beta_disabled";
+const BETA_DISABLED_SENTENCE: &str =
+    "AirPlay is a beta feature on Tilecast Edge. Enable AirPlay in this screen\'s Settings in Studio.";
 
 impl Readiness {
     /// `airplaySupported`: the unit answers `probe` with no limitation,
@@ -267,16 +269,16 @@ impl Readiness {
 
     /// What Edge offers: every dependency is healthy ([`Self::supported`]) and
     /// the qualification gate is open. Studio and the Server read this.
-    pub fn available(&self, qualified: bool) -> bool {
-        qualified && self.supported()
+    pub fn available(&self, enabled: bool) -> bool {
+        enabled && self.supported()
     }
 
     /// [`Self::limitation`] for what Edge offers. A failed dependency keeps its
     /// own, more useful sentence; a closed gate explains itself only when the
     /// dependencies are healthy.
-    pub fn offered_limitation(&self, qualified: bool) -> Option<String> {
-        if !qualified && self.supported() {
-            return Some(QUALIFICATION_PENDING_SENTENCE.into());
+    pub fn offered_limitation(&self, enabled: bool) -> Option<String> {
+        if !enabled && self.supported() {
+            return Some(BETA_DISABLED_SENTENCE.into());
         }
         self.limitation()
     }
@@ -382,9 +384,10 @@ pub struct Airplay {
     view: std::sync::Mutex<Option<View>>,
     probe: std::sync::Mutex<Option<Option<Probe>>>,
     last_session: std::sync::Mutex<Option<String>>,
-    /// The qualification gate (`crate::qualification`). Closed, the probe and
-    /// the diagnostics still run, but Edge does not offer AirPlay.
-    qualified: bool,
+    /// A release-qualified build may offer AirPlay without the beta switch.
+    release_qualified: bool,
+    /// Per-screen beta opt-in from the ordinary Player configuration.
+    beta_enabled: AtomicBool,
 }
 
 impl std::fmt::Debug for Airplay {
@@ -407,20 +410,43 @@ impl Airplay {
             view: std::sync::Mutex::new(None),
             probe: std::sync::Mutex::new(None),
             last_session: std::sync::Mutex::new(None),
-            qualified: false,
+            release_qualified: false,
+            beta_enabled: AtomicBool::new(false),
         }
     }
 
     /// Sets the qualification gate; see `crate::qualification`.
     #[must_use]
     pub fn with_qualified(mut self, qualified: bool) -> Self {
-        self.qualified = qualified;
+        self.release_qualified = qualified;
         self
     }
 
-    /// Whether Edge may offer AirPlay once its dependencies are healthy.
-    pub fn qualified(&self) -> bool {
-        self.qualified
+    /// Whether this screen may offer AirPlay once its dependencies are healthy.
+    /// A qualified release is always enabled; otherwise Studio controls the beta opt-in.
+    pub fn enabled(&self) -> bool {
+        self.release_qualified || self.beta_enabled.load(Ordering::Relaxed)
+    }
+
+    pub fn release_qualified(&self) -> bool {
+        self.release_qualified
+    }
+
+    pub fn beta_enabled(&self) -> bool {
+        self.beta_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Applies the per-screen Studio beta switch without restarting Edge.
+    /// Turning it off also ends any live session immediately.
+    pub async fn set_beta_enabled(&self, enabled: bool) {
+        let was_enabled = self.enabled();
+        self.beta_enabled.store(enabled, Ordering::Relaxed);
+        if was_enabled && !self.enabled() && self.active() {
+            let request = Request::Stop { session_id: None, reason: reason::BETA_DISABLED, reply: None };
+            if self.requests.send(request).await.is_ok() {
+                lock(&self.view).take();
+            }
+        }
     }
 
     /// A session is on screen (or is being prepared for it).
@@ -563,11 +589,12 @@ pub async fn document(context: &DaemonContext) -> Option<PresentationDocument> {
 pub async fn heartbeat(context: &DaemonContext, heartbeat: &mut Value) {
     let Some(probe) = lock(&context.airplay.probe).clone() else { return };
     let readiness = Readiness { probe, renderer: renderer_support(context).await };
-    let qualified = context.airplay.qualified();
+    let enabled = context.airplay.enabled();
     let Some(object) = heartbeat.as_object_mut() else { return };
     let probe = readiness.probe.as_ref();
     let installed = probe.is_some_and(|p| p.limitation.as_deref() != Some(wire::limitation::UXPLAY_MISSING));
-    object.insert("airplaySupported".into(), json!(readiness.available(qualified)));
+    object.insert("airplaySupported".into(), json!(readiness.available(enabled)));
+    object.insert("airplayBetaEnabled".into(), json!(context.airplay.beta_enabled()));
     object.insert("airplayUxPlayInstalled".into(), json!(installed));
     if let Some(version) = probe.and_then(|p| p.uxplay_version.as_deref()) {
         object.insert("airplayUxPlayVersion".into(), json!(version));
@@ -585,7 +612,7 @@ pub async fn heartbeat(context: &DaemonContext, heartbeat: &mut Value) {
     object.insert("airplayAvahiAvailable".into(), json!(avahi));
     object.insert("airplayMdnsAdvertisementAvailable".into(), json!(avahi));
     object.insert("airplayMulticastTestStatus".into(), json!("unsupported"));
-    if let Some(limitation) = readiness.offered_limitation(qualified) {
+    if let Some(limitation) = readiness.offered_limitation(enabled) {
         object.insert("airplayLimitation".into(), json!(limitation.chars().take(240).collect::<String>()));
     }
     let view = lock(&context.airplay.view).clone();
@@ -632,7 +659,7 @@ pub fn capability_state(
         Some(Some(_)) if !renderer.video || renderer.decoder.is_none() => {
             (CapabilityState::Unsupported, Some("renderer_video_unavailable".to_owned()))
         }
-        Some(Some(_)) if !qualified => (CapabilityState::Blocked, Some(QUALIFICATION_PENDING.to_owned())),
+        Some(Some(_)) if !enabled => (CapabilityState::Blocked, Some(BETA_DISABLED.to_owned())),
         Some(Some(_)) => (CapabilityState::Available, None),
     }
 }
@@ -643,12 +670,12 @@ pub async fn capability(context: &DaemonContext) -> Option<player_types::capabil
     use edge_protocol::capability::{AttributeValue, Capability, CapabilityId, ids};
     let probe = lock(&context.airplay.probe).clone();
     let readiness = Readiness { probe: probe.clone().flatten(), renderer: renderer_support(context).await };
-    let qualified = context.airplay.qualified();
-    let (state, reason) = capability_state(&probe, &readiness.renderer, qualified);
+    let enabled = context.airplay.enabled();
+    let (state, reason) = capability_state(&probe, &readiness.renderer, enabled);
     let mut out = Capability::new(CapabilityId::new(ids::EXTERNAL_PRESENTATION_AIRPLAY).ok()?, state, context.now());
     out.provider = ShortToken::new("tilecast-airplay").ok();
     out.reason_code = reason.and_then(|reason| ShortToken::new(&reason).ok());
-    out.detail = readiness.offered_limitation(qualified).as_deref().map(DetailText::lossy);
+    out.detail = readiness.offered_limitation(enabled).as_deref().map(DetailText::lossy);
     if let Some(decoder) = &readiness.renderer.decoder
         && let Ok(key) = Token::<48>::new("decoder")
     {
@@ -656,7 +683,13 @@ pub async fn capability(context: &DaemonContext) -> Option<player_types::capabil
     }
     if let Ok(key) = Token::<48>::new("qualification") {
         out.attributes
-            .insert(key, AttributeValue::Text(ShortText::lossy(if qualified { "qualified" } else { "pending" })));
+            .insert(key, AttributeValue::Text(ShortText::lossy(if context.airplay.release_qualified() { "qualified" } else { "pending" })));
+    }
+    if let Ok(key) = Token::<48>::new("beta") {
+        out.attributes.insert(
+            key,
+            AttributeValue::Text(ShortText::lossy(if context.airplay.beta_enabled() { "enabled" } else { "disabled" })),
+        );
     }
     if let Ok(key) = Token::<48>::new("session") {
         let state = lock(&context.airplay.view).as_ref().map_or("none", |view| view.receiver_state);
@@ -786,8 +819,8 @@ impl Actor {
         }
         let (connection, probe) = self.probe().await;
         let readiness = Readiness { probe, renderer: renderer_support(&self.context).await };
-        let qualified = self.context.airplay.qualified();
-        let Some(connection) = connection.filter(|_| readiness.available(qualified)) else {
+        let qualified = self.context.airplay.enabled();
+        let Some(connection) = connection.filter(|_| readiness.available(enabled)) else {
             self.context.report_status_soon();
             return CommandResult::failed(
                 "airplay_not_ready",
@@ -939,6 +972,7 @@ impl Actor {
             }
             None => finish(self, "invalid_state").await,
             Some(_) if row.expires_at_ms <= now => finish(self, reason::EXPIRED).await,
+            Some(_) if !self.context.airplay.enabled() => finish(self, reason::BETA_DISABLED).await,
             Some(session) => {
                 tracing::info!(component = "airplay", event = "resuming", session = session.id.as_str());
                 let (connection, probe) = self.probe().await;
@@ -988,9 +1022,9 @@ impl Actor {
                     Readiness { probe, renderer: renderer_support(&self.context).await }
                 };
                 self.context.report_status_soon();
-                let qualified = self.context.airplay.qualified();
-                let supported = readiness.available(qualified);
-                let message = readiness.offered_limitation(qualified).unwrap_or_else(|| {
+                let enabled = self.context.airplay.enabled();
+                let supported = readiness.available(enabled);
+                let message = readiness.offered_limitation(enabled).unwrap_or_else(|| {
                     format!("AirPlay ready with {}.", readiness.renderer.decoder.as_deref().unwrap_or("H.264"))
                 });
                 let _ = reply.send(CommandResult::new(
@@ -1070,6 +1104,7 @@ fn stop_reason(stored: &str) -> &'static str {
         reason::RECEIVER_STOPPED,
         reason::ROUTE_LOST,
         reason::RELAY_FAILED,
+        reason::BETA_DISABLED,
     ]
     .into_iter()
     .find(|known| *known == stored)
@@ -1343,9 +1378,9 @@ mod tests {
                 (CapabilityState::Supported, Some("not_probed".to_owned()))
             );
             let readiness = Readiness { probe: Some(no_avahi), renderer: renderer.clone() };
-            assert!(!readiness.available(qualified));
+            assert!(!readiness.available(enabled));
             assert!(
-                readiness.offered_limitation(qualified).unwrap().starts_with("Avahi/Bonjour"),
+                readiness.offered_limitation(enabled).unwrap().starts_with("Avahi/Bonjour"),
                 "the dependency's sentence, not the gate's"
             );
         }
