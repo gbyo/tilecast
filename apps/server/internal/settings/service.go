@@ -258,6 +258,9 @@ func (s *Service) GroupPolicy(ctx context.Context, id uuid.UUID) (PolicyDocument
 	return d, err
 }
 func (s *Service) PutGroupPolicy(ctx context.Context, user, id uuid.UUID, revision int64, priority int, values map[string]any) (PolicyDocument, error) {
+	if _, ok := values["edge.airplay.beta_enabled"]; ok {
+		return PolicyDocument{}, errors.New("setting_not_allowed_at_scope: edge.airplay.beta_enabled")
+	}
 	if priority < -1000 || priority > 1000 {
 		return PolicyDocument{}, errors.New("invalid_setting_value: policy priority")
 	}
