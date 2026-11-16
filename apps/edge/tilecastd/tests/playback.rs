@@ -4144,11 +4144,11 @@ async fn an_airplay_session_ends_when_the_renderer_reports_a_failed_relay() {
     player.stop().await;
 }
 
-/// Until hardware qualification is recorded, healthy dependencies are not
-/// enough: Edge refuses the session, does not advertise AirPlay to the Server,
-/// and reports the capability as blocked, while the diagnostics stay visible.
+/// AirPlay is a per-screen beta: healthy dependencies stay blocked by default,
+/// a Player-config revision enables it without a restart, and disabling it
+/// again stops an active receiver.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_closed_qualification_gate_withholds_airplay_from_healthy_dependencies() {
+async fn the_airplay_beta_switch_applies_live_and_stops_an_active_session_when_disabled() {
     let mut harness = Harness::new().await;
     harness.airplay_qualified = false;
     let supervisor = FakeSupervisor::start(&harness.dir.path().join("airplay.sock"));
@@ -4156,23 +4156,54 @@ async fn a_closed_qualification_gate_withholds_airplay_from_healthy_dependencies
     let (player, renderer) = harness.committed(&asset, 3).await;
     renderer.stop();
     let _renderer = airplay_renderer(&player, &asset).await;
+    let binding = harness.binding();
 
-    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
-    let result = command_result(&harness, &prepare).await;
+    let blocked = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    let result = command_result(&harness, &blocked).await;
     assert_eq!(result["code"], "airplay_not_ready");
-    assert!(result["message"].as_str().unwrap().contains("still being qualified"), "{result}");
-    assert_eq!(supervisor.count("start"), 0, "no receiver starts behind a closed gate");
+    assert!(result["message"].as_str().unwrap().contains("beta feature"), "{result}");
+    assert_eq!(supervisor.count("start"), 0, "the receiver stays off until this screen opts into the beta");
 
     let beat = heartbeat(&player.context).await;
     assert_eq!(beat["airplaySupported"], false);
-    assert!(beat["airplayLimitation"].as_str().unwrap().contains("still being qualified"), "{beat}");
+    assert_eq!(beat["airplayBetaEnabled"], false);
+    assert!(beat["airplayLimitation"].as_str().unwrap().contains("beta feature"), "{beat}");
     assert_eq!(beat["airplayUxPlayInstalled"], true, "the probe's diagnostics stay visible");
     assert_eq!(beat["airplayAvahiAvailable"], true);
     assert_eq!(beat["airplayDecoder"], "avdec_h264");
 
     let capability = tilecastd::airplay::capability(&player.context).await.unwrap();
     assert_eq!(capability.state, edge_protocol::capability::CapabilityState::Blocked);
-    assert_eq!(capability.reason_code.as_ref().map(|code| code.as_str()), Some("qualification_pending"));
+    assert_eq!(capability.reason_code.as_ref().map(|code| code.as_str()), Some("beta_disabled"));
+
+    harness.fake.set_config(json!({
+        "schemaVersion": 1,
+        "configRevision": 2,
+        "features": {"airplayBetaEnabled": true}
+    }));
+    player.push();
+    wait_until("the AirPlay beta setting", || async { accepted_revision(&player, &binding).await == Some(2) }).await;
+    wait_until("AirPlay offered", || async { heartbeat(&player.context).await["airplaySupported"] == true }).await;
+    assert_eq!(heartbeat(&player.context).await["airplayBetaEnabled"], true);
+
+    let prepare = harness.fake.offer("prepare_airplay_session", uuid::Uuid::new_v4(), airplay_payload(3_600_000));
+    let started = command_result(&harness, &prepare).await;
+    assert_eq!(started["code"], "airplay_started", "{started}");
+    assert_eq!(supervisor.count("start"), 1);
+
+    harness.fake.set_config(json!({
+        "schemaVersion": 1,
+        "configRevision": 3,
+        "features": {"airplayBetaEnabled": false}
+    }));
+    player.push();
+    wait_until("the disabled AirPlay beta setting", || async { accepted_revision(&player, &binding).await == Some(3) })
+        .await;
+    wait_for("AirPlay stopped after the beta was disabled", || (supervisor.count("stop") == 1).then_some(())).await;
+    let beat = heartbeat(&player.context).await;
+    assert_eq!(beat["airplaySupported"], false);
+    assert_eq!(beat["airplayBetaEnabled"], false);
+    assert!(airplay_row(&player).await.is_none());
     player.stop().await;
 }
 
