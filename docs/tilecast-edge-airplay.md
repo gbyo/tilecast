@@ -104,7 +104,7 @@ The media path is therefore:
 
 ```text
 uxplay --udp 127.0.0.1:42000/42002--> renderer main process (host network namespace)
-         udpsrc reuse=false ! unixfdsink   (present-relay.c)
+         udpsrc reuse=false ! appsink, appsrc ! unixfdsink   (present-relay.c)
            --> <present dir>/<id>-video.sock, <id>-audio.sock
 web process (own network namespace)
          tcpresent: unixfdsrc ! rtpjitterbuffer ! rtph264depay ! h264parse
@@ -114,7 +114,7 @@ web process (own network namespace)
 - The renderer's main process (`tilecast-renderer-wpe`) is not in the bubblewrap sandbox. It stays in the host network namespace and its unit already allows `AF_INET`.
 - The main process creates a private 0700 directory under the unit's private `/tmp` at start (`TILECAST_PRESENT_DIR`). It adds the directory to the web process sandbox. It is the only path that the web process gets for AirPlay.
 - When an activation carries an `external-presentation` document with `sourceId`, the main process asks `tilecastd` for the present grant over the media socket: `{"op":"present","capability":"<token>"}`. The token is the `sourceId`: the random 32-byte present capability that `MediaRegistry::grant_present` mints for the current renderer instance, and not an AirPlay session ID. `tilecastd` answers from its grant registry with the fixed ports (`{"status":"ok","videoPort":42000,"audioPort":42002}`, without `audioPort` when the session forwards no audio). The client refuses any other port. The page and the document never name an address or a port.
-- The main process then starts one pipeline for each stream: `udpsrc address=127.0.0.1 port=<fixed> reuse=false ! unixfdsink socket-path=<dir>/<id>-<stream>.sock`. `reuse=false` makes the relay fail, not share the port, when another socket holds it.
+- The main process then starts one pipeline for each stream: `udpsrc address=127.0.0.1 port=<fixed> reuse=false ! appsink`, and `appsrc ! unixfdsink socket-path=<dir>/<id>-<stream>.sock`. `reuse=false` makes the relay fail, not share the port, when another socket holds it. The `appsink` and `appsrc` pair copies each datagram once into the memory that `unixfdsink` asks for. `unixfdsink` sends only buffers that a file descriptor backs. `udpsrc` in GStreamer 1.26 builds its own pool and ignores the allocator that `unixfdsink` proposes, so a direct link fails with `Expecting buffers with FD memories`.
 - The main process delivers the activation to the Runtime only after the relay runs or failed. A failed relay reports `renderer.health` `degraded` with `external_presentation_unavailable`. The renderer repeats that report with each health tick, and does not report `healthy`, until the next activation.
 - The main process asks for the grant again each second. When `tilecastd` denies it, or a new activation has another `sourceId` or none, the main process stops the relay and removes its sockets. A check that gets no answer (a timeout, a reset, a daemon that restarts) does not end the relay: it keeps running and asks again. Five checks in a row without an answer stop it, and that counts as a fault. A relay that stops for a fault is reported at once.
 - `tilecastd` ends the session with the stop reason `relay_failed` when it gets that report after it granted the session's stream. Video cannot reach the screen then, and the Server sees the session stop. A report that comes before the grant belongs to an earlier session and is ignored.

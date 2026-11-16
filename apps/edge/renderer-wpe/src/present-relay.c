@@ -5,6 +5,8 @@
 
 #include <gio/gio.h>
 #include <glib/gstdio.h>
+#include <gst/app/gstappsink.h>
+#include <gst/app/gstappsrc.h>
 #include <gst/gst.h>
 #include <string.h>
 
@@ -107,14 +109,77 @@ settle (TcPresentRelay *relay)
     relay->stopped (relay->stopped_data);
 }
 
+/* The memory unixfdsink asks for. unixfdsink sends only buffers whose memory
+ * is backed by a file descriptor and asks upstream for its allocator, but
+ * udpsrc (GStreamer 1.26 and later) builds its own pool and ignores that. Each
+ * datagram is therefore copied once, into memory from the allocator that
+ * unixfdsink proposes, between udpsrc and unixfdsink. */
+typedef struct {
+  GstElement *src; /* the appsrc in front of unixfdsink; owned by the pipeline */
+  GstCaps *caps;
+  GstAllocator *allocator;
+  GstAllocationParams params;
+  gboolean asked;
+} Bridge;
+
+static void
+bridge_free (gpointer data)
+{
+  Bridge *bridge = data;
+  gst_clear_caps (&bridge->caps);
+  g_clear_object (&bridge->allocator);
+  g_free (bridge);
+}
+
+static void
+bridge_ask_allocator (Bridge *bridge)
+{
+  bridge->asked = TRUE;
+  g_autoptr (GstPad) pad = gst_element_get_static_pad (bridge->src, "src");
+  GstQuery *query = gst_query_new_allocation (bridge->caps, FALSE);
+  if (gst_pad_peer_query (pad, query) && gst_query_get_n_allocation_params (query) > 0)
+    gst_query_parse_nth_allocation_param (query, 0, &bridge->allocator, &bridge->params);
+  gst_query_unref (query);
+}
+
+static GstFlowReturn
+on_relay_sample (GstAppSink *sink, gpointer data)
+{
+  Bridge *bridge = data;
+  GstSample *sample = gst_app_sink_pull_sample (sink);
+  if (sample == NULL)
+    return gst_app_sink_is_eos (sink) ? GST_FLOW_EOS : GST_FLOW_FLUSHING;
+  if (!bridge->asked)
+    bridge_ask_allocator (bridge);
+  GstBuffer *in = gst_sample_get_buffer (sample);
+  GstMapInfo map;
+  GstFlowReturn flow = GST_FLOW_ERROR;
+  if (gst_buffer_map (in, &map, GST_MAP_READ)) {
+    GstBuffer *out = gst_buffer_new_allocate (bridge->allocator, map.size, bridge->allocator ? &bridge->params : NULL);
+    if (out != NULL) {
+      gst_buffer_fill (out, 0, map.data, map.size);
+      flow = gst_app_src_push_buffer (GST_APP_SRC (bridge->src), out);
+    }
+    gst_buffer_unmap (in, &map);
+  }
+  gst_sample_unref (sample);
+  return flow;
+}
+
 static gboolean
 add_stream (TcPresentRelay *relay, guint port, const char *caps_text, const char *stream)
 {
   GstElement *udp = gst_element_factory_make ("udpsrc", NULL);
   GstElement *sink = gst_element_factory_make ("unixfdsink", NULL);
+  /* appsrc and appsink come from libgstapp, which the renderer links, so the
+   * Edge release needs no extra plugin file for them. */
+  GstElement *app_sink = g_object_new (GST_TYPE_APP_SINK, NULL);
+  GstElement *app_src = g_object_new (GST_TYPE_APP_SRC, NULL);
   if (udp == NULL || sink == NULL) {
     g_clear_object (&udp);
     g_clear_object (&sink);
+    g_clear_object (&app_sink);
+    g_clear_object (&app_src);
     return FALSE;
   }
   g_autoptr (GstCaps) caps = gst_caps_from_string (caps_text);
@@ -123,10 +188,17 @@ add_stream (TcPresentRelay *relay, guint port, const char *caps_text, const char
   /* No port sharing: if another socket holds the port, the relay fails
    * instead of splitting the stream with it. */
   g_object_set (udp, "address", "127.0.0.1", "port", (gint) port, "reuse", FALSE, "caps", caps, NULL);
+  g_object_set (app_sink, "sync", FALSE, "async", FALSE, "caps", caps, NULL);
+  g_object_set (app_src, "is-live", TRUE, "format", GST_FORMAT_TIME, "caps", caps, NULL);
+  Bridge *bridge = g_new0 (Bridge, 1);
+  bridge->src = app_src;
+  bridge->caps = gst_caps_ref (caps);
+  GstAppSinkCallbacks callbacks = { .new_sample = on_relay_sample };
+  gst_app_sink_set_callbacks (GST_APP_SINK (app_sink), &callbacks, bridge, bridge_free);
   /* Forward each packet at once; the web process's jitter buffer times it. */
   g_object_set (sink, "socket-path", path, "sync", FALSE, "async", FALSE, NULL);
-  gst_bin_add_many (GST_BIN (relay->pipeline), udp, sink, NULL);
-  return gst_element_link (udp, sink);
+  gst_bin_add_many (GST_BIN (relay->pipeline), udp, app_sink, app_src, sink, NULL);
+  return gst_element_link (udp, app_sink) && gst_element_link (app_src, sink);
 }
 
 static gboolean
