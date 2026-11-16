@@ -123,6 +123,15 @@ impl World {
         self.store.latest().unwrap().unwrap()
     }
 
+    async fn crash_during_rollback(&self, point: CrashPoint) {
+        if point == CrashPoint::AfterRollbackCleanupPending {
+            self.host.with(|s| s.refuse_stop.insert("tilecast-airplay.service".into()));
+        }
+        let error = self.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
+        assert!(matches!(error, UpdateError::Crashed(p) if p == point));
+        self.host.with(|s| s.refuse_stop.clear());
+    }
+
     /// What production does after a crash of the helper.
     async fn recover(&self, power_loss: bool) {
         if power_loss {
@@ -257,12 +266,7 @@ async fn every_rollback_crash_point_finishes_the_rollback() {
             let world = World::new();
             world.staged("0.2.0").await;
             world.updater(None).activate("0.2.0").await.unwrap();
-            if point == CrashPoint::AfterRollbackCleanupPending {
-                world.host.with(|s| s.refuse_stop.insert("tilecast-airplay.service".into()));
-            }
-            let error = world.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
-            assert!(matches!(error, UpdateError::Crashed(p) if p == point));
-            world.host.with(|s| s.refuse_stop.clear());
+            world.crash_during_rollback(point).await;
             world.recover(power_loss).await;
             world.assert_consistent(Phase::RolledBack);
             assert_eq!(world.latest().reason.as_deref(), Some("candidate_safe_mode"), "{point:?}");
@@ -729,7 +733,7 @@ mod field_workaround {
                 machine.install_all();
                 world.staged("0.2.0").await;
                 world.updater(None).activate("0.2.0").await.unwrap();
-                world.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
+                world.crash_during_rollback(point).await;
                 world.recover(power_loss).await;
                 world.assert_consistent(Phase::RolledBack);
                 assert_untouched(&machine, &format!("{point:?} power loss {power_loss}"));
