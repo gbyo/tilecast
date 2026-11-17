@@ -5,9 +5,8 @@
 use player_client::pairing::DeviceMetadata;
 use player_types::PlayerId;
 
-/// The display size when the OS reports none (off-Windows builds, or a
-/// session without a primary monitor). Pairing metadata requires a size.
-pub const HEADLESS_DISPLAY: (u32, u32) = (1920, 1080);
+use webview_host::host::HostIdentity;
+pub use webview_host::host::{HEADLESS_DISPLAY, timezone};
 
 /// The display size to report: an explicit size first, then the primary
 /// monitor the production window covers, then the documented fallback.
@@ -47,24 +46,21 @@ pub fn locale() -> String {
     crate::win32::user_locale_name().unwrap_or_else(|| "en-US".to_owned())
 }
 
-/// The system IANA time zone, as the reference players report it.
-pub fn timezone() -> String {
-    jiff::tz::TimeZone::system()
-        .iana_name()
-        .map(|name| name.chars().filter(|c| !c.is_control()).take(80).collect())
-        .unwrap_or_else(|| "UTC".into())
-}
-
 /// Pairing metadata for `player`, with an explicit display size when
 /// the caller knows better than the primary monitor.
 pub fn metadata(player: PlayerId, display: Option<(u32, u32)>) -> DeviceMetadata {
+    metadata_for(&crate::host::IDENTITY, player, display)
+}
+
+/// Pairing metadata for `player` under `identity`.
+pub fn metadata_for(identity: &HostIdentity, player: PlayerId, display: Option<(u32, u32)>) -> DeviceMetadata {
     DeviceMetadata::new(
         *player.as_uuid(),
-        crate::PLAYER_FAMILY,
+        identity.family,
         &manufacturer(),
         &model(),
         &os_release(),
-        crate::RELEASE_VERSION,
+        identity.release_version,
         display_size(display),
         &locale(),
         &timezone(),

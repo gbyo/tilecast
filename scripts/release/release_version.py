@@ -19,7 +19,7 @@ all compare. The rule, in full:
 packages/player-contracts/fixtures/release-versions.json is the corpus that
 every implementation of this rule runs: this file, the Go server
 (apps/server/internal/updates/versioning.go), Tilecast Edge
-(edge-release::manifest), and the Windows Player (tilecast_windows::update).
+(edge-release::manifest), and the Windows and macOS Players (webview_host::release_version).
 
 Usage:
   release_version.py tag vX.Y.Z[-beta.N]   print version, channel, code, ... as KEY=VALUE

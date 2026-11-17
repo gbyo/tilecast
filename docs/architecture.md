@@ -209,7 +209,7 @@ The server stays the only authority, and Edge uses the ordinary player API: iden
 
 ## Tilecast Player for Windows
 
-The Windows Player (`apps/player-windows`) is the native Windows host of the same shared Player Core and Player Runtime: Player behavior is implemented once, not once per operating system. The platform contract is [`tilecast-windows.md`](tilecast-windows.md); physical qualification is tracked in [`tilecast-windows-qualification.md`](tilecast-windows-qualification.md).
+The Windows Player (`apps/player-windows`) is the native Windows host of the same shared Player Core and Player Runtime: Player behavior is implemented once, not once per operating system. The platform contract is [`tilecast-windows.md`](tilecast-windows.md); physical qualification is tracked in [`tilecast-windows-qualification.md`](tilecast-windows-qualification.md). The macOS Player (`apps/player-macos`) is in development as the third native host; see [`tilecast-macos.md`](tilecast-macos.md). The Windows and macOS Players share one composition crate, `crates/webview-host`, which calls no OS API.
 
 On each Windows player, one Rust process owns the server relationship, pairing, configuration, manifests, selection, scheduling, offline activation, commands, Activity, and telemetry through the shared crates. It hosts the exact `packages/player-runtime` artifact in an Evergreen WebView2 view over the trusted `tilecast://runtime/` origin, serves verified media through opaque `tcmedia://cap/` grants, and shows remote Websites and YouTube in isolated child views of a separate WebView2 environment. User-scoped Windows DPAPI protects the device credential. Updates arrive as signed per-architecture MSIX packages through the ordinary Player Updates deployment flow.
 

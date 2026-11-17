@@ -126,10 +126,11 @@ const rules = [
     ["player_core", "linux", "browser_player"],
   ],
   // The release version ordering is one rule written in Go (the server), Rust
-  // (Edge and the Windows Player) and Python (the release scripts and the
-  // Edge release build). Each runs the shared corpus, so the corpus selects
-  // every one of them. The Python implementation also feeds the Edge release
-  // build, whose tests run in the Edge Rust lane.
+  // (Edge, and the WebView host the Windows and macOS Players share) and
+  // Python (the release scripts and the Edge release build). Each runs the
+  // shared corpus, so the corpus selects every one of them. The Python
+  // implementation also feeds the Edge release build, whose tests run in the
+  // Edge Rust lane.
   [
     /^packages\/player-contracts\/fixtures\/release-versions\.json$/,
     ["server", "edge_rust", "windows", "ci"],
@@ -326,6 +327,10 @@ const rules = [
   ],
   [/^packages\/edge-protocol\//, edgeAreas],
   [/^apps\/player-windows\//, ["windows"]],
+  // The WebView host shared by the Windows and macOS Players. The shared
+  // Rust matrix also builds and tests it on every host OS through
+  // player_core, because cargo-player.sh selects every crate below crates/.
+  [/^crates\/webview-host\//, ["player_core", "windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],
   [
     /^apps\/edge\/(renderer-wpe|web-renderer-wpe|session-bridge)\//,
