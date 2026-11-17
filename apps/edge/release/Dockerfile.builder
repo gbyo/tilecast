@@ -14,8 +14,8 @@
 # 2.54.0-2 package (clang, PORT=WPE, Release, bubblewrap sandbox).
 #
 # libplist, OpenSSL and the Avahi DNS-SD compatibility library are UxPlay's
-# (build-uxplay.sh, docs/tilecast-edge-airplay.md §11). avahi-daemon is in
-# the system baseline, and runtime_closure.py needs every baseline package
+# (build-uxplay.sh, docs/tilecast-edge-airplay.md §11). avahi-daemon is an
+# optional host service. runtime_closure.py needs every baseline package
 # installed here. The GStreamer plugin packages are for the renderer's own
 # tests (present-relay needs udpsrc, unixfdsink, the RTP elements and
 # h264parse); none of their files ship. Like every change to

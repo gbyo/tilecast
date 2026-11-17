@@ -373,6 +373,12 @@ impl Coordinator {
         if envelope.version_code <= self.own_code {
             return self.fail(job, "update_not_newer", now).await;
         }
+        if !edge_release::manifest::updater_version_allowed(
+            envelope.minimum_updater_version.as_deref(),
+            Some(self.own_code),
+        ) {
+            return self.fail(job, "update_bootstrap_required", now).await;
+        }
         // A release whose daemon knows an older schema than this database
         // would refuse it after activation (docs/tilecast-edge.md §6.1):
         // refuse the release now, before anything changes.
@@ -456,6 +462,16 @@ impl Coordinator {
             Ok(response) if response.ok => self.transition(job, JobState::Staged, None, now).await,
             Ok(response) => match response.code.as_str() {
                 "update_busy" => self.retry(job, "update_helper_busy", now).await,
+                // The helper that confirmed the bootstrap can still be
+                // serving its old socket briefly. It can reject the new
+                // field or report that its own version is below the minimum.
+                "release_manifest_invalid" | "update_bootstrap_required"
+                    if job.attempts < 2
+                        && edge_release::verify_envelope(&envelope, &signature, &self.key)
+                            .is_ok_and(|verified| verified.envelope.minimum_updater_version.is_some()) =>
+                {
+                    self.retry(job, "update_helper_restarting", now).await
+                }
                 "artifact_not_downloaded" | "artifact_digest_mismatch" => {
                     let _ = self.cas().verify(&job.expected_artifact).await;
                     self.retry(job, "artifact_redownload", now).await
@@ -842,6 +858,7 @@ fn safe_code(code: &str) -> &'static str {
         "installed_release_corrupt",
         "insufficient_disk",
         "update_not_newer",
+        "update_bootstrap_required",
         "artifact_mismatch",
         "artifact_owner_invalid",
         "invalid_request",

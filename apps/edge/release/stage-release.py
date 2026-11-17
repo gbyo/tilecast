@@ -35,24 +35,6 @@ import runtime_closure
 
 EDGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "system-baseline.txt")
-UNITS = [
-    "tilecast-edge.service",
-    "tilecast-renderer.service",
-    "tilecast-web-renderer.service",
-    "tilecast-edge-migrate.service",
-    "tilecast-edge-migrate-recover.service",
-    "tilecast-edge-selftest.service",
-    "tilecast-renderer-selftest.service",
-    "tilecast-renderer-probe.service",
-    "tilecast-edge-compat.service",
-    "tilecast-edge-import.service",
-    "tilecast-edge-update.service",
-    "tilecast-edge-update.socket",
-    "tilecast-airplay.service",
-    "tilecast-airplay.socket",
-    "tilecast-networkd.service",
-]
-USER_UNITS = ["tilecast-session-bridge.service", "tilecast-session-bridge.path"]
 SYSTEM_FILES = [
     ("sysusers.d/tilecast-edge.conf", "packaging/sysusers.d/tilecast-edge.conf"),
     ("tmpfiles.d/tilecast-edge.conf", "packaging/tmpfiles.d/tilecast-edge.conf"),
@@ -168,6 +150,20 @@ def require_plugin_bridge(tree):
         sys.exit("stage-release: the packaged WPE bridge does not enable external plugin frames")
 
 
+def configured_updater_floor(path, version):
+    # The legacy version-code bridge must remain readable by the old helper.
+    if path is None or release_version.version_channel(version) is None:
+        return None
+    with open(path, encoding="utf-8") as handle:
+        floor = handle.read().strip()
+    if floor == "bootstrap":
+        return None
+    code = release_version.version_code(floor)
+    if code is None or not 0 < code < version_code(version):
+        sys.exit("stage-release: the minimum updater version must be an older Edge version")
+    return floor
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
@@ -175,7 +171,9 @@ def main():
                  "--wpe-version", "--base-distribution"):
         parser.add_argument(name, required=True)
     parser.add_argument("--wpe-lib-dir", help="a private WPE WebKit build to carry under lib/wpe")
+    parser.add_argument("--updater-compatibility-file", help="the production Edge updater prerequisite")
     args = parser.parse_args()
+    minimum_updater_version = configured_updater_floor(args.updater_compatibility_file, args.version)
     out = os.path.abspath(args.out)
     if os.path.exists(out):
         shutil.rmtree(out)
@@ -200,10 +198,12 @@ def main():
         # The renderer binaries are already staged: their NEEDED libraries
         # and those of the private WebKit decide what else must travel.
         runtime_closure.carry(out, SYSTEM_BASELINE)
-    for unit in UNITS:
-        copy(os.path.join(EDGE, "packaging", "systemd", unit), out, f"packaging/systemd/{unit}", 0o644)
-    for unit in USER_UNITS:
-        copy(os.path.join(EDGE, "packaging", "systemd-user", unit), out, f"packaging/systemd-user/{unit}", 0o644)
+    for directory in ("packaging/systemd", "packaging/systemd-user"):
+        with os.scandir(os.path.join(EDGE, directory)) as units:
+            for unit in sorted(units, key=lambda entry: entry.name):
+                if not unit.is_file(follow_symlinks=False):
+                    sys.exit(f"stage-release: unexpected entry {unit.path}")
+                copy(unit.path, out, f"{directory}/{unit.name}", 0o644)
     for source, target in SYSTEM_FILES:
         copy(os.path.join(EDGE, "packaging", source), out, target, 0o644)
     copy(args.sbom, out, "share/doc/tilecast-edge/sbom.cdx.json", 0o644)
@@ -230,6 +230,8 @@ def main():
         "baseDistribution": args.base_distribution,
         "files": files,
     }
+    if minimum_updater_version is not None:
+        manifest["minimumUpdaterVersion"] = minimum_updater_version
     with open(os.path.join(out, "tilecast-edge-release.json"), "w") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True)
         handle.write("\n")

@@ -9,6 +9,7 @@
 # The session PIN and device ID exist on disk only in a 0600 file in the
 # private runtime directory, and only until UxPlay has read them.
 [Unit]
+After=tilecast-edge-update-guard.service
 Description=Tilecast Edge AirPlay supervisor
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-airplay-threat-review.md
 Requires=tilecast-airplay.socket

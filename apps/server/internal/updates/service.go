@@ -157,11 +157,12 @@ type Manifest struct {
 	// Envelope fields. PlayerFamily is "edge" or "windows"; Arch names the
 	// release architecture. The remaining three bind an Edge archive to the
 	// signed release manifest inside it; a Windows envelope leaves them empty.
-	PlayerFamily          string `json:"playerFamily,omitempty"`
-	Arch                  string `json:"arch,omitempty"`
-	ReleaseManifestSHA256 string `json:"releaseManifestSha256,omitempty"`
-	SBOMSHA256            string `json:"sbomSha256,omitempty"`
-	StateSchemaVersion    int    `json:"stateSchemaVersion,omitempty"`
+	PlayerFamily          string  `json:"playerFamily,omitempty"`
+	Arch                  string  `json:"arch,omitempty"`
+	ReleaseManifestSHA256 string  `json:"releaseManifestSha256,omitempty"`
+	SBOMSHA256            string  `json:"sbomSha256,omitempty"`
+	StateSchemaVersion    int     `json:"stateSchemaVersion,omitempty"`
+	MinimumUpdaterVersion *string `json:"minimumUpdaterVersion,omitempty"`
 }
 
 // NormalizedFamily returns the release family: the signed playerFamily, or
@@ -344,6 +345,9 @@ func ParseAndVerifyManifest(raw, signature []byte, key ed25519.PublicKey) (Manif
 	if manifest.Channel != "stable" && manifest.Channel != "beta" {
 		return Manifest{}, errors.New("update channel is invalid")
 	}
+	if manifest.MinimumUpdaterVersion != nil && manifest.NormalizedFamily() != FamilyEdge {
+		return Manifest{}, errors.New("minimum updater version is only supported for Edge releases")
+	}
 	switch manifest.NormalizedFamily() {
 	case FamilyEdge:
 		if err := validateEdgeManifest(manifest); err != nil {
@@ -425,6 +429,12 @@ func validateEdgeManifest(m Manifest) error {
 	}
 	if m.StateSchemaVersion <= 0 {
 		return errors.New("edge update envelope state schema version is invalid")
+	}
+	if m.MinimumUpdaterVersion != nil {
+		minimum, ok := EdgeVersionCode(*m.MinimumUpdaterVersion)
+		if !ok || minimum <= 0 || minimum >= code {
+			return errors.New("edge update envelope minimum updater version must be an older Edge version")
+		}
 	}
 	return nil
 }

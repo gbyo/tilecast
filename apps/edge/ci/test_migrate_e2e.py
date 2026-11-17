@@ -56,7 +56,7 @@ class SandboxProbeTest(unittest.TestCase):
         # whose loader lives in /lib64. Without that bind the exec fails with
         # ENOENT and preflight misreports missing user-namespace support.
         probe = migrate_e2e.SANDBOX_PROBE
-        self.assertIn(("--ro-bind", "/lib64", "/lib64"),
+        self.assertIn(("--ro-bind-try", "/lib64", "/lib64"),
                       [tuple(probe[i:i + 3]) for i in range(len(probe) - 2)])
 
 

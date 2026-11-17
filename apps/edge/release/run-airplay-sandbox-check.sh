@@ -2,7 +2,7 @@
 # Proves the release's UxPlay under the production AirPlay units
 # (docs/tilecast-edge-airplay-threat-review.md §3): real systemd, the tree's
 # own tilecast-airplay.socket and .service with every sandbox option, the
-# operating system baseline (avahi-daemon included) and the GStreamer
+# operating system baseline, the optional avahi-daemon and the GStreamer
 # plugins that a screen has. run-sandbox-check.sh runs it after the renderer
 # self-test; it also runs on its own:
 #
@@ -117,6 +117,8 @@ for unit in ("tilecast-airplay.service", "tilecast-airplay.socket"):
     run("cp", f"{TREE}/packaging/systemd/{unit}", f"/etc/systemd/system/{unit}")
 run("systemd-sysusers", "/usr/lib/sysusers.d/tilecast-edge.conf")
 run("systemctl", "daemon-reload")
+version = run("runuser", "-u", "tilecast-airplay", "--", f"{TREE}/bin/uxplay", "-v").stdout
+assert version.startswith("UxPlay version 1.73.7"), version
 run("systemctl", "start", "avahi-daemon.service", "tilecast-airplay.socket")
 os.makedirs(WORK, exist_ok=True)
 os.chmod(WORK, 0o1777)

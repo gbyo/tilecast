@@ -47,6 +47,36 @@ func TestUpdateCompatibilityEvaluation(t *testing.T) {
 	}
 }
 
+func TestEdgeUpdaterBootstrapCompatibility(t *testing.T) {
+	old, bootstrap, newer := int64(2600001), int64(2600002), int64(2600099)
+	release := deploymentRelease{family: "edge", architecture: "x86_64", versionCode: 2600101,
+		minimumUpdaterVersion: "0.26.0-beta.2"}
+	for _, test := range []struct {
+		name         string
+		current      *int64
+		provisional  bool
+		want, reason string
+	}{
+		{"unreported", nil, false, "incompatible", release.minimumUpdaterVersion},
+		{"fixed-list updater", &old, false, "incompatible", release.minimumUpdaterVersion},
+		{"bootstrap provisional", &bootstrap, true, "incompatible", "confirm its current Tilecast Edge update"},
+		{"bootstrap confirmed", &bootstrap, false, "eligible", ""},
+		{"newer updater", &newer, false, "eligible", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			target := resolvedUpdateTarget{Family: "edge", Architecture: "x86_64", Current: test.current,
+				RecentlyContacted: true, updaterUnconfirmed: test.provisional}
+			evaluateUpdateTarget(release, &target)
+			if target.Outcome != test.want {
+				t.Fatalf("outcome = %s, want %s", target.Outcome, test.want)
+			}
+			if test.reason != "" && (target.Reason == nil || !strings.Contains(*target.Reason, test.reason)) {
+				t.Fatalf("expected an actionable bootstrap requirement, got %v", target.Reason)
+			}
+		})
+	}
+}
+
 func TestUpdatePreviewRoles(t *testing.T) {
 	s := &server{}
 	for _, role := range []string{"owner", "administrator", "editor", "viewer"} {

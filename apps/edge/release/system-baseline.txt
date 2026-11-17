@@ -10,8 +10,8 @@
 # carries it.
 #
 # One package per line. This is the list that the clean-image closure check
-# installs (Dockerfile.closure) and that the Edge requirements page publishes,
-# so a package added here is a new requirement for every screen.
+# installs (Dockerfile.closure) and that the Edge requirements page publishes.
+# It must remain a subset of shipped-system-baseline.txt.
 #
 # C and C++ runtime
 libc6
@@ -61,13 +61,3 @@ libgpg-error0
 libtasn1-6
 libatk1.0-0t64
 libatk-bridge2.0-0t64
-# AirPlay (docs/tilecast-edge-airplay.md §9, §11). UxPlay parses sender input
-# with libplist and OpenSSL, so the operating system keeps patching them
-# instead of the release carrying a copy. avahi-daemon advertises the
-# receiver over the system D-Bus; UxPlay reaches it through the DNS-SD
-# compatibility library. Without avahi-daemon, AirPlay reports a limitation
-# and signage is not affected.
-libplist-2.0-4
-libssl3t64
-libavahi-compat-libdnssd1
-avahi-daemon

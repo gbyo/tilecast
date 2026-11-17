@@ -89,10 +89,17 @@ class ClosureTests(unittest.TestCase):
         os.unlink(handle.name)
 
     def test_the_shipped_baseline_does_not_provide_libwpe(self):
-        names = closure.read_baseline(RELEASE / "system-baseline.txt")
+        names = closure.compatible_baseline(RELEASE / "system-baseline.txt")
         self.assertNotIn("libwpe-1.0-1", names)
         self.assertEqual(len(names), len(set(names)), "one line per package")
         self.assertIn("libglib2.0-0t64", names)
+
+    def test_a_new_host_package_fails_the_compatibility_check(self):
+        with tempfile.TemporaryDirectory() as root:
+            baseline = Path(root) / "system-baseline.txt"
+            baseline.write_text("libc6\nlibavahi-compat-libdnssd1\n")
+            with self.assertRaisesRegex(ValueError, "libavahi-compat-libdnssd1"):
+                closure.compatible_baseline(baseline)
 
 
 class PlanTests(unittest.TestCase):
@@ -111,6 +118,19 @@ class PlanTests(unittest.TestCase):
         # libwpe needs libxkbcommon; with it outside the baseline it travels too.
         chosen = planner(self.tree(), self.BASE - {"libxkbcommon0"})
         self.assertEqual(sorted(chosen), ["libwpe-1.0.so.1", "libxkbcommon.so.0"])
+
+    def test_uxplay_carries_dns_sd_and_its_new_transitive_libraries(self):
+        system = SYSTEM | {
+            "libdns_sd.so.1": ("/usr/lib/libdns_sd.so.1", "libavahi-compat-libdnssd1"),
+            "libavahi-client.so.3": ("/usr/lib/libavahi-client.so.3", "libavahi-client3"),
+        }
+        needs = {
+            "bin/uxplay": ["libdns_sd.so.1", "libc.so.6"],
+            "libdns_sd.so.1": ["libavahi-client.so.3"],
+            "libavahi-client.so.3": ["libc.so.6"],
+        }
+        chosen = planner(make_tree({"bin/uxplay": b""}), self.BASE, system=system, needs=needs)
+        self.assertEqual(set(chosen), {"libdns_sd.so.1", "libavahi-client.so.3"})
 
     def test_a_library_already_in_the_release_is_not_carried_again(self):
         tree = make_tree({

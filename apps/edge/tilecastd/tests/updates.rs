@@ -299,6 +299,8 @@ struct HelperFaults {
     lose_answer_to: Mutex<Option<&'static str>>,
     /// The next activation request never reaches the helper.
     drop_activation: AtomicBool,
+    /// The helper still serving the socket is older than the prerequisite.
+    stale_updater: AtomicBool,
 }
 
 struct Bridge {
@@ -342,6 +344,9 @@ impl Helper for Bridge {
         if kind == "activate" && self.faults.drop_activation.swap(false, Ordering::SeqCst) {
             return Err(HelperError::Unavailable);
         }
+        if kind == "stage" && self.faults.stale_updater.load(Ordering::SeqCst) {
+            return Ok(HelperResponse::refused("update_bootstrap_required"));
+        }
         let updater = self.updater();
         let (response, continuation) = tilecast_edge_update::server::handle(&updater, request).await;
         if let Some(transaction) = continuation {
@@ -378,11 +383,12 @@ struct World {
 struct Build {
     state_schema: u32,
     tamper_file: bool,
+    minimum_updater_version: Option<&'static str>,
 }
 
 impl Default for Build {
     fn default() -> Self {
-        Self { state_schema: edge_state::latest_schema_version(), tamper_file: false }
+        Self { state_schema: edge_state::latest_schema_version(), tamper_file: false, minimum_updater_version: None }
     }
 }
 
@@ -399,7 +405,11 @@ impl World {
         signer.write_release(&old, OLD);
         install_with_key(&old, &layout, &signer.public()).unwrap();
         let tree = dir.path().join("tree-new");
-        signer.write_release(&tree, NEW);
+        let mut manifest = signer.write_release(&tree, NEW);
+        if let Some(minimum) = build.minimum_updater_version {
+            manifest["minimumUpdaterVersion"] = serde_json::json!(minimum);
+            signer.sign(&tree, &serde_json::to_vec(&manifest).unwrap());
+        }
         if build.tamper_file {
             // A file that no longer matches the signed release manifest: the
             // same size, one byte different.
@@ -686,6 +696,28 @@ async fn an_interrupted_download_resumes_where_it_stopped() {
     assert_eq!(world.current(), OLD, "download-only never activates");
     assert_eq!(world.last_report().0, "ready");
     assert!(!world.pinned());
+}
+
+#[tokio::test]
+async fn staging_retries_while_the_previous_helper_is_still_running() {
+    let world = World::build(Build { minimum_updater_version: Some(OLD), ..Build::default() });
+    world.accept("download_only").await;
+    world.bridge.faults.stale_updater.store(true, Ordering::SeqCst);
+    let daemon = world.daemon(OLD).await;
+    assert_eq!(
+        world.passes(&daemon, 5, healthy, |pass| pass == Pass::Waiting("update_helper_restarting")).await,
+        Pass::Waiting("update_helper_restarting")
+    );
+    let downloaded = world.job().await;
+    assert_eq!(downloaded.state, JobState::Downloaded);
+
+    world.bridge.faults.stale_updater.store(false, Ordering::SeqCst);
+    let delay = downloaded.next_attempt_at_ms.unwrap() - world.now_ms();
+    world.advance(Duration::from_millis(delay.try_into().unwrap()));
+    assert_eq!(world.pass(&daemon, &healthy(&world)).await, Pass::Progressed);
+    assert_eq!(world.pass(&daemon, &healthy(&world)).await, Pass::Progressed);
+    assert_eq!(world.job().await.state, JobState::StagedOnly);
+    assert_eq!(*world.server.offsets.lock().unwrap(), [0], "the retry uses the verified archive");
 }
 
 #[tokio::test]
@@ -1039,7 +1071,7 @@ fn checkpoint_manifest(world: &World) -> PathBuf {
 
 #[tokio::test]
 async fn a_schema_advancing_update_checkpoints_before_activation_and_consumes_on_confirm() {
-    let world = World::build(Build { state_schema: edge_state::latest_schema_version() + 1, tamper_file: false });
+    let world = World::build(Build { state_schema: edge_state::latest_schema_version() + 1, ..Build::default() });
     world.accept("install_now").await;
     world.to_activation().await;
     assert!(checkpoint_manifest(&world).exists(), "activation of a newer schema checkpoints first");

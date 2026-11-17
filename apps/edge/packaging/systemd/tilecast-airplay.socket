@@ -9,6 +9,7 @@
 # has to enable it: an update installs units but enables nothing new.
 [Unit]
 Description=Tilecast Edge AirPlay supervisor socket
+After=tilecast-edge-update-guard.service
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-airplay-threat-review.md
 
 [Socket]

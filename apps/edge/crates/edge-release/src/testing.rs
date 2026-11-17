@@ -10,7 +10,9 @@ use ring::signature::KeyPair as _;
 use sha2::{Digest as _, Sha256};
 
 use crate::envelope::{UpdateEnvelope, VerifiedEnvelope, verify_envelope};
-use crate::manifest::{MANIFEST_NAME, REQUIRED_FILES, SBOM_PATH, SIGNATURE_NAME, UNITS, USER_UNITS, hex, version_code};
+use crate::manifest::{
+    MANIFEST_NAME, REQUIRED_FILES, REQUIRED_UNITS, REQUIRED_USER_UNITS, SBOM_PATH, SIGNATURE_NAME, hex, version_code,
+};
 
 #[derive(Debug)]
 pub struct Signer {
@@ -53,10 +55,10 @@ impl Signer {
             };
             write(dir, path, bytes.as_bytes(), path.starts_with("bin/"));
         }
-        for unit in UNITS {
+        for unit in REQUIRED_UNITS {
             write(dir, &format!("packaging/systemd/{unit}"), format!("[Unit]\n# {unit} {version}\n").as_bytes(), false);
         }
-        for unit in USER_UNITS {
+        for unit in REQUIRED_USER_UNITS {
             write(dir, &format!("packaging/systemd-user/{unit}"), format!("[Unit]\n# {unit}\n").as_bytes(), false);
         }
         let manifest = manifest_for(dir, version);
@@ -92,6 +94,7 @@ impl Signer {
             arch,
             version_code: version_code(&version).unwrap(),
             version_name: version,
+            minimum_updater_version: manifest["minimumUpdaterVersion"].as_str().map(str::to_owned),
             channel: "stable".into(),
             release_notes: String::new(),
             artifact_size_bytes: archive_bytes.len() as u64,

@@ -125,6 +125,8 @@ A heartbeat may carry `playerFamily` (`android`, `electron-linux`, `edge` or `wi
 
 For a Tilecast Edge release, a new version code in the heartbeat does not settle the update. Tilecast Edge keeps the new release provisional until it has held a live server link, a ready renderer and meaningful playback evidence for 120 seconds, and then reports `succeeded` to `POST /api/v1/player/update-deployments/{deploymentId}/status`. A release that does not confirm is rolled back on the screen, which reports `failed` with `installerStatus: "rolled_back"` and a reason code.
 
+A signed Tilecast Edge update envelope can require a source version through `minimumUpdaterVersion`. The Server uses the reported Edge version and deployment status to evaluate the prerequisite. The daemon and helper refuse an older source with `update_bootstrap_required`. The release process defines the [bootstrap step](release-process.md#edge-system-unit-bootstrap).
+
 Status thresholds are centralized on the server: connected socket is `online`, contact within two minutes is `recent`, contact within fifteen minutes is `stale`, and older contact is `offline`. Administrative disable and credential revocation override those states.
 
 Display Control is optional heartbeat metadata. A Linux Player may report
