@@ -72,6 +72,8 @@ windows = { workspace = true, features = [
 test-util = ["webview-host/test-util"]
 
 [dev-dependencies]
+# `seal.rs` re-exports `TestSealer` under `cfg(test)`, so ordinary unit-test builds need it.
+webview-host = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full", "test-util"] }
 

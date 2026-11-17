@@ -87,6 +87,32 @@ fn claim_single_instance(paths: &MacosPaths) -> anyhow::Result<Option<std::fs::F
     }
 }
 
+fn announce_pairing_code(code: &str) {
+    println!("Pairing code: {code}");
+    println!("Approve this screen in Studio, then leave the player running.");
+}
+
+/// Core replaces an expired or rejected pairing session with a new code, and a
+/// resumed session shows its code without `--pair`. The renderer-less player
+/// has no other surface, so every code that becomes visible is printed once.
+async fn announce_new_pairing_codes(
+    context: std::sync::Arc<tilecast_macos::daemon::DaemonContext>,
+    mut shown: Option<String>,
+) {
+    loop {
+        tokio::select! {
+            () = context.shutdown.cancelled() => return,
+            () = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
+        }
+        if let Some(code) = tilecast_macos::pairing::view(&context).code
+            && shown.as_deref() != Some(code.as_str())
+        {
+            announce_pairing_code(&code);
+            shown = Some(code);
+        }
+    }
+}
+
 async fn run(cli: &Cli, pair: Option<String>, headless: bool) -> anyhow::Result<()> {
     let (paths, config) = paths(cli)?;
     // Claimed before any state is touched.
@@ -104,6 +130,7 @@ async fn run(cli: &Cli, pair: Option<String>, headless: bool) -> anyhow::Result<
     let (context, activity_signals) =
         tilecast_macos::daemon::build(config, paths, tilecast_macos::host::services()).await?;
     context.headless.store(headless, std::sync::atomic::Ordering::Release);
+    let mut shown_code = None;
     if let Some(url) = pair {
         match tilecast_macos::pairing::begin(&context, &url).await {
             Ok(()) => {
@@ -118,8 +145,8 @@ async fn run(cli: &Cli, pair: Option<String>, headless: bool) -> anyhow::Result<
                 }
                 let view = tilecast_macos::pairing::view(&context);
                 if let Some(code) = view.code {
-                    println!("Pairing code: {code}");
-                    println!("Approve this screen in Studio, then leave the player running.");
+                    announce_pairing_code(&code);
+                    shown_code = Some(code);
                 } else {
                     println!("Pairing state: {}", view.state);
                 }
@@ -130,6 +157,7 @@ async fn run(cli: &Cli, pair: Option<String>, headless: bool) -> anyhow::Result<
             }
         }
     }
+    tokio::spawn(announce_new_pairing_codes(std::sync::Arc::clone(&context), shown_code));
     let shutdown = context.shutdown.clone();
     tokio::spawn(async move {
         let _ = tokio::signal::ctrl_c().await;
@@ -200,6 +228,11 @@ async fn status(cli: &Cli) -> anyhow::Result<()> {
 async fn reset_pairing(cli: &Cli) -> anyhow::Result<()> {
     use tilecast_macos::pairing_store::SealedPairingStore;
     let (paths, _) = paths(cli)?;
+    // A running Player could save an approval after the removal, so it must
+    // not be running.
+    let Some(_instance) = claim_single_instance(&paths)? else {
+        anyhow::bail!("stop the running Player before resetting pairing");
+    };
     SealedPairingStore::remove_at(&paths.identity_dir()).map_err(|e| anyhow::anyhow!("{e}"))?;
     println!("Pairing session abandoned.");
     Ok(())
