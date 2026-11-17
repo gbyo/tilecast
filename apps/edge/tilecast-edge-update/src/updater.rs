@@ -203,6 +203,7 @@ pub struct Updater<'a, H: UpdateHost> {
     store: TransactionStore,
     key: [u8; 32],
     paths: HelperPaths,
+    running_version_code: Option<u64>,
     timing: Timing,
     crash_at: Option<CrashPoint>,
     field_workaround: Option<crate::field_workaround::Roots>,
@@ -224,7 +225,23 @@ fn release_ref(release: &edge_release::VerifiedRelease) -> ReleaseRef {
 
 impl<'a, H: UpdateHost> Updater<'a, H> {
     pub fn new(host: &'a H, layout: Layout, store: TransactionStore, key: [u8; 32], paths: HelperPaths) -> Self {
-        Self { host, layout, store, key, paths, timing: Timing::default(), crash_at: None, field_workaround: None }
+        Self {
+            host,
+            layout,
+            store,
+            key,
+            paths,
+            running_version_code: version_code(edge_platform::RELEASE_VERSION),
+            timing: Timing::default(),
+            crash_at: None,
+            field_workaround: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_running_version(mut self, version: &str) -> Self {
+        self.running_version_code = version_code(version);
+        self
     }
 
     pub fn with_timing(mut self, timing: Timing) -> Self {
@@ -263,6 +280,20 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         Ok(())
     }
 
+    fn check_updater_prerequisite(
+        &self,
+        minimum: Option<&str>,
+        installed_code: Option<u64>,
+    ) -> Result<(), UpdateError> {
+        // A socket-activated helper can outlive a switch of the current release.
+        if !updater_version_allowed(minimum, self.running_version_code)
+            || !updater_version_allowed(minimum, installed_code)
+        {
+            return Err(UpdateError::Refused("update_bootstrap_required"));
+        }
+        Ok(())
+    }
+
     // ---- stage ------------------------------------------------------------
 
     /// Verifies the envelope, copies the content-store object it names into
@@ -280,9 +311,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             return Err(UpdateError::Refused("artifact_mismatch"));
         }
         let current_code = current_version(&self.layout).as_deref().and_then(version_code);
-        if !updater_version_allowed(envelope.envelope.minimum_updater_version.as_deref(), current_code) {
-            return Err(UpdateError::Refused("update_bootstrap_required"));
-        }
+        self.check_updater_prerequisite(envelope.envelope.minimum_updater_version.as_deref(), current_code)?;
         let version = envelope.envelope.version_name.clone();
         let dir = self.layout.version_dir(&version);
         if std::fs::symlink_metadata(&dir).is_ok() {
@@ -376,12 +405,10 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         if candidate.manifest.version_code <= previous.manifest.version_code {
             return Err(UpdateError::Refused("update_not_newer"));
         }
-        if !updater_version_allowed(
+        self.check_updater_prerequisite(
             candidate.manifest.minimum_updater_version.as_deref(),
             Some(previous.manifest.version_code),
-        ) {
-            return Err(UpdateError::Refused("update_bootstrap_required"));
-        }
+        )?;
         check_new_unit_destinations(&self.layout, &candidate, &previous)?;
         // Persist the verified inventory before the intent. The guard can
         // remove candidate-only units even if that release's tree is lost.

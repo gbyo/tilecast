@@ -67,9 +67,14 @@ impl World {
     }
 
     fn updater(&self, crash: Option<CrashPoint>) -> Updater<'_, FakeHost> {
+        self.updater_running("0.1.0", crash)
+    }
+
+    fn updater_running(&self, version: &str, crash: Option<CrashPoint>) -> Updater<'_, FakeHost> {
         let paths =
             HelperPaths { cas_root: self.cas_root.clone(), tilecast_uid: None, reserve_bytes: self.reserve_bytes };
         Updater::new(&self.host, self.layout.clone(), self.store.clone(), self.signer.public(), paths)
+            .with_running_version(version)
             .with_timing(TIMING)
             .crash_at(crash)
     }
@@ -425,14 +430,25 @@ async fn a_signed_updater_prerequisite_is_checked_at_stage_and_activation() {
     // A previously staged tree cannot skip the check when current has rolled back.
     edge_release::install::stage_from_dir(&world.root.path().join("tree-0.3.0"), &world.layout, &world.signer.public())
         .unwrap();
-    assert_eq!(world.updater(None).activate("0.3.0").await.unwrap_err().reason_code(), "update_bootstrap_required");
+    assert_eq!(
+        world.updater_running("0.2.0", None).activate("0.3.0").await.unwrap_err().reason_code(),
+        "update_bootstrap_required"
+    );
     assert!(world.store.load().unwrap().is_none());
 
     world.staged("0.2.0").await;
     world.updater(None).activate("0.2.0").await.unwrap();
     world.updater(None).confirm("0.2.0").await.unwrap();
-    assert_eq!(world.stage(&candidate).await.unwrap(), StageOutcome::AlreadyStaged { version: "0.3.0".into() });
-    assert_eq!(world.updater(None).activate("0.3.0").await.unwrap().phase, Phase::Provisional);
+    // The previous helper can still be serving requests after confirmation.
+    assert_eq!(world.stage(&candidate).await.unwrap_err().reason_code(), "update_bootstrap_required");
+    assert_eq!(world.updater(None).activate("0.3.0").await.unwrap_err().reason_code(), "update_bootstrap_required");
+
+    let restarted = world.updater_running("0.2.0", None);
+    assert_eq!(
+        restarted.stage(&candidate.artifact, &candidate.envelope, &candidate.signature).await.unwrap(),
+        StageOutcome::AlreadyStaged { version: "0.3.0".into() }
+    );
+    assert_eq!(restarted.activate("0.3.0").await.unwrap().phase, Phase::Provisional);
 }
 
 #[tokio::test]

@@ -18,9 +18,9 @@ use std::time::Duration;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ipc::method::{DiscoveredServer, DiscoveryListResult, MAX_DISCOVERED_SERVERS};
 use edge_server::url_policy::normalize_server_url;
-use futures_util::StreamExt as _;
-use zbus::zvariant::OwnedObjectPath;
-use zbus::{MatchRule, MessageStream, message::Type};
+use futures_util::{Stream, StreamExt as _};
+use zbus::zvariant::{ObjectPath, OwnedObjectPath};
+use zbus::{MatchRule, Message, MessageStream, message::Type};
 
 use crate::daemon::DaemonContext;
 
@@ -102,9 +102,32 @@ async fn browse() -> zbus::Result<Vec<DiscoveredServer>> {
     // their original order.
     let owner = zbus::fdo::DBusProxy::new(&connection).await?.get_name_owner(AVAHI.try_into()?).await?;
     let rule = MatchRule::builder().msg_type(Type::Signal).sender(owner)?.interface(BROWSER_INTERFACE)?.build();
-    let mut signals = MessageStream::for_match_rule(rule, &connection, Some(128)).await?;
+    let signals = MessageStream::for_match_rule(rule, &connection, Some(128)).await?;
     let path = server.service_browser_new(UNSPEC, UNSPEC, SERVICE_TYPE, "", 0).await?;
     let browser = ServiceBrowserProxy::builder(&connection).path(path.clone())?.build().await?;
+    let found = collect_services(signals, &path).await;
+    let _ = browser.free().await;
+    let mut servers = Vec::new();
+    for (interface, protocol, name, domain) in found? {
+        let resolved = tokio::time::timeout(
+            RESOLVE_TIMEOUT,
+            server.resolve_service(interface, protocol, &name, SERVICE_TYPE, &domain, UNSPEC, 0),
+        )
+        .await;
+        let Ok(Ok((_, _, _, _, _, host, _, _, port, txt, _))) = resolved else { continue };
+        let Some(url) = server_url(&parse_txt(&txt), &host, port) else { continue };
+        if servers.iter().any(|known: &DiscoveredServer| known.server_url.as_str() == url) {
+            continue;
+        }
+        servers.push(DiscoveredServer { name: SafeText::lossy(&name), server_url: SafeText::lossy(&url) });
+    }
+    Ok(servers)
+}
+
+async fn collect_services(
+    mut signals: impl Stream<Item = zbus::Result<Message>> + Unpin,
+    path: &ObjectPath<'_>,
+) -> zbus::Result<Vec<(i32, i32, String, String)>> {
     let mut found: Vec<(i32, i32, String, String)> = Vec::new();
     let deadline = tokio::time::sleep(BROWSE_DEADLINE);
     tokio::pin!(deadline);
@@ -112,9 +135,9 @@ async fn browse() -> zbus::Result<Vec<DiscoveredServer>> {
         tokio::select! {
             () = &mut deadline => break,
             signal = signals.next() => {
-                let Some(Ok(signal)) = signal else { break };
+                let signal = signal.ok_or_else(|| zbus::Error::Failure("Avahi browser signal stream ended".into()))??;
                 let header = signal.header();
-                if header.path().map(|path| path.as_str()) != Some(path.as_str()) {
+                if header.path() != Some(path) {
                     continue;
                 }
                 let member = header.member().map(|member| member.as_str());
@@ -132,22 +155,7 @@ async fn browse() -> zbus::Result<Vec<DiscoveredServer>> {
             }
         }
     }
-    let _ = browser.free().await;
-    let mut servers = Vec::new();
-    for (interface, protocol, name, domain) in found {
-        let resolved = tokio::time::timeout(
-            RESOLVE_TIMEOUT,
-            server.resolve_service(interface, protocol, &name, SERVICE_TYPE, &domain, UNSPEC, 0),
-        )
-        .await;
-        let Ok(Ok((_, _, _, _, _, host, _, _, port, txt, _))) = resolved else { continue };
-        let Some(url) = server_url(&parse_txt(&txt), &host, port) else { continue };
-        if servers.iter().any(|known: &DiscoveredServer| known.server_url.as_str() == url) {
-            continue;
-        }
-        servers.push(DiscoveredServer { name: SafeText::lossy(&name), server_url: SafeText::lossy(&url) });
-    }
-    Ok(servers)
+    Ok(found)
 }
 
 pub async fn list(_context: &DaemonContext) -> DiscoveryListResult {
@@ -164,6 +172,20 @@ pub async fn list(_context: &DaemonContext) -> DiscoveryListResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_browse_must_not_succeed_when_its_signal_stream_stops_early() {
+        let path = ObjectPath::try_from("/browser").expect("valid object path");
+        let item = Message::signal(&path, BROWSER_INTERFACE, "ItemNew")
+            .expect("valid signal header")
+            .build(&(0i32, 0i32, "Tilecast", SERVICE_TYPE, "local", 0u32))
+            .expect("valid signal body");
+        let ended = futures_util::stream::iter([Ok(item.clone())]);
+        assert!(matches!(collect_services(ended, &path).await, Err(zbus::Error::Failure(_))));
+
+        let failed = futures_util::stream::iter([Ok(item), Err(zbus::Error::InvalidReply)]);
+        assert_eq!(collect_services(failed, &path).await, Err(zbus::Error::InvalidReply));
+    }
 
     #[test]
     fn txt_base_url_must_pass_the_player_url_policy() {

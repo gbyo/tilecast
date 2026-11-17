@@ -463,8 +463,9 @@ impl Coordinator {
             Ok(response) => match response.code.as_str() {
                 "update_busy" => self.retry(job, "update_helper_busy", now).await,
                 // The helper that confirmed the bootstrap can still be
-                // serving its old socket briefly. It rejects the new field.
-                "release_manifest_invalid"
+                // serving its old socket briefly. It can reject the new
+                // field or report that its own version is below the minimum.
+                "release_manifest_invalid" | "update_bootstrap_required"
                     if job.attempts < 2
                         && edge_release::verify_envelope(&envelope, &signature, &self.key)
                             .is_ok_and(|verified| verified.envelope.minimum_updater_version.is_some()) =>
