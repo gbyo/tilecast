@@ -98,10 +98,10 @@ impl RendererHost for WebKitHost {
         cfg!(target_os = "macos")
     }
     fn features(&self) -> RendererFeatures {
-        // Website and YouTube views need isolated WKWebViews
-        // (gbyo/tilecast#1927). External Widget and plugin frames are not
-        // served or qualified on WebKit here.
-        RendererFeatures::BASE
+        // Websites and YouTube render in isolated WKWebViews above the
+        // Runtime (`webkit::remote`). External Widget and plugin frames are
+        // not served or qualified on WebKit here.
+        RendererFeatures { remote_web: cfg!(target_os = "macos"), external_frames: false }
     }
 }
 
@@ -181,7 +181,10 @@ mod tests {
     #[test]
     fn nothing_unavailable_is_claimed() {
         assert_eq!(WebKitHost.presents(), cfg!(target_os = "macos"));
-        assert_eq!(WebKitHost.features(), RendererFeatures::BASE);
+        assert_eq!(
+            WebKitHost.features(),
+            RendererFeatures { remote_web: cfg!(target_os = "macos"), external_frames: false }
+        );
         assert_eq!(NoCapture.capture_bgra(1, Duration::from_millis(1)).err(), Some("unavailable"));
     }
 }

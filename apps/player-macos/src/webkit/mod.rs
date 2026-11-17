@@ -11,6 +11,8 @@
 pub mod policy;
 
 #[cfg(target_os = "macos")]
+mod remote;
+#[cfg(target_os = "macos")]
 mod view;
 
 #[cfg(target_os = "macos")]

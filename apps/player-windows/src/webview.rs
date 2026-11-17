@@ -17,7 +17,7 @@
 #![allow(unsafe_code)]
 
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -33,6 +33,7 @@ use windows::core::{BOOL, HSTRING, Interface as _, PCWSTR, PWSTR};
 
 use crate::media::RendererInstance;
 use crate::ui::{MAX_CONFORMANCE_MESSAGE_BYTES, UiCommand, UiError, UiEvent, UiHandle, UiServices};
+use webview_host::remote_layer::{self, DataRelease, LayerEvent, LoadError, Released, RemoteDataPolicy, RemoteLayers};
 
 /// Conformance-only browser switches: media autoplays without a gesture
 /// (fixtures drive playback programmatically) and screenshots compare in
@@ -66,12 +67,8 @@ const REMOTE_BROWSER_ARGS: &str = "--autoplay-policy=no-user-gesture-required";
 /// `WM_TIMER` id for the YouTube wrapper state poll.
 const YOUTUBE_TIMER_ID: usize = 1;
 
-/// Navigated hosts remembered per surface, bounding the `first_party`
-/// cookie-strip enumeration.
-const MAX_TRACKED_HOSTS: usize = 64;
-
-/// Shared remote profiles. `disabled` and storage-less surfaces get
-/// unique per-surface profiles instead (see `remote_profile`).
+/// Shared remote profiles, one for each shared [`RemoteDataPolicy`].
+/// Per-surface policies get unique profiles instead (see `remote_profile`).
 const PROFILE_FIRST_PARTY: &str = "tc-rw-first-party";
 const PROFILE_PERSISTENT: &str = "tc-rw-persistent";
 const PROFILE_YOUTUBE: &str = "tc-rw-youtube";
@@ -111,9 +108,10 @@ struct Host {
     /// The remote environment cannot serve: creation failed or its
     /// browser process exited. Only `RemoteRecovered` retries.
     remote_dead: bool,
-    /// Live remote surfaces by id. An entry without a controller is a
-    /// create still waiting for its completion.
-    remote_views: HashMap<String, RemoteSurface>,
+    /// Live remote surfaces by id, with their shared lifecycle state. An
+    /// entry without a controller is a create still waiting for its
+    /// completion.
+    remote_views: RemoteLayers<RemoteSurface>,
     /// Monotonic per-surface profile counter; unique profile names never
     /// repeat within the process.
     remote_profile_seq: u64,
@@ -123,22 +121,14 @@ struct Host {
     youtube_polling: bool,
 }
 
-/// One host-layer remote web surface: a child window of the main window
-/// with its own WebView2 controller in the remote environment.
+/// One host-layer remote web surface's engine objects: a child window of
+/// the main window with its own WebView2 controller in the remote
+/// environment. Its lifecycle state is the shared `LayerState`.
 struct RemoteSurface {
-    /// The validated spec. The viewport/visible/muted mirror follows
-    /// later commands; content and policy never change.
-    spec: crate::remote_web::SurfaceSpec,
     child: *mut std::ffi::c_void,
     controller: Option<ICoreWebView2Controller>,
     webview: Option<ICoreWebView2>,
     profile_name: String,
-    loaded: bool,
-    stream_ready: bool,
-    failed: bool,
-    youtube_ended: bool,
-    /// Navigated hosts, bounded, for the `first_party` cookie strip.
-    hosts: Vec<String>,
     _tokens: Vec<i64>,
 }
 
@@ -424,7 +414,7 @@ fn run_ui_thread(
             _tokens: Vec::new(),
             remote_env: None,
             remote_dead: false,
-            remote_views: HashMap::new(),
+            remote_views: RemoteLayers::new(),
             remote_profile_seq: 0,
             janitor: None,
             youtube_polling: false,
@@ -450,7 +440,8 @@ fn run_ui_thread(
         host.webview = None;
         // Remote views close with the process; their data was released
         // per surface, and the next boot sweeps stale unique profiles.
-        for (_, surface) in host.remote_views.drain() {
+        for released in host.remote_views.drain() {
+            let surface = released.view;
             if let Some(controller) = surface.controller {
                 // SAFETY: the STA thread owns the controller.
                 unsafe {
@@ -1049,14 +1040,36 @@ fn process_failed_reason(reason: COREWEBVIEW2_PROCESS_FAILED_REASON) -> String {
 
 /// Emits one remote web event toward the Runtime's remote web port.
 fn emit_remote(cell: &SharedHost, surface_id: Option<&str>, kind: &str, code: Option<&str>) {
-    let event = crate::bridge::RemoteWebEvent {
-        surface_id: surface_id.map(str::to_owned),
-        kind: kind.to_owned(),
-        code: code.map(str::to_owned),
-    };
+    emit_event(
+        cell,
+        crate::bridge::RemoteWebEvent {
+            surface_id: surface_id.map(str::to_owned),
+            kind: kind.to_owned(),
+            code: code.map(str::to_owned),
+        },
+    );
+}
+
+fn emit_event(cell: &SharedHost, event: crate::bridge::RemoteWebEvent) {
     if let Some(host) = cell.borrow().as_ref() {
         emit(&host.events, UiEvent::Remote { event });
     }
+}
+
+/// Emits a surface's shared lifecycle event, if it produced one.
+fn emit_layer(cell: &SharedHost, surface_id: &str, event: Option<LayerEvent>) {
+    if let Some(event) = event {
+        emit_remote(cell, Some(surface_id), event.kind, event.code);
+    }
+}
+
+/// Runs `f` on a surface's shared state and returns what it produced.
+/// `None` when the surface is gone or the host is momentarily taken.
+fn with_layer<R>(cell: &SharedHost, surface_id: &str, f: impl FnOnce(&mut remote_layer::LayerState) -> R) -> Option<R> {
+    let mut host = take_host(cell)?;
+    let result = host.remote_views.get_mut(surface_id).map(|layer| f(&mut layer.state));
+    put_host(cell, host);
+    result
 }
 
 fn px(value: i64) -> i32 {
@@ -1071,55 +1084,28 @@ fn remote_dirs(cell: &SharedHost) -> Option<(std::path::PathBuf, std::path::Path
     Some((root, wrappers))
 }
 
-/// The profile for a validated surface: unique per-surface profiles
-/// isolate `disabled` (InPrivate) and storage-less surfaces, so their
-/// release clears touch only their own data; the rest share one profile
-/// per policy.
-fn remote_profile(spec: &crate::remote_web::SurfaceSpec, seq: u64) -> (String, bool) {
-    match &spec.content {
-        crate::remote_web::SurfaceContent::Page(page) => {
-            if page.cookie_policy == crate::remote_web::CookiePolicy::Disabled {
-                (format!("tc-rw-ephemeral-{seq}"), true)
-            } else if !page.dom_storage_enabled {
-                (format!("tc-rw-nodom-{seq}"), false)
-            } else if page.cookie_policy == crate::remote_web::CookiePolicy::FirstParty {
-                (PROFILE_FIRST_PARTY.to_string(), false)
-            } else {
-                (PROFILE_PERSISTENT.to_string(), false)
-            }
-        }
-        crate::remote_web::SurfaceContent::YouTube(_) => (PROFILE_YOUTUBE.to_string(), false),
+/// The WebView2 profile for a surface's shared data policy: per-surface
+/// policies get unique profiles (InPrivate for `EphemeralSurface`), so
+/// their release clears touch only their own data; the shared policies
+/// each have one profile.
+fn remote_profile(policy: RemoteDataPolicy, seq: u64) -> (String, bool) {
+    match policy {
+        RemoteDataPolicy::EphemeralSurface => (format!("tc-rw-ephemeral-{seq}"), true),
+        RemoteDataPolicy::IsolatedNoDomStorage => (format!("tc-rw-nodom-{seq}"), false),
+        RemoteDataPolicy::PersistentFirstParty => (PROFILE_FIRST_PARTY.to_string(), false),
+        RemoteDataPolicy::PersistentAll => (PROFILE_PERSISTENT.to_string(), false),
+        RemoteDataPolicy::YouTube => (PROFILE_YOUTUBE.to_string(), false),
     }
 }
 
-/// A validated `#RRGGBB` color as an opaque WebView2 color. Black on
-/// anything unexpected; the spec validator already refused those.
-fn colorref(color: &str) -> COREWEBVIEW2_COLOR {
-    let bytes = color.as_bytes();
-    let hex = |index: usize| {
-        u8::from_str_radix(std::str::from_utf8(&bytes[index..index + 2]).unwrap_or("00"), 16).unwrap_or(0)
-    };
-    if bytes.len() == 7 && bytes[0] == b'#' {
-        COREWEBVIEW2_COLOR { A: 255, R: hex(1), G: hex(3), B: hex(5) }
-    } else {
-        COREWEBVIEW2_COLOR { A: 255, R: 0, G: 0, B: 0 }
+/// The shared profile name of a shared policy.
+fn shared_profile(policy: RemoteDataPolicy) -> Option<&'static str> {
+    match policy {
+        RemoteDataPolicy::PersistentFirstParty => Some(PROFILE_FIRST_PARTY),
+        RemoteDataPolicy::PersistentAll => Some(PROFILE_PERSISTENT),
+        RemoteDataPolicy::YouTube => Some(PROFILE_YOUTUBE),
+        RemoteDataPolicy::EphemeralSurface | RemoteDataPolicy::IsolatedNoDomStorage => None,
     }
-}
-
-/// Remembers a navigated host for the `first_party` cookie strip.
-/// Bounded and de-duplicated; overflow drops the oldest.
-fn track_host(cell: &SharedHost, surface_id: &str, uri: &str) {
-    let Some(host) = crate::remote_web::url_host(uri) else { return };
-    let Some(mut taken) = take_host(cell) else { return };
-    if let Some(surface) = taken.remote_views.get_mut(surface_id)
-        && !surface.hosts.contains(&host)
-    {
-        if surface.hosts.len() >= MAX_TRACKED_HOSTS {
-            surface.hosts.remove(0);
-        }
-        surface.hosts.push(host);
-    }
-    put_host(cell, taken);
 }
 
 /// Builds the remote environment after the main controller is wired. Its
@@ -1193,7 +1179,8 @@ fn mark_remote_dead(cell: &SharedHost) {
     if let Some(mut host) = take_host(cell) {
         host.remote_dead = true;
         host.remote_env = None;
-        for (_, surface) in host.remote_views.drain() {
+        for released in host.remote_views.drain() {
+            let surface = released.view;
             if let Some(controller) = surface.controller {
                 // SAFETY: the STA thread owns the controller.
                 unsafe {
@@ -1208,7 +1195,7 @@ fn mark_remote_dead(cell: &SharedHost) {
         }
         put_host(cell, host);
     }
-    emit_remote(cell, None, "process-terminated", None);
+    emit_event(cell, remote_layer::process_terminated());
 }
 
 /// Wires browser-process monitoring for a fresh remote environment and
@@ -1240,7 +1227,7 @@ fn wire_remote_environment(cell: &SharedHost, env: ICoreWebView2Environment) {
         host.remote_dead = false;
         put_host(cell, host);
     }
-    emit_remote(cell, None, "recovered", None);
+    emit_event(cell, remote_layer::recovered());
 }
 
 /// Creates one remote surface's child window and controller. The spec is
@@ -1284,7 +1271,8 @@ fn remote_create(cell: &SharedHost, spec: crate::remote_web::SurfaceSpec) {
         // is configured once, before the controller reads it.
         let env10 = env.cast::<ICoreWebView2Environment10>().ok()?;
         let options = unsafe { env10.CreateCoreWebView2ControllerOptions().ok()? };
-        let (profile_name, in_private) = remote_profile(&spec, next_profile_seq(cell));
+        let policy = RemoteDataPolicy::for_content(&spec.content);
+        let (profile_name, in_private) = remote_profile(policy, next_profile_seq(cell));
         unsafe {
             options.SetProfileName(&HSTRING::from(profile_name.as_str())).ok()?;
             options.SetIsInPrivateModeEnabled(in_private).ok()?;
@@ -1296,24 +1284,19 @@ fn remote_create(cell: &SharedHost, spec: crate::remote_web::SurfaceSpec) {
         emit_remote(cell, Some(&surface_id), "failed", Some(crate::remote_web::UNAVAILABLE));
         return;
     };
-    if let Some(mut host) = take_host(cell) {
-        host.remote_views.insert(
-            surface_id.clone(),
-            RemoteSurface {
-                spec,
-                child,
-                controller: None,
-                webview: None,
-                profile_name,
-                loaded: false,
-                stream_ready: false,
-                failed: false,
-                youtube_ended: false,
-                hosts: Vec::new(),
-                _tokens: Vec::new(),
-            },
-        );
-        put_host(cell, host);
+    let admitted = match take_host(cell) {
+        Some(mut host) => {
+            let surface = RemoteSurface { child, controller: None, webview: None, profile_name, _tokens: Vec::new() };
+            let admitted = host.remote_views.insert(spec, surface).map(|_| ());
+            put_host(cell, host);
+            admitted
+        }
+        None => Err(crate::remote_web::UNAVAILABLE),
+    };
+    if let Err(code) = admitted {
+        crate::win32::destroy_remote_child(child);
+        emit_remote(cell, Some(&surface_id), "failed", Some(code));
+        return;
     }
     let created_cell = Rc::clone(cell);
     let created_id = surface_id.clone();
@@ -1349,7 +1332,7 @@ fn drop_pending_surface(cell: &SharedHost, surface_id: &str) {
         }
         None => None,
     };
-    if let Some(surface) = removed {
+    if let Some(Released { view: surface, .. }) = removed {
         if let Some(controller) = surface.controller {
             // SAFETY: the STA thread owns the controller.
             unsafe {
@@ -1378,7 +1361,7 @@ fn next_profile_seq(cell: &SharedHost) -> u64 {
 /// a half-guarded view.
 fn wire_remote_controller(cell: &SharedHost, surface_id: &str, controller: ICoreWebView2Controller) {
     let pending = match cell.borrow().as_ref().and_then(|host| host.remote_views.get(surface_id)) {
-        Some(surface) if surface.controller.is_none() => surface.spec.clone(),
+        Some(layer) if layer.view.controller.is_none() => layer.state.clone(),
         Some(_) => {
             // SAFETY: the STA thread owns the orphan controller.
             unsafe {
@@ -1409,18 +1392,17 @@ fn wire_remote_controller(cell: &SharedHost, surface_id: &str, controller: ICore
         emit_remote(cell, Some(surface_id), "failed", Some("unsupported_content"));
         return;
     }
-    if wire_remote_events(cell, surface_id, &webview, &pending).is_err() {
+    if wire_remote_events(cell, surface_id, &webview).is_err() {
         drop_pending_surface(cell, surface_id);
         emit_remote(cell, Some(surface_id), "failed", Some(crate::remote_web::UNAVAILABLE));
         return;
     }
     if let Some(mut host) = take_host(cell) {
-        if let Some(surface) = host.remote_views.get_mut(surface_id) {
-            surface.controller = Some(controller);
-            surface.webview = Some(webview.clone());
+        if let Some(layer) = host.remote_views.get_mut(surface_id) {
+            layer.view.controller = Some(controller);
+            layer.view.webview = Some(webview.clone());
         }
-        let youtube = matches!(pending.content, crate::remote_web::SurfaceContent::YouTube(_));
-        if youtube && !host.youtube_polling {
+        if pending.is_youtube() && !host.youtube_polling {
             let interval = u32::try_from(crate::remote_web::YOUTUBE_POLL_INTERVAL.as_millis()).unwrap_or(500);
             host.youtube_polling = crate::win32::start_poll_timer(host.window.hwnd(), YOUTUBE_TIMER_ID, interval);
         }
@@ -1437,27 +1419,20 @@ fn lock_remote_view(
     surface_id: &str,
     controller: &ICoreWebView2Controller,
     webview: &ICoreWebView2,
-    spec: &crate::remote_web::SurfaceSpec,
+    state: &remote_layer::LayerState,
 ) -> bool {
-    let (script, user_agent, zoom_percent, background) = match &spec.content {
-        crate::remote_web::SurfaceContent::Page(page) => {
-            (page.javascript_enabled, page.user_agent.as_str(), page.zoom_percent, page.background_color.as_str())
-        }
-        crate::remote_web::SurfaceContent::YouTube(_) => (true, "", 100, "#000000"),
-    };
+    let settings = state.view_settings();
+    let (script, user_agent, zoom_percent) = (settings.javascript, settings.user_agent, settings.zoom_percent);
+    let (red, green, blue) = settings.background;
+    let viewport = state.viewport();
     // SAFETY: the STA thread owns the controller, webview, and settings.
     unsafe {
-        let _ = controller.SetBounds(RECT {
-            left: 0,
-            top: 0,
-            right: px(spec.viewport.width),
-            bottom: px(spec.viewport.height),
-        });
-        let _ = controller.SetIsVisible(spec.visible);
+        let _ = controller.SetBounds(RECT { left: 0, top: 0, right: px(viewport.width), bottom: px(viewport.height) });
+        let _ = controller.SetIsVisible(state.visible());
         let zoom = f64::from(zoom_percent.clamp(25, 400)) / 100.0;
         let _ = controller.SetZoomFactor(zoom);
         if let Ok(controller2) = controller.cast::<ICoreWebView2Controller2>() {
-            let _ = controller2.SetDefaultBackgroundColor(colorref(background));
+            let _ = controller2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { A: 255, R: red, G: green, B: blue });
         }
     }
     let settings = match unsafe { webview.Settings() } {
@@ -1493,7 +1468,7 @@ fn lock_remote_view(
             let _ = profile6.SetIsPasswordAutosaveEnabled(false);
         }
     }
-    let muted = webview.cast::<ICoreWebView2_8>().and_then(|view8| unsafe { view8.SetIsMuted(spec.muted) }).is_ok();
+    let muted = webview.cast::<ICoreWebView2_8>().and_then(|view8| unsafe { view8.SetIsMuted(state.muted()) }).is_ok();
     if !muted {
         tracing::warn!(component = "webview", event = "remote_mute_unavailable", surface = surface_id);
     }
@@ -1502,18 +1477,12 @@ fn lock_remote_view(
 
 /// Registers every policy event on a remote view. Any failure fails the
 /// whole surface: a half-guarded view must never present content.
-fn wire_remote_events(
-    cell: &SharedHost,
-    surface_id: &str,
-    webview: &ICoreWebView2,
-    spec: &crate::remote_web::SurfaceSpec,
-) -> std::result::Result<(), ()> {
+fn wire_remote_events(cell: &SharedHost, surface_id: &str, webview: &ICoreWebView2) -> std::result::Result<(), ()> {
     let mut token = 0i64;
     // SAFETY: the STA thread owns the webview and every args object for
     // the rest of this function.
     let starting_cell = Rc::clone(cell);
     let starting_id = surface_id.to_owned();
-    let starting_spec = spec.clone();
     let starting_handler = NavigationStartingEventHandler::create(Box::new(
         move |_: Option<ICoreWebView2>, args: Option<ICoreWebView2NavigationStartingEventArgs>| {
             let Some(args) = args else { return Ok(()) };
@@ -1522,17 +1491,10 @@ fn wire_remote_events(
                 return Ok(());
             }
             let uri = pwstr_to_string(uri);
-            let allowed = match &starting_spec.content {
-                crate::remote_web::SurfaceContent::Page(page) => {
-                    crate::remote_web::main_frame_allowed(&uri, &page.url, &page.allowed_hosts)
-                }
-                crate::remote_web::SurfaceContent::YouTube(_) => {
-                    uri == "about:blank" || uri == youtube_wrapper_url(&starting_id)
-                }
-            };
-            if allowed {
-                track_host(&starting_cell, &starting_id, &uri);
-            } else {
+            // A surface already gone refuses everything.
+            let decision = with_layer(&starting_cell, &starting_id, |state| state.top_level_navigation(&uri))
+                .unwrap_or(Err(LayerEvent::NAVIGATION_BLOCKED));
+            if let Err(blocked) = decision {
                 unsafe {
                     let _ = args.SetCancel(true);
                 }
@@ -1541,7 +1503,7 @@ fn wire_remote_events(
                     event = "remote_navigation_blocked",
                     host = crate::remote_web::log_host(&uri).as_str(),
                 );
-                emit_remote(&starting_cell, Some(&starting_id), "navigation-blocked", None);
+                emit_layer(&starting_cell, &starting_id, Some(blocked));
             }
             Ok(())
         },
@@ -1556,29 +1518,10 @@ fn wire_remote_events(
     // YouTube surfaces wait for the player instead (the poll reports).
     let loading_cell = Rc::clone(cell);
     let loading_id = surface_id.to_owned();
-    let loading_page = matches!(spec.content, crate::remote_web::SurfaceContent::Page(_));
     let loading_handler = ContentLoadingEventHandler::create(Box::new(
         move |_: Option<ICoreWebView2>, _: Option<ICoreWebView2ContentLoadingEventArgs>| {
-            if !loading_page {
-                return Ok(());
-            }
-            let first = match take_host(&loading_cell) {
-                Some(mut host) => {
-                    let first = match host.remote_views.get_mut(&loading_id) {
-                        Some(surface) if !surface.failed && !surface.stream_ready => {
-                            surface.stream_ready = true;
-                            true
-                        }
-                        _ => false,
-                    };
-                    put_host(&loading_cell, host);
-                    first
-                }
-                None => false,
-            };
-            if first {
-                emit_remote(&loading_cell, Some(&loading_id), "stream-ready", None);
-            }
+            let event = with_layer(&loading_cell, &loading_id, |state| state.content_loading()).flatten();
+            emit_layer(&loading_cell, &loading_id, event);
             Ok(())
         },
     ));
@@ -1589,7 +1532,6 @@ fn wire_remote_events(
 
     let completed_cell = Rc::clone(cell);
     let completed_id = surface_id.to_owned();
-    let completed_spec = spec.clone();
     let completed_handler = NavigationCompletedEventHandler::create(Box::new(
         move |webview: Option<ICoreWebView2>, args: Option<ICoreWebView2NavigationCompletedEventArgs>| {
             let Some(args) = args else { return Ok(()) };
@@ -1601,85 +1543,20 @@ fn wire_remote_events(
             unsafe {
                 let _ = args.WebErrorStatus(&mut error);
             }
-            // Our own cancellations land here; the block was already
-            // reported as `navigation-blocked`.
-            if error == COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED {
-                return Ok(());
-            }
             let mut http_status = 0i32;
             if let Ok(args2) = args.cast::<ICoreWebView2NavigationCompletedEventArgs2>() {
                 unsafe {
                     let _ = args2.HttpStatusCode(&mut http_status);
                 }
             }
-            if !succeeded.as_bool() || http_status >= 400 {
-                let failed = match take_host(&completed_cell) {
-                    Some(mut host) => {
-                        let failed = match host.remote_views.get_mut(&completed_id) {
-                            Some(surface) if !surface.failed => {
-                                surface.failed = true;
-                                true
-                            }
-                            _ => false,
-                        };
-                        put_host(&completed_cell, host);
-                        failed
-                    }
-                    None => false,
-                };
-                if failed {
-                    emit_remote(
-                        &completed_cell,
-                        Some(&completed_id),
-                        "failed",
-                        Some(load_failure_code(error, http_status)),
-                    );
-                }
-                return Ok(());
+            let http_status = u16::try_from(http_status).ok().filter(|status| *status > 0);
+            let error = if succeeded.as_bool() { LoadError::None } else { load_error(error) };
+            let finished = with_layer(&completed_cell, &completed_id, |state| state.load_finished(http_status, error))
+                .unwrap_or_default();
+            if let (Some(script), Some(view)) = (finished.script.as_deref(), webview.as_ref()) {
+                run_script_ignored(view, script);
             }
-            let live = match take_host(&completed_cell) {
-                Some(mut host) => {
-                    let live = match host.remote_views.get_mut(&completed_id) {
-                        Some(surface) if !surface.failed && !surface.loaded => {
-                            // Pages finish here; the YouTube poll owns the
-                            // player's `loaded` (the wrapper is not the video).
-                            if matches!(completed_spec.content, crate::remote_web::SurfaceContent::Page(_)) {
-                                surface.loaded = true;
-                            }
-                            true
-                        }
-                        _ => false,
-                    };
-                    put_host(&completed_cell, host);
-                    live
-                }
-                None => false,
-            };
-            if !live {
-                return Ok(());
-            }
-            match &completed_spec.content {
-                crate::remote_web::SurfaceContent::Page(page) => {
-                    if page.javascript_enabled
-                        && (page.scroll_x != 0 || page.scroll_y != 0)
-                        && let Some(view) = webview
-                    {
-                        run_script_ignored(&view, &format!("window.scrollTo({},{})", page.scroll_x, page.scroll_y));
-                    }
-                    emit_remote(&completed_cell, Some(&completed_id), "loaded", None);
-                }
-                crate::remote_web::SurfaceContent::YouTube(_) => {
-                    // The wrapper starts paused; visibility decides play.
-                    if let Some(view) = webview {
-                        let visible = completed_cell
-                            .borrow()
-                            .as_ref()
-                            .and_then(|host| host.remote_views.get(&completed_id))
-                            .is_some_and(|surface| surface.spec.visible);
-                        run_script_ignored(&view, if visible { YOUTUBE_PLAY_SCRIPT } else { YOUTUBE_PAUSE_SCRIPT });
-                    }
-                }
-            }
+            emit_layer(&completed_cell, &completed_id, finished.event);
             Ok(())
         },
     ));
@@ -1806,7 +1683,6 @@ fn wire_remote_events(
 
     let frame_cell = Rc::clone(cell);
     let frame_id = surface_id.to_owned();
-    let frame_youtube = matches!(spec.content, crate::remote_web::SurfaceContent::YouTube(_));
     let frame_handler = FrameCreatedEventHandler::create(Box::new(
         move |_: Option<ICoreWebView2>, args: Option<ICoreWebView2FrameCreatedEventArgs>| {
             let Some(args) = args else { return Ok(()) };
@@ -1828,14 +1704,11 @@ fn wire_remote_events(
                         return Ok(());
                     }
                     let uri = pwstr_to_string(uri);
-                    let allowed = if frame_youtube {
-                        crate::remote_web::youtube_subframe_allowed(&uri)
-                    } else {
-                        crate::remote_web::any_frame_allowed(&uri)
-                    };
-                    if allowed {
-                        track_host(&nav_cell, &nav_id, &uri);
-                    } else {
+                    // `FrameCreated` reports the top document's own
+                    // frames: for YouTube, the wrapper's embed frames.
+                    let allowed =
+                        with_layer(&nav_cell, &nav_id, |state| state.subframe_navigation(&uri, true)).unwrap_or(false);
+                    if !allowed {
                         unsafe {
                             let _ = args.SetCancel(true);
                         }
@@ -1867,29 +1740,28 @@ fn wire_remote_events(
 
 fn stash_remote_token(cell: &SharedHost, surface_id: &str, token: i64) {
     if let Some(mut host) = take_host(cell) {
-        if let Some(surface) = host.remote_views.get_mut(surface_id) {
-            surface._tokens.push(token);
+        if let Some(layer) = host.remote_views.get_mut(surface_id) {
+            layer.view._tokens.push(token);
         }
         put_host(cell, host);
     }
 }
 
-/// Maps a navigation failure to the stable failure vocabulary. HTTP
-/// statuses win over engine codes: a served error page is an HTTP error
-/// even when the engine also reports one.
-fn load_failure_code(error: COREWEBVIEW2_WEB_ERROR_STATUS, http_status: i32) -> &'static str {
-    if http_status >= 400 {
-        return "http_error";
-    }
+/// Reduces a WebView2 web error to the shared load-error categories
+/// (`remote_layer::load_failure_code` picks the failure code).
+fn load_error(error: COREWEBVIEW2_WEB_ERROR_STATUS) -> LoadError {
     match error {
+        // Our own cancellations; a block was already reported as
+        // `navigation-blocked`.
+        COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED => LoadError::Cancelled,
         COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_COMMON_NAME_IS_INCORRECT
         | COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_EXPIRED
         | COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_IS_INVALID
         | COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_REVOKED
-        | COREWEBVIEW2_WEB_ERROR_STATUS_CLIENT_CERTIFICATE_CONTAINS_ERRORS => "tls_failure",
-        COREWEBVIEW2_WEB_ERROR_STATUS_DISCONNECTED => "offline",
-        COREWEBVIEW2_WEB_ERROR_STATUS_ERROR_HTTP_INVALID_SERVER_RESPONSE => "http_error",
-        _ => "load_failed",
+        | COREWEBVIEW2_WEB_ERROR_STATUS_CLIENT_CERTIFICATE_CONTAINS_ERRORS => LoadError::Tls,
+        COREWEBVIEW2_WEB_ERROR_STATUS_DISCONNECTED => LoadError::Offline,
+        COREWEBVIEW2_WEB_ERROR_STATUS_ERROR_HTTP_INVALID_SERVER_RESPONSE => LoadError::BadResponse,
+        _ => LoadError::Other,
     }
 }
 
@@ -1905,15 +1777,6 @@ fn run_script_ignored(webview: &ICoreWebView2, script: &str) {
     }
 }
 
-const YOUTUBE_PLAY_SCRIPT: &str = "document.documentElement.setAttribute('data-tc-command','play')";
-const YOUTUBE_PAUSE_SCRIPT: &str = "document.documentElement.setAttribute('data-tc-command','pause')";
-const YOUTUBE_POLL_SCRIPT: &str = "document.documentElement.getAttribute('data-tc-state')||'loading'";
-
-/// The wrapper URL of a YouTube surface, under the mapped Tilecast host.
-fn youtube_wrapper_url(surface_id: &str) -> String {
-    format!("https://org.tilecast.player/{surface_id}.html")
-}
-
 /// Starts the first navigation: the page URL, or the Tilecast-owned
 /// wrapper for YouTube (written to the mapped folder first, so the
 /// document has the real origin the iframe API requires).
@@ -1921,19 +1784,20 @@ fn navigate_remote_surface(
     cell: &SharedHost,
     surface_id: &str,
     webview: &ICoreWebView2,
-    spec: &crate::remote_web::SurfaceSpec,
+    state: &remote_layer::LayerState,
 ) {
+    let url = state.initial_url();
     // SAFETY: the STA thread owns the webview for this function.
-    match &spec.content {
-        crate::remote_web::SurfaceContent::Page(page) => {
-            if unsafe { webview.Navigate(&HSTRING::from(page.url.as_str())) }.is_err() {
+    match state.is_youtube() {
+        false => {
+            if unsafe { webview.Navigate(&HSTRING::from(url.as_str())) }.is_err() {
                 fail_surface_now(cell, surface_id, "load_failed");
             }
         }
-        crate::remote_web::SurfaceContent::YouTube(content) => {
+        true => {
             let written = remote_dirs(cell)
                 .and_then(|(_, wrappers)| {
-                    let html = crate::remote_web::youtube_wrapper(surface_id, content)?;
+                    let html = state.youtube_wrapper()?;
                     std::fs::write(wrappers.join(format!("{surface_id}.html")), html).ok()
                 })
                 .is_some();
@@ -1962,7 +1826,7 @@ fn navigate_remote_surface(
                 fail_surface_now(cell, surface_id, "unsupported_content");
                 return;
             }
-            if unsafe { webview.Navigate(&HSTRING::from(youtube_wrapper_url(surface_id).as_str())) }.is_err() {
+            if unsafe { webview.Navigate(&HSTRING::from(url.as_str())) }.is_err() {
                 fail_surface_now(cell, surface_id, "load_failed");
             }
         }
@@ -1971,14 +1835,9 @@ fn navigate_remote_surface(
 
 /// Fails a surface whose wiring completed but whose navigation cannot
 /// start: marks, emits, and releases the view.
-fn fail_surface_now(cell: &SharedHost, surface_id: &str, code: &str) {
-    if let Some(mut host) = take_host(cell) {
-        if let Some(surface) = host.remote_views.get_mut(surface_id) {
-            surface.failed = true;
-        }
-        put_host(cell, host);
-    }
-    emit_remote(cell, Some(surface_id), "failed", Some(code));
+fn fail_surface_now(cell: &SharedHost, surface_id: &str, code: &'static str) {
+    let event = with_layer(cell, surface_id, |state| state.fail(code)).flatten();
+    emit_layer(cell, surface_id, event);
     remote_destroy(cell, surface_id);
 }
 
@@ -1986,11 +1845,12 @@ fn fail_surface_now(cell: &SharedHost, surface_id: &str, code: &str) {
 /// waiting for its controller keeps the new viewport as its mirror.
 fn remote_viewport(cell: &SharedHost, surface_id: &str, viewport: crate::remote_web::ViewportPx) {
     let Some(mut host) = take_host(cell) else { return };
-    let Some(surface) = host.remote_views.get_mut(surface_id) else {
+    let Some(layer) = host.remote_views.get_mut(surface_id) else {
         put_host(cell, host);
         return;
     };
-    surface.spec.viewport = viewport;
+    layer.state.set_viewport(viewport);
+    let surface = &layer.view;
     crate::win32::move_remote_child(
         surface.child,
         px(viewport.x),
@@ -2013,8 +1873,9 @@ fn remote_viewport(cell: &SharedHost, surface_id: &str, viewport: crate::remote_
 fn remote_visible(cell: &SharedHost, surface_id: &str, visible: bool) {
     let surface = match take_host(cell) {
         Some(mut host) => {
-            let found = host.remote_views.get_mut(surface_id).map(|surface| {
-                surface.spec.visible = visible;
+            let found = host.remote_views.get_mut(surface_id).map(|layer| {
+                let command = layer.state.set_visible(visible);
+                let surface = &layer.view;
                 crate::win32::show_remote_child(surface.child, visible);
                 if let Some(controller) = surface.controller.as_ref() {
                     // SAFETY: the STA thread owns the controller.
@@ -2022,15 +1883,15 @@ fn remote_visible(cell: &SharedHost, surface_id: &str, visible: bool) {
                         let _ = controller.SetIsVisible(visible);
                     }
                 }
-                (surface.webview.clone(), surface.spec.content.clone())
+                (surface.webview.clone(), command)
             });
             put_host(cell, host);
             found
         }
         None => None,
     };
-    if let Some((Some(webview), crate::remote_web::SurfaceContent::YouTube(_))) = surface {
-        run_script_ignored(&webview, if visible { YOUTUBE_PLAY_SCRIPT } else { YOUTUBE_PAUSE_SCRIPT });
+    if let Some((Some(webview), Some(command))) = surface {
+        run_script_ignored(&webview, command);
     }
 }
 
@@ -2038,15 +1899,10 @@ fn remote_visible(cell: &SharedHost, surface_id: &str, visible: bool) {
 /// source in the view, not just the main media element.
 fn remote_muted(cell: &SharedHost, surface_id: &str, muted: bool) {
     let webview = match cell.borrow().as_ref().and_then(|host| host.remote_views.get(surface_id)) {
-        Some(surface) => surface.webview.clone(),
+        Some(layer) => layer.view.webview.clone(),
         None => return,
     };
-    if let Some(mut host) = take_host(cell) {
-        if let Some(surface) = host.remote_views.get_mut(surface_id) {
-            surface.spec.muted = muted;
-        }
-        put_host(cell, host);
-    }
+    with_layer(cell, surface_id, |state| state.set_muted(muted));
     if let Some(webview) = webview {
         // SAFETY: the STA thread owns the webview.
         if webview.cast::<ICoreWebView2_8>().and_then(|view8| unsafe { view8.SetIsMuted(muted) }).is_err() {
@@ -2060,12 +1916,9 @@ fn remote_muted(cell: &SharedHost, surface_id: &str, muted: bool) {
 fn remote_reload(cell: &SharedHost, surface_id: &str) {
     let webview = match take_host(cell) {
         Some(mut host) => {
-            let webview = host.remote_views.get_mut(surface_id).map(|surface| {
-                surface.loaded = false;
-                surface.stream_ready = false;
-                surface.failed = false;
-                surface.youtube_ended = false;
-                surface.webview.clone()
+            let webview = host.remote_views.get_mut(surface_id).map(|layer| {
+                layer.state.reload();
+                layer.view.webview.clone()
             });
             put_host(cell, host);
             webview
@@ -2080,58 +1933,37 @@ fn remote_reload(cell: &SharedHost, surface_id: &str) {
     }
 }
 
-/// The cookie hosts a `first_party` surface keeps: its allowlist.
-fn first_party_keep_hosts(surface: &RemoteSurface) -> Vec<String> {
-    match &surface.spec.content {
-        crate::remote_web::SurfaceContent::Page(page) if surface.profile_name == PROFILE_FIRST_PARTY => {
-            page.allowed_hosts.clone()
-        }
-        _ => Vec::new(),
-    }
-}
-
-/// Destroys a remote view and releases its data per policy: unique
-/// profiles clear wholesale, `first_party` strips non-allowlist cookies,
-/// shared persistent profiles keep the engine's normal rules.
+/// Destroys a remote view and releases its data by the release the
+/// shared coordinator decides: per-surface profiles clear wholesale,
+/// `first_party` strips cookies outside every open first-party
+/// allowlist, other shared profiles keep the engine's normal rules.
 fn remote_destroy(cell: &SharedHost, surface_id: &str) {
-    let (removed, keep_hosts) = match take_host(cell) {
+    let removed = match take_host(cell) {
         Some(mut host) => {
             let removed = host.remote_views.remove(surface_id);
-            if !host.remote_views.values().any(|surface| {
-                surface.webview.is_some()
-                    && matches!(surface.spec.content, crate::remote_web::SurfaceContent::YouTube(_))
-            }) && host.youtube_polling
-            {
+            if !host.remote_views.has_youtube(|surface| surface.webview.is_some()) && host.youtube_polling {
                 crate::win32::stop_poll_timer(host.window.hwnd(), YOUTUBE_TIMER_ID);
                 host.youtube_polling = false;
             }
-            // The first-party profile is shared: the strip keeps the hosts
-            // of every surface still open on it, not only this surface's.
-            let mut keep_hosts: Vec<String> = host.remote_views.values().flat_map(first_party_keep_hosts).collect();
-            if let Some(surface) = &removed {
-                keep_hosts.extend(first_party_keep_hosts(surface));
-            }
             put_host(cell, host);
-            (removed, keep_hosts)
+            removed
         }
-        None => (None, Vec::new()),
+        None => None,
     };
-    let Some(surface) = removed else { return };
-    release_remote_surface(cell, surface_id, surface, keep_hosts);
+    let Some(released) = removed else { return };
+    release_remote_surface(cell, released);
 }
 
 /// Closes a removed surface's view and releases its browsing data. Shared
 /// by a normal destroy and by the renderer-failure path, so no way of
 /// ending a surface leaves its data behind.
-fn release_remote_surface(cell: &SharedHost, surface_id: &str, surface: RemoteSurface, keep_hosts: Vec<String>) {
-    if matches!(surface.spec.content, crate::remote_web::SurfaceContent::YouTube(_))
+fn release_remote_surface(cell: &SharedHost, released: Released<RemoteSurface>) {
+    let Released { surface_id, view: surface, policy, release, keep_hosts, visited_hosts } = released;
+    if policy == RemoteDataPolicy::YouTube
         && let Some((_, wrappers)) = remote_dirs(cell)
     {
         let _ = std::fs::remove_file(wrappers.join(format!("{surface_id}.html")));
     }
-    let unique =
-        surface.profile_name.starts_with("tc-rw-ephemeral-") || surface.profile_name.starts_with("tc-rw-nodom-");
-    let first_party = surface.profile_name == PROFILE_FIRST_PARTY;
     // The profile and cookie manager come from the webview before its
     // controller closes; both stay usable after (profile-scoped).
     let webview = surface.webview;
@@ -2146,19 +1978,19 @@ fn release_remote_surface(cell: &SharedHost, surface_id: &str, surface: RemoteSu
         crate::win32::destroy_remote_child(child);
         return;
     };
-    if unique {
-        clear_profile_then(&view, COREWEBVIEW2_BROWSING_DATA_KINDS_ALL_PROFILE, move |_| {
-            crate::win32::destroy_remote_child(child);
-        });
-        return;
+    match release {
+        DataRelease::DiscardSurfaceStore => {
+            clear_profile_then(&view, COREWEBVIEW2_BROWSING_DATA_KINDS_ALL_PROFILE, move |_| {
+                crate::win32::destroy_remote_child(child);
+            });
+        }
+        DataRelease::StripForeignCookies => {
+            strip_surface_cookies(&view, keep_hosts, visited_hosts, move || {
+                crate::win32::destroy_remote_child(child);
+            });
+        }
+        DataRelease::Keep => crate::win32::destroy_remote_child(child),
     }
-    if first_party {
-        strip_surface_cookies(&view, keep_hosts, surface.hosts, move || {
-            crate::win32::destroy_remote_child(child);
-        });
-        return;
-    }
-    crate::win32::destroy_remote_child(child);
 }
 
 /// Clears one profile's browsing data, then runs `done` on this thread.
@@ -2421,19 +2253,15 @@ fn remote_clear_data(cell: &SharedHost, reply: Option<tokio::sync::oneshot::Send
     // Live profiles clear through their views; idle shared profiles
     // (whose disk data outlives their views by policy) clear through
     // transient controllers below.
-    let mut live: Vec<(String, ICoreWebView2)> = Vec::new();
+    // The shared coordinator decides which views and idle profiles the
+    // clear must reach.
+    let mut live: Vec<ICoreWebView2> = Vec::new();
+    let mut uncovered: VecDeque<String> = VecDeque::new();
     if let Some(host) = cell.borrow().as_ref() {
-        for surface in host.remote_views.values() {
-            if let Some(view) = surface.webview.clone()
-                && !live.iter().any(|(name, _)| *name == surface.profile_name)
-            {
-                live.push((surface.profile_name.clone(), view));
-            }
-        }
+        let plan = host.remote_views.clear_plan(|surface| surface.webview.is_some());
+        live.extend(plan.live.iter().filter_map(|id| host.remote_views.get(id)?.view.webview.clone()));
+        uncovered.extend(plan.idle.into_iter().filter_map(shared_profile).map(str::to_owned));
     }
-    let mut uncovered: VecDeque<String> =
-        [PROFILE_FIRST_PARTY, PROFILE_PERSISTENT, PROFILE_YOUTUBE].into_iter().map(str::to_owned).collect();
-    uncovered.retain(|name| !live.iter().any(|(live_name, _)| live_name == name));
     // The janitor child exists only while a clear needs it.
     if !uncovered.is_empty() {
         let parent = cell.borrow().as_ref().map(|host| host.window.hwnd());
@@ -2463,7 +2291,7 @@ fn remote_clear_data(cell: &SharedHost, reply: Option<tokio::sync::oneshot::Send
         clear_next_uncovered(cell_owned, Rc::clone(&clear));
         return;
     }
-    for (_, view) in live {
+    for view in live {
         let clear2 = Rc::clone(&clear);
         let cell2: SharedHost = Rc::clone(cell);
         clear_profile_then(&view, COREWEBVIEW2_BROWSING_DATA_KINDS_ALL_PROFILE, move |cleared| {
@@ -2486,7 +2314,7 @@ fn remote_clear_data(cell: &SharedHost, reply: Option<tokio::sync::oneshot::Send
 /// The views close (their controllers are dead); the environment stays
 /// for the re-creates the Runtime sends after recovery.
 fn remote_process_failed(cell: &SharedHost) {
-    let mut released: Vec<(String, RemoteSurface)> = Vec::new();
+    let mut released: Vec<Released<RemoteSurface>> = Vec::new();
     if let Some(mut host) = take_host(cell) {
         released.extend(host.remote_views.drain());
         if host.youtube_polling {
@@ -2498,11 +2326,10 @@ fn remote_process_failed(cell: &SharedHost) {
     // Every drained surface goes through the normal release, so unique
     // profiles clear and the first-party profile is stripped. The recovery
     // keeps this environment and does not run the startup sweep.
-    let keep_hosts: Vec<String> = released.iter().flat_map(|(_, surface)| first_party_keep_hosts(surface)).collect();
-    for (surface_id, surface) in released {
-        release_remote_surface(cell, &surface_id, surface, keep_hosts.clone());
+    for released in released {
+        release_remote_surface(cell, released);
     }
-    emit_remote(cell, None, "process-terminated", None);
+    emit_event(cell, remote_layer::process_terminated());
 }
 
 /// The main controller restarts: remote views go with it, and their
@@ -2512,8 +2339,9 @@ fn remote_reset_for_restart(cell: &SharedHost) {
     let profiles: Vec<ICoreWebView2> = match take_host(cell) {
         Some(mut host) => {
             let profiles: Vec<ICoreWebView2> =
-                host.remote_views.values().filter_map(|surface| surface.webview.clone()).collect();
-            for (_, surface) in host.remote_views.drain() {
+                host.remote_views.iter().filter_map(|(_, layer)| layer.view.webview.clone()).collect();
+            for released in host.remote_views.drain() {
+                let surface = released.view;
                 if let Some(controller) = surface.controller {
                     // SAFETY: the STA thread owns the controller.
                     unsafe {
@@ -2544,12 +2372,8 @@ fn poll_youtube_surfaces(cell: &SharedHost) {
         Some(host) => host
             .remote_views
             .iter()
-            .filter(|(_, surface)| {
-                surface.webview.is_some()
-                    && !surface.failed
-                    && matches!(surface.spec.content, crate::remote_web::SurfaceContent::YouTube(_))
-            })
-            .filter_map(|(id, surface)| surface.webview.clone().map(|view| (id.clone(), view)))
+            .filter(|(_, layer)| layer.state.is_youtube() && !layer.state.failed())
+            .filter_map(|(id, layer)| layer.view.webview.clone().map(|view| (id.to_owned(), view)))
             .collect(),
         None => return,
     };
@@ -2561,57 +2385,13 @@ fn poll_youtube_surfaces(cell: &SharedHost) {
                     return Ok(());
                 }
                 let token = serde_json::from_str::<String>(&json).unwrap_or_default();
-                let Some(state) = crate::remote_web::parse_youtube_state(&token) else { return Ok(()) };
-                let event = match take_host(&poll_cell) {
-                    Some(mut host) => {
-                        let event = host.remote_views.get_mut(&surface_id).and_then(|surface| {
-                            if surface.failed {
-                                return None;
-                            }
-                            match state {
-                                crate::remote_web::YouTubeState::Loading => None,
-                                crate::remote_web::YouTubeState::Ready
-                                | crate::remote_web::YouTubeState::Playing
-                                | crate::remote_web::YouTubeState::Buffering
-                                | crate::remote_web::YouTubeState::Paused => {
-                                    let mut event = None;
-                                    if !surface.loaded {
-                                        surface.loaded = true;
-                                        event = Some(("loaded", None));
-                                    } else if state == crate::remote_web::YouTubeState::Playing && !surface.stream_ready
-                                    {
-                                        surface.stream_ready = true;
-                                        event = Some(("stream-ready", None));
-                                    }
-                                    event
-                                }
-                                crate::remote_web::YouTubeState::Ended => {
-                                    if surface.youtube_ended {
-                                        None
-                                    } else {
-                                        surface.youtube_ended = true;
-                                        Some(("media-ended", None))
-                                    }
-                                }
-                                crate::remote_web::YouTubeState::Error(_) => {
-                                    surface.failed = true;
-                                    Some(("failed", Some("youtube_error")))
-                                }
-                            }
-                        });
-                        put_host(&poll_cell, host);
-                        event
-                    }
-                    None => None,
-                };
-                if let Some((kind, code)) = event {
-                    emit_remote(&poll_cell, Some(&surface_id), kind, code);
-                }
+                let event = with_layer(&poll_cell, &surface_id, |state| state.youtube_state(&token)).flatten();
+                emit_layer(&poll_cell, &surface_id, event);
                 Ok(())
             }));
         // SAFETY: the STA thread owns the webview; the handler is
         // AddRef'd by the call.
-        if unsafe { view.ExecuteScript(&HSTRING::from(YOUTUBE_POLL_SCRIPT), &handler) }.is_err() {
+        if unsafe { view.ExecuteScript(&HSTRING::from(remote_layer::YOUTUBE_POLL_SCRIPT), &handler) }.is_err() {
             tracing::debug!(component = "webview", event = "youtube_poll_failed");
         }
     }
