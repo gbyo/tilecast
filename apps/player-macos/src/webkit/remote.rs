@@ -84,6 +84,13 @@ fn with_remote<R>(f: impl FnOnce(&mut Remote) -> R) -> Option<R> {
 }
 
 fn emit(event: webview_host::bridge::RemoteWebEvent) {
+    tracing::debug!(
+        component = "webkit",
+        event = "remote_event",
+        surface = event.surface_id.as_deref().unwrap_or("-"),
+        kind = event.kind.as_str(),
+        code = event.code.as_deref().unwrap_or("-"),
+    );
     with_remote(|remote| {
         if remote.events.try_send(UiEvent::Remote { event }).is_err() {
             tracing::warn!(component = "webkit", event = "event_queue_full");
@@ -146,6 +153,7 @@ pub fn reset() {
 
 /// Handles one remote command on the main thread.
 pub fn handle(command: UiCommand) {
+    tracing::debug!(component = "webkit", event = "remote_command", command = command_name(&command));
     match command {
         UiCommand::RemoteCreate { spec } => create(spec),
         UiCommand::RemoteViewport { surface_id, viewport } => set_viewport(&surface_id, viewport),
@@ -160,6 +168,21 @@ pub fn handle(command: UiCommand) {
         }
         UiCommand::RemoteClearData { reply } => clear_data(reply),
         _ => {}
+    }
+}
+
+fn command_name(command: &UiCommand) -> &'static str {
+    match command {
+        UiCommand::RemoteCreate { .. } => "create",
+        UiCommand::RemoteViewport { .. } => "viewport",
+        UiCommand::RemoteVisible { visible: true, .. } => "show",
+        UiCommand::RemoteVisible { visible: false, .. } => "hide",
+        UiCommand::RemoteMuted { .. } => "mute",
+        UiCommand::RemoteReload { .. } => "reload",
+        UiCommand::RemoteDestroy { .. } => "destroy",
+        UiCommand::RemoteRecovered => "recovered",
+        UiCommand::RemoteClearData { .. } => "clear_data",
+        _ => "other",
     }
 }
 
