@@ -23,7 +23,7 @@ use block2::{DynBlock, RcBlock};
 use dispatch2::{DispatchQueue, DispatchTime};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, Bool, NSObject, ProtocolObject};
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
+use objc2::{AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSView, NSWindow, NSWindowOrderingMode};
 use objc2_foundation::{
     NSArray, NSDate, NSError, NSHTTPCookie, NSHTTPURLResponse, NSNumber, NSObjectProtocol, NSPoint, NSRect, NSSize,
@@ -171,8 +171,9 @@ pub fn installed() -> bool {
 // ---- create ----
 
 fn identified_store(mtm: MainThreadMarker, id: &str) -> Option<Retained<WKWebsiteDataStore>> {
-    let uuid = uuid::Uuid::parse_str(id).ok()?;
-    let uuid = NSUUID::from_bytes(*uuid.as_bytes());
+    // `NSUUID::from_bytes` has a wrong type encoding in objc2-foundation
+    // and aborts; the string initializer is the supported route.
+    let uuid = NSUUID::initWithUUIDString(NSUUID::alloc(), &NSString::from_str(id))?;
     // SAFETY: main thread; macOS 14 is the minimum (docs/tilecast-macos.md).
     Some(unsafe { WKWebsiteDataStore::dataStoreForIdentifier(&uuid, mtm) })
 }
