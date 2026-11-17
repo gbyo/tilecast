@@ -226,6 +226,23 @@ pub fn remote_view_plan(state: &LayerState) -> RemoteViewPlan {
     }
 }
 
+/// How a remote view answers an authentication challenge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChallengeAnswer {
+    /// The system's own server-trust evaluation, which refuses self-signed,
+    /// expired, wrong-host, and untrusted chains. There is no bypass.
+    SystemTrust,
+    /// Website credentials and client certificates are out of scope:
+    /// cancelled without a prompt.
+    Cancel,
+}
+
+pub const SERVER_TRUST_METHOD: &str = "NSURLAuthenticationMethodServerTrust";
+
+pub fn challenge_answer(authentication_method: &str) -> ChallengeAnswer {
+    if authentication_method == SERVER_TRUST_METHOD { ChallengeAnswer::SystemTrust } else { ChallengeAnswer::Cancel }
+}
+
 /// A navigation error from WebKit, reduced to the shared categories.
 /// Domains are `NSURLErrorDomain` and `WebKitErrorDomain`; anything else
 /// is a generic load failure.
@@ -521,5 +538,20 @@ mod tests {
         assert!(!started_by_wrapper(false, "https", "org.tilecast.player"));
         assert!(!started_by_wrapper(true, "https", "www.youtube-nocookie.com"));
         assert!(!started_by_wrapper(true, "http", "org.tilecast.player"));
+    }
+
+    #[test]
+    fn only_server_trust_gets_system_evaluation() {
+        assert_eq!(challenge_answer("NSURLAuthenticationMethodServerTrust"), ChallengeAnswer::SystemTrust);
+        for method in [
+            "NSURLAuthenticationMethodHTTPBasic",
+            "NSURLAuthenticationMethodHTTPDigest",
+            "NSURLAuthenticationMethodNTLM",
+            "NSURLAuthenticationMethodClientCertificate",
+            "NSURLAuthenticationMethodNegotiate",
+            "",
+        ] {
+            assert_eq!(challenge_answer(method), ChallengeAnswer::Cancel, "{method}");
+        }
     }
 }

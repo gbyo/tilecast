@@ -26,8 +26,8 @@ use objc2::runtime::{AnyObject, Bool, NSObject, ProtocolObject};
 use objc2::{AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSView, NSWindow, NSWindowOrderingMode};
 use objc2_foundation::{
-    NSArray, NSDate, NSError, NSHTTPCookie, NSHTTPURLResponse, NSNumber, NSObjectProtocol, NSPoint, NSRect, NSSize,
-    NSString, NSURL, NSURLAuthenticationChallenge, NSURLAuthenticationMethodServerTrust, NSURLCredential, NSURLRequest,
+    NSArray, NSDate, NSError, NSHTTPCookie, NSHTTPURLResponse, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol,
+    NSPoint, NSRect, NSSize, NSString, NSURL, NSURLAuthenticationChallenge, NSURLCredential, NSURLRequest,
     NSURLSessionAuthChallengeDisposition, NSUUID,
 };
 use objc2_web_kit::{
@@ -860,18 +860,23 @@ define_class!(
             challenge: &NSURLAuthenticationChallenge,
             completion: &DynBlock<dyn Fn(NSURLSessionAuthChallengeDisposition, *mut NSURLCredential)>,
         ) {
-            // Server trust gets the system's evaluation, which refuses
-            // self-signed, expired, wrong-host, and untrusted chains; there
-            // is no bypass. Website credentials and client certificates
-            // are out of scope: cancelled, never prompted.
-            // WebKit owns the challenge for the call.
-            let method = challenge.protectionSpace().authenticationMethod();
-            // SAFETY: a constant Foundation string.
-            let server_trust = &*method == unsafe { NSURLAuthenticationMethodServerTrust };
-            let disposition = if server_trust {
-                NSURLSessionAuthChallengeDisposition::PerformDefaultHandling
-            } else {
-                NSURLSessionAuthChallengeDisposition::CancelAuthenticationChallenge
+            // WebKit hands over a proxy object: reading its protection space
+            // through key-value coding follows the proxy's forwarding, which
+            // a direct typed message send does not. The decision is
+            // `policy::challenge_answer`; an unreadable method is cancelled.
+            let method = challenge
+                .valueForKey(&NSString::from_str("protectionSpace"))
+                .and_then(|space| {
+                    // SAFETY: the protection space is an NSObject.
+                    let space: &NSObject = unsafe { &*(Retained::as_ptr(&space) as *const NSObject) };
+                    space.valueForKey(&NSString::from_str("authenticationMethod"))
+                })
+                .and_then(|method| method.downcast::<NSString>().ok())
+                .map(|method| method.to_string())
+                .unwrap_or_default();
+            let disposition = match policy::challenge_answer(&method) {
+                policy::ChallengeAnswer::SystemTrust => NSURLSessionAuthChallengeDisposition::PerformDefaultHandling,
+                policy::ChallengeAnswer::Cancel => NSURLSessionAuthChallengeDisposition::CancelAuthenticationChallenge,
             };
             completion.call((disposition, std::ptr::null_mut()));
         }
