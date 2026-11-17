@@ -17,6 +17,7 @@ anyhow.workspace = true
 async-trait.workspace = true
 clap.workspace = true
 ring.workspace = true
+serde_json.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -29,7 +30,60 @@ rustix.workspace = true
 core-foundation.workspace = true
 libc.workspace = true
 objc2-core-graphics = { workspace = true, features = ["CGDirectDisplay"] }
-objc2-foundation = { workspace = true, features = ["NSLocale", "NSPathUtilities", "NSString"] }
+objc2-foundation = { workspace = true, features = [
+    "block2",
+    "NSArray",
+    "NSBundle",
+    "NSData",
+    "NSDictionary",
+    "NSError",
+    "NSGeometry",
+    "NSLocale",
+    "NSObjCRuntime",
+    "NSPathUtilities",
+    "NSProcessInfo",
+    "NSString",
+    "NSURL",
+    "NSURLRequest",
+    "NSURLResponse",
+    "NSValue",
+] }
+block2.workspace = true
+dispatch2.workspace = true
+objc2.workspace = true
+objc2-app-kit = { workspace = true, features = [
+    "NSApplication",
+    "NSColor",
+    "NSGraphics",
+    "NSResponder",
+    "NSRunningApplication",
+    "NSScreen",
+    "NSView",
+    "NSWindow",
+] }
+objc2-web-kit = { workspace = true, features = [
+    "block2",
+    "objc2-app-kit",
+    "objc2-core-foundation",
+    "WKContentWorld",
+    "WKFrameInfo",
+    "WKNavigation",
+    "WKNavigationAction",
+    "WKNavigationDelegate",
+    "WKPreferences",
+    "WKScriptMessage",
+    "WKScriptMessageHandlerWithReply",
+    "WKSecurityOrigin",
+    "WKUIDelegate",
+    "WKURLSchemeHandler",
+    "WKURLSchemeTask",
+    "WKUserContentController",
+    "WKUserScript",
+    "WKWebView",
+    "WKWebViewConfiguration",
+    "WKWebsiteDataStore",
+    "WKWindowFeatures",
+] }
 security-framework.workspace = true
 
 [features]

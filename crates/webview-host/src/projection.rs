@@ -225,10 +225,14 @@ pub fn span_viewport(document: &Value) -> Result<Option<Value>, Incompatibility>
     Ok(Some(out))
 }
 
-/// Everything in `document` this renderer cannot safely provide. An empty
-/// list means compatible.
-pub fn incompatibilities(document: &Value, assets: &[ManifestAsset]) -> Vec<Incompatibility> {
-    let packaged = crate::renderer_adapter::packaged_profile();
+/// Everything in `document` a renderer with `features` cannot safely
+/// provide. An empty list means compatible.
+pub fn incompatibilities(
+    document: &Value,
+    assets: &[ManifestAsset],
+    features: crate::host::RendererFeatures,
+) -> Vec<Incompatibility> {
+    let packaged = crate::renderer_adapter::packaged_profile(features);
     let mut out = Vec::new();
     let mut push = |reason: Incompatibility| {
         if !out.contains(&reason) {
@@ -942,7 +946,7 @@ mod tests {
         assert_eq!(native.required_frames.len(), 1);
         assert_eq!(native.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
         assert!(aliases.is_empty() && content.is_empty());
-        assert!(incompatibilities(&native.document, &native.assets).is_empty());
+        assert!(incompatibilities(&native.document, &native.assets, crate::host::RendererFeatures::BASE).is_empty());
     }
 
     #[test]
@@ -958,7 +962,7 @@ mod tests {
         let (forwarded, aliases, content) = Projector::new(&native).plugins().expect("state channel");
         assert_eq!(forwarded, vec![entry]);
         assert!(aliases.is_empty() && content.is_empty());
-        assert!(incompatibilities(&native.document, &native.assets).is_empty());
+        assert!(incompatibilities(&native.document, &native.assets, crate::host::RendererFeatures::BASE).is_empty());
     }
 
     #[test]

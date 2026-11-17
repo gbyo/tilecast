@@ -46,6 +46,7 @@ pub mod renderer_adapter;
 pub mod runtime_files;
 pub mod schemes;
 pub mod seal;
+pub mod serve;
 pub mod telemetry;
 #[cfg(feature = "test-util")]
 pub mod testing;

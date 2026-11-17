@@ -1,7 +1,7 @@
 # Tilecast Player Runtime
 
 **Package:** `packages/player-runtime` (`@tilecast/player-runtime`)
-**Hosts:** the WPE renderer (`apps/edge/renderer-wpe`), the WebView2 renderer host (`apps/player-windows`), the legacy Electron Linux player (`apps/player-linux`), and the Android trusted local WebView as Android convergence lands (`apps/player-android`)
+**Hosts:** the WPE renderer (`apps/edge/renderer-wpe`), the WebView2 renderer host (`apps/player-windows`), the `WKWebView` renderer host (`apps/player-macos`, in development), the legacy Electron Linux player (`apps/player-linux`), and the Android trusted local WebView as Android convergence lands (`apps/player-android`)
 **Host contract:** `TilecastRuntimeHostV1` (contract version 1)
 
 The Player Runtime is the one trusted playback document and engine for Tilecast screens. WPE and WebView2 host the same built artifact from the same runtime sources, and Android's convergence loads that same runtime behind its trusted local WebView boundary, so presentation behavior does not acquire a host-specific Widget renderer. The Electron Linux player is legacy and migration-oriented: it keeps existing Linux screens running and remains the conformance reference engine, but new Linux investment goes to Tilecast Edge.
