@@ -45,6 +45,7 @@ use objc2_web_kit::{
 use tokio::sync::mpsc;
 
 use super::policy::{self, HostQueue, MessageSource, Pull, PullDocument};
+use super::remote::{self, LayerView};
 use webview_host::media::RendererInstance;
 use webview_host::schemes::{MEDIA_SCHEME, RUNTIME_ENTRY_URL, RUNTIME_SCHEME};
 use webview_host::ui::{
@@ -107,6 +108,9 @@ struct View {
     tokio: tokio::runtime::Handle,
     bootstrap: String,
     window: Retained<NSWindow>,
+    /// The window's content: a flipped layer view with the Runtime web
+    /// view at the bottom and remote surfaces above it.
+    root: Retained<LayerView>,
     webview: Option<Retained<WKWebView>>,
     /// The navigation delegate; WebKit holds it weakly.
     navigation: Option<Retained<NavigationDelegate>>,
@@ -193,6 +197,8 @@ fn start(
         None => webview_host::ui::bootstrap_script(BridgeTransport::WebKit, &services.info, &services.capabilities),
     };
     let window = open_window(mtm, services.conformance.as_ref().map(|c| (c.width, c.height)));
+    let root = LayerView::new(mtm, None);
+    window.setContentView(Some(&root));
     services.main_window.store(Retained::as_ptr(&window) as usize, Ordering::SeqCst);
     let serve = Arc::new(ServeContext {
         runtime: services.runtime.clone(),
@@ -200,6 +206,8 @@ fn start(
         cas: services.cas.clone(),
     });
     let session = services.session;
+    // Conformance fixtures never create remote surfaces.
+    let remote_events = services.conformance.is_none().then(|| events.clone());
     VIEW.with(|cell| {
         *cell.borrow_mut() = Some(View {
             mtm,
@@ -209,7 +217,8 @@ fn start(
             commands,
             tokio,
             bootstrap,
-            window,
+            window: window.clone(),
+            root: root.clone(),
             webview: None,
             navigation: None,
             generation: 0,
@@ -220,6 +229,11 @@ fn start(
             next_task: 0,
         })
     });
+    // Remote web serves before the first session, so a startup Website
+    // data clear finds it available.
+    if let Some(events) = remote_events {
+        remote::install(mtm, events, window, root);
+    }
     match create_webview(session) {
         Ok(()) => {
             let _ = ready.send(Ok(()));
@@ -273,13 +287,13 @@ fn open_window(mtm: MainThreadMarker, fixed: Option<(i32, i32)>) -> Retained<NSW
 /// Builds a web view for a new generation bound to `session`, installs
 /// the bootstrap and handlers, and starts the Runtime navigation.
 fn create_webview(session: uuid::Uuid) -> Result<(), String> {
-    let Some((mtm, generation, bootstrap, window)) = with_view(|view| {
+    let Some((mtm, generation, bootstrap, window, root)) = with_view(|view| {
         view.generation += 1;
         view.services.session = session;
         view.queue.clear();
         view.document.forget();
         view.pull = None;
-        (view.mtm, view.generation, view.bootstrap.clone(), view.window.clone())
+        (view.mtm, view.generation, view.bootstrap.clone(), view.window.clone(), view.root.clone())
     }) else {
         return Err("the renderer state is unavailable".to_owned());
     };
@@ -341,7 +355,7 @@ fn create_webview(session: uuid::Uuid) -> Result<(), String> {
         webview.setAllowsMagnification(false);
         webview.setUnderPageBackgroundColor(Some(&NSColor::blackColor()));
     }
-    window.setContentView(Some(&webview));
+    remote::attach_runtime(&root, &webview);
 
     {
         let services_media = with_view(|view| Arc::clone(&view.services.media)).ok_or("the renderer state is gone")?;
@@ -392,6 +406,7 @@ fn retire_webview() {
 
 /// Ends the renderer: the web view, its grants, and the window.
 fn teardown(event: Option<UiEvent>) {
+    remote::uninstall();
     retire_webview();
     let state = VIEW.with(|cell| cell.borrow_mut().take());
     let Some(view) = state else { return };
@@ -425,21 +440,19 @@ fn drain_commands() {
                 // Studio previews use final-output capture (#1928).
                 let _ = reply.send(Err("preview capture is not available on the macOS renderer".to_owned()));
             }
-            UiCommand::RemoteClearData { reply } => {
+            UiCommand::RemoteClearData { reply } if !remote::installed() => {
                 if let Some(reply) = reply {
                     let _ = reply.send(false);
                 }
             }
-            UiCommand::RemoteCreate { .. }
+            command @ (UiCommand::RemoteCreate { .. }
             | UiCommand::RemoteViewport { .. }
             | UiCommand::RemoteVisible { .. }
             | UiCommand::RemoteMuted { .. }
             | UiCommand::RemoteReload { .. }
             | UiCommand::RemoteDestroy { .. }
-            | UiCommand::RemoteRecovered => {
-                // Remote web is not offered on macOS (gbyo/tilecast#1927).
-                tracing::warn!(component = "webkit", event = "remote_web_unavailable");
-            }
+            | UiCommand::RemoteRecovered
+            | UiCommand::RemoteClearData { .. }) => remote::handle(command),
         }
     }
 }
@@ -449,6 +462,9 @@ fn drain_commands() {
 /// messages and pull never reach the new document.
 fn restart(reason: &str) {
     tracing::info!(component = "webkit", event = "renderer_restart", reason);
+    // The remote layers go with the renderer; the new Runtime re-creates
+    // what it still shows.
+    remote::reset();
     retire_webview();
     let session = uuid::Uuid::new_v4();
     if let Err(reason) = create_webview(session) {

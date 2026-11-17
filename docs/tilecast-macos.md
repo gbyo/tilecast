@@ -140,6 +140,110 @@ The navigation delegate lets the top frame load only the Runtime document.
 It refuses every other navigation and every subframe navigation. The web
 view uses a non-persistent website data store.
 
+### Remote Website and YouTube views
+
+Website and YouTube content render in separate `WKWebView`s. The Runtime
+keeps `remoteWeb: "host-view"` ownership of timing, fallback, and
+lifecycle. The host owns the views and the platform security policy. The
+shared contract is in `webview_host::remote_web` (validated specs, the
+bounded surface tracker, navigation rules, the YouTube wrapper, and the
+failure vocabulary). `webview_host::remote_layer` holds the rest of the
+engine-neutral behavior, which Windows also uses:
+
+- the data policy of each surface (`RemoteDataPolicy`);
+- the lifecycle state of each surface and the events it produces;
+- top-level and subframe navigation decisions;
+- the mapping of engine load results to failure codes;
+- what a destroy releases and what a clear-data request must reach;
+- the bounded surface map in stacking order.
+
+`apps/player-macos/src/webkit/remote.rs` is the WebKit glue. `policy.rs`
+holds the macOS decisions that need no WebKit process.
+
+**Layering.** The window content is a flipped layer view. The Runtime web
+view is the bottom subview and fills the view. Each remote surface is a
+backdrop view, with the configured background color, that holds one
+`WKWebView`. A later surface sits above an earlier one. The frame of a
+surface is the validated device-pixel viewport divided by the window
+backing scale, so it follows the Runtime's own coordinates when the window
+resizes or moves between displays. Hiding a surface hides its backdrop. A
+destroy removes both views and clears their delegates. The host keeps at
+most four surfaces.
+
+**Isolation.** `policy::remote_view_plan` is the whole configuration of a
+remote view. It has no `tilecast` or `tcmedia` scheme handler, no script
+message handler, and no user script, so a remote page has no
+`tilecastRuntimeHost` and no bridge. The view never uses the Runtime's
+data store. The Web Inspector is off. A remote view has no access to
+Player Core, credentials, or CAS paths.
+
+**Navigation.** The navigation delegate sends each top-level navigation to
+`LayerState::top_level_navigation` and each subframe navigation to
+`LayerState::subframe_navigation`. The rules are the shared Website
+rules: the configured scheme, no credentials, default ports only, and the
+exact allowed hosts. A refused top-level navigation is cancelled and
+reported as `navigation-blocked`. It is never given to `NSWorkspace`, so
+`mailto:`, `tel:`, `file:`, `javascript:`, `data:`, App Store, and custom
+schemes cannot open another application. A navigation without a target
+frame (a popup) is cancelled. Third-party subresources load, as on the
+other Players: the allowlist applies to top-level navigation.
+
+**Permissions.** The UI delegate creates no window, answers JavaScript
+alert, confirm, and prompt dialogs without showing them, selects no files,
+and denies camera, microphone, and motion permissions. A download, or a
+response that WebKit cannot show, is cancelled. Website credentials and
+client certificates are cancelled without a prompt.
+
+**TLS.** A server-trust challenge gets the system's default evaluation,
+and deprecated TLS is refused. A self-signed, expired, wrong-host, or
+untrusted certificate fails the load, and the surface reports
+`tls_failure`. There is no path that ignores a certificate error.
+
+**Website data.** `RemoteDataPolicy` chooses the store:
+
+| Policy                | Selected by                                        | Store                                    | When the surface ends                   |
+| --------------------- | -------------------------------------------------- | ---------------------------------------- | --------------------------------------- |
+| `EphemeralSurface`    | cookies `disabled`                                 | New non-persistent store for the surface | The store is cleared and released       |
+| `IsolatedNoDomStorage`| cookies allowed, `domStorageEnabled: false`        | New non-persistent store for the surface | The store is cleared and released       |
+| `PersistentFirstParty`| `first_party` with DOM storage                     | Persistent store `…A101`                 | Cookies outside the allowed hosts of every open first-party surface are deleted |
+| `PersistentAll`       | `first_and_third_party` with DOM storage           | Persistent store `…A102`                 | Kept                                    |
+| `YouTube`             | YouTube content                                    | Persistent store `…A103`                 | Kept                                    |
+
+The persistent stores come from `WKWebsiteDataStore dataStoreForIdentifier:`
+(macOS 14) with three fixed identifiers, so the number of stores does not
+grow. A `first_party` strip lists every cookie of the store, so a cookie
+that a third-party subresource set is found without a navigation to its
+host.
+
+**Clear data.** The clear-website-data command removes every WebKit data
+type (cookies, HTTP cache, DOM and local storage, IndexedDB, service
+workers, and temporary data) from every live private store and from all
+three persistent stores, whether or not a surface uses them. The command
+answers `true` only when every store completed. It does not touch the
+Runtime view, the pairing credential, the CAS, or the Player state. Live
+pages keep running, and their next load starts from the cleared store.
+
+**YouTube.** The surface loads the shared Tilecast wrapper
+(`remote_web::youtube_wrapper`) from memory with the base URL
+`https://org.tilecast.player/<surface>.html`, the fixed origin that the
+YouTube iframe API requires. The origin serves nothing, because the host
+has no scheme handler for it. The wrapper has no message handler. The
+host polls its state token every 500 ms in the client content world and
+reports `loaded`, `stream-ready`, `media-ended`, and `failed` with
+`youtube_error`. The wrapper starts paused. Visibility plays or pauses it.
+
+**Mute.** WebKit has no public page mute on macOS. The host uses the
+`_setPageMuted:` selector that Safari uses. If a WebKit does not have it,
+the surface fails with `unsupported_content` and does not play unmuted.
+
+**Recovery.** A remote surface has its own web content process. When it
+ends, only that surface reports `renderer_crash`, and the Runtime's
+failure policy decides what replaces it. The Runtime view and the other
+surfaces continue. This path is separate from the Runtime's
+`webViewWebContentProcessDidTerminate`. A `RemoteRecovered` command
+announces that remote web serves. A Runtime restart removes all remote
+layers, and the new Runtime creates the surfaces it still shows.
+
 ### Runtime bridge
 
 The bootstrap is the shared `runtime_host.js` with the WebKit transport
@@ -198,8 +302,8 @@ session's grants stop resolving when the new session binds.
 build and the macOS release. The renderer features are
 `RendererFeatures::BASE`:
 
-- `remoteWeb` is `null` and the heartbeat reports `webRuntimeVersion` 0.
-  Website and YouTube views belong to gbyo/tilecast#1927.
+- `remoteWeb` is `"host-view"`, and the heartbeat reports `web.remote`.
+  Remote web alone does not make the external frame ABI eligible.
 - `externalFrames` is `false`. The host does not serve `tcwidget://` and
   does not report `widget.external-runtime`. External Plugin frames
   (`plugin.external-runtime@1`) stay disabled.
@@ -233,7 +337,11 @@ Windows host runs the same scenarios over its services. The Keychain unit
 test writes a throwaway item to the login Keychain and removes it.
 
 `src/webkit/policy.rs` tests the bridge source checks, the navigation
-policy, and the host message queue without a WebKit process. The shared
+policy, the host message queue, the store selection, the remote view plan
+(no bridge, no schemes, no scripts), the mapping of WebKit errors, and the
+viewport conversion without a WebKit process. `webview_host::remote_layer`
+tests the data policies, the lifecycle, the navigation decisions, the
+YouTube events, the clear plan, and the release plan. The shared
 scheme policy has its tests in `webview_host::serve`.
 
 Run the host against a Server. Build the Runtime first
@@ -294,7 +402,6 @@ Known results and limits of this evidence:
 
 | Issue              | Work                                                            |
 | ------------------ | --------------------------------------------------------------- |
-| gbyo/tilecast#1927 | Isolated Website and YouTube views                              |
 | gbyo/tilecast#1928 | Final-output capture for Studio previews                        |
 | gbyo/tilecast#1929 | Keychain policy, local state, and device facts review           |
 | gbyo/tilecast#1930 | Kiosk window and process lifecycle; the main-thread AppKit loop |

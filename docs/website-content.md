@@ -61,6 +61,8 @@ The Edge Player shows remote pages in an isolated renderer process. See `tilecas
 
 The Windows Player shows remote pages in child views of a separate WebView2 environment. The remote environment never registers the `tilecast` or `tcmedia` schemes. Surfaces with `disabled` cookies use a private profile for each surface. Surfaces without DOM storage use a separate profile for each surface. Other surfaces share one profile for each policy.
 
+The macOS Player shows remote pages in separate `WKWebView`s above the trusted Runtime view. These views have no `tilecast` or `tcmedia` handler and no script bridge. Surfaces with `disabled` cookies, and surfaces without DOM storage, use a private non-persistent store for each surface. Other surfaces use one of three persistent stores that Tilecast owns: one for `first_party`, one for `first_and_third_party`, and one for YouTube. A page cannot open windows, show JavaScript dialogs, select files, or use the camera or microphone, and a download is cancelled. A clear-data command removes the data of all three persistent stores and of every live private store.
+
 WebView2 has no file-chooser event. The Windows Player cannot cancel a file dialog from a remote page. Do not assign pages with file inputs to Windows screens.
 
 Do not use cookies as credential storage. Tilecast does not support website authentication or administrator-supplied cookies.

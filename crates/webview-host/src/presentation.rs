@@ -1285,7 +1285,7 @@ async fn handle_request(context: &DaemonContext, ui: &UiHandle, request: bridge:
                                 lock(context).remote_destroy(&surface_id);
                                 serde_json::json!({"ok": false, "code": "renderer_unavailable"})
                             } else {
-                                serde_json::json!({"ok": true, "target": "host-layer"})
+                                remote_create_ok()
                             }
                         }
                         Err(code) => serde_json::json!({"ok": false, "code": code}),
@@ -1520,6 +1520,13 @@ fn handle_remote_event(context: &DaemonContext, ui: &UiHandle, event: &bridge::R
         }
         (None, _) => {}
     }
+}
+
+/// The accepted `remoteWeb.create` answer: the Runtime reads `target` as
+/// `RemoteWebRenderTargetV1`, an object. A bare string would not be
+/// `host-layer`, and the Runtime would attach a `<video>` stream to it.
+fn remote_create_ok() -> Value {
+    serde_json::json!({"ok": true, "target": {"kind": "host-layer"}})
 }
 
 /// Starts the once-per-process website-data clear when the accepted
@@ -2053,6 +2060,14 @@ mod tests {
             "visible": true,
         }))
         .expect("test fixture")
+    }
+
+    #[test]
+    fn an_accepted_create_names_a_host_layer_target_object() {
+        let answer = remote_create_ok();
+        assert_eq!(answer["ok"], serde_json::json!(true));
+        assert_eq!(answer["target"]["kind"], serde_json::json!("host-layer"));
+        assert!(answer["target"].is_object(), "the Runtime reads target.kind");
     }
 
     #[test]

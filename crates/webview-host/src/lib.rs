@@ -41,6 +41,7 @@ pub mod preview;
 pub mod projection;
 pub mod ranges;
 pub mod release_version;
+pub mod remote_layer;
 pub mod remote_web;
 pub mod renderer_adapter;
 pub mod runtime_files;

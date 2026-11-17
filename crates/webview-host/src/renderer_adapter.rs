@@ -688,6 +688,29 @@ mod tests {
     }
 
     #[test]
+    fn remote_web_alone_claims_no_external_frames() {
+        let remote_only = crate::host::RendererFeatures { remote_web: true, external_frames: false };
+        let profile = packaged_profile(remote_only);
+        for name in profile::REMOTE_WEB_FEATURES {
+            let token = ShortToken::new(*name).expect("token");
+            profile.check(&player_core::RendererRequirement::Feature(token)).expect(name);
+        }
+        profile
+            .check(&player_core::RendererRequirement::Declarative {
+                name: ShortToken::new("web.remote").expect("token"),
+                version: profile::WEB_RUNTIME_VERSION,
+            })
+            .expect("web.remote");
+        let external = player_core::RendererRequirement::WidgetComponent {
+            name: ShortToken::new(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY).expect("token"),
+            version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+        };
+        assert!(profile.check(&external).is_err(), "remote web does not imply the frame ABI");
+        let (_, table) = advertised_support(remote_only, None);
+        assert!(table.iter().any(|(name, _)| name == "web.remote"));
+    }
+
+    #[test]
     fn the_heartbeat_follows_the_ready_report_inside_the_ceiling() {
         let base = crate::host::RendererFeatures::BASE;
         // Before a Runtime proves itself: the ceiling.
