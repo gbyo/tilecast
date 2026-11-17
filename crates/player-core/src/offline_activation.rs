@@ -492,29 +492,7 @@ mod tests {
         }
     }
 
-    #[derive(Debug, Default)]
-    struct TestOpener;
-    impl player_cas::SecureOpener for TestOpener {
-        fn open_regular(&self, path: &std::path::Path, max_bytes: u64) -> std::io::Result<player_cas::RegularOpen> {
-            use player_cas::RegularOpen;
-            let metadata = match std::fs::symlink_metadata(path) {
-                Ok(metadata) => metadata,
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    return Ok(RegularOpen::Missing);
-                }
-                Err(error) => return Err(error),
-            };
-            if metadata.file_type().is_symlink() {
-                return Ok(RegularOpen::Refused);
-            }
-            let file = std::fs::File::open(path)?;
-            let metadata = file.metadata()?;
-            if !metadata.is_file() || metadata.len() > max_bytes {
-                return Ok(RegularOpen::Refused);
-            }
-            Ok(RegularOpen::Opened(file, metadata.len()))
-        }
-    }
+    use player_cas::open::TestOpener;
 
     async fn fixture() -> (tempfile::TempDir, OfflineActivationCoordinator, Binding) {
         let dir = tempfile::tempdir().unwrap();

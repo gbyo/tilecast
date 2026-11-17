@@ -75,6 +75,36 @@ impl SecureOpener for UnixSecureOpener {
     }
 }
 
+/// A portable opener for tests in this crate and in player-core, which run on
+/// every host OS. It checks for a link and then opens, so it is not race-free,
+/// and a FIFO blocks it. A Player host never passes it: Unix hosts pass
+/// [`UnixSecureOpener`] and Windows passes its own adapter.
+#[cfg(any(test, feature = "test-util"))]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TestOpener;
+
+#[cfg(any(test, feature = "test-util"))]
+impl SecureOpener for TestOpener {
+    fn open_regular(&self, path: &Path, max_bytes: u64) -> std::io::Result<RegularOpen> {
+        let metadata = match std::fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(RegularOpen::Missing);
+            }
+            Err(error) => return Err(error),
+        };
+        if metadata.file_type().is_symlink() {
+            return Ok(RegularOpen::Refused);
+        }
+        let file = File::open(path)?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.len() > max_bytes {
+            return Ok(RegularOpen::Refused);
+        }
+        Ok(RegularOpen::Opened(file, metadata.len()))
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;

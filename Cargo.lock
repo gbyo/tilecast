@@ -1446,6 +1446,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
+ "player-cas",
  "player-state",
  "player-types",
  "rustix",
