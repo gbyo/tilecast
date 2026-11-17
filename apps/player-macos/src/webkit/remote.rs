@@ -319,6 +319,11 @@ fn create(spec: SurfaceSpec) {
     backdrop.addSubview(&webview);
 
     let youtube = state.is_youtube();
+    let policy_kind = state.policy();
+    let (cookie_policy, dom_storage) = match &state.spec().content {
+        remote_web::SurfaceContent::Page(page) => (Some(page.cookie_policy), page.dom_storage_enabled),
+        remote_web::SurfaceContent::YouTube(_) => (None, true),
+    };
     let navigate = (state.initial_url(), state.youtube_wrapper());
     let admitted = with_remote(|remote| {
         let entry = Surface {
@@ -357,7 +362,7 @@ fn create(spec: SurfaceSpec) {
         }
         (url, Some(wrapper)) => load_wrapper(&webview, &surface_id, &url, &wrapper),
     }
-    tracing::info!(component = "webkit", event = "remote_created", surface = surface_id.as_str(), youtube);
+    tracing::info!(component = "webkit", event = "remote_created", surface = surface_id.as_str(), youtube, policy = ?policy_kind, store = ?plan.store, cookies = ?cookie_policy, dom_storage = dom_storage);
 }
 
 /// Loads the Tilecast YouTube wrapper as a document of the fixed
