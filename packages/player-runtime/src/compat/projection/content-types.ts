@@ -232,6 +232,11 @@ export interface ComponentPresentation {
   /** Present in component presentation schema 3. */
   empty?: "render" | "skip-eligible";
   /**
+   * Library families the component's font fields chose, with their faces.
+   * Each face file is in the manifest's assets. Bundled components only.
+   */
+  fonts?: ManifestLayoutFont[];
+  /**
    * Present only for package-contributed Widgets (manifest v18/v19):
    * the verified package claim. A v19 claim carries the executable
    * `frame`; anything else leaves the component unprojected.
