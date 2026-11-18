@@ -66,8 +66,8 @@ export const VIDEO_FIRST_FRAME_TIMEOUT_MS = 1_500;
 export interface HtmlVideoOptions {
   /**
    * Hold `prepare()` until a decoded frame has been presented. For a surface
-   * the stage dissolves in: the outgoing layer must stay up until this one
-   * has pixels. Layout zones run their own swap and leave it off.
+   * the stage or a Layout zone swaps in: the outgoing item must stay up until
+   * this one has pixels.
    */
   presentFirstFrame?: boolean;
 }

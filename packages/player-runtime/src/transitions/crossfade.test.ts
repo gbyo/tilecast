@@ -43,6 +43,32 @@ describe("swapLayers", () => {
     expect(incoming.classList.contains("visible")).toBe(true);
   });
 
+  it("pins the incoming layer transparent until its fade has ended", async () => {
+    const incoming = layer(false);
+    const outgoing = layer(true);
+    const fade = fakeAnimation();
+    let pinnedWhenAnimated: string | null = null;
+    incoming.animate = vi.fn(() => {
+      pinnedWhenAnimated = incoming.style.opacity;
+      return fade;
+    }) as unknown as typeof incoming.animate;
+
+    const running = swapLayers(incoming, outgoing, "fade", {
+      durationScale: 1,
+    });
+
+    // An engine that starts the animation a frame late shows the underlying
+    // style meanwhile. That must be transparent, not the opaque `visible`
+    // state, or the incoming backdrop flashes black over the outgoing item.
+    expect(pinnedWhenAnimated).toBe("0");
+    expect(incoming.style.opacity).toBe("0");
+
+    fade.finish();
+    await expect(running.finished).resolves.toBe("finished");
+    expect(incoming.style.opacity).toBe("");
+    expect(fade.cancel).toHaveBeenCalled();
+  });
+
   it("settles both layers at once when cancelled", async () => {
     const incoming = layer(false);
     const outgoing = layer(true);
@@ -58,6 +84,7 @@ describe("swapLayers", () => {
     await expect(running.finished).resolves.toBe("cancelled");
     expect(outgoing.classList.contains("visible")).toBe(false);
     expect(incoming.classList.contains("visible")).toBe(true);
+    expect(incoming.style.opacity).toBe("");
   });
 
   it("cuts without animating", async () => {
