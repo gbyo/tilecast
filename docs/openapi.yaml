@@ -16304,15 +16304,19 @@ components:
             additionalProperties: false
             required: [type, id]
             properties:
-              type: { type: string, enum: [screen, group] }
+              type: { type: string, enum: [screen, group, location] }
               id: { type: string, format: uuid }
               name: { type: string }
     ScheduleTarget:
       type: object
+      description: >-
+        A screen, a Display Group, or a location. A location reaches every active screen at it and every member of a Display Group that holds one of those screens. Display Control schedules cannot target a location.
       additionalProperties: false
       required: [type, id]
       properties:
-        type: { type: string, enum: [screen, group] }
+        type:
+          type: string
+          x-extensible-enum: [screen, group, location]
         id: { type: string, format: uuid }
         name: { type: string }
     Schedule:

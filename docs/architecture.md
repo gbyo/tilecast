@@ -104,6 +104,17 @@ assignments and schedules. `internal/scheduling` remains the server authority
 for half-open interval evaluation and deterministic precedence: priority,
 target specificity, later effective start, then stable ID. Player Core and shared presentation contracts preserve deterministic offline behavior.
 
+A schedule may also target a location. It reaches every active screen at the
+location and every member of a Display Group that holds one of those screens,
+so a group still plays one schedule on all of its members. The
+`schedule_target_screens` view and the `location_target_screens` function
+define this reach once, and every reader of schedule membership uses them. A
+location target has the same specificity as a Display Group target. Display
+Control schedules cannot target a location. Moving or archiving a screen
+changes a location schedule for the screen and for its group peers, so those
+manifests change too. Deleting a location disables the schedules that targeted
+it.
+
 `scheduling.Explain` calls this same resolver. It returns a reason code for
 each selected, inactive, or superseded schedule. Selection and explanation
 use one precedence comparator. Disabled schedules do not contribute a next

@@ -9,6 +9,7 @@ import { Link, RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, vi } from "vitest";
 import { api } from "../api/client";
 import type {
+  Location,
   Schedule,
   SchedulePreflight,
   Screen,
@@ -100,6 +101,13 @@ export const libraries = {
   ],
 } as unknown as ScreenGroup;
 
+export const library = {
+  id: "loc-1",
+  name: "Main Library",
+  city: "Springfield",
+  screenCount: 3,
+} as unknown as Location;
+
 export const playlistRow = {
   id: "p1",
   name: "Morning Announcements",
@@ -161,6 +169,9 @@ export function mockEditorApi() {
       page: 1,
       pageSize: 100,
     }),
+    locations: vi
+      .spyOn(api, "locations")
+      .mockResolvedValue({ items: [library], total: 1 }),
     screen: vi.spyOn(api, "screen"),
     screenGroup: vi.spyOn(api, "screenGroup"),
   };

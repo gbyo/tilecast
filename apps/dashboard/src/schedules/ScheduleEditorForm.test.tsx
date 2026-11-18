@@ -432,7 +432,9 @@ describe("Targets", () => {
     );
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(
-      await screen.findByText("Select at least one screen or group."),
+      await screen.findByText(
+        "Select at least one screen, group, or location.",
+      ),
     ).toBeInTheDocument();
     expect(api.updateSchedule).not.toHaveBeenCalled();
   });
@@ -459,7 +461,7 @@ describe("Targets", () => {
     await user.click(screen.getByRole("combobox", { name: "Add targets" }));
     await user.type(
       await screen.findByRole("combobox", {
-        name: "Search screens and Display Groups",
+        name: "Search screens, Display Groups, and locations",
       }),
       "Reading",
     );
@@ -476,6 +478,27 @@ describe("Targets", () => {
     expect(saveInput(api).targets).toEqual([
       { type: "screen", id: "screen-1" },
       { type: "group", id: "g1" },
+    ]);
+  });
+
+  it("offers locations and saves one as a location target", async () => {
+    const { api, user } = await open();
+    await user.click(screen.getByRole("combobox", { name: "Add targets" }));
+    expect(await screen.findByText("Locations")).toBeInTheDocument();
+    const option = await screen.findByRole("option", { name: /Main Library/ });
+    expect(option).toHaveTextContent("Location · 3 screens");
+    await user.click(option);
+    await user.keyboard("{Escape}");
+    expect(
+      await screen.findByRole("button", { name: "Remove Main Library" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/A location schedule reaches every screen there/),
+    ).toBeInTheDocument();
+    await save(api, user);
+    expect(saveInput(api).targets).toEqual([
+      { type: "group", id: "g1" },
+      { type: "location", id: "loc-1" },
     ]);
   });
 

@@ -329,7 +329,16 @@
     "kindScreen": "Screen",
     "none": "No targets yet.",
     "sharedNote": "Screens in a Display Group always share one schedule and its fallback content.",
-    "unknown": "Selected target"
+    "unknown": "Selected target",
+    "searchAll": "Search screens, Display Groups, and locations",
+    "loadingAll": "Loading screens, groups, and locations…",
+    "loadErrorAll": "Screens, Display Groups, and locations could not be loaded.",
+    "emptyAll": "No screens, Display Groups, or locations match.",
+    "locations": "Locations",
+    "locationDetail_one": "Location · {{count}} screen",
+    "locationDetail_other": "Location · {{count}} screens",
+    "kindLocation": "Location",
+    "locationNote": "A location schedule reaches every screen there, and every screen in a Display Group that includes one of them."
   },
   "priority": {
     "customValue": "Custom ({{priority}})",
@@ -347,7 +356,7 @@
     "volumeRange": "Volume must be between 0 and 100.",
     "brightnessRange": "Brightness must be between 0 and 100.",
     "timezoneRequired": "Choose a timezone.",
-    "targetsRequired": "Select at least one screen or group.",
+    "targetsRequired": "Select at least one screen, group, or location.",
     "priorityRange": "Priority must be a whole number between -999 and 999.",
     "daysRequired": "Select at least one weekday.",
     "timeRequired": "Choose start and end times.",

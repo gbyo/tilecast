@@ -246,6 +246,9 @@ Each non-Owner account has an explicit screen access policy: `all`, or
 `restricted` to granted locations and Display Groups. A missing policy and a
 restricted policy without grants reach no screen. Containers such as Display
 Groups and schedules need a concrete anchor; an empty container is refused.
+A schedule may target a location. A restricted account may do so only when it
+can reach the location and every screen the location reaches, which includes
+the members of Display Groups that hold a screen there.
 See [Screen access](screen-scopes.md) for the full rules, the pairing rules,
 and the organization structure rules.
 

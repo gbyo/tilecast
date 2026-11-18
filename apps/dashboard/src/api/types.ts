@@ -1620,11 +1620,18 @@ export type PluginTargeting = {
   targetIds: string[];
 };
 
+/** A target kind that Studio can choose and a schedule request accepts. */
+export type ScheduleTargetType = "screen" | "group" | "location";
 export type ScheduleTarget = {
-  type: "screen" | "group";
+  type: ScheduleTargetType;
   id: string;
   name?: string;
 };
+/**
+ * A target of a saved schedule. The contract keeps `type` an open string so a
+ * new target kind stays additive for API clients.
+ */
+export type SavedScheduleTarget = components["schemas"]["ScheduleTarget"];
 export type DisplayControlAction = {
   type:
     | "display_power_on"
@@ -1660,7 +1667,7 @@ export type Schedule = {
   dailyEnd?: string;
   daysOfWeek: number[];
   displayAction?: DisplayControlAction;
-  targets: ScheduleTarget[];
+  targets: SavedScheduleTarget[];
   createdAt: string;
   updatedAt: string;
 };
@@ -1673,7 +1680,8 @@ export type ScheduleInput = Omit<
   | "specificity"
   | "createdAt"
   | "updatedAt"
->;
+  | "targets"
+> & { targets: ScheduleTarget[] };
 export type ScheduleList = {
   items: Schedule[];
   total: number;

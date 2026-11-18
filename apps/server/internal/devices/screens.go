@@ -197,7 +197,12 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 	var changes []manifestchanges.Change
 	locationChanged := (previousLocation == nil) != (locationID == nil) || (previousLocation != nil && locationID != nil && *previousLocation != *locationID)
 	if locationChanged {
-		changes, err = manifestchanges.BumpScreens(ctx, tx, []uuid.UUID{id}, "screen.location_changed")
+		// A location schedule also reaches the screen's Display Group peers.
+		peers, err := manifestchanges.LocationSchedulePeers(ctx, tx, id, previousLocation, locationID)
+		if err != nil {
+			return Screen{}, err
+		}
+		changes, err = manifestchanges.BumpScreens(ctx, tx, append([]uuid.UUID{id}, peers...), "screen.location_changed")
 		if err != nil {
 			return Screen{}, err
 		}
@@ -266,7 +271,8 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	defer tx.Rollback(ctx) //nolint:errcheck
 	// Serialize revocation with browser recovery before touching credentials.
 	var lockedID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM screens WHERE id=$1 FOR UPDATE`, id).Scan(&lockedID); err != nil {
+	var archivedLocation *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id,location_id FROM screens WHERE id=$1 FOR UPDATE`, id).Scan(&lockedID, &archivedLocation); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -300,6 +306,12 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	}
 	if result.RowsAffected() != 1 {
 		return ErrNotFound
+	}
+	// Leaving the location and the group can end a location schedule for the
+	// screen's Display Group peers.
+	locationPeers, err := manifestchanges.LocationSchedulePeers(ctx, tx, id, archivedLocation)
+	if err != nil {
+		return fmt.Errorf("find location schedule peers: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM screen_group_memberships WHERE screen_id=$1`, id); err != nil {
 		return fmt.Errorf("detach archived screen from sync groups: %w", err)
@@ -337,8 +349,15 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	if err := insertAudit(ctx, tx, userID, "screen.credential.revoked", id); err != nil {
 		return err
 	}
+	peerChanges, err := manifestchanges.BumpScreens(ctx, tx, locationPeers, "screen.location_changed")
+	if err != nil {
+		return fmt.Errorf("advance location schedule peers: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return err
+	}
+	for _, change := range peerChanges {
+		s.ManifestChanged(change.ScreenID, change.Version)
 	}
 	s.presence.Disconnect(id)
 	return nil

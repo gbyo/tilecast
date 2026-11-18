@@ -164,7 +164,15 @@ func (s *Service) DependencyGraph(ctx context.Context, visibleScreenIDs []uuid.U
 		        COALESCE(t.screen_id,t.screen_group_id),'targets'
 		   FROM schedule_targets t
 		   JOIN schedules s ON s.id=t.schedule_id AND s.deleted_at IS NULL
-		  WHERE t.screen_id IS NULL OR t.screen_id IN(SELECT id FROM visible_screens)`,
+		  WHERE t.target_type<>'location' AND (t.screen_id IS NULL OR t.screen_id IN(SELECT id FROM visible_screens))`,
+		// A location target has no node of its own; the schedule is shown
+		// reaching each visible screen the location resolves to.
+		`WITH visible_screens AS (SELECT unnest($1::uuid[]) id)
+		 SELECT 'schedule',t.schedule_id,'screen',reached.screen_id,'targets'
+		   FROM schedule_targets t
+		   JOIN schedules s ON s.id=t.schedule_id AND s.deleted_at IS NULL
+		   CROSS JOIN LATERAL location_target_screens(ARRAY[t.location_id]) reached
+		  WHERE t.target_type='location' AND reached.screen_id IN(SELECT id FROM visible_screens)`,
 		`WITH visible_screens AS (SELECT unnest($1::uuid[]) id)
 		 SELECT 'screen_group',m.screen_group_id,'screen',m.screen_id,'contains'
 		   FROM screen_group_memberships m

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
+	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
 var (
@@ -523,6 +524,16 @@ func (s *Service) RemoveScreen(ctx context.Context, group, screen, user uuid.UUI
 	if err = restoreScreenSnapshot(ctx, tx, group, screen, user); err != nil {
 		return err
 	}
+	// A location schedule reaches the group through this screen. Find the
+	// remaining members before the membership ends.
+	var screenLocation *uuid.UUID
+	if err = tx.QueryRow(ctx, `SELECT location_id FROM screens WHERE id=$1`, screen).Scan(&screenLocation); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	locationPeers, err := manifestchanges.LocationSchedulePeers(ctx, tx, screen, screenLocation)
+	if err != nil {
+		return err
+	}
 	tag, err := tx.Exec(ctx, `DELETE FROM screen_group_memberships WHERE screen_group_id=$1 AND screen_id=$2`, group, screen)
 	if err != nil {
 		return err
@@ -536,7 +547,7 @@ func (s *Service) RemoveScreen(ctx context.Context, group, screen, user uuid.UUI
 	if _, err = tx.Exec(ctx, `UPDATE screen_groups SET presentation_gateway_screen_id=NULL,updated_at=now() WHERE id=$1 AND presentation_gateway_screen_id=$2`, group, screen); err != nil {
 		return err
 	}
-	notes, err := bumpScreens(ctx, tx, []uuid.UUID{screen}, "screen_group.membership_changed")
+	notes, err := bumpScreens(ctx, tx, append([]uuid.UUID{screen}, locationPeers...), "screen_group.membership_changed")
 	if err != nil {
 		return err
 	}
@@ -623,8 +634,11 @@ func (s *Service) validateInputFor(ctx context.Context, in Input, platformCheck 
 	}
 	seen := map[string]bool{}
 	for _, t := range in.Targets {
-		if t.Type != "screen" && t.Type != "group" {
+		if t.Type != "screen" && t.Type != "group" && t.Type != "location" {
 			return errors.New("target type is invalid")
+		}
+		if t.Type == "location" && in.DisplayAction != nil {
+			return errors.New("display-control schedules can target screens and Display Groups, not locations")
 		}
 		k := t.Type + t.ID.String()
 		if seen[k] {
@@ -635,6 +649,8 @@ func (s *Service) validateInputFor(ctx context.Context, in Input, platformCheck 
 		var targetErr error
 		if t.Type == "screen" {
 			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens sc JOIN organization_settings o ON o.id=sc.organization_id AND o.singleton WHERE sc.id=$1 AND sc.archived_at IS NULL)`, t.ID).Scan(&targetOK)
+		} else if t.Type == "location" {
+			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM locations l JOIN organization_settings o ON o.id=l.organization_id AND o.singleton WHERE l.id=$1)`, t.ID).Scan(&targetOK)
 		} else {
 			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_groups g JOIN organization_settings o ON o.id=g.organization_id AND o.singleton WHERE g.id=$1 AND g.deleted_at IS NULL)`, t.ID).Scan(&targetOK)
 		}
@@ -894,6 +910,8 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 		var tag pgconn.CommandTag
 		if t.Type == "screen" {
 			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id)SELECT $1,'screen',sc.id FROM screens sc JOIN schedules s ON s.id=$1 AND s.organization_id=sc.organization_id WHERE sc.id=$2 AND sc.archived_at IS NULL`, id, t.ID)
+		} else if t.Type == "location" {
+			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,location_id)SELECT $1,'location',l.id FROM locations l JOIN schedules s ON s.id=$1 AND s.organization_id=l.organization_id WHERE l.id=$2`, id, t.ID)
 		} else {
 			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_group_id)SELECT $1,'group',g.id FROM screen_groups g JOIN schedules s ON s.id=$1 AND s.organization_id=g.organization_id WHERE g.id=$2 AND g.deleted_at IS NULL`, id, t.ID)
 		}
@@ -1139,7 +1157,7 @@ func (s *Service) List(ctx context.Context, filter ListFilter, page, size int) (
 	return out, rows.Err()
 }
 func (s *Service) targets(ctx context.Context, id uuid.UUID) ([]Target, error) {
-	rows, err := s.db.Query(ctx, `SELECT t.target_type,COALESCE(t.screen_id,t.screen_group_id),COALESCE(sc.name,g.name) FROM schedule_targets t LEFT JOIN screens sc ON sc.id=t.screen_id LEFT JOIN screen_groups g ON g.id=t.screen_group_id WHERE t.schedule_id=$1 ORDER BY t.target_type,COALESCE(sc.name,g.name),COALESCE(t.screen_id,t.screen_group_id)`, id)
+	rows, err := s.db.Query(ctx, `SELECT t.target_type,COALESCE(t.screen_id,t.screen_group_id,t.location_id),COALESCE(sc.name,g.name,l.name) FROM schedule_targets t LEFT JOIN screens sc ON sc.id=t.screen_id LEFT JOIN screen_groups g ON g.id=t.screen_group_id LEFT JOIN locations l ON l.id=t.location_id WHERE t.schedule_id=$1 ORDER BY t.target_type,COALESCE(sc.name,g.name,l.name),COALESCE(t.screen_id,t.screen_group_id,t.location_id)`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1170,7 +1188,7 @@ type scheduleQuery interface {
 }
 
 func (s *Service) relevant(ctx context.Context, q scheduleQuery, screen uuid.UUID, includeDisabled bool) ([]Record, error) {
-	rows, err := q.Query(ctx, recordSelect+` WHERE s.deleted_at IS NULL AND (s.enabled OR $2) AND EXISTS(SELECT 1 FROM schedule_targets t WHERE t.schedule_id=s.id AND (t.screen_id=$1 OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_group_id=t.screen_group_id AND m.screen_id=$1))) ORDER BY s.id`, screen, includeDisabled)
+	rows, err := q.Query(ctx, recordSelect+` WHERE s.deleted_at IS NULL AND (s.enabled OR $2) AND EXISTS(SELECT 1 FROM schedule_target_screens t WHERE t.schedule_id=s.id AND t.screen_id=$1) ORDER BY s.id`, screen, includeDisabled)
 	if err != nil {
 		return nil, err
 	}
@@ -1191,7 +1209,7 @@ func (s *Service) relevant(ctx context.Context, q scheduleQuery, screen uuid.UUI
 	// query uses it; pool-backed readers previously masked this requirement.
 	for i := range out {
 		var direct bool
-		if err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schedule_targets WHERE schedule_id=$1 AND screen_id=$2)`, out[i].ID, screen).Scan(&direct); err != nil {
+		if err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schedule_target_screens WHERE schedule_id=$1 AND screen_id=$2 AND direct)`, out[i].ID, screen).Scan(&direct); err != nil {
 			return nil, err
 		}
 		if direct {
@@ -1297,7 +1315,7 @@ type note struct {
 func affectedForSchedule(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, id uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.Query(ctx, `SELECT DISTINCT x.screen_id FROM (SELECT t.screen_id FROM schedule_targets t WHERE t.schedule_id=$1 AND t.screen_id IS NOT NULL UNION SELECT m.screen_id FROM schedule_targets t JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE t.schedule_id=$1)x`, id)
+	rows, err := q.Query(ctx, `SELECT DISTINCT screen_id FROM schedule_target_screens WHERE schedule_id=$1`, id)
 	if err != nil {
 		return nil, err
 	}

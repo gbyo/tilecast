@@ -1571,7 +1571,7 @@ func (s *Service) assignmentDetails(ctx context.Context, screenID uuid.UUID, a A
 			return Assignment{}, err
 		}
 	}
-	scheduleRows, e := s.db.Query(ctx, `SELECT DISTINCT s.id,s.name,COALESCE(p.name,l.name,''),CASE WHEN s.display_action IS NOT NULL THEN 'display_control' WHEN s.layout_id IS NOT NULL THEN 'layout' ELSE 'playlist' END,s.priority,s.enabled FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id JOIN schedule_targets t ON t.schedule_id=s.id LEFT JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id AND m.screen_id=$1 WHERE s.deleted_at IS NULL AND (t.screen_id=$1 OR m.screen_id=$1) ORDER BY s.priority DESC,s.id`, screenID)
+	scheduleRows, e := s.db.Query(ctx, `SELECT DISTINCT s.id,s.name,COALESCE(p.name,l.name,''),CASE WHEN s.display_action IS NOT NULL THEN 'display_control' WHEN s.layout_id IS NOT NULL THEN 'layout' ELSE 'playlist' END,s.priority,s.enabled FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.deleted_at IS NULL AND t.screen_id=$1 ORDER BY s.priority DESC,s.id`, screenID)
 	if e != nil {
 		return Assignment{}, e
 	}

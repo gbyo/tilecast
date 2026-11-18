@@ -296,15 +296,18 @@ func (s *Service) preflightAt(ctx context.Context, now time.Time, editing *uuid.
 	if err = s.validateInputFor(ctx, in, false); err != nil {
 		return PreflightResult{}, err
 	}
-	directIDs, groupIDs := []uuid.UUID{}, []uuid.UUID{}
+	directIDs, groupIDs, locationIDs := []uuid.UUID{}, []uuid.UUID{}, []uuid.UUID{}
 	for _, target := range in.Targets {
-		if target.Type == "screen" {
+		switch target.Type {
+		case "screen":
 			directIDs = append(directIDs, target.ID)
-		} else {
+		case "location":
+			locationIDs = append(locationIDs, target.ID)
+		default:
 			groupIDs = append(groupIDs, target.ID)
 		}
 	}
-	screens, err := s.preflightScreens(ctx, directIDs, groupIDs)
+	screens, err := s.preflightScreens(ctx, directIDs, groupIDs, locationIDs)
 	if err != nil {
 		return PreflightResult{}, err
 	}
@@ -332,18 +335,20 @@ func (s *Service) preflightAt(ctx context.Context, now time.Time, editing *uuid.
 	return evaluatePreflight(now, draft, in.Enabled, screens, competitors), nil
 }
 
-// preflightScreens expands direct screen targets and Display Group members
-// into one list with each screen once. Archived and deleted screens are
-// detached from groups and schedules, so they never count.
-func (s *Service) preflightScreens(ctx context.Context, direct, groups []uuid.UUID) ([]preflightScreen, error) {
+// preflightScreens expands direct screen targets, Display Group members, and
+// location screens into one list with each screen once. Archived and deleted
+// screens are detached from groups and schedules, so they never count.
+func (s *Service) preflightScreens(ctx context.Context, direct, groups, locations []uuid.UUID) ([]preflightScreen, error) {
 	rows, err := s.db.Query(ctx, `SELECT sc.id, sc.name, sc.platform, bool_or(x.direct)
 FROM (
 	SELECT unnest($1::uuid[]) AS screen_id, true AS direct
 	UNION ALL
 	SELECT m.screen_id, false FROM screen_group_memberships m WHERE m.screen_group_id = ANY($2::uuid[])
+	UNION ALL
+	SELECT screen_id, false FROM location_target_screens($3::uuid[])
 ) x JOIN screens sc ON sc.id = x.screen_id AND sc.archived_at IS NULL AND sc.deleted_at IS NULL
 GROUP BY sc.id, sc.name, sc.platform
-ORDER BY sc.name, sc.id`, direct, groups)
+ORDER BY sc.name, sc.id`, direct, groups, locations)
 	if err != nil {
 		return nil, err
 	}
@@ -367,10 +372,7 @@ func (s *Service) preflightCompetitors(ctx context.Context, screens []uuid.UUID,
 	}
 	rows, err := s.db.Query(ctx, `SELECT c.schedule_id, c.screen_id, bool_or(c.direct)
 FROM (
-	SELECT t.schedule_id, t.screen_id, true AS direct FROM schedule_targets t WHERE t.screen_id = ANY($1::uuid[])
-	UNION ALL
-	SELECT t.schedule_id, m.screen_id, false FROM schedule_targets t
-		JOIN screen_group_memberships m ON m.screen_group_id = t.screen_group_id WHERE m.screen_id = ANY($1::uuid[])
+	SELECT t.schedule_id, t.screen_id, t.direct FROM schedule_target_screens t WHERE t.screen_id = ANY($1::uuid[])
 ) c JOIN schedules s ON s.id = c.schedule_id AND s.deleted_at IS NULL AND s.enabled
 WHERE ($2::uuid IS NULL OR s.id <> $2::uuid)
 GROUP BY c.schedule_id, c.screen_id`, screens, editing)

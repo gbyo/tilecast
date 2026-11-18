@@ -382,16 +382,19 @@ func scheduleListFilter(query url.Values) (scheduling.ListFilter, error) {
 	return filter, filter.Validate()
 }
 
-func scheduleTargetIDs(targets []scheduling.Target) ([]uuid.UUID, []uuid.UUID) {
-	screens, groups := []uuid.UUID{}, []uuid.UUID{}
+func scheduleTargetIDs(targets []scheduling.Target) (screens, groups, locations []uuid.UUID) {
+	screens, groups, locations = []uuid.UUID{}, []uuid.UUID{}, []uuid.UUID{}
 	for _, target := range targets {
-		if target.Type == "screen" {
+		switch target.Type {
+		case "screen":
 			screens = append(screens, target.ID)
-		} else if target.Type == "group" {
+		case "group":
 			groups = append(groups, target.ID)
+		case "location":
+			locations = append(locations, target.ID)
 		}
 	}
-	return screens, groups
+	return screens, groups, locations
 }
 func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
@@ -458,16 +461,8 @@ func (s *server) validateSchedulePresentation(r *http.Request, input scheduling.
 	if input.LayoutID == nil {
 		playlistID = &input.PlaylistID
 	}
-	screenIDs := []uuid.UUID{}
-	groupIDs := []uuid.UUID{}
-	for _, target := range input.Targets {
-		if target.Type == "screen" {
-			screenIDs = append(screenIDs, target.ID)
-		} else if target.Type == "group" {
-			groupIDs = append(groupIDs, target.ID)
-		}
-	}
-	return s.playlists.ValidatePresentationTargets(r.Context(), playlistID, input.LayoutID, screenIDs, groupIDs)
+	screenIDs, groupIDs, locationIDs := scheduleTargetIDs(input.Targets)
+	return s.playlists.ValidatePresentationTargetsAt(r.Context(), playlistID, input.LayoutID, screenIDs, groupIDs, locationIDs)
 }
 func (s *server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
@@ -612,12 +607,13 @@ func (s *server) redactHiddenSchedules(ctx context.Context, actor authz.Actor, r
 
 // authorizeScheduleTargets decides a schedule's targets as one selection.
 // A schedule plays on every member of a targeted screen's Display Group,
-// so a screen's group peers must be reachable too, and a restricted
-// operator must name at least one target.
+// so a screen's group peers must be reachable too, and a location must be
+// reachable with every screen it reaches. A restricted operator must name
+// at least one target.
 func (s *server) authorizeScheduleTargets(w http.ResponseWriter, r *http.Request, capability auth.Capability, targets []scheduling.Target) bool {
-	screens, groups := scheduleTargetIDs(targets)
+	screens, groups, locations := scheduleTargetIDs(targets)
 	return s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
-		return z.Selection(r.Context(), actor, capability, authz.Selection{ScreenIDs: screens, GroupIDs: groups, Peers: true})
+		return z.Selection(r.Context(), actor, capability, authz.Selection{ScreenIDs: screens, GroupIDs: groups, LocationIDs: locations, Peers: true})
 	})
 }
 

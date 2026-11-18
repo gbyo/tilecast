@@ -49,6 +49,7 @@ func TestPredicatesAreSelfContained(t *testing.T) {
 		"schedule": access.ScheduleSQL("sch", "$1"),
 		"takeover": access.TakeoverSQL("t.id", "$1"),
 		"location": access.LocationVisibleSQL("l", "$1"),
+		"target":   access.LocationTargetSQL("l", "$1"),
 		"pairing":  access.PairingCodeSQL("p", "$1"),
 	} {
 		sql = strings.TrimSpace(sql)

@@ -335,7 +335,17 @@
     "kindScreen": "Pantalla",
     "none": "Aún no hay destinos.",
     "sharedNote": "Las pantallas de un grupo de pantallas siempre comparten una programación y su contenido de reserva.",
-    "unknown": "Destino seleccionado"
+    "unknown": "Destino seleccionado",
+    "searchAll": "Buscar pantallas, grupos de pantallas y ubicaciones",
+    "loadingAll": "Cargando pantallas, grupos y ubicaciones…",
+    "loadErrorAll": "No se pudieron cargar las pantallas, los grupos de pantallas ni las ubicaciones.",
+    "emptyAll": "Ninguna pantalla, grupo de pantallas ni ubicación coincide.",
+    "locations": "Ubicaciones",
+    "locationDetail_one": "Ubicación · {{count}} pantalla",
+    "locationDetail_many": "Ubicación · {{count}} de pantallas",
+    "locationDetail_other": "Ubicación · {{count}} pantallas",
+    "kindLocation": "Ubicación",
+    "locationNote": "Una programación de ubicación llega a todas las pantallas de esa ubicación y a todas las de un grupo de pantallas que incluya alguna de ellas."
   },
   "priority": {
     "customValue": "Personalizada ({{priority}})",
@@ -353,7 +363,7 @@
     "volumeRange": "El volumen debe estar entre 0 y 100.",
     "brightnessRange": "El brillo debe estar entre 0 y 100.",
     "timezoneRequired": "Elige una zona horaria.",
-    "targetsRequired": "Selecciona al menos una pantalla o un grupo.",
+    "targetsRequired": "Selecciona al menos una pantalla, un grupo o una ubicación.",
     "priorityRange": "La prioridad debe ser un número entero entre -999 y 999.",
     "daysRequired": "Selecciona al menos un día de la semana.",
     "timeRequired": "Elige las horas de inicio y fin.",

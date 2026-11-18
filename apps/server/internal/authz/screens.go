@@ -109,6 +109,19 @@ func grantedGroupSQL(alias, userParam string) string {
 	                     AND NOT ` + grantedScreenSQL("authz_ms", userParam) + `)))`
 }
 
+// grantedLocationSQL: a location as a schedule target. A location target
+// reaches every active screen at the location and the members of their
+// Display Groups, so each of those screens must be reachable. A location
+// with no screens needs a direct grant to have an anchor.
+func grantedLocationSQL(alias, userParam string) string {
+	reached := `location_target_screens(ARRAY[` + alias + `.id])`
+	return `((` + locationGrantSQL(alias+".id", userParam) + `
+	OR EXISTS(SELECT 1 FROM ` + reached + ` authz_la))
+	AND NOT EXISTS(SELECT 1 FROM ` + reached + ` authz_lr
+	               JOIN screens authz_ls ON authz_ls.id=authz_lr.screen_id
+	               WHERE NOT ` + grantedScreenSQL("authz_ls", userParam) + `))`
+}
+
 // grantedScreenSetSQL: a container whose concrete screens are rows of table
 // keyed by column. It needs at least one row, and every row's screen must
 // be reachable.
@@ -151,16 +164,25 @@ func (a ScreenAccess) GroupSQL(alias, userParam string) string {
 	return a.policySQL(userParam, grantedGroupSQL(alias, userParam))
 }
 
+// LocationTargetSQL is the predicate "this location may be targeted": the
+// location and every screen it reaches are reachable. LocationVisibleSQL
+// decides listing instead.
+func (a ScreenAccess) LocationTargetSQL(alias, userParam string) string {
+	return a.policySQL(userParam, grantedLocationSQL(alias, userParam))
+}
+
 // ScheduleSQL is the predicate "this schedules row is reachable": at least
-// one target, and every target a reachable screen or Display Group.
+// one target, and every target a reachable screen, Display Group, or location.
 func (a ScreenAccess) ScheduleSQL(alias, userParam string) string {
 	return a.policySQL(userParam, `(EXISTS(SELECT 1 FROM schedule_targets authz_t0 WHERE authz_t0.schedule_id=`+alias+`.id)
 	AND NOT EXISTS(SELECT 1 FROM schedule_targets authz_t
 	        LEFT JOIN screens authz_ts ON authz_t.target_type='screen' AND authz_ts.id=authz_t.screen_id
 	        LEFT JOIN screen_groups authz_tg ON authz_t.target_type='group' AND authz_tg.id=authz_t.screen_group_id
+	        LEFT JOIN locations authz_tl ON authz_t.target_type='location' AND authz_tl.id=authz_t.location_id
 	        WHERE authz_t.schedule_id=`+alias+`.id AND NOT COALESCE(
 	          (authz_t.target_type='screen' AND authz_ts.id IS NOT NULL AND `+grantedScreenSQL("authz_ts", userParam)+`)
-	          OR (authz_t.target_type='group' AND authz_tg.id IS NOT NULL AND `+grantedGroupSQL("authz_tg", userParam)+`), FALSE)))`)
+	          OR (authz_t.target_type='group' AND authz_tg.id IS NOT NULL AND `+grantedGroupSQL("authz_tg", userParam)+`)
+	          OR (authz_t.target_type='location' AND authz_tl.id IS NOT NULL AND `+grantedLocationSQL("authz_tl", userParam)+`), FALSE)))`)
 }
 
 // TakeoverSQL is the predicate "this takeover is reachable", judged by the
@@ -236,10 +258,12 @@ func (z *Authorizer) Screens(ctx context.Context, actor Actor, capability auth.C
 	return z.Selection(ctx, actor, capability, Selection{ScreenIDs: ids})
 }
 
-// Selection names screens and Display Groups an operation will act on.
+// Selection names screens, Display Groups, and locations an operation will
+// act on.
 type Selection struct {
-	ScreenIDs []uuid.UUID
-	GroupIDs  []uuid.UUID
+	ScreenIDs   []uuid.UUID
+	GroupIDs    []uuid.UUID
+	LocationIDs []uuid.UUID
 	// Peers marks an operation that a Display Group carries to every
 	// member, such as assigning content. Each named screen's group peers
 	// must then be reachable too.
@@ -259,30 +283,32 @@ func unique(ids []uuid.UUID) []uuid.UUID {
 	return out
 }
 
-// Selection authorizes every screen and Display Group, all or nothing. A
-// group is judged as a container (see grantedGroupSQL), never by expanding
-// it into members that might be zero.
+// Selection authorizes every screen, Display Group, and location, all or
+// nothing. A group is judged as a container (see grantedGroupSQL), never by
+// expanding it into members that might be zero. A location is judged by the
+// screens it reaches (see grantedLocationSQL).
 func (z *Authorizer) Selection(ctx context.Context, actor Actor, capability auth.Capability, selection Selection) error {
 	access, err := z.authorize(ctx, actor, capability)
 	if err != nil || access.All {
 		return err
 	}
-	screens, groups := unique(selection.ScreenIDs), unique(selection.GroupIDs)
-	if len(screens)+len(groups) == 0 {
+	screens, groups, locations := unique(selection.ScreenIDs), unique(selection.GroupIDs), unique(selection.LocationIDs)
+	if len(screens)+len(groups)+len(locations) == 0 {
 		return ErrOutOfScope
 	}
 	screenSQL := access.ScreenSQL("s", "$1")
 	if selection.Peers {
 		screenSQL = access.AssignableScreenSQL("s", "$1")
 	}
-	var reachedScreens, reachedGroups int
+	var reachedScreens, reachedGroups, reachedLocations int
 	if err := z.db.QueryRow(ctx, `SELECT
 		(SELECT count(*) FROM screens s WHERE s.id=ANY($2) AND s.deleted_at IS NULL AND `+screenSQL+`),
-		(SELECT count(*) FROM screen_groups g WHERE g.id=ANY($3) AND g.deleted_at IS NULL AND `+access.GroupSQL("g", "$1")+`)`,
-		actor.UserID, screens, groups).Scan(&reachedScreens, &reachedGroups); err != nil {
+		(SELECT count(*) FROM screen_groups g WHERE g.id=ANY($3) AND g.deleted_at IS NULL AND `+access.GroupSQL("g", "$1")+`),
+		(SELECT count(*) FROM locations l WHERE l.id=ANY($4) AND `+access.LocationTargetSQL("l", "$1")+`)`,
+		actor.UserID, screens, groups, locations).Scan(&reachedScreens, &reachedGroups, &reachedLocations); err != nil {
 		return fmt.Errorf("authorize selection: %w", err)
 	}
-	if reachedScreens != len(screens) || reachedGroups != len(groups) {
+	if reachedScreens != len(screens) || reachedGroups != len(groups) || reachedLocations != len(locations) {
 		return ErrOutOfScope
 	}
 	return nil

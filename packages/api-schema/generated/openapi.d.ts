@@ -10417,15 +10417,15 @@ export interface components {
       daysOfWeek?: number[];
       targets: {
         /** @enum {string} */
-        type: "screen" | "group";
+        type: "screen" | "group" | "location";
         /** Format: uuid */
         id: string;
         name?: string;
       }[];
     };
+    /** @description A screen, a Display Group, or a location. A location reaches every active screen at it and every member of a Display Group that holds one of those screens. Display Control schedules cannot target a location. */
     ScheduleTarget: {
-      /** @enum {string} */
-      type: "screen" | "group";
+      type: string;
       /** Format: uuid */
       id: string;
       name?: string;

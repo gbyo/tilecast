@@ -120,13 +120,7 @@ WITH RECURSIVE refs(kind,id) AS (
 	JOIN refs r ON (r.kind='playlist' AND r.id=a.playlist_id) OR (r.kind='layout' AND r.id=a.layout_id)
 	UNION
 	SELECT t.screen_id
-	FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id AND t.screen_id IS NOT NULL
-	JOIN refs r ON (r.kind='playlist' AND r.id=s.playlist_id) OR (r.kind='layout' AND r.id=s.layout_id)
-	WHERE s.deleted_at IS NULL
-	UNION
-	SELECT m.screen_id
-	FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id AND t.screen_group_id IS NOT NULL
-	JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id
+	FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id
 	JOIN refs r ON (r.kind='playlist' AND r.id=s.playlist_id) OR (r.kind='layout' AND r.id=s.layout_id)
 	WHERE s.deleted_at IS NULL
 	UNION

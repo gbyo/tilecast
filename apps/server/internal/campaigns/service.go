@@ -827,7 +827,7 @@ func mustJSON(value any) []byte {
 }
 
 func campaignAffectedScreens(ctx context.Context, tx pgx.Tx, campaignID uuid.UUID) ([]uuid.UUID, error) {
-	return queryScreens(ctx, tx, `SELECT DISTINCT x.screen_id FROM (SELECT t.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id WHERE s.campaign_id=$1 AND s.deleted_at IS NULL AND t.screen_id IS NOT NULL UNION SELECT m.screen_id FROM schedules s JOIN schedule_targets t ON t.schedule_id=s.id JOIN screen_group_memberships m ON m.screen_group_id=t.screen_group_id WHERE s.campaign_id=$1 AND s.deleted_at IS NULL)x`, campaignID)
+	return queryScreens(ctx, tx, `SELECT DISTINCT t.screen_id FROM schedules s JOIN schedule_target_screens t ON t.schedule_id=s.id WHERE s.campaign_id=$1 AND s.deleted_at IS NULL`, campaignID)
 }
 
 func campaignDestinationScreens(ctx context.Context, tx pgx.Tx, destinations []Destination) ([]uuid.UUID, error) {

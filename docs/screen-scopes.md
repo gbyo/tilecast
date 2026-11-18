@@ -52,7 +52,7 @@ The Server refuses it.** An empty set never authorizes an operation.
 | Container         | A restricted account reaches it when                                                                       |
 | ----------------- | ---------------------------------------------------------------------------------------------------------- |
 | Display Group     | The group is granted directly, or the group has at least one member and the account reaches every member.  |
-| Schedule          | The schedule has at least one target, and the account reaches every target screen and target group.        |
+| Schedule          | The schedule has at least one target, and the account reaches every target screen, group, and location.    |
 | Takeover          | The takeover reaches at least one screen, and the account reaches every screen that it reaches.            |
 | Quick Present     | The account reaches the target screen and its Display Group peers, or the target group.                    |
 | AirPlay Present   | The session has at least one participant, and the account reaches every participant.                       |

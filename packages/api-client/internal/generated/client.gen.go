@@ -4433,14 +4433,17 @@ func (e ScheduleType) Valid() bool {
 
 // Defines values for ScheduleInputTargetsType.
 const (
-	ScheduleInputTargetsTypeGroup  ScheduleInputTargetsType = "group"
-	ScheduleInputTargetsTypeScreen ScheduleInputTargetsType = "screen"
+	ScheduleInputTargetsTypeGroup    ScheduleInputTargetsType = "group"
+	ScheduleInputTargetsTypeLocation ScheduleInputTargetsType = "location"
+	ScheduleInputTargetsTypeScreen   ScheduleInputTargetsType = "screen"
 )
 
 // Valid indicates whether the value is a known member of the ScheduleInputTargetsType enum.
 func (e ScheduleInputTargetsType) Valid() bool {
 	switch e {
 	case ScheduleInputTargetsTypeGroup:
+		return true
+	case ScheduleInputTargetsTypeLocation:
 		return true
 	case ScheduleInputTargetsTypeScreen:
 		return true
@@ -4536,24 +4539,6 @@ func (e SchedulePreflightScreenOutcome) Valid() bool {
 	case SchedulePreflightScreenOutcomeSuperseded:
 		return true
 	case SchedulePreflightScreenOutcomeUnsupported:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ScheduleTargetType.
-const (
-	ScheduleTargetTypeGroup  ScheduleTargetType = "group"
-	ScheduleTargetTypeScreen ScheduleTargetType = "screen"
-)
-
-// Valid indicates whether the value is a known member of the ScheduleTargetType enum.
-func (e ScheduleTargetType) Valid() bool {
-	switch e {
-	case ScheduleTargetTypeGroup:
-		return true
-	case ScheduleTargetTypeScreen:
 		return true
 	default:
 		return false
@@ -11391,15 +11376,12 @@ type SchedulePublicationRequest struct {
 	RequestedPublicationAt time.Time `json:"requestedPublicationAt"`
 }
 
-// ScheduleTarget defines model for ScheduleTarget.
+// ScheduleTarget A screen, a Display Group, or a location. A location reaches every active screen at it and every member of a Display Group that holds one of those screens. Display Control schedules cannot target a location.
 type ScheduleTarget struct {
 	Id   openapi_types.UUID `json:"id"`
 	Name *string            `json:"name,omitempty"`
-	Type ScheduleTargetType `json:"type"`
+	Type string             `json:"type"`
 }
-
-// ScheduleTargetType defines model for ScheduleTarget.Type.
-type ScheduleTargetType string
 
 // Screen defines model for Screen.
 type Screen struct {

@@ -209,6 +209,12 @@ func (s *Service) DeleteLocation(ctx context.Context, id, userID uuid.UUID) erro
 	if assigned > 0 {
 		return ErrConflict
 	}
+	// No screen is left at the location, so no manifest changes. A schedule
+	// that targeted it would keep no target, so disable it as a deleted
+	// Display Group does.
+	if _, err := tx.Exec(ctx, `UPDATE schedules SET enabled=FALSE,updated_at=now() WHERE deleted_at IS NULL AND enabled AND id IN (SELECT schedule_id FROM schedule_targets WHERE target_type='location' AND location_id=$1)`, id); err != nil {
+		return fmt.Errorf("disable location schedules: %w", err)
+	}
 	result, err := tx.Exec(ctx, `DELETE FROM locations WHERE id=$1`, id)
 	if err != nil {
 		return fmt.Errorf("delete location: %w", err)
