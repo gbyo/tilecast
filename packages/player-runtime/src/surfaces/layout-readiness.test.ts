@@ -152,7 +152,7 @@ describe("Layout child media readiness", () => {
   it("resumes video without duplicating frame observers and releases the decoder", async () => {
     const h = harness([entry("clip", "video")]);
     const video = h.zone.querySelector("video")!;
-    const request = vi.fn(() => 1);
+    const request = vi.fn((_callback: VideoFrameRequestCallback) => 1);
     const cancel = vi.fn();
     Object.assign(video, {
       requestVideoFrameCallback: request,
@@ -160,6 +160,12 @@ describe("Layout child media readiness", () => {
     });
     video.dispatchEvent(new Event("canplay"));
     await settle();
+    // The zone holds the video until a first frame has been presented.
+    expect(request).toHaveBeenCalledOnce();
+    request.mock.calls[0]![0](0, {} as VideoFrameCallbackMetadata);
+    await settle();
+    request.mockClear();
+    cancel.mockClear();
     await h.surface.activate();
     await settle();
     h.surface.pause();
@@ -383,11 +389,18 @@ describe("Layout child media readiness", () => {
         h.clock.advance(100);
         expect(first.parentElement).toBe(h.zone);
         expect(animate).not.toHaveBeenCalled();
-        h.zone
-          .querySelector('img[src="tcmedia://next"]')!
-          .dispatchEvent(new Event("load"));
+        const next = h.zone.querySelector<HTMLImageElement>(
+          'img[src="tcmedia://next"]',
+        )!;
+        // Staged above the outgoing item, but transparent until it fades.
+        expect(next.style.opacity).toBe("0");
+        next.dispatchEvent(new Event("load"));
         await settle();
-        expect(animate).toHaveBeenCalledTimes(2);
+        // Only the incoming item fades; the outgoing one stays opaque under
+        // it, so the zone behind them never shows through mid-dissolve.
+        expect(animate.mock.contexts).toEqual([next]);
+        expect(first.parentElement).toBe(h.zone);
+        expect(first.style.opacity).toBe("");
       } finally {
         delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
         vi.unstubAllGlobals();

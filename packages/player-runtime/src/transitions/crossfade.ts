@@ -42,6 +42,45 @@ function stack(incoming: HTMLElement, outgoing: HTMLElement | null): void {
 }
 
 /**
+ * Fade `element` in from transparent over whatever is beneath it.
+ *
+ * The element is pinned at opacity 0 by an inline style before the animation
+ * is created, and the pin comes off only in the same task as the animation
+ * ends. An engine that composites the animation asynchronously (WebKit does)
+ * can show the element at its underlying style for a frame before the
+ * animation applies. Without the pin that style is the opaque resting state:
+ * the incoming item's black backdrop flashes over the outgoing one, which
+ * then reappears under the dissolve.
+ */
+export function fadeIn(
+  element: HTMLElement,
+  duration: number,
+): RunningTransition {
+  element.style.opacity = "0";
+  const animation = element.animate([{ opacity: 0 }, { opacity: 1 }], {
+    duration,
+    easing: "ease",
+    fill: "both",
+  });
+
+  let outcome: TransitionOutcome | null = null;
+  let resolve!: (value: TransitionOutcome) => void;
+  const finished = new Promise<TransitionOutcome>((r) => (resolve = r));
+  const end = (value: TransitionOutcome) => {
+    if (outcome) return;
+    outcome = value;
+    element.style.removeProperty("opacity");
+    animation.cancel();
+    resolve(value);
+  };
+  animation.finished.then(
+    () => end("finished"),
+    () => end("cancelled"),
+  );
+  return { finished, cancel: () => end("cancelled") };
+}
+
+/**
  * Swap `incoming` in over `outgoing`. `kind` is the item's transition:
  * "fade" and "crossfade" dissolve for 300 ms; anything else cuts.
  */
@@ -59,15 +98,10 @@ export function swapLayers(
     return { finished: Promise.resolve("finished"), cancel() {} };
   }
 
-  const options: KeyframeAnimationOptions = {
-    duration,
-    easing: "ease",
-    fill: "both",
-  };
-  // The resting state is expressed by the `visible` class; the animation only
-  // carries the incoming layer to it and is removed afterwards. The outgoing
-  // layer keeps its `visible` class, and so full opacity, until the end.
-  const fadeIn = incoming.animate([{ opacity: 0 }, { opacity: 1 }], options);
+  // The resting state is expressed by the `visible` class; the fade only
+  // carries the incoming layer to it. The outgoing layer keeps its `visible`
+  // class, and so full opacity, until the end.
+  const fade = fadeIn(incoming, duration);
   incoming.classList.add(VISIBLE);
 
   let outcome: TransitionOutcome | null = null;
@@ -77,12 +111,9 @@ export function swapLayers(
     if (outcome) return;
     outcome = value;
     settle(incoming, outgoing);
-    fadeIn.cancel();
+    fade.cancel();
     resolve(value);
   };
-  fadeIn.finished.then(
-    () => end("finished"),
-    () => end("cancelled"),
-  );
+  void fade.finished.then(end);
   return { finished, cancel: () => end("cancelled") };
 }
