@@ -154,3 +154,28 @@ export function widgetPreviewAssetFields(
       : [];
   });
 }
+
+const LIBRARY_FONT_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Mirrors the Server and Player Runtime bound on one component's fonts. */
+const MAX_PREVIEW_FONTS = 4;
+
+/**
+ * The library fonts a preview grants: each top-level font field's chosen
+ * family, lowercased, as the Server projects them into the component
+ * presentation. An empty field keeps the Widget's own face.
+ */
+export function widgetPreviewFonts(
+  fields: readonly ContentDefinitionField[],
+  configuration: Record<string, unknown>,
+): string[] {
+  const fonts: string[] = [];
+  for (const field of fields) {
+    if (field.control !== "font") continue;
+    const value = configuration[field.key];
+    if (typeof value !== "string" || !LIBRARY_FONT_ID.test(value)) continue;
+    const id = value.toLowerCase();
+    if (!fonts.includes(id) && fonts.length < MAX_PREVIEW_FONTS) fonts.push(id);
+  }
+  return fonts;
+}

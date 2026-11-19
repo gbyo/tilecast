@@ -4,6 +4,7 @@ import {
   widgetPreviewAssetFields,
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewFonts,
   widgetPreviewMedia,
 } from "./widgetPreviewSources";
 
@@ -110,5 +111,29 @@ describe("Widget preview source resolution", () => {
       logo: "logo-asset",
       slides: [{ posterAssetId: "poster-asset" }, { posterAssetId: "" }],
     });
+  });
+});
+
+describe("widgetPreviewFonts", () => {
+  const fontFields: ContentDefinitionField[] = [
+    { key: "headingFont", label: "Heading", control: "font" },
+    { key: "bodyFont", label: "Body", control: "font" },
+    { key: "label", label: "Label", control: "text" },
+  ];
+
+  it("grants each chosen library family once, lowercased", () => {
+    expect(
+      widgetPreviewFonts(fontFields, {
+        headingFont: "5C0A2F8E-3C1B-4D2A-9E7F-0A1B2C3D4E5F",
+        bodyFont: "5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f",
+        label: "1f8f2d8e-1b1a-4c55-9a0d-3d2f6c7b8a90",
+      }),
+    ).toEqual(["5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f"]);
+  });
+
+  it("grants nothing for the Widget's own face or a malformed value", () => {
+    expect(
+      widgetPreviewFonts(fontFields, { headingFont: "", bodyFont: "Inter" }),
+    ).toEqual([]);
   });
 });

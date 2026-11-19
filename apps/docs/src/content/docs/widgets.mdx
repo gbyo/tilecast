@@ -194,6 +194,16 @@ When a content manager opens **Widgets**, Studio checks the full library for mis
 
 A repeating Countdown keeps the selected local wall time in its configured IANA timezone. Weekly recurrence therefore stays at the same local time across daylight-saving changes. Monthly and yearly recurrence clamps a date that does not exist in the target month to that month's last valid day. For example, a yearly countdown set for February 29 uses February 28 in a non-leap year, and a monthly countdown set for the 31st uses the last day of a shorter month.
 
+## Countdown appearance
+
+Countdown sizes its numbers to fill its box, in a full screen or a small Layout zone. Unit labels grow and shrink with the numbers. In a very small zone, Countdown shows compact units such as `5d 00h 35m`. Set the look under **Style**:
+
+- **Numbers**: **Tiles** sets each unit on its own panel. **Plain** shows the numbers alone, which reads better over a busy background.
+- **Font**: a family from your organization's [font library](../administration/fonts/), or **Tilecast font**.
+- **Background opacity**: lower it to let a Layout show through. At 0 the background is transparent. Tiles keep at least 60% opacity so the numbers stay readable over a photograph.
+
+Screens on an older Player show the Countdown in its earlier style. They keep the background opacity but use the Tilecast font.
+
 ## Chart values and axes
 
 Chart treats missing or non-numeric values as gaps instead of zero. Bars leave the missing bar empty; lines and areas break at the gap. The value axis comes from the finite values unless you set explicit minimum and maximum bounds. An invalid pair where the minimum is at or above the maximum is ignored, and an all-equal range expands so the chart can still draw it.

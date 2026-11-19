@@ -45,7 +45,7 @@ func TestCollapsedEssentialsCompileIntoTheirComponents(t *testing.T) {
 		{
 			provider:   "countdown",
 			raw:        `{"target":"2026-12-01T09:00","timezone":"","layout":"countdown_only","showSeconds":true}`,
-			want:       `{"background":"","completionAction":"completed_text","completionText":"","foreground":"","label":"","mode":"countdown","recurrence":"none","showDays":true,"showHours":true,"showMinutes":true,"showSeconds":true,"style":"countdown_only","target":"2026-12-01T09:00","timeZone":""}`,
+			want:       `{"background":"","backgroundOpacity":100,"completionAction":"completed_text","completionText":"","fontId":"","foreground":"","label":"","mode":"countdown","recurrence":"none","segmentStyle":"tiles","showDays":true,"showHours":true,"showMinutes":true,"showSeconds":true,"style":"countdown_only","target":"2026-12-01T09:00","timeZone":""}`,
 			capability: "widget.tilecast.countdown",
 		},
 	} {

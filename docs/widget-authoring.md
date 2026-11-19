@@ -92,10 +92,16 @@ The inspector renders each field from its `control`:
 | `media_asset`       | Selected-asset row and the Media picker                                                  |
 | `repeating_group`   | Accordion with one item for each row                                                     |
 | `string_list`       | List of short text entries                                                               |
+| `font`              | Organization font library choice with **Add fonts**, and the Widget's own face           |
 
 `string_list` stores an array of strings. It must declare `maximumItems` from 1
 to 100. `maxLength` and `minLength` apply to each entry. The Server trims each
 entry and removes empty entries. Website `allowedHosts` uses this control.
+
+`font` stores a library family ID, or `""` for the Widget's own face. A schema
+may declare at most four font fields, only at the top level, and each must
+default to `""`. The Server records the families a Widget uses, so the font
+library refuses to remove one that is still chosen. See `docs/fonts.md`.
 
 ### Authoring hints
 

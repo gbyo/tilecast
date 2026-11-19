@@ -30,6 +30,7 @@ import {
   rfc3339ToLocalDateTime,
 } from "../lib/dateTime";
 import { useStableRowIds } from "../components/content/widget-editor/fields/rowIdentity";
+import { FontPicker } from "../fonts/FontPicker";
 import { DataSourcePicker } from "./DataSourcePicker";
 import {
   compatibleSources,
@@ -440,6 +441,35 @@ function DefinitionControl({
         )}
       </Field>
     );
+  if (field.control === "font") {
+    const fontId = fieldText(value);
+    return (
+      <div className="grid content-start gap-1">
+        <FontPicker
+          id={`definition-${field.key}`}
+          label={field.label}
+          value={
+            fontId
+              ? { kind: "library", id: fontId }
+              : { kind: "builtIn", value: "tilecast" }
+          }
+          onChange={(choice) =>
+            setValue(choice.kind === "library" ? choice.id : "")
+          }
+          builtIn={[
+            {
+              value: "tilecast",
+              label: t("widgets.editor.fields.tilecastFont"),
+            },
+          ]}
+          disabled={readOnly}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </div>
+    );
+  }
   if (field.control === "media_asset")
     return (
       <MediaAssetControl

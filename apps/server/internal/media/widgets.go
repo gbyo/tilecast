@@ -278,6 +278,9 @@ func (s *Service) CreateWidget(ctx context.Context, user uuid.UUID, input Widget
 	if _, err = tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,preset_id,config_version,configuration) VALUES($1,$2,$3,$4,$5::jsonb)`, id, input.Provider, input.PresetID, s.widgetConfigVersion(input.Provider), string(encoded)); err != nil {
 		return Asset{}, err
 	}
+	if err = s.recordWidgetFontsInTx(ctx, tx, id, input.Provider, configuration); err != nil {
+		return Asset{}, err
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'widget.created','widget',$3,jsonb_build_object('provider',$4::text))`, uuid.New(), user, id.String(), input.Provider); err != nil {
 		return Asset{}, err
 	}
@@ -355,6 +358,9 @@ func (s *Service) UpdateWidget(ctx context.Context, id, user uuid.UUID, input Wi
 		return Asset{}, ErrNotFound
 	}
 	if _, err = tx.Exec(ctx, updateWidgetStatement, id, string(encoded), s.widgetConfigVersion(input.Provider), input.PresetID); err != nil {
+		return Asset{}, err
+	}
+	if err = s.recordWidgetFontsInTx(ctx, tx, id, input.Provider, configuration); err != nil {
 		return Asset{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id) VALUES($1,$2,'widget.updated','widget',$3)`, uuid.New(), user, id.String()); err != nil {

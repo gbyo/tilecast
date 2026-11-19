@@ -982,7 +982,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "Удалить: {{label}} {{index}}",
         "addEntry": "Добавить запись",
-        "noEntries": "Нет"
+        "noEntries": "Нет",
+        "tilecastFont": "Шрифт Tilecast"
       },
       "data": {
         "none": "Данные не подключены",

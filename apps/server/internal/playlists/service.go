@@ -2382,6 +2382,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			if err = s.projectComponentDataSourceMedia(ctx, &manifest, manifest.Widgets[index], compiled[index], seen); err != nil {
 				return Manifest{}, "", err
 			}
+			if err = s.projectComponentFonts(ctx, &manifest, manifest.Widgets[index], compiled[index]); err != nil {
+				return Manifest{}, "", err
+			}
 		}
 		for index := range manifest.Widgets {
 			manifest.Widgets[index].Presentation = compiled[index]
@@ -2869,6 +2872,39 @@ func mediaTypesImageOnly(types []string) bool {
 		}
 	}
 	return true
+}
+
+// projectComponentFonts adds the library families a bundled component's
+// font fields choose. Like Layout text, a family removed since the Widget
+// was saved is skipped and the component keeps its bundled face.
+func (s *Service) projectComponentFonts(ctx context.Context, manifest *Manifest, widget ManifestWidget, presentation *WidgetPresentation) error {
+	component := presentation.Component
+	if component.Package != nil {
+		return nil
+	}
+	definition, ok := s.definitions.Widget(widget.Provider)
+	if !ok {
+		return nil
+	}
+	var configuration map[string]any
+	if json.Unmarshal(widget.Configuration, &configuration) != nil {
+		return nil
+	}
+	component.Fonts = nil
+	for _, value := range contentdefs.FontFieldValues(definition.ConfigurationSchema.Fields, configuration) {
+		fontID, err := uuid.Parse(value)
+		if err != nil {
+			continue
+		}
+		font, err := s.projectFont(ctx, manifest, fontID)
+		if err != nil {
+			return err
+		}
+		if font != nil {
+			component.Fonts = append(component.Fonts, *font)
+		}
+	}
+	return nil
 }
 
 // projectLayoutFonts adds the library families a Layout's text uses. A

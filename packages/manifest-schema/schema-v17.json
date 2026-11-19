@@ -1111,6 +1111,14 @@
         },
         "empty": {
           "enum": ["render", "skip-eligible"]
+        },
+        "fonts": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "schema-v11.json#/$defs/layoutFont"
+          },
+          "description": "Organization font library families the component's font fields chose, with their faces. Additive: a Player that predates it ignores the key and the component keeps its bundled face. Each face file is also in assets. Bundled components only; a package component never carries it."
         }
       }
     }

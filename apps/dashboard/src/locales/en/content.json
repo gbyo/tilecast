@@ -920,7 +920,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "Remove {{label}} {{index}}",
         "addEntry": "Add entry",
-        "noEntries": "None"
+        "noEntries": "None",
+        "tilecastFont": "Tilecast font"
       },
       "data": {
         "none": "No data connected",

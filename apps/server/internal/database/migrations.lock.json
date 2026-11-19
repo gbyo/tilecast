@@ -796,5 +796,11 @@
     "file": "00134_countdown_bar_font.sql",
     "owner": "countdown_bar",
     "sha256": "d3159a567cccbfb58cebc50f5ac580a8ea52efdda0ed6a13d6fde1ed7b94739c"
+  },
+  {
+    "version": 135,
+    "file": "00135_widget_font_references.sql",
+    "owner": "core",
+    "sha256": "9e129d4141b87eb69b6fd4b076ea006559ce87dc0641d43a572e02800172a234"
   }
 ]
