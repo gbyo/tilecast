@@ -89,6 +89,11 @@ add_executable(test-live-profiles tests/test_live_profiles.c)
 target_link_libraries(test-live-profiles PRIVATE tilecast-live-profiles)
 add_test(NAME live-profiles COMMAND test-live-profiles)
 
+add_executable(test-motion-setting tests/test_motion_setting.c)
+target_include_directories(test-motion-setting PRIVATE src)
+target_link_libraries(test-motion-setting PRIVATE PkgConfig::GIO)
+add_test(NAME motion-setting COMMAND test-motion-setting)
+
 add_executable(test-media-client tests/test_media_client.c)
 target_link_libraries(test-media-client PRIVATE tilecast-media-client)
 target_compile_definitions(test-media-client PRIVATE TC_MEDIA_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/media")
