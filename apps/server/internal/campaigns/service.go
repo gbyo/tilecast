@@ -483,6 +483,7 @@ func (s *Service) PublishSnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUID
 		if block.ID == uuid.Nil {
 			block.ID = uuid.New()
 		}
+		normalizeBlockTiming(&block)
 		scheduleID := uuid.New()
 		startDate, endDate := campaignDateBounds(block, snapshot)
 		if _, err = tx.Exec(ctx, `INSERT INTO schedules(id,organization_id,name,description,playlist_id,layout_id,type,timezone,priority,enabled,start_date,end_date,one_time_start,one_time_end,daily_start,daily_end,days_of_week,created_by,campaign_id,campaign_release_id,campaign_block_id) SELECT $1,organization_id,$2,$3,NULLIF($4,'00000000-0000-0000-0000-000000000000'::uuid),$5,$6,$7,$8,$9,$10::date,$11::date,$12,$13,$14::time,$15::time,COALESCE($16::smallint[],'{}'::smallint[]),$17,$18,$19,$20 FROM campaigns WHERE id=$18`, scheduleID, block.Name, snapshot.Description, playlistID(block), layoutID(block), block.Type, block.Timezone, block.Priority, block.Enabled, startDate, endDate, block.OneTimeStart, block.OneTimeEnd, block.DailyStart, block.DailyEnd, block.DaysOfWeek, userID, id, releaseID, block.ID); err != nil {
@@ -678,7 +679,7 @@ func (s *Service) Archive(ctx context.Context, id, userID uuid.UUID) error {
 }
 
 func (s *Service) Releases(ctx context.Context, id uuid.UUID) ([]Release, error) {
-	rows, err := s.db.Query(ctx, `SELECT id,campaign_id,release_number,submission_id,snapshot,snapshot_sha256,status,based_release_id,published_by,published_at,requested_publication_at,failure_reason,created_at FROM campaign_releases WHERE campaign_id=$1 ORDER BY release_number DESC`, id)
+	rows, err := s.db.Query(ctx, `SELECT id,campaign_id,release_number,submission_id,snapshot,snapshot_sha256,status,based_release_id,published_by,published_at,requested_publication_at,COALESCE(failure_reason,''),created_at FROM campaign_releases WHERE campaign_id=$1 ORDER BY release_number DESC`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -808,6 +809,7 @@ func normalizeSnapshot(snapshot *Snapshot) {
 		snapshot.Blocks = []Block{}
 	}
 	for i := range snapshot.Blocks {
+		normalizeBlockTiming(&snapshot.Blocks[i])
 		snapshot.Blocks[i].Name = strings.TrimSpace(snapshot.Blocks[i].Name)
 		if snapshot.Blocks[i].ID == uuid.Nil {
 			snapshot.Blocks[i].ID = uuid.New()
@@ -818,6 +820,17 @@ func normalizeSnapshot(snapshot *Snapshot) {
 		if snapshot.Blocks[i].Timezone == "" {
 			snapshot.Blocks[i].Timezone = snapshot.Timezone
 		}
+	}
+}
+
+// Editors can retain hidden inputs when the schedule type changes. Only the
+// selected timing mode belongs in the draft or its materialized schedule.
+func normalizeBlockTiming(block *Block) {
+	switch scheduling.Kind(block.Type) {
+	case scheduling.Weekly:
+		block.OneTimeStart, block.OneTimeEnd = nil, nil
+	case scheduling.OneTime:
+		block.DailyStart, block.DailyEnd, block.DaysOfWeek = nil, nil, nil
 	}
 }
 
