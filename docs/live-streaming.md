@@ -42,8 +42,11 @@ preference order:
 | `h264-720p15`  | H.264     |     1280×720 |     15 FPS |             1.5 Mbit/s |            1 |
 | `h264-540p15`  | H.264     |      960×540 |     15 FPS |             900 kbit/s |            2 |
 | `h264-540p10`  | H.264     |      960×540 |     10 FPS |             700 kbit/s |            3 |
-| `mjpeg-540p10` | MJPEG     |      960×540 |     10 FPS |  up to 100 KiB a frame |            — |
-| `mjpeg-360p8`  | MJPEG     |      640×360 |      8 FPS |  up to 100 KiB a frame |            — |
+| `mjpeg-540p10` | MJPEG     |      960×960 |     10 FPS |  up to 100 KiB a frame |            — |
+| `mjpeg-360p8`  | MJPEG     |      640×640 |      8 FPS |  up to 100 KiB a frame |            — |
+
+MJPEG limits width and height independently. Portrait frames at 360×640 or
+540×960 and landscape frames at 640×360 or 960×540 can fit without cropping.
 
 The preference order is `720p30 → 720p15 → 540p15 → 540p10 → MJPEG`.
 `h264-720p30` is the normal best profile, and the server selects it when the

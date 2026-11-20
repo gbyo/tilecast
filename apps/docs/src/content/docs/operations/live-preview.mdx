@@ -46,6 +46,8 @@ Watch live picks the best format that the Player, your browser, and the server a
 | H.264  | Up to 1280 × 720 at 30 frames per second, or 1280 × 720 at 15, or 960 × 540 at 15 or 10 | A Tilecast Edge Player with a working H.264 encoder and a browser that can decode the stream through WebCodecs |
 | MJPEG  | 960 × 540 at 10, or 640 × 360 at 8                                                      | When the Player or browser cannot use H.264                                                                    |
 
+For portrait screens, MJPEG capture uses rotation-independent bounds (up to 360 × 640 or 540 × 960). Studio preserves the native orientation of still images and live frames without cropping to 16:9. H.264 currently keeps its negotiated landscape-shaped limits; the preview still fits decoded portrait frames to their actual proportions.
+
 H.264 needs a secure connection: open Studio over HTTPS (or on `localhost`). Over plain HTTP the browser cannot decode H.264, so Watch live uses MJPEG. If H.264 stops working in your browser, Watch live switches to MJPEG by itself.
 
 The best format is 720p at 30 frames per second. Only an Edge Player with a hardware H.264 encoder that passes its startup test offers it. An Edge Player that encodes H.264 in software stays at 540p at 15 frames per second, so Watch live does not use much processor time on a Player without hardware encoding. There is no quality setting: Watch live chooses the best format for you.
