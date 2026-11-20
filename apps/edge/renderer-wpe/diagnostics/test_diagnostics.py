@@ -2,6 +2,7 @@
 
     python3 -m unittest discover -s apps/edge/renderer-wpe/diagnostics
 """
+import contextlib
 import hashlib
 import io
 import json
@@ -157,6 +158,41 @@ class TraceDropin(unittest.TestCase):
             tool.parse_exec_start("nothing")
         with self.assertRaises(tool.Refused):
             tool.trace_dropin(["x"], 3, False, {})
+
+
+class TraceEnableTwice(unittest.TestCase):
+    def test_a_second_enable_replaces_the_first(self):
+        calls = []
+        dropin_seen_at_show = []
+
+        def fake_systemctl(*args, check=True):
+            calls.append(args)
+            if args[:1] == ("show",) and "ExecStart" in args:
+                path = paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.TRACE_DROPIN
+                dropin_seen_at_show.append(path.exists())
+                return SHOW
+            if args[:1] == ("show",):
+                return "4242\n"
+            if args[:1] == ("is-active",):
+                return "active\n"
+            return ""
+
+        with tempfile.TemporaryDirectory() as work:
+            paths = tool.Paths(root=Path(work))
+            saved = (tool.systemctl, tool.require_root)
+            tool.systemctl, tool.require_root = fake_systemctl, lambda: None
+            try:
+                args = type("Args", (), {"env": None, "seconds": 60, "deep": False})()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    tool.trace_enable(paths, args)
+                    args.env = ["WEBKIT_USE_SKIA_FOR_COMPOSITION=0"]
+                    tool.trace_enable(paths, args)
+            finally:
+                tool.systemctl, tool.require_root = saved
+            self.assertEqual(dropin_seen_at_show, [False, False])
+            text = (paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.TRACE_DROPIN).read_text()
+            self.assertEqual(text.count("--visual-trace "), 1)
+            self.assertIn("Environment=WEBKIT_USE_SKIA_FOR_COMPOSITION=0", text)
 
 
 class Overlay(unittest.TestCase):

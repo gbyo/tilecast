@@ -341,6 +341,10 @@ def loaded_webkit(pid):
 def trace_enable(paths, args):
     require_root()
     env = parse_env(args.env)
+    # A new trace replaces the previous one: read the unit's own ExecStart,
+    # not the one this tool's earlier drop-in set.
+    if remove_dropin(paths, RENDERER_UNIT, TRACE_DROPIN):
+        systemctl("daemon-reload")
     argv = parse_exec_start(systemctl("show", "-p", "ExecStart", "--value", RENDERER_UNIT))
     path = write_dropin(paths, RENDERER_UNIT, TRACE_DROPIN, trace_dropin(argv, args.seconds, args.deep, env))
     pid = restart_renderers(paths)
