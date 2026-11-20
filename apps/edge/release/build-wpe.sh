@@ -7,8 +7,8 @@
 #
 #   build-wpe.sh DESTDIR [WORKDIR]
 set -euo pipefail
-WPE_VERSION=2.54.0
-WPE_SHA256=efa9bcc3cb891c2d88f50eec710d9ccee71cbdf1040420361eb98c17355eb452
+WPE_VERSION=2.54.3
+WPE_SHA256=787afd32ae23eac061621465390f44a462e874a9ebaba0b65521d7237fa8a5e4
 PREFIX=/opt/tilecast-edge/current/lib/wpe
 destdir=${1:?destination directory}
 work=${2:-/tmp/wpe-build}
