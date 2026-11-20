@@ -14,7 +14,7 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 
 ## Motion preference
 
-WebKit 2.54 inverts `WPE_SETTING_REDUCED_MOTION`: with the default (`FALSE`) pages see `prefers-reduced-motion: reduce`. A signage display has no viewer preference, and the Player Runtime's artwork (the Cast logo) stops animating under `reduce`. `main.c` sets the setting to `TRUE`, which gives `no-preference`. Recheck this when the pinned WPE version in `release/build-wpe.sh` changes.
+A signage display has no viewer preference, and the Player Runtime's startup reveal and artwork (the Cast logo) stop animating under `prefers-reduced-motion: reduce`. WebKit 2.54.0 and 2.54.1 invert `WPE_SETTING_REDUCED_MOTION`, so `TRUE` gives `no-preference`; WebKit bug 325212 removed the inversion in 2.54.2, so `FALSE` gives `no-preference` from then on. `main.c` chooses the value from the WebKit version that is loaded at run time (`src/motion-setting.h`), because a newer 2.54 library has the same SONAME and can run under the same binary. Recheck this when the pinned WPE version in `release/build-wpe.sh` changes.
 
 ## What it serves
 
@@ -67,6 +67,16 @@ docker run --rm -v "$PWD/../../..:/src" -v tilecast-edge-target:/target \
 `ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests (including `test-preview-pixels`), assembles the runtime, runs the projection tests (`tests/bridge_projection.test.mjs`), and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
 
 `ci/run-conformance.sh` builds the test-only `tilecast-runtime-conformance` runner (`tests/conformance.c`) and runs the Player Runtime conformance fixtures under WPE WebKit headless, for comparison with the Electron run (`packages/player-runtime/conformance`).
+
+## Graphics diagnostics
+
+These tools are off by default and exist to find where a rendering defect occurs. They never change what plays.
+
+- **`--visual-trace`** records, for a bounded window, the Player Runtime's transition and startup events and the metadata of every buffer that WPE presents, on one clock, to `$XDG_CACHE_HOME/tilecast-visual-trace/visual-trace.jsonl` (`src/visual-trace.c`, `web/tilecast-visual-trace.js`). Without the flag nothing is injected, connected or written. The contract and schema are in [`docs/tilecast-edge-visual-trace.md`](../../../docs/tilecast-edge-visual-trace.md).
+- **`tilecast-wpe-compositor-lab`** (`lab/`, development only, never installed) runs deterministic synthetic scenes on the same WPEPlatform setup without any Tilecast code, inspects every presented buffer and reports impossible frames.
+- **`diagnostics/`** holds the field tool (`tilecast_wpe_debug.py`: `doctor`, trace, temporary WPE and Tilecast runtime overlays, lab runs and matrix, privacy-safe bundle; it checks the environment that reaches the renderer), the trace report, and the local WPE and runtime-overlay build (`wpe-local.sh`). See [`docs/tilecast-edge-wpe-compositor-lab.md`](../../../docs/tilecast-edge-wpe-compositor-lab.md).
+
+`ci/run-e2e.sh` runs the lab smoke test (`tests/lab_smoke.py`) and the `visual-trace` scenario. Their headless results do not prove that a DRM screen is correct.
 
 ## Not yet supported
 

@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  crossfade-cleanup-variants: the same crossfade with one completion step
+  changed at a time: pass --variant=NAME[:NAME] (see crossfade.js). These are
+  diagnostic experiments, not product fixes.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(0, 0, 0);
+        overflow: hidden;
+      }
+      /* The Runtime's .layer and .layer.visible rules (static/runtime.css). */
+      .layer {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .layer.visible {
+        opacity: 1;
+      }
+      .layer img,
+      .layer .content {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+    </style>
+    <script src="lab.js"></script>
+    <script src="crossfade.js"></script>
+  </head>
+  <body>
+    <div id="layer-a" class="layer"></div>
+    <div id="layer-b" class="layer"></div>
+    <script>
+      crossfadeScene({ variants: true });
+    </script>
+  </body>
+</html>

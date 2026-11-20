@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { swapLayers } from "./crossfade";
+import {
+  installVisualTraceForTest,
+  visualTrace,
+  VISUAL_TRACE_SCHEMA,
+  type TraceBatch,
+} from "../diagnostics/visual-trace";
 
 function layer(visible: boolean): HTMLDivElement {
   const el = document.createElement("div");
@@ -101,5 +107,93 @@ describe("swapLayers", () => {
     expect(animate).not.toHaveBeenCalled();
     expect(outgoing.classList.contains("visible")).toBe(false);
     expect(incoming.classList.contains("visible")).toBe(true);
+  });
+});
+
+describe("visual trace", () => {
+  afterEach(() => {
+    installVisualTraceForTest(null);
+  });
+
+  /** Every DOM fact a transition decides, at each step the test observes. */
+  function snapshot(incoming: HTMLElement, outgoing: HTMLElement) {
+    return [incoming, outgoing].map((el) => ({
+      visible: el.classList.contains("visible"),
+      opacity: el.style.opacity,
+      zIndex: el.style.zIndex,
+    }));
+  }
+
+  async function run(traced: boolean, cancel: boolean) {
+    const batches: TraceBatch[] = [];
+    installVisualTraceForTest(
+      traced
+        ? {
+            schema: VISUAL_TRACE_SCHEMA,
+            deep: false,
+            emit: (batch) => batches.push(structuredClone(batch)),
+          }
+        : null,
+    );
+    const incoming = layer(false);
+    const outgoing = layer(true);
+    const fade = {
+      ...fakeAnimation(),
+      ready: Promise.resolve(),
+      playState: "running",
+      startTime: 1,
+      currentTime: 0,
+    };
+    const animate = vi.fn(() => fade);
+    incoming.animate = animate as unknown as typeof incoming.animate;
+    const steps = [];
+    const running = swapLayers(
+      incoming,
+      outgoing,
+      "crossfade",
+      { durationScale: 1 },
+      { scope: "stage", fields: { tx: 1, incoming: "b", outgoing: "a" } },
+    );
+    steps.push(snapshot(incoming, outgoing));
+    if (cancel) running.cancel();
+    else fade.finish();
+    const outcome = await running.finished;
+    await Promise.resolve();
+    steps.push(snapshot(incoming, outgoing));
+    visualTrace().flush();
+    return {
+      outcome,
+      steps,
+      animateCalls: animate.mock.calls,
+      cancelCalls: fade.cancel.mock.calls.length,
+      events: batches.flatMap((b) => b.records).map((r) => r.ev),
+    };
+  }
+
+  it("changes diagnostics only, never the transition outcome", async () => {
+    for (const cancel of [false, true]) {
+      const plain = await run(false, cancel);
+      const traced = await run(true, cancel);
+      expect(plain.events).toEqual([]);
+      expect(traced.outcome).toBe(plain.outcome);
+      expect(traced.steps).toEqual(plain.steps);
+      expect(traced.animateCalls).toEqual(plain.animateCalls);
+      expect(traced.cancelCalls).toBe(plain.cancelCalls);
+    }
+  });
+
+  it("records the lifecycle of one crossfade in order", async () => {
+    const traced = await run(true, false);
+    expect(traced.events).toEqual([
+      "swap.stack",
+      "fade.pin",
+      "anim.create",
+      "swap.visible",
+      "anim.ready",
+      // The animation's own end, then the cleanup it triggers.
+      "anim.finish",
+      "fade.unpin",
+      "swap.settle",
+    ]);
   });
 });

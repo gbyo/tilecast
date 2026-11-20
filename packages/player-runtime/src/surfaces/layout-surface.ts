@@ -37,6 +37,7 @@ import {
 } from "../transitions/crossfade";
 import { ComponentWidgetSurface } from "./component-widget-surface";
 import { WidgetSurface } from "./widget-surface";
+import { visualTrace } from "../diagnostics/visual-trace";
 
 export class LayoutSurface implements MediaSurface {
   readonly element: HTMLDivElement;
@@ -50,6 +51,9 @@ export class LayoutSurface implements MediaSurface {
   private active = false;
   private readonly widgetMounts: WidgetExecution[] = [];
   private disposed = false;
+  /** Visual-trace identity of this layout and of its zone playlists. */
+  private readonly traceLayout = visualTrace().nextId("layout");
+  private traceZones = 0;
   private readonly declarations: { id: string; rotating: boolean }[] = [];
 
   constructor(
@@ -315,6 +319,8 @@ export class LayoutSurface implements MediaSurface {
   ): void {
     container.style.position = "relative";
     container.style.visibility = "visible";
+    const trace = visualTrace();
+    const traceZone = trace.enabled ? ++this.traceZones : 0;
     const owned = new Set<MediaSurface>();
     const youtube = new Set<MediaSurface>();
     const hasYouTube = items.some(
@@ -371,6 +377,16 @@ export class LayoutSurface implements MediaSurface {
       const selected = zoneEntry({ ...snapshot.context, items });
       if (!selected) return;
       const { entry } = selected;
+      const traceFields = trace.enabled
+        ? {
+            layout: this.traceLayout,
+            zone: traceZone,
+            epoch,
+            index: items.indexOf(entry),
+            kind: entry.kind,
+          }
+        : null;
+      if (traceFields) trace.record("zone", "zone.stage", traceFields);
       cancelTransition();
       for (const surface of owned) {
         if (surface !== visible || youtube.has(surface)) {
@@ -519,6 +535,19 @@ export class LayoutSurface implements MediaSurface {
         const outgoing = visible;
         visible = incoming;
         const replacing = outgoing !== null && outgoing !== incoming;
+        const tag = traceFields
+          ? {
+              scope: "zone" as const,
+              fields: { ...traceFields, tx: trace.nextId("transition") },
+            }
+          : undefined;
+        if (tag) {
+          trace.record("zone", "zone.show", {
+            ...tag.fields,
+            replacing,
+            transition: entry.transition ?? null,
+          });
+        }
         if (
           replacing &&
           (entry.transition === "fade" || entry.transition === "crossfade") &&
@@ -531,18 +560,35 @@ export class LayoutSurface implements MediaSurface {
           const running = fadeIn(
             element,
             CROSSFADE_MS * this.env.animationScale,
+            tag,
           );
           transition = running;
           const token = transitionToken;
-          void running.finished.then(() => {
-            if (token !== transitionToken) return;
+          void running.finished.then((outcome) => {
+            if (token !== transitionToken) {
+              if (tag) trace.record("zone", "zone.superseded", tag.fields);
+              return;
+            }
             release(outgoing);
             if (transition === running) transition = null;
+            if (tag) {
+              trace.record("zone", "zone.settled", {
+                ...tag.fields,
+                outcome,
+                outgoingReleased: true,
+              });
+            }
           });
           return;
         }
         element.style.removeProperty("opacity");
         if (replacing) release(outgoing);
+        if (tag) {
+          trace.record("zone", "zone.cut", {
+            ...tag.fields,
+            outgoingReleased: replacing,
+          });
+        }
       };
       const activate = () => {
         if (!isCurrent() || !this.active || !prepared || activating) return;
@@ -595,6 +641,12 @@ export class LayoutSurface implements MediaSurface {
       };
       incoming.prepare().then(
         () => {
+          if (traceFields) {
+            trace.record("zone", "zone.ready", {
+              ...traceFields,
+              current: isCurrent(),
+            });
+          }
           if (!isCurrent()) return;
           prepared = true;
           activate();

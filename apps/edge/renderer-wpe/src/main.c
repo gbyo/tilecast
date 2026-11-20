@@ -1,4 +1,5 @@
 #include "host.h"
+#include "motion-setting.h"
 #include "remote-web.h"
 #include "validate.h"
 
@@ -133,6 +134,10 @@ main (int argc, char **argv)
   g_autofree char *web_control_socket = NULL;
   g_autofree char *web_frames_dir = NULL;
   gboolean console = FALSE;
+  gboolean visual_trace = FALSE;
+  gboolean visual_trace_deep = FALSE;
+  int visual_trace_seconds = TC_VISUAL_TRACE_DEFAULT_SECONDS;
+  g_autofree char *visual_trace_dir = NULL;
   gboolean probe_drm = FALSE;
   gboolean crash_backtrace = FALSE;
   int exit_after = 0;
@@ -148,6 +153,14 @@ main (int argc, char **argv)
     { "web-frames-dir", 0, 0, G_OPTION_ARG_FILENAME, &web_frames_dir,
       "Remote web helper frame sockets (default /run/tilecast-web/frames)", "PATH" },
     { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
+    { "visual-trace", 0, 0, G_OPTION_ARG_NONE, &visual_trace,
+      "Record Runtime transition events and presented-buffer metadata for a bounded time (diagnostics)", NULL },
+    { "visual-trace-deep", 0, 0, G_OPTION_ARG_NONE, &visual_trace_deep,
+      "With --visual-trace: also sample computed styles every frame (perturbs rendering)", NULL },
+    { "visual-trace-seconds", 0, 0, G_OPTION_ARG_INT, &visual_trace_seconds,
+      "Length of the visual trace (5-1800, default 120)", "N" },
+    { "visual-trace-dir", 0, 0, G_OPTION_ARG_FILENAME, &visual_trace_dir,
+      "Directory for visual-trace.jsonl (default $XDG_CACHE_HOME/tilecast-visual-trace)", "PATH" },
     { "exit-after", 0, 0, G_OPTION_ARG_INT, &exit_after, "Exit after N seconds (CI)", "N" },
     { "probe-drm", 0, 0, G_OPTION_ARG_NONE, &probe_drm, "Print the DRM/KMS outputs as JSON and exit (read-only)", NULL },
     { "crash-backtrace", 0, 0, G_OPTION_ARG_NONE, &crash_backtrace, "Print a backtrace on a fatal signal (development)", NULL },
@@ -194,6 +207,28 @@ main (int argc, char **argv)
     g_printerr ("tilecast-renderer-wpe: path options must be clean absolute paths\n");
     return 2;
   }
+  if (visual_trace_deep && !visual_trace) {
+    g_printerr ("tilecast-renderer-wpe: --visual-trace-deep needs --visual-trace\n");
+    return 2;
+  }
+  if (visual_trace_seconds < TC_VISUAL_TRACE_MIN_SECONDS || visual_trace_seconds > TC_VISUAL_TRACE_MAX_SECONDS) {
+    g_printerr ("tilecast-renderer-wpe: --visual-trace-seconds must be between %d and %d\n",
+                TC_VISUAL_TRACE_MIN_SECONDS, TC_VISUAL_TRACE_MAX_SECONDS);
+    return 2;
+  }
+  if (visual_trace) {
+    host.visual_trace = TRUE;
+    host.visual_trace_deep = visual_trace_deep;
+    host.visual_trace_seconds = (guint) visual_trace_seconds;
+    host.visual_trace_dir = visual_trace_dir ? g_strdup (visual_trace_dir)
+                                             : g_build_filename (g_get_user_cache_dir (), "tilecast-visual-trace", NULL);
+    if (!tc_is_clean_absolute_path (host.visual_trace_dir)) {
+      g_printerr ("tilecast-renderer-wpe: --visual-trace-dir must be a clean absolute path\n");
+      return 2;
+    }
+    /* A trace is read next to the page's own console output. */
+    console = TRUE;
+  }
   host.console_to_stderr = console;
   host.exit_after_seconds = exit_after > 0 ? (guint) exit_after : 0;
   host.content = g_ptr_array_new_with_free_func (tc_content_ref_free);
@@ -239,14 +274,12 @@ main (int argc, char **argv)
     return 4;
   }
   wpe_display_set_primary (host.display);
-  /* WebKit 2.54 (SystemSettingsManagerProxyWPE.cpp) reports
-   * `prefers-reduced-motion: reduce` when this setting is FALSE, which is its
-   * default: reducedMotion() returns !getBool(...). That froze the Player
-   * Runtime's own artwork (the Cast logo's tap and ripple). A signage display
-   * has no viewer preference to honor, so set it TRUE to get no-preference.
-   * Check this when the pinned WPE version changes (release/build-wpe.sh). */
+  /* No viewer preference: see motion-setting.h for why the value depends on
+   * the WebKit release that is loaded. */
+  gboolean reduced_motion = tc_reduced_motion_for_no_preference (
+    webkit_get_major_version (), webkit_get_minor_version (), webkit_get_micro_version ());
   g_autoptr (GError) settings_error = NULL;
-  if (!wpe_settings_set_boolean (wpe_display_get_settings (host.display), WPE_SETTING_REDUCED_MOTION, TRUE,
+  if (!wpe_settings_set_boolean (wpe_display_get_settings (host.display), WPE_SETTING_REDUCED_MOTION, reduced_motion,
                                  WPE_SETTINGS_SOURCE_APPLICATION, &settings_error))
     g_warning ("cannot set the motion preference: %s", settings_error->message);
   if (!tc_view_create (&host, &error)) {
@@ -266,6 +299,8 @@ main (int argc, char **argv)
 
   g_main_loop_run (host.loop);
   tc_live_encoder_stop_all (&host);
+  g_clear_pointer (&host.trace, tc_visual_trace_stop);
+  g_free (host.visual_trace_dir);
   tc_remote_web_stop (&host);
   g_clear_pointer (&host.present, tc_present_relay_free);
   if (host.present_dir != NULL)

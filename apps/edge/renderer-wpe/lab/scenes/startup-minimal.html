@@ -1,0 +1,261 @@
+<!doctype html>
+<!--
+  startup-minimal: the Tilecast startup reveal (packages/player-runtime/src/
+  startup/view.ts) reduced to plain layers, small enough to become a WebKit
+  LayoutTest. No Tilecast code.
+
+    intro    a logo pulses on a black layer above the content (teal)
+    settle   the pulse stops; the white front tile (the card) comes to full
+             opacity (220 ms) and the mark recedes to opacity 0 (420 ms);
+             both fill: forwards
+    push     the card is tilted and pushed toward the camera inside a
+             perspective container until it covers the screen
+             (900 ms after 60 ms, fill: forwards)
+    covered  in the task that sees the push finish: the layer becomes a plain
+             white sheet and the logo is hidden
+    resolve  after 60 ms the layer fades 1 -> 0 (380 ms, fill: forwards)
+    removed  the layer's animations are cancelled and it is removed
+
+  Checks: from settle to covered every sampled point moves along
+  mark -> black -> white and never back (the mark recedes, the card covers);
+  during resolve every point moves white -> teal together; then teal stays.
+  The sample points avoid the pulsing logo except one on the mark.
+
+  Variants: busy-end blocks the main thread around the end of the push and
+  of the resolve fade.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(0, 0, 0);
+        overflow: hidden;
+      }
+      #content {
+        position: absolute;
+        inset: 0;
+        background: rgb(20, 150, 140);
+      }
+      #startup {
+        position: absolute;
+        inset: 0;
+        background: rgb(0, 0, 0);
+        z-index: 10;
+      }
+      #logo {
+        position: absolute;
+        inset: 0;
+      }
+      .tile {
+        position: absolute;
+        width: 10vh;
+        height: 10vh;
+        animation: pulse 1.5s ease-in-out infinite both;
+      }
+      .rear {
+        background: rgb(90, 90, 90);
+      }
+      #rear-1 {
+        left: calc(50% - 9vh);
+        top: 41vh;
+        width: 4vh;
+        height: 4vh;
+      }
+      #rear-2 {
+        left: calc(50% - 6vh);
+        top: 43vh;
+        width: 4vh;
+        height: 4vh;
+        animation-delay: 0.18s;
+      }
+      #card {
+        left: calc(50% - 5vh);
+        top: 45vh;
+        background: rgb(255, 255, 255);
+        animation-delay: 0.36s;
+        overflow: hidden;
+      }
+      #shade {
+        position: absolute;
+        inset: 0;
+        background: rgb(0, 0, 0);
+        opacity: 0;
+      }
+      #mark {
+        position: absolute;
+        left: calc(43.75% - 4vw);
+        top: 66vh;
+        width: 8vw;
+        height: 8vh;
+        background: rgb(200, 60, 160);
+      }
+      @keyframes pulse {
+        0%,
+        60%,
+        100% {
+          opacity: 0.22;
+          transform: translate(0, 0);
+        }
+        25% {
+          opacity: 1;
+          transform: translate(0.4vh, 0.35vh);
+        }
+      }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <div id="content"></div>
+    <script>
+      const SETTLE_MS = 220;
+      const RECEDE_MS = 420;
+      const PUSH_DELAY_MS = 60;
+      const PUSH_MS = 900;
+      const WHITE_HOLD_MS = 60;
+      const RESOLVE_MS = 380;
+      const PERSPECTIVE = 600;
+      Lab.palette({
+        black: [0, 0, 0],
+        white: [255, 255, 255],
+        mark: [200, 60, 160],
+        teal: [20, 150, 140],
+      });
+      const animations = (element) =>
+        typeof element.getAnimations === "function"
+          ? element.getAnimations()
+          : [];
+
+      function build() {
+        const root = document.createElement("div");
+        root.id = "startup";
+        root.innerHTML =
+          '<div id="logo"><div id="rear-1" class="tile rear"></div>' +
+          '<div id="rear-2" class="tile rear"></div>' +
+          '<div id="card" class="tile"><div id="shade"></div></div>' +
+          '<div id="mark"></div></div>';
+        document.body.appendChild(root);
+        return root;
+      }
+
+      async function reveal(root) {
+        const logo = root.querySelector("#logo");
+        const card = root.querySelector("#card");
+        const shade = root.querySelector("#shade");
+        const mark = root.querySelector("#mark");
+        Lab.marker("arm");
+        Lab.marker("transition-start", {
+          path: "mark:black:white",
+          rules: "reversal",
+        });
+        // Settle: freeze each tile where the pulse left it, then ease.
+        for (const tile of root.querySelectorAll(".tile")) {
+          const computed = getComputedStyle(tile);
+          const from = {
+            opacity: computed.opacity,
+            transform: computed.transform,
+          };
+          for (const animation of animations(tile)) animation.cancel();
+          tile.style.animation = "none";
+          if (tile === card) {
+            tile.animate(
+              [from, { opacity: "1", transform: "translate(0px, 0px)" }],
+              {
+                duration: SETTLE_MS,
+                easing: "cubic-bezier(0.2, 0.7, 0.3, 1)",
+                fill: "forwards",
+              },
+            );
+          } else {
+            tile.style.opacity = from.opacity;
+            tile.style.transform = from.transform;
+          }
+        }
+        mark.animate(
+          [
+            { opacity: 1, transform: "scale(1)" },
+            { opacity: 0, transform: "scale(0.97)" },
+          ],
+          {
+            duration: RECEDE_MS,
+            easing: "cubic-bezier(0.3, 0, 0.2, 1)",
+            fill: "forwards",
+          },
+        );
+        // Push: lift, tilt, then toward the camera until the card covers.
+        logo.style.perspective = `${PERSPECTIVE}px`;
+        card.style.transformOrigin = "50% 50%";
+        card.style.willChange = "transform";
+        const timing = {
+          duration: PUSH_MS,
+          delay: PUSH_DELAY_MS,
+          easing: "linear",
+          fill: "forwards",
+        };
+        const push = card.animate(
+          [
+            {
+              offset: 0,
+              transform: "translateZ(0px) rotateX(0deg) rotateZ(0deg)",
+            },
+            {
+              offset: 0.3,
+              transform: "translateZ(80px) rotateX(16deg) rotateZ(-4deg)",
+            },
+            {
+              offset: 1,
+              transform: "translateZ(570px) rotateX(0deg) rotateZ(0deg)",
+            },
+          ],
+          timing,
+        );
+        shade.animate(
+          [
+            { offset: 0, opacity: 0 },
+            { offset: 0.3, opacity: 0.18 },
+            { offset: 1, opacity: 0 },
+          ],
+          timing,
+        );
+        Lab.stallAtEnd(push, PUSH_DELAY_MS + PUSH_MS);
+        await push.finished;
+        Lab.marker("transition-end", { label: "push" });
+        // Covered: become the plain sheet in the same frame.
+        root.style.background = "rgb(255, 255, 255)";
+        logo.style.visibility = "hidden";
+        Lab.marker("settled", { color: "white" });
+        await Lab.sleep(WHITE_HOLD_MS);
+        Lab.marker("arm");
+        Lab.marker("transition-start", {
+          path: "white:teal",
+          rules: "reversal:foreign:uniform",
+        });
+        const resolve = root.animate([{ opacity: 1 }, { opacity: 0 }], {
+          duration: RESOLVE_MS,
+          easing: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+          fill: "forwards",
+        });
+        Lab.stallAtEnd(resolve, RESOLVE_MS);
+        await resolve.finished;
+        Lab.marker("transition-end", { label: "resolve" });
+        for (const element of [root, ...root.querySelectorAll("*")]) {
+          for (const animation of animations(element)) animation.cancel();
+        }
+        root.remove();
+        Lab.marker("settled", { color: "teal" });
+      }
+
+      Lab.run(async () => {
+        Lab.marker("reset");
+        const root = build();
+        await Lab.sleep(1500);
+        await reveal(root);
+        await Lab.sleep(500);
+      });
+    </script>
+  </body>
+</html>
