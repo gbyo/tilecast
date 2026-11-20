@@ -74,7 +74,7 @@ These tools are off by default and exist to find where a rendering defect occurs
 
 - **`--visual-trace`** records, for a bounded window, the Player Runtime's transition and startup events and the metadata of every buffer that WPE presents, on one clock, to `$XDG_CACHE_HOME/tilecast-visual-trace/visual-trace.jsonl` (`src/visual-trace.c`, `web/tilecast-visual-trace.js`). Without the flag nothing is injected, connected or written. The contract and schema are in [`docs/tilecast-edge-visual-trace.md`](../../../docs/tilecast-edge-visual-trace.md).
 - **`tilecast-wpe-compositor-lab`** (`lab/`, development only, never installed) runs deterministic synthetic scenes on the same WPEPlatform setup without any Tilecast code, inspects every presented buffer and reports impossible frames.
-- **`diagnostics/`** holds the field tool (`tilecast_wpe_debug.py`: trace, temporary WPE overlay, lab runs and matrix, privacy-safe bundle), the trace report, and the local WPE build (`wpe-local.sh`). See [`docs/tilecast-edge-wpe-compositor-lab.md`](../../../docs/tilecast-edge-wpe-compositor-lab.md).
+- **`diagnostics/`** holds the field tool (`tilecast_wpe_debug.py`: `doctor`, trace, temporary WPE and Tilecast runtime overlays, lab runs and matrix, privacy-safe bundle; it checks the environment that reaches the renderer), the trace report, and the local WPE and runtime-overlay build (`wpe-local.sh`). See [`docs/tilecast-edge-wpe-compositor-lab.md`](../../../docs/tilecast-edge-wpe-compositor-lab.md).
 
 `ci/run-e2e.sh` runs the lab smoke test (`tests/lab_smoke.py`) and the `visual-trace` scenario. Their headless results do not prove that a DRM screen is correct.
 

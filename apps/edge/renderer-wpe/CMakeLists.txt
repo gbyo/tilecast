@@ -13,6 +13,15 @@ if(TILECAST_ALLOW_UNSANDBOXED_WEBKIT)
   add_compile_definitions(TILECAST_ALLOW_UNSANDBOXED_WEBKIT=1)
 endif()
 
+# A diagnostic overlay build (diagnostics/build-runtime-overlay.sh) names the
+# Tilecast commit it was built from; the visual trace header repeats it. A
+# release build leaves it "unknown".
+set(TILECAST_BUILD_COMMIT "unknown" CACHE STRING "Tilecast git commit of this build (diagnostics only)")
+if(NOT TILECAST_BUILD_COMMIT MATCHES "^(unknown|[0-9a-f]{40}(-dirty)?)$")
+  message(FATAL_ERROR "TILECAST_BUILD_COMMIT must be 'unknown', a 40-digit commit, or a commit with '-dirty'")
+endif()
+add_compile_definitions(TC_BUILD_COMMIT="${TILECAST_BUILD_COMMIT}")
+
 find_package(PkgConfig REQUIRED)
 # WPEPlatform only: no libwpe, no WPEBackend-fdo, no Cog (docs/tilecast-edge.md §10.1).
 pkg_check_modules(WPE REQUIRED IMPORTED_TARGET

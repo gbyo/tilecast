@@ -278,7 +278,10 @@ Presets:
   `--wpe`.
 - `extended`: the other variables, one at a time.
 
-Each `summary.json` records the variables it ran with (`env`).
+Each lab run writes `run.json` with the variables it requested, the variables
+that the lab and its web process really had, and the compositor that those
+variables mean (see [Environment integrity](#environment-integrity)). A run
+whose environment is not the profile's is not counted.
 
 ## Testing another WPE build on a screen
 
@@ -334,7 +337,7 @@ sudo python3 -I tilecast_wpe_debug.py overlay restore
    `/var/lib/tilecast-wpe-debug/overlays/<label>/wpe` and puts the build over
    it. Libraries that the release carries for itself, such as
    `libwpe-1.0.so.1`, stay.
-4. It writes `90-tilecast-wpe-debug.conf` for `tilecast-renderer.service` and
+4. It writes `zz-tilecast-wpe-overlay.conf` for `tilecast-renderer.service` and
    `tilecast-web-renderer.service` in `/run/systemd/system`. The drop-in has
    one line: `BindReadOnlyPaths=<overlay>:/opt/tilecast-edge/current/lib/wpe`.
 5. It restarts the units. Then it reads the overlay manifest through
@@ -383,42 +386,240 @@ drop-in. Delete `/var/lib/tilecast-wpe-debug` to remove all diagnostics files.
 Do not keep a WebKit fork in this repository. A fix goes upstream. A Tilecast
 release takes it through a WPE version change.
 
+## Environment integrity
+
+An experiment is only true for the environment that reaches the WebKit
+processes. systemd can add compositor variables that the tool did not set: the
+unit's own `Environment=`, any drop-in in `/etc/systemd/system` or
+`/run/systemd/system`, an `EnvironmentFile=`, or the environment of the service
+manager. A debug override in `/etc` with `WEBKIT_USE_SKIA_FOR_COMPOSITION=0`
+would make a "Skia" run use TextureMapper and put the Skia label on the result.
+So the tool never labels a run from what it requested. It reads what reaches
+the process.
+
+### Doctor
+
+```sh
+sudo python3 -I tilecast_wpe_debug.py doctor
+sudo python3 -I tilecast_wpe_debug.py doctor --json
+```
+
+`doctor` changes nothing. It reads `systemctl show` of the renderer unit
+(`Environment`, `EnvironmentFiles`, `DropInPaths`, `FragmentPath`,
+`UnsetEnvironment`, `ExecStart`), `systemctl show-environment`, and each file
+that these name. It reports:
+
+- every compositor variable that something other than this tool sets, with its
+  value and the file or manager that sets it, and what the renderer would run
+  as with it (`BLOCK`);
+- the renderer's live environment and its web process's, read from
+  `/proc/<pid>/environ` (run as root), the compositor those variables mean,
+  and any difference from the unit configuration (a renderer that started
+  before a configuration change);
+- whether a diagnostic Tilecast overlay is active, with its git commit, and
+  whether the running binary and Runtime match it;
+- whether `trace enable` can run (see
+  [Diagnostic Tilecast overlay](#diagnostic-tilecast-overlay));
+- an Edge update that is provisional, a WPE overlay, and an `ExecStart` that
+  this tool will not copy.
+
+The exit status is 1 when a `BLOCK` line exists. The `doctor` data is also in
+the [field bundle](#field-bundle).
+
+### Rules
+
+1. **Before the start.** `trace enable` finds every allowlisted variable that
+   the unit gets from another source. If the profile does not set it, the tool
+   refuses and names the variable, the value and the source. With
+   `--clear-inherited` it adds `UnsetEnvironment=` for those names to its own
+   drop-in. systemd applies `UnsetEnvironment=` after every `Environment=`, so
+   only the profile is left.
+2. **Order.** The tool's drop-ins are named `zz-tilecast-*.conf`. systemd reads
+   drop-ins in file name order and the last assignment wins, so no other drop-in
+   overrides the profile. The rule 3 check still applies.
+3. **After the start.** The tool reads `/proc/<pid>/environ` of the renderer
+   and of its `WPEWebProcess`, which runs the compositor, and compares the
+   allowlisted variables with the profile. A variable that is missing, extra or
+   different is a mismatch. A web process that does not appear in 30 s is
+   "unverified" and also refused. On a mismatch the tool removes its drop-in,
+   restarts the renderer, and prints the differences. No trace is kept.
+4. **Lab.** The lab runs in a transient unit that sets the profile and
+   `UnsetEnvironment=` for every other allowlisted variable. While it runs, the
+   tool reads the lab's environment and its web process's. A mismatch stops
+   the lab, and the run (and a matrix) ends with the differences. The run's
+   `run.json` keeps them.
+5. **Records.** `trace-meta.json` (written by `trace enable`, copied by
+   `trace collect`) and `run.json` hold `requestedEnv`, `requestedCompositor`,
+   the observed variables of both processes, `observedCompositor`, and whether
+   they match. The trace header has `env`, the variables that the renderer
+   process itself sees.
+
+The compositor name comes from the WebKit 2.54 source. Skia compositing is off
+only for `WEBKIT_USE_SKIA_FOR_COMPOSITION` exactly `0`
+(`DrawingAreaCoordinatedGraphicsGLib.cpp`). Accelerated buffers are off when
+`WEBKIT_SKIA_ENABLE_CPU_RENDERING` is set to anything but `0`
+(`WebProcessGLib.cpp`). So `1` for the first variable is still Skia, and the
+tool says so.
+
+`/proc/<pid>/environ` shows the environment at the start of the process. The
+renderer sets none of the allowlisted variables itself.
+
+## Diagnostic Tilecast overlay
+
+A release from before #1946 has no `--visual-trace` option in its renderer and
+no trace sink in its Runtime. `trace enable` reads the renderer binary and the
+Runtime directory the unit would use. If either has no trace support, it
+refuses and does not write a drop-in. To trace the real Runtime on such a
+screen, install a diagnostic Tilecast overlay: the instrumented
+`tilecast-renderer-wpe` and the exact assembled Runtime and bridge of a git
+commit. The lab does not need it. It runs on the unmodified release.
+
+### Build
+
+On a computer with Docker and the same architecture as the screen, in the
+checkout you want to run:
+
+```sh
+apps/edge/renderer-wpe/diagnostics/wpe-local.sh --label wpe-2.54.0 --release-pin --runtime-overlay-only
+```
+
+Use `--release-pin` so the renderer is built against the WPE that the screen
+runs. `--runtime-overlay` builds the WPE overlay and the lab as well. The
+script builds the Player Runtime first. Then `build-runtime-overlay.sh`:
+
+- refuses a Runtime build that is older than its sources;
+- builds `tilecast-renderer-wpe` with the flags of `build-edge-release.sh`
+  (`Release`, the `$ORIGIN/../lib/wpe/lib` runtime path) and runs its `ctest`.
+  It checks that the renderer still clears
+  `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`. The overlay does not weaken the
+  sandbox;
+- compiles the git commit into the renderer (`TILECAST_BUILD_COMMIT`), and the
+  trace header repeats it as `buildCommit`;
+- runs `assemble-runtime.sh`, which checks the Runtime against its manifest
+  and adds `tilecast-bridge.js`, `tilecast-native-relay.js` and
+  `tilecast-visual-trace.js`;
+- packs `tilecast-runtime-overlay-<label>-<arch>.tar` and its `.sha256`.
+  The manifest has the full commit, the number of modified files and the
+  SHA-256 of the diff (and of new files), the renderer SHA-256, and the
+  SHA-256 of every Runtime file. `<label>` is `tc-` and the first 12 digits of
+  the commit, with `-dirty` when files are modified.
+
+`runtime_overlay.py pack` refuses a renderer without `--visual-trace`, a binary
+that does not carry the commit, and a Runtime without the sink.
+
+The overlay replaces the renderer and the Runtime as a whole. The installed
+tilecastd and the Server keep the release's version. Build the overlay from the
+release's own commit plus the diagnostics commits, not from a newer `main`:
+
+```sh
+git worktree add ../tilecast-diag <release commit>
+git -C ../tilecast-diag cherry-pick <the #1946 commits>
+```
+
+A newer Runtime or renderer can use a protocol or a presentation contract that
+the installed daemon and Server do not have.
+
+### Install and restore
+
+```sh
+sudo python3 -I tilecast_wpe_debug.py runtime-overlay install tilecast-runtime-overlay-tc-<commit>-x86_64.tar --sha256 <hash>
+sudo python3 -I tilecast_wpe_debug.py runtime-overlay status
+sudo python3 -I tilecast_wpe_debug.py runtime-overlay restore
+```
+
+`runtime-overlay install` does these steps:
+
+1. It refuses while an Edge update is provisional.
+2. It checks the archive: only files under `runtime/`, no links, no `..`, the
+   architecture of the screen, the SHA-256 of every file against the manifest,
+   a renderer that has `--visual-trace` and carries the manifest's commit, and a
+   Runtime that matches its own manifest and has the trace sink.
+3. It writes the files to `/var/lib/tilecast-wpe-debug/runtime-overlays/<label>`.
+4. It writes `zz-tilecast-runtime-overlay.conf` for `tilecast-renderer.service`
+   only, in `/run/systemd/system`. The drop-in has two lines:
+   `BindReadOnlyPaths=<overlay>/bin/tilecast-renderer-wpe:/opt/tilecast-edge/current/bin/tilecast-renderer-wpe`
+   and
+   `BindReadOnlyPaths=<overlay>/renderer-web:/opt/tilecast-edge/current/share/tilecast/renderer-web`.
+5. It restarts the renderer. Then it reads `/proc/<pid>/exe` and compares its
+   SHA-256 with the manifest. It compares every file of the Runtime directory
+   as the process sees it (through `/proc/<pid>/root`) with the manifest, with
+   no file added or missing. It waits 6 s and checks that the renderer is
+   still the same process.
+6. If one check fails, it removes the drop-in, restarts the renderer and stops
+   with the differences.
+
+`runtime-overlay restore` removes the drop-in, restarts the renderer, and
+compares the running binary and Runtime with the signed release manifest
+(`tilecast-edge-release.json`). `runtime-overlay status` prints the commit and
+whether the running process matches.
+
+Why this is safe:
+
+- `/opt/tilecast-edge/<release>` is never written. The mounts exist only in the
+  mount namespace of the renderer unit. The release, its signed manifest and the
+  update helper see the original files.
+- The drop-in is in `/run`. A reboot clears it, so the signed release starts
+  again. The overlay files stay in `/var/lib/tilecast-wpe-debug` and are
+  inactive.
+- `ExecStart` does not change. The unit's sandbox settings do not change, and
+  the renderer still starts WebKit's bubblewrap sandbox.
+- The renderer finds its libraries through `$ORIGIN/../lib/wpe/lib`. A mounted
+  file keeps the path of its mount point, so the overlay renderer loads the
+  release's WPE, or a WPE overlay that is also installed.
+- The web helper (`tilecast-web-renderer.service`) is not changed.
+
+`trace enable` uses the active overlay. It checks it again before the restart,
+and reads the running binary and Runtime again after it. Do not start an Edge
+update while an overlay is installed. If one starts, reboot the screen.
+
 ## Field procedure on the affected screen
 
 Before you start, copy `apps/edge/renderer-wpe/diagnostics/` to the screen.
-Build the lab bundle and the 2.54.3 overlay for x86_64 (see above).
+On a computer, build for x86_64 the lab and the 2.54.3 WPE overlay (see
+above) and the diagnostic Tilecast overlay of the checkout that matches the
+screen's release (see [Diagnostic Tilecast overlay](#diagnostic-tilecast-overlay)).
 
-1. Record the default state:
-   `sudo python3 -I tilecast_wpe_debug.py lab install tilecast-wpe-lab-x86_64.tar`.
-2. Trace the real Runtime with Skia. Run `trace enable --seconds 180`. Watch
-   one startup (the trace restarts the renderer) and at least ten crossfades.
-   Film the screen. Run `trace collect --out trace-skia`. Run `trace disable`.
-3. Repeat step 2 with `--env WEBKIT_USE_SKIA_FOR_COMPOSITION=0`
-   (`trace-texturemapper`).
-4. Run the lab baseline on the release WPE:
+1. Check the screen: `sudo python3 -I tilecast_wpe_debug.py doctor`. Keep the
+   output. Remove every `BLOCK` cause, or plan to use `--clear-inherited`.
+   An override in `/etc` that sets a compositor variable is the usual one.
+2. Install the lab: `lab install tilecast-wpe-lab-x86_64.tar`. The lab runs on
+   the installed release. It does not need an overlay.
+3. Run the lab baseline on the release WPE:
    `lab matrix --preset baseline --iterations 30`. The renderer stops for the
-   run and starts again after it.
-5. Run the lab with the main thread blocked:
+   run and starts again after it. Each row names the compositor that the lab
+   really ran.
+4. Run the lab with the main thread blocked:
    `lab run --scene crossfade-cleanup-variants --variant busy-end --iterations 20`,
    then the same with `--variant busy-end:no-pin`.
-6. Install the 2.54.3 overlay: `overlay install wpe-overlay-wpe-2.54.3-x86_64.tar`.
-7. Run the version matrix:
+5. Install the diagnostic Tilecast overlay:
+   `runtime-overlay install tilecast-runtime-overlay-tc-<commit>-x86_64.tar`.
+   Run `doctor` again. It must say that real-Runtime tracing is possible and
+   name the commit.
+6. Trace the real Runtime with Skia. Run `trace enable --seconds 180`. Watch
+   one startup (the trace restarts the renderer) and at least ten crossfades.
+   Film the screen. Run `trace collect --out trace-skia`. Run `trace disable`.
+7. Repeat step 6 with `--env WEBKIT_USE_SKIA_FOR_COMPOSITION=0`
+   (`trace-texturemapper`). Check that the tool prints
+   `compositor as the processes see it: texturemapper`.
+8. Install the 2.54.3 WPE overlay: `overlay install wpe-overlay-wpe-2.54.3-x86_64.tar`.
+9. Run the version matrix:
    `lab matrix --preset versions --wpe release,wpe-2.54.3 --iterations 30`.
-8. With the overlay still installed, repeat step 2 (`trace-skia-2.54.3`). Watch
-   the startup and the crossfades on the screen.
-9. Run `overlay restore`.
-10. Make the bundle:
+10. With both overlays installed, repeat step 6 (`trace-skia-2.54.3`). Watch
+    the startup and the crossfades on the screen.
+11. Restore: `overlay restore`, then `runtime-overlay restore`, then `doctor`.
+    A reboot also restores the signed release.
+12. Make the bundle:
     `bundle --out graphics.tar.gz --trace --results /var/lib/tilecast-wpe-debug/results/<run> ...`.
-11. On a computer, run `visual_trace_report.py` on each trace. Compare the
+13. On a computer, run `visual_trace_report.py` on each trace. Compare the
     `end-window` frames with the film.
 
 Expected results if the leading hypothesis is correct:
 
-- step 2: `end-window` frames at each crossfade end and at the startup push
+- step 6: `end-window` frames at each crossfade end and at the startup push
   and resolve ends, at the same times as the flashes in the film;
-- steps 4 and 5: `reversal` anomalies with Skia on the release WPE, and none
+- steps 3 and 4: `reversal` anomalies with Skia on the release WPE, and none
   with TextureMapper;
-- steps 7 and 8: no anomaly and no flash with 2.54.3 and Skia.
+- steps 9 and 10: no anomaly and no flash with 2.54.3 and Skia.
 
 If 2.54.3 removes the defect, merge the 2.54.3 pin (a separate change) and
 remove nothing else. If it does not, the bundle shows if the presented WPE
@@ -435,10 +636,16 @@ buffer has the wrong picture.
   from sysfs, and the output of `tilecast-renderer-wpe --probe-drm`;
 - the versions of the Mesa, libdrm, GStreamer, VA-API and bubblewrap packages;
 - `NRestarts`, memory and state of the renderer unit;
-- the compositor variables and overlays that this tool set;
+- the `doctor` data: unit, drop-ins, compositor variables that other
+  configuration sets, the environment of the live renderer and its web
+  process, the compositor it means, and the running binary and Runtime checks;
+- the compositor variables, WPE overlays and diagnostic Tilecast overlays that
+  this tool set, with the Tilecast git commit of an active diagnostic overlay;
 - with `--results`: `summary.json`, `timeline.jsonl`, `run.json` and the
   anomaly dumps of the given lab runs;
-- with `--trace`: the visual traces;
+- with `--trace`: the visual traces and `trace-meta.json` (requested and
+  observed environment, Tilecast commit, renderer and Runtime hashes, WPE
+  overlay);
 - with `--renderer-log`: the current boot's renderer journal, sanitized.
 
 It does not collect credentials, Server addresses, screen, player or manifest
@@ -474,12 +681,12 @@ If a scene reproduces a defect on the newest 2.54 release with Skia:
 
 ## Tests
 
-| Test                                                                 | Covers                                                                                                             |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `ctest` in `apps/edge/renderer-wpe` (`lab-detector`)                 | detector rules, sampling, channel order, PPM output                                                                |
-| `ctest` (`visual-trace-format`)                                      | trace file bounds, record checks, environment, pacing                                                              |
-| `python3 -m unittest discover -s apps/edge/renderer-wpe/diagnostics` | build flags, allowlist parity, drop-ins, archive checks, overlay round trip, sanitizer, bundle facts, trace report |
-| headless lab run of each scene                                       | the lab and the scenes on a real engine                                                                            |
+| Test                                                                 | Covers                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ctest` in `apps/edge/renderer-wpe` (`lab-detector`)                 | detector rules, sampling, channel order, PPM output                                                                                                                                                                                                                                                                                                                                      |
+| `ctest` (`visual-trace-format`)                                      | trace file bounds, record checks, environment, pacing                                                                                                                                                                                                                                                                                                                                    |
+| `python3 -m unittest discover -s apps/edge/renderer-wpe/diagnostics` | build flags, allowlist parity, drop-ins, archive checks, overlay round trips, sanitizer, bundle facts, trace report; a fake systemd and `/proc` for environment integrity (an inherited TextureMapper is not reported as Skia, a missing or unobserved web process is refused) and for the diagnostic Tilecast overlay (trace refuses without it, restore and reboot return the release) |
+| headless lab run of each scene                                       | the lab and the scenes on a real engine                                                                                                                                                                                                                                                                                                                                                  |
 
 A headless pass does not prove that a DRM screen is correct. The headless
 platform uses shared-memory buffers. The test images use Debian's WPE, which

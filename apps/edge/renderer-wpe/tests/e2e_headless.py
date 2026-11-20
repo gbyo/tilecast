@@ -335,6 +335,7 @@ def scenario_visual_trace(args):
             header, summary = lines[0], lines[-1]
             assert header["type"] == "header" and header["schema"] == "tilecast-visual-v1", header
             assert header["platform"] == "headless" and header["webkit"], header
+            assert header["buildCommit"] == "unknown", header
             assert all(value is None for value in header["env"].values()), header["env"]
             assert summary["type"] == "summary" and summary["endedBy"] == "window", summary
             assert summary["droppedLines"] == 0 and summary["runtimeRefused"] == 0, summary

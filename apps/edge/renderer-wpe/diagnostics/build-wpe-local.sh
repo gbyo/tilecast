@@ -13,9 +13,16 @@
 #
 #   build-wpe-local.sh --label NAME (--tarball VERSION SHA256 | --source DIR)
 #                      [--jobs N] [--keep-symbols] [--no-lab]
+#                      [--runtime-overlay | --runtime-overlay-only]
+#
+# --runtime-overlay also builds the diagnostic Tilecast overlay (the
+# instrumented renderer and Runtime of this checkout, build-runtime-overlay.sh)
+# against this WPE; build it against the release pin for a screen that runs the
+# release's WebKit. --runtime-overlay-only builds just that, with no WPE
+# overlay and no lab.
 set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-label= source= version= sha256= jobs=$(nproc) strip=--strip lab=1
+label= source= version= sha256= jobs=$(nproc) strip=--strip lab=1 runtime=0 wpe_overlay=1
 while [[ $# -gt 0 ]]; do
   case $1 in
     --label) label=$2; shift 2 ;;
@@ -24,6 +31,8 @@ while [[ $# -gt 0 ]]; do
     --jobs) jobs=$2; shift 2 ;;
     --keep-symbols) strip=; shift ;;
     --no-lab) lab=0; shift ;;
+    --runtime-overlay) runtime=1; shift ;;
+    --runtime-overlay-only) runtime=1 lab=0 wpe_overlay=0; shift ;;
     *) echo "build-wpe-local: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -82,7 +91,12 @@ cmake --build "$build" -- -j "$jobs"
 # builder does, so the lab below compiles against exactly this build.
 rm -rf "$prefix"
 cmake --install "$build" $strip >/dev/null
-python3 "$here/pack_wpe_overlay.py" --prefix "$prefix" --label "$label" --arch "$arch" --identity "$identity" --out /out
+if [[ $wpe_overlay == 1 ]]; then
+  python3 "$here/pack_wpe_overlay.py" --prefix "$prefix" --label "$label" --arch "$arch" --identity "$identity" --out /out
+fi
+if [[ $runtime == 1 ]]; then
+  "$here/build-runtime-overlay.sh" --prefix "$prefix" --out /out --jobs "$jobs"
+fi
 
 if [[ $lab == 1 ]]; then
   labbuild=/work/lab-$label

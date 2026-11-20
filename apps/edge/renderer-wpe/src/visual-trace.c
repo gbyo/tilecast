@@ -218,6 +218,8 @@ write_header (TcVisualTrace *trace, WPEView *view)
   json_builder_add_string_value (builder, "tilecast-renderer-wpe");
   json_builder_set_member_name (builder, "rendererVersion");
   json_builder_add_string_value (builder, TC_RENDERER_VERSION);
+  json_builder_set_member_name (builder, "buildCommit");
+  json_builder_add_string_value (builder, TC_BUILD_COMMIT);
   json_builder_set_member_name (builder, "clock");
   json_builder_add_string_value (builder, "CLOCK_MONOTONIC microseconds; runtime t is performance.now() ms");
   json_builder_set_member_name (builder, "startMono");

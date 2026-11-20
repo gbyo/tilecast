@@ -41,13 +41,22 @@ Server cannot enable them.
 | `--visual-trace-deep`      | Also samples computed styles every animation frame. This changes timing. See below.        |
 
 On a screen, use the field tool. It writes a drop-in in `/run/systemd/system`,
-so a reboot removes it:
+so a reboot removes it. An Edge release from before this trace has no
+`--visual-trace` option and no trace sink, so `trace enable` refuses on it.
+First install the diagnostic Tilecast overlay of a checkout that has the trace
+(`runtime-overlay install`, see
+[the lab guide](tilecast-edge-wpe-compositor-lab.md#diagnostic-tilecast-overlay)).
+The tool also reads the environment that the renderer and its web process
+really have, and refuses to keep a trace for a profile that they do not match:
 
 ```sh
+sudo python3 -I tilecast_wpe_debug.py doctor
+sudo python3 -I tilecast_wpe_debug.py runtime-overlay install tilecast-runtime-overlay-<label>-<arch>.tar
 sudo python3 -I tilecast_wpe_debug.py trace enable --seconds 120
 # Reproduce the glitch on the screen.
 sudo python3 -I tilecast_wpe_debug.py trace collect --out ~/trace
 sudo python3 -I tilecast_wpe_debug.py trace disable
+sudo python3 -I tilecast_wpe_debug.py runtime-overlay restore
 ```
 
 To compare compositors in the production renderer, add one allowlisted
@@ -123,7 +132,7 @@ Each line is one JSON object with a `type` member.
 
 | `type`    | Members                                                                                                                                                                                                        |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `header`  | `schema`, `source`, `rendererVersion`, `clock`, `startMono`, `webkit`, `platform`, `deep`, `windowSeconds`, `env`, `screen`                                                                                    |
+| `header`  | `schema`, `source`, `rendererVersion`, `buildCommit`, `clock`, `startMono`, `webkit`, `platform`, `deep`, `windowSeconds`, `env`, `screen`                                                                     |
 | `frame`   | `ev` `rendered`: `mono`, `seq`, `buf`, `w`, `h`, `kind` (`dmabuf`, `shm`, `other`), `mem`, `fourcc`, `modifier`, `planes`, `strides`, `offsets`, `renderFence`, `releaseFence`. `ev` `released`: `mono`, `buf` |
 | `buffers` | `mono`, `count`, `bufs`: the buffer set from `buffers-changed`                                                                                                                                                 |
 | `runtime` | `recv` (host receive time), `batch`, `sentAt`, optional `dropped`, `rec` (one Runtime record)                                                                                                                  |
@@ -138,6 +147,12 @@ is therefore placed on the host clock with an error of about 1 ms plus half the
 round trip of the clock sample that the report uses. One display interval at
 60 Hz is 16.7 ms, so the error does not move an event to another frame in most
 cases.
+
+`header.buildCommit` is the Tilecast git commit that the renderer was built
+from (`unknown` for a release build; a diagnostic overlay has its commit, with
+`-dirty` for modified files). `trace collect` also copies `trace-meta.json`,
+which has the requested and observed environment, the renderer and Runtime
+hashes, and the overlay.
 
 `header.env` names the compositor variables that change rendering. The list is
 `tc_trace_env_allowlist` in `src/visual-trace-format.c`. A value that is not a

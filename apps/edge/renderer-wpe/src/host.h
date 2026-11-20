@@ -28,6 +28,9 @@
 G_BEGIN_DECLS
 
 #define TC_RENDERER_VERSION "0.1.0"
+#ifndef TC_BUILD_COMMIT
+#define TC_BUILD_COMMIT "unknown"
+#endif
 #define TC_IPC_PROTOCOL_VERSION 1
 #define TC_MAX_FRAME_BYTES (4u * 1024u * 1024u)
 #define TC_MAX_CONTENT_REFS 1024

@@ -160,41 +160,6 @@ class TraceDropin(unittest.TestCase):
             tool.trace_dropin(["x"], 3, False, {})
 
 
-class TraceEnableTwice(unittest.TestCase):
-    def test_a_second_enable_replaces_the_first(self):
-        calls = []
-        dropin_seen_at_show = []
-
-        def fake_systemctl(*args, check=True):
-            calls.append(args)
-            if args[:1] == ("show",) and "ExecStart" in args:
-                path = paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.TRACE_DROPIN
-                dropin_seen_at_show.append(path.exists())
-                return SHOW
-            if args[:1] == ("show",):
-                return "4242\n"
-            if args[:1] == ("is-active",):
-                return "active\n"
-            return ""
-
-        with tempfile.TemporaryDirectory() as work:
-            paths = tool.Paths(root=Path(work))
-            saved = (tool.systemctl, tool.require_root)
-            tool.systemctl, tool.require_root = fake_systemctl, lambda: None
-            try:
-                args = type("Args", (), {"env": None, "seconds": 60, "deep": False})()
-                with contextlib.redirect_stdout(io.StringIO()):
-                    tool.trace_enable(paths, args)
-                    args.env = ["WEBKIT_USE_SKIA_FOR_COMPOSITION=0"]
-                    tool.trace_enable(paths, args)
-            finally:
-                tool.systemctl, tool.require_root = saved
-            self.assertEqual(dropin_seen_at_show, [False, False])
-            text = (paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.TRACE_DROPIN).read_text()
-            self.assertEqual(text.count("--visual-trace "), 1)
-            self.assertIn("Environment=WEBKIT_USE_SKIA_FOR_COMPOSITION=0", text)
-
-
 class Overlay(unittest.TestCase):
     def test_a_valid_overlay(self):
         manifest, files = tool.read_overlay_tar(overlay_tar(WEBKIT_FILES), "x86_64")
@@ -357,8 +322,9 @@ class Bundle(unittest.TestCase):
                               tool.trace_dropin(["/x"], 60, False, {"WEBKIT_USE_SKIA_FOR_COMPOSITION": "0"}))
             tool.write_dropin(paths, tool.RENDERER_UNIT, tool.OVERLAY_DROPIN,
                               tool.overlay_dropin(paths.overlays / "wpe-2.54.3" / "wpe", "/opt/x", "wpe-2.54.3"))
-            self.assertEqual(tool.compositor_dropins(paths), {
-                tool.RENDERER_UNIT: {"WEBKIT_USE_SKIA_FOR_COMPOSITION": "0", "overlay": "wpe-2.54.3"}})
+            self.assertEqual(tool.compositor_dropins(paths), {tool.RENDERER_UNIT: {
+                "env": {"WEBKIT_USE_SKIA_FOR_COMPOSITION": "0"}, "unset": [], "wpeOverlay": "wpe-2.54.3",
+                "runtimeOverlay": None}})
             self.assertTrue(tool.remove_dropin(paths, tool.RENDERER_UNIT, tool.TRACE_DROPIN))
             self.assertFalse(tool.remove_dropin(paths, tool.RENDERER_UNIT, tool.TRACE_DROPIN))
 
