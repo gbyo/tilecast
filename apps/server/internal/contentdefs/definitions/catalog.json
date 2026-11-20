@@ -36,7 +36,7 @@
             "key": "urlTemplatesEnabled",
             "label": "Enable URL variables",
             "labelKey": "definitions:website.fields.urlTemplatesEnabled.label",
-            "description": "Substitute screen, date, time and selected Data Source values only on compatible Players.",
+            "description": "Replace screen, date, time, and Data Source variables. Requires compatible Players.",
             "descriptionKey": "definitions:website.fields.urlTemplatesEnabled.description",
             "control": "boolean",
             "default": false,

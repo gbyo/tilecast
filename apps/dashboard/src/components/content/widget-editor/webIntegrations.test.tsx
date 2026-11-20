@@ -202,6 +202,7 @@ describe("Website", () => {
       configuration: {
         url: "https://example.com/menu",
         dataSourceId: "",
+        urlTemplatesEnabled: false,
         allowedHosts: ["cdn.example.com", "example.com"],
         javascriptEnabled: false,
         domStorageEnabled: true,
@@ -240,6 +241,7 @@ describe("Website", () => {
     expect(create.mock.calls[0]![0].configuration).toEqual({
       url: "https://example.com",
       dataSourceId: "",
+      urlTemplatesEnabled: false,
       allowedHosts: [],
       javascriptEnabled: true,
       domStorageEnabled: true,

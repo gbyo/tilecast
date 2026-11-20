@@ -28,6 +28,7 @@ const maxSafeDocumentInteger int64 = 1<<53 - 1
 
 var documentDecimalNumber = regexp.MustCompile(`^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$`)
 var documentDateTime = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]+)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$`)
+var websitePlaceholder = regexp.MustCompile(`\{(?:screen\.id|date|time|datetime|data\.[A-Za-z_][A-Za-z0-9_-]*(?::[0-9]{1,3})?)\}`)
 
 var NativePresentationCapabilities = presentationcaps.Baseline()
 
@@ -531,13 +532,6 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 		OnlineOnly: true, FallbackBehavior: fallback, LoadTimeoutSeconds: timeout,
 		Lifecycle: lifecycle, WarmSeconds: spec.WarmSeconds,
 	}
-	if definition.ID == "website" {
-		descriptor.DataSourceID, _ = configuration["dataSourceId"].(string)
-		descriptor.URLTemplatesEnabled, _ = configuration["urlTemplatesEnabled"].(bool)
-		if !descriptor.URLTemplatesEnabled && strings.Contains(webURL, "{") {
-			return nil, errors.New("enable URL variables before using Website placeholders")
-		}
-	}
 	if spec.ReloadIntervalField != "" {
 		interval := intValue(configuration[spec.ReloadIntervalField], 0)
 		if interval >= 30 && interval <= 86400 {
@@ -547,9 +541,6 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 	capabilities := make(map[string]int, len(definition.RequiredCapabilities))
 	for name, version := range definition.RequiredCapabilities {
 		capabilities[name] = version
-	}
-	if descriptor.URLTemplatesEnabled {
-		capabilities["web.remote"] = 3
 	}
 	return &WidgetPresentation{
 		SchemaVersion: definition.PresentationSchemaVersion, Kind: "web",
@@ -725,7 +716,7 @@ func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP 
 	if provider == "website" && c["urlTemplatesEnabled"] == true {
 		requiredVersion = 3
 	}
-	if provider == "website" && requiredVersion == 1 && strings.Contains(rawURL, "{") {
+	if provider == "website" && requiredVersion == 1 && websitePlaceholder.MatchString(rawURL) {
 		return nil, errors.New("enable URL variables before using Website placeholders")
 	}
 	return &WidgetPresentation{

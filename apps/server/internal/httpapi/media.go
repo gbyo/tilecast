@@ -365,6 +365,7 @@ func (s *server) createWidget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
+	body.Provider = strings.ToLower(strings.TrimSpace(body.Provider))
 	if body.Provider == "website" && !s.widgetPrivateHTTPAllowed(r, body.Configuration) {
 		writeError(w, 422, "setting_exceeds_hard_limit", "Private HTTP websites are disabled by runtime settings.")
 		return
@@ -433,7 +434,9 @@ func (s *server) updateWidget(w http.ResponseWriter, r *http.Request) {
 // websiteUsesDataSource checks the complete submitted Website configuration for
 // a source attachment. This is checked on every edit, including URL-only edits.
 func websiteUsesDataSource(configuration json.RawMessage) bool {
-	var selected struct { DataSourceID string `json:"dataSourceId"` }
+	var selected struct {
+		DataSourceID string `json:"dataSourceId"`
+	}
 	return json.Unmarshal(configuration, &selected) == nil && strings.TrimSpace(selected.DataSourceID) != ""
 }
 

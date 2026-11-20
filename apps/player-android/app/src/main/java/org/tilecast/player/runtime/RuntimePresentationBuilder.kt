@@ -289,9 +289,7 @@ object RuntimePresentationBuilder {
         }
         if (website != null) {
             return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
-                url = WebsiteUrlVariables.resolve(
-                    website.url, manifest.screenId,
-                ) ?: return BuiltRuntimeItem(unresolvableItem(resolved), false),
+                url = website.url,
                 allowedHosts = website.allowedHosts,
                 javascriptEnabled = website.javascriptEnabled,
                 domStorageEnabled = website.domStorageEnabled,

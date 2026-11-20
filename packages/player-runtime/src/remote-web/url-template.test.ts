@@ -25,7 +25,8 @@ const context = {
 
 describe("Website URL variables", () => {
   it("preserves static encoded JSON query values", () => {
-    const original = "https://example.org/?payload=%7B%22room%22%3A%22101%22%7D";
+    const original =
+      "https://example.org/?payload=%7B%22room%22%3A%22101%22%7D";
     expect(resolveWebsiteUrl(original, context)).toBe(original);
   });
   it("leaves old URLs unchanged", () => {
@@ -42,13 +43,33 @@ describe("Website URL variables", () => {
     });
     // Reprojection on the selection cadence must not change this item.
     expect(later).toBe(first);
-    expect(first).toContain("%7Btime%7D");
+    expect(first).toContain("t={time}");
     const mounted = resolveWebsiteClockUrl(
       first!,
       new Date(at.getTime() + 45_000),
     );
     expect(new URL(mounted!).searchParams.get("t")).toBe("09:05:49");
     expect(new URL(mounted!).searchParams.get("room")).toBe("Кабинет & 3");
+  });
+  it("keeps encoded literals even alongside authored and deferred tokens", () => {
+    const url = resolveWebsiteUrl(
+      "https://example.org/?literal=%7Btime%7D&payload=%7B%22room%22%3A101%7D:{screen.id}&t={time}",
+      { ...context, deferClock: true },
+    );
+    const mounted = new URL(resolveWebsiteClockUrl(url!, at)!);
+    expect(mounted.searchParams.get("literal")).toBe("{time}");
+    expect(mounted.searchParams.get("payload")).toBe('{"room":101}:TV-123');
+    expect(mounted.searchParams.get("t")).toBe("09:05:04");
+  });
+  it("checks the final length after deferred expansion", () => {
+    const prefix = "https://example.org/?t=";
+    const value = "a".repeat(2048 - prefix.length - "{datetime}".length);
+    const url = resolveWebsiteUrl(`${prefix}${value}{datetime}`, {
+      ...context,
+      deferClock: true,
+    });
+    expect(url).toHaveLength(2048);
+    expect(resolveWebsiteClockUrl(url!, at)).toBeNull();
   });
   it("resolves screen and wall clock values", () => {
     const resolved = resolveWebsiteUrl(

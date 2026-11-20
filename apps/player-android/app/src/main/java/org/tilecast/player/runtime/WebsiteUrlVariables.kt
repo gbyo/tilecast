@@ -34,10 +34,11 @@ internal object WebsiteUrlVariables {
         if (!template.contains("{")) return template
         val beforeQuery = template.substringBefore('?')
         val fragment = template.substringAfter('#', "")
+        val queryStart = template.indexOf('?')
+        val fragmentStart = template.indexOf('#')
         if (beforeQuery.contains('{') || beforeQuery.contains('}') ||
             fragment.contains('{') || fragment.contains('}') ||
-            beforeQuery.contains("%7B", ignoreCase = true) ||
-            beforeQuery.contains("%7D", ignoreCase = true)) return null
+            queryStart < 0 || (fragmentStart >= 0 && fragmentStart < queryStart)) return null
         val parsed = runCatching { URL(template) }.getOrNull() ?: return null
         if (parsed.protocol !in listOf("http", "https") || parsed.host.isBlank() ||
             parsed.userInfo != null) return null
@@ -87,20 +88,20 @@ internal object WebsiteUrlVariables {
             val decodedName = runCatching { URLDecoder.decode(name, "UTF-8") }.getOrNull()
                 ?: return null
             if ('{' in decodedName || '}' in decodedName) return null
-            val decoded = runCatching { URLDecoder.decode(raw, "UTF-8") }.getOrNull()
-                ?: return null
-            if (!decoded.contains('{') && !decoded.contains('}')) return@map part
-            // Braces in JSON expansion are data, not unresolved tokens.
-            if ('{' in decoded.replace(token, "") || '}' in decoded.replace(token, "")) return null
+            if ('{' !in raw && '}' !in raw) return@map part
+            val literals = raw.replace(token, "")
+            if ('{' in literals || '}' in literals) return null
             var invalid = false
-            val replaced = token.replace(decoded) { result ->
-                valueFor(result.groupValues[1]) ?: run {
+            val replaced = token.replace(raw) { result ->
+                valueFor(result.groupValues[1])?.let {
+                    URLEncoder.encode(it, StandardCharsets.UTF_8.name())
+                } ?: run {
                     invalid = true
                     ""
                 }
             }
             if (invalid) return null
-            "${name}=${URLEncoder.encode(replaced, StandardCharsets.UTF_8.name())}"
+            "${name}=${replaced}"
         }
         val answer = beforeQuery + "?" + parts.joinToString("&") +
             if (template.contains('#')) "#" + fragment else ""

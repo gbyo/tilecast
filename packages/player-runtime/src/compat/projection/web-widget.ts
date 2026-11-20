@@ -64,7 +64,8 @@ export function remoteWebForWidget(
       return specFromWebDescriptor(web);
     }
     // v13+ manifests omit authored configuration; use the compiled descriptor.
-    const dataSourceId = web.dataSourceId ?? widget.configuration?.["dataSourceId"];
+    const dataSourceId =
+      web.dataSourceId ?? widget.configuration?.["dataSourceId"];
     const url = resolveWebsiteUrl(web.url, {
       screenId: context.screenId,
       at,
@@ -74,7 +75,10 @@ export function remoteWebForWidget(
     });
     if (!url) return null;
     const spec = specFromWebDescriptor({ ...web, url });
-    if (spec?.content.kind === "page" && /\{(?:date|time|datetime)\}/.test(web.url)) {
+    if (
+      spec?.content.kind === "page" &&
+      /\{(?:date|time|datetime)\}/.test(web.url)
+    ) {
       spec.content.clockTemplate = true;
     }
     return spec;

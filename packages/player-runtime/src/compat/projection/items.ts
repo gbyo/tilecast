@@ -7,7 +7,6 @@ import type { RuntimeItem, ProjectionContextV1 } from "../../host/contract";
 import type { Manifest, ManifestItem } from "./types";
 import type { ManifestWidget } from "./content-types";
 import { isAvailableAt } from "./content-availability";
-import { resolveWebsiteUrl } from "../../remote-web/url-template";
 import { spanViewport } from "./layout-render";
 import {
   defaultImageDurationMsForPlayback,
@@ -97,11 +96,6 @@ export function projectManifestItems(
         (website) => website.assetId === item.assetId,
       );
       if (!website) continue;
-      const expandedUrl = resolveWebsiteUrl(website.url, {
-        screenId: manifest.screenId,
-        at,
-      });
-      if (!expandedUrl) continue;
       const fallback = manifest.assets.find(
         (asset) =>
           asset.assetId === website.fallbackImageAssetId &&
@@ -112,7 +106,7 @@ export function projectManifestItems(
       projected.push({
         ...base,
         kind: "website",
-        src: expandedUrl,
+        src: website.url,
         website: {
           ...website,
           // The accepted configuration's Website section supplies the same

@@ -80,4 +80,14 @@ class WebsiteUrlVariablesTest {
         assertNull(WebsiteUrlVariables.resolve("https://example.org/{date}", "s"))
         assertNull(WebsiteUrlVariables.resolve("https://{screen.id}.org/?x=1", "s"))
     }
+
+    @Test fun encodedLiteralsSurviveAuthoredTokensInTheSameValue() {
+        val result = WebsiteUrlVariables.resolve(
+            "https://example.org/?literal=%7Btime%7D&payload=%7B%22room%22%3A101%7D:{screen.id}",
+            "screen-1",
+        )
+        requireNotNull(result)
+        assertEquals("{time}", param(result, "literal"))
+        assertEquals("{\"room\":101}:screen-1", param(result, "payload"))
+    }
 }

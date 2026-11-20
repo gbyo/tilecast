@@ -16,6 +16,8 @@ export interface WebsiteUrlContext {
 }
 
 const TOKEN = /\{([a-zA-Z][a-zA-Z0-9_.:-]*)\}/g;
+const CLOCK_TOKEN = /\{(date|time|datetime)\}/g;
+const MAX_URL_LENGTH = 2048;
 const DATE_PAD = (value: number) => String(value).padStart(2, "0");
 
 function dateParts(at: Date) {
@@ -49,7 +51,14 @@ export function resolveWebsiteUrl(
   ) {
     return null;
   }
-  if (/[{}]|%7[bd]/i.test(url.pathname) || /[{}]|%7[bd]/i.test(url.hash)) {
+  const queryStart = template.indexOf("?");
+  const fragmentStart = template.indexOf("#");
+  if (
+    queryStart < 0 ||
+    (fragmentStart >= 0 && fragmentStart < queryStart) ||
+    /[{}]/.test(template.slice(0, queryStart)) ||
+    (fragmentStart >= 0 && /[{}]/.test(template.slice(fragmentStart)))
+  ) {
     return null;
   }
 
@@ -97,14 +106,17 @@ export function resolveWebsiteUrl(
   };
 
   try {
-    const params = new URLSearchParams();
-    for (const [name, value] of url.searchParams) {
-      if (/[{}]/.test(name)) return null;
+    const parts: string[] = [];
+    for (const part of url.search.slice(1).split("&")) {
+      const separator = part.indexOf("=");
+      const name = separator < 0 ? part : part.slice(0, separator);
+      const value = separator < 0 ? "" : part.slice(separator + 1);
+      if (/[{}]|%7[bd]/i.test(name)) return null;
       if (!/[{}]/.test(value)) {
-        params.append(name, value);
+        parts.push(part);
         continue;
       }
-      // Check the template, not substituted content: JSON values contain braces.
+      // Match authored tokens in the raw query and leave percent-encoded data intact.
       if (/[{}]/.test(value.replace(TOKEN, ""))) return null;
       let invalid = false;
       const replaced = value.replace(TOKEN, (_match, key: string) => {
@@ -113,17 +125,18 @@ export function resolveWebsiteUrl(
           invalid = true;
           return "";
         }
-        return String(raw);
+        // Raw braces distinguish deferred tokens from encoded literal values.
+        return context.deferClock &&
+          (key === "date" || key === "time" || key === "datetime")
+          ? raw
+          : encodeURIComponent(raw);
       });
       if (invalid) return null;
-      params.append(name, replaced);
+      parts.push(`${name}=${replaced}`);
     }
-    url.search = params.toString();
+    url.search = parts.join("&");
     const result = url.toString();
-    if (result.length > 2048 || result.includes("{") || result.includes("}")) {
-      return null;
-    }
-    return result;
+    return result.length <= MAX_URL_LENGTH ? result : null;
   } catch {
     return null;
   }
@@ -137,7 +150,8 @@ export function resolveWebsiteUrl(
 export function resolveWebsiteClockUrl(url: string, at: Date): string | null {
   if (!Number.isFinite(at.getTime())) return null;
   const values = dateParts(at);
-  return url.replace(/%7B(date|time|datetime)%7D/gi, (_token, key: string) =>
+  const result = url.replace(CLOCK_TOKEN, (_token, key: string) =>
     encodeURIComponent(values[key as keyof typeof values]),
   );
+  return result.length <= MAX_URL_LENGTH ? result : null;
 }
