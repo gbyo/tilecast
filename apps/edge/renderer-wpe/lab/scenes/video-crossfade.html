@@ -1,0 +1,151 @@
+<!doctype html>
+<!--
+  video-crossfade: the crossfade of crossfade.html with <video> content, so
+  decoded video frames (on hardware, DMA-BUF external textures) take part.
+  Run it only after the DOM-only scenes, to tell a video-only problem apart.
+
+  Each layer plays a short solid-color clip (media/lab-a.mp4, media/lab-b.mp4,
+  made by lab/make-media.sh), muted and looping, loaded as a blob: URL. As in
+  the Runtime, the incoming video starts muted on the hidden layer and is
+  swapped in only after a frame has been presented (requestVideoFrameCallback,
+  at most 1.5 s), then fades in over the outgoing one, which is paused and
+  released when the fade ends.
+
+  Variants: busy-end, as in the other scenes; hidden-start starts the
+  incoming video with visibility: hidden instead of on the transparent layer.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(0, 0, 0);
+        overflow: hidden;
+      }
+      .layer {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        background: #000;
+      }
+      .layer.visible {
+        opacity: 1;
+      }
+      .layer video {
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+      }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <div id="layer-a" class="layer"></div>
+    <div id="layer-b" class="layer"></div>
+    <script>
+      const DURATION = 300;
+      const FIRST_FRAME_MS = 1500;
+      const layers = [
+        document.getElementById("layer-a"),
+        document.getElementById("layer-b"),
+      ];
+      Lab.palette({ a: [200, 40, 30], b: [30, 90, 200], black: [0, 0, 0] });
+      const sources = {};
+
+      async function source(name) {
+        if (!sources[name]) {
+          const response = await fetch(`media/lab-${name}.mp4`);
+          if (!response.ok) throw new Error("media_missing");
+          sources[name] = URL.createObjectURL(await response.blob());
+        }
+        return sources[name];
+      }
+
+      function firstFrame(video) {
+        return new Promise((resolve) => {
+          const timer = setTimeout(resolve, FIRST_FRAME_MS);
+          if (typeof video.requestVideoFrameCallback === "function") {
+            video.requestVideoFrameCallback(() => {
+              clearTimeout(timer);
+              resolve();
+            });
+          } else {
+            video.addEventListener("playing", () => setTimeout(resolve, 100), {
+              once: true,
+            });
+          }
+        });
+      }
+
+      async function prepare(layer, name) {
+        const video = document.createElement("video");
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        if (Lab.has("hidden-start")) video.style.visibility = "hidden";
+        video.src = await source(name);
+        layer.replaceChildren(video);
+        await video.play();
+        await firstFrame(video);
+        video.style.removeProperty("visibility");
+        return video;
+      }
+
+      function release(layer) {
+        for (const video of layer.querySelectorAll("video")) {
+          video.pause();
+          video.removeAttribute("src");
+          video.load();
+        }
+        layer.replaceChildren();
+      }
+
+      let front = 0;
+      async function swap(toName, fromName) {
+        const incoming = layers[1 - front];
+        const outgoing = layers[front];
+        await prepare(incoming, toName);
+        Lab.marker("arm");
+        await Lab.sleep(100);
+        incoming.style.zIndex = "1";
+        outgoing.style.zIndex = "0";
+        incoming.style.opacity = "0";
+        Lab.marker("transition-start", {
+          path: `${fromName}:${toName}`,
+          rules: "reversal:foreign:uniform",
+        });
+        const animation = incoming.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration: DURATION,
+          easing: "ease",
+          fill: "both",
+        });
+        incoming.classList.add("visible");
+        Lab.stallAtEnd(animation, DURATION);
+        await animation.finished;
+        Lab.marker("transition-end");
+        incoming.style.removeProperty("opacity");
+        animation.cancel();
+        outgoing.classList.remove("visible");
+        release(outgoing);
+        Lab.marker("settled", { color: toName });
+        front = 1 - front;
+        await Lab.sleep(700);
+      }
+
+      Lab.run(async (iteration) => {
+        if (iteration === 0) {
+          await prepare(layers[0], "a");
+          layers[0].classList.add("visible");
+          Lab.marker("settled", { color: "a" });
+          await Lab.sleep(300);
+        }
+        await swap("b", "a");
+        await swap("a", "b");
+      }).catch(() => undefined);
+    </script>
+  </body>
+</html>

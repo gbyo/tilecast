@@ -68,6 +68,16 @@ docker run --rm -v "$PWD/../../..:/src" -v tilecast-edge-target:/target \
 
 `ci/run-conformance.sh` builds the test-only `tilecast-runtime-conformance` runner (`tests/conformance.c`) and runs the Player Runtime conformance fixtures under WPE WebKit headless, for comparison with the Electron run (`packages/player-runtime/conformance`).
 
+## Graphics diagnostics
+
+These tools are off by default and exist to find where a rendering defect occurs. They never change what plays.
+
+- **`--visual-trace`** records, for a bounded window, the Player Runtime's transition and startup events and the metadata of every buffer that WPE presents, on one clock, to `$XDG_CACHE_HOME/tilecast-visual-trace/visual-trace.jsonl` (`src/visual-trace.c`, `web/tilecast-visual-trace.js`). Without the flag nothing is injected, connected or written. The contract and schema are in [`docs/tilecast-edge-visual-trace.md`](../../../docs/tilecast-edge-visual-trace.md).
+- **`tilecast-wpe-compositor-lab`** (`lab/`, development only, never installed) runs deterministic synthetic scenes on the same WPEPlatform setup without any Tilecast code, inspects every presented buffer and reports impossible frames.
+- **`diagnostics/`** holds the field tool (`tilecast_wpe_debug.py`: trace, temporary WPE overlay, lab runs and matrix, privacy-safe bundle), the trace report, and the local WPE build (`wpe-local.sh`). See [`docs/tilecast-edge-wpe-compositor-lab.md`](../../../docs/tilecast-edge-wpe-compositor-lab.md).
+
+`ci/run-e2e.sh` runs the lab smoke test (`tests/lab_smoke.py`) and the `visual-trace` scenario. Their headless results do not prove that a DRM screen is correct.
+
 ## Not yet supported
 
 These features are not advertised in `renderer.ready`, so `tilecastd` never activates presentations that need them:

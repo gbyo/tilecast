@@ -53,8 +53,16 @@ add_library(tilecast-live-profiles STATIC src/live-profiles.c)
 target_link_libraries(tilecast-live-profiles PUBLIC PkgConfig::GIO)
 target_include_directories(tilecast-live-profiles PUBLIC src)
 
+# Opt-in visual trace and compositor lab helpers (GLib and json-glib only, so
+# tests/test_visual_trace_format.c runs without a WPE graphics stack).
+add_library(tilecast-visual-trace-format STATIC src/visual-trace-format.c)
+target_link_libraries(tilecast-visual-trace-format PUBLIC tilecast-validate PkgConfig::JSONGLIB PkgConfig::GIO m)
+target_include_directories(tilecast-visual-trace-format PUBLIC src)
+
 add_executable(tilecast-renderer-wpe
   src/main.c
+  src/buffer-timeline.c
+  src/visual-trace.c
   src/drm-probe.c
   src/preview.c
   src/live-encoder.c
@@ -65,7 +73,7 @@ add_executable(tilecast-renderer-wpe
   src/frame-navigation.c
   src/present-relay.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-live-profiles tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-visual-trace-format tilecast-live-profiles tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.
@@ -113,6 +121,10 @@ target_link_libraries(test-present-relay PRIVATE tilecast-media-client PkgConfig
 target_compile_definitions(test-present-relay PRIVATE TC_MEDIA_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/media")
 add_test(NAME present-relay COMMAND test-present-relay)
 
+add_executable(test-visual-trace-format tests/test_visual_trace_format.c)
+target_link_libraries(test-visual-trace-format PRIVATE tilecast-visual-trace-format)
+add_test(NAME visual-trace-format COMMAND test-visual-trace-format)
+
 add_executable(test-rw-channel tests/test_rw_channel.c)
 target_link_libraries(test-rw-channel PRIVATE tilecast-rw-channel)
 add_test(NAME rw-channel COMMAND test-rw-channel)
@@ -123,6 +135,21 @@ install(TARGETS tilecast-renderer-wpe RUNTIME DESTINATION bin)
 # shared conformance fixtures under WPE WebKit headless.
 add_executable(tilecast-runtime-conformance tests/conformance.c)
 target_link_libraries(tilecast-runtime-conformance PRIVATE tilecast-validate PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO)
+
+# WPE compositor lab (development and test only, never installed in a
+# release): deterministic synthetic scenes, presented-buffer inspection and
+# anomaly detection, without Tilecast code (docs/tilecast-edge-wpe-compositor-lab.md).
+add_library(tilecast-lab-detector STATIC lab/lab-detector.c)
+target_link_libraries(tilecast-lab-detector PUBLIC PkgConfig::GIO m)
+target_include_directories(tilecast-lab-detector PUBLIC lab)
+
+add_executable(tilecast-wpe-compositor-lab lab/compositor-lab.c src/buffer-timeline.c)
+target_compile_definitions(tilecast-wpe-compositor-lab PRIVATE TC_LAB_SCENES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/lab/scenes")
+target_link_libraries(tilecast-wpe-compositor-lab PRIVATE tilecast-lab-detector tilecast-visual-trace-format tilecast-preview-pixels PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO m)
+
+add_executable(test-lab-detector tests/test_lab_detector.c)
+target_link_libraries(test-lab-detector PRIVATE tilecast-lab-detector)
+add_test(NAME lab-detector COMMAND test-lab-detector)
 
 # Real-engine navigation qualification; never installed in a release.
 add_executable(test-frame-navigation tests/test_frame_navigation.c src/frame-navigation.c)

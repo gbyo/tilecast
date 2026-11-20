@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  opacity-basic: the smallest compositor-driven opacity animation. One box
+  fades in and out over a black page, like WebKit's own
+  LayoutTests/platform/glib/damage/animations-opacity*.html.
+
+  Default: the box rests at an inline opacity that differs from the
+  animation's end value (fade in from an inline 0, fade out from an inline 1),
+  with fill: both, and the main thread cleans up when `finished` resolves.
+  An engine that composites the end of the animation with the element's
+  resting value instead of the animation's last value shows the box at the
+  wrong opacity until the main thread commits; the detector reports a
+  reversal.
+
+  Variants (join with ':'):
+    busy-end   block the main thread for 120 ms around the animation's end,
+               so a wrong compositor value stays on screen for many frames
+    no-pin     rest at the animation's end value (no differing inline value)
+    forwards   fill: forwards instead of both
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(0, 0, 0);
+        overflow: hidden;
+      }
+      #box {
+        position: absolute;
+        left: 30%;
+        top: 30%;
+        width: 40%;
+        height: 40%;
+        background: rgb(0, 160, 60);
+      }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <div id="box" style="opacity: 0"></div>
+    <script>
+      const DURATION = 300;
+      const box = document.getElementById("box");
+      Lab.palette(
+        { black: [0, 0, 0], green: [0, 160, 60] },
+        { x: 0.32, y: 0.32, w: 0.36, h: 0.36 },
+      );
+      const fill = Lab.has("forwards") ? "forwards" : "both";
+      async function fade(from, to, fromName, toName) {
+        Lab.marker("arm");
+        await Lab.sleep(100);
+        if (!Lab.has("no-pin")) box.style.opacity = String(from);
+        else box.style.opacity = String(to);
+        Lab.marker("transition-start", {
+          path: `${fromName}:${toName}`,
+          rules: "reversal:foreign:uniform",
+        });
+        const animation = box.animate([{ opacity: from }, { opacity: to }], {
+          duration: DURATION,
+          easing: "linear",
+          fill,
+        });
+        Lab.stallAtEnd(animation, DURATION);
+        await animation.finished;
+        Lab.marker("transition-end");
+        box.style.opacity = String(to);
+        animation.cancel();
+        Lab.marker("settled", { color: toName });
+        await Lab.sleep(400);
+      }
+      Lab.run(async () => {
+        await fade(0, 1, "black", "green");
+        await fade(1, 0, "green", "black");
+      });
+    </script>
+  </body>
+</html>

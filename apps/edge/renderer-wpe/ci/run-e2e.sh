@@ -49,6 +49,8 @@ fi
 cmake -S renderer-wpe -B /target/renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/renderer
 ctest --test-dir /target/renderer --output-on-failure
+# The development-only compositor lab on a real engine (plumbing, not verdicts).
+python3 renderer-wpe/tests/lab_smoke.py --lab /target/renderer/tilecast-wpe-compositor-lab
 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 /target/renderer/test-frame-navigation
 if WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 /target/renderer/test-frame-navigation --without-filter; then
   echo "frame navigation negative control unexpectedly passed" >&2

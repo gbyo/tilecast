@@ -32,7 +32,7 @@ exactly as an operator would. Scenarios:
 
 Usage: e2e_headless.py --bin-dir DIR --renderer PATH --runtime-dir DIR
                        [--web-helper PATH]
-                       [--scenario status|fixture|reconnect|selftest|website|stream|all]
+                       [--scenario status|fixture|visual-trace|reconnect|selftest|website|stream|all]
 """
 import argparse
 import hashlib
@@ -109,7 +109,7 @@ class Stack:
         )
         wait_for("daemon socket", lambda: os.path.exists(self.socket), timeout=30)
 
-    def start_renderer(self, run_dir=None):
+    def start_renderer(self, run_dir=None, extra_args=()):
         run_dir = run_dir or os.path.join(self.workdir, "run")
         log = open(os.path.join(self.workdir, "renderer.log"), "a", encoding="utf-8")
         self.logs.append(log.name)
@@ -129,6 +129,7 @@ class Stack:
                 "--console",
                 f"--web-control-socket={os.path.join(self.workdir, 'web', 'control.sock')}",
                 f"--web-frames-dir={os.path.join(self.workdir, 'web', 'frames')}",
+                *extra_args,
             ],
             stdout=log,
             stderr=subprocess.STDOUT,
@@ -289,6 +290,78 @@ def scenario_fixture(args):
             assert status["renderer"].get("engineVersion") and status["renderer"].get("gstreamerVersion"), status
             print(f"fixture: generation {status['renderer']['currentActivationGeneration']}, evidence {sorted(evidence)}")
             print("fixture: zone-video H.264 readiness and video_progress confirmed inside item-layout-video")
+            # Visual tracing is off by default: nothing is recorded or injected.
+            with open(os.path.join(workdir, "renderer.log"), encoding="utf-8", errors="replace") as handle:
+                renderer_log = handle.read()
+            assert "visual-trace" not in renderer_log, "the renderer traced without --visual-trace"
+            assert "dropping unrecognized page message" not in renderer_log, "the page sent an unknown report"
+        except Exception:
+            stack.dump_logs()
+            raise
+        finally:
+            stack.stop()
+
+
+def scenario_visual_trace(args):
+    """--visual-trace on the fixture playlist: the same presentation and
+    evidence as without it, plus a bounded, privacy-safe trace that puts the
+    Runtime's transition and startup events and every presented buffer on
+    one clock (docs/tilecast-edge-visual-trace.md)."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "diagnostics"))
+    import visual_trace_report  # noqa: PLC0415
+
+    with tempfile.TemporaryDirectory() as workdir:
+        fixture = build_fixture(workdir)
+        trace_dir = os.path.join(workdir, "trace")
+        stack = Stack(args, workdir, fixture=fixture)
+        try:
+            stack.start_daemon()
+            stack.start_renderer(extra_args=("--visual-trace", "--visual-trace-seconds=45",
+                                             f"--visual-trace-dir={trace_dir}"))
+            wait_for("fixture activation", lambda: healthy(stack), timeout=90)
+            evidence = wait_for("item evidence with tracing on", lambda: fixture_evidence(stack), timeout=120,
+                                interval=1.0)
+            presentation = stack.status().get("presentation")
+            assert presentation and presentation["accepted"] and presentation["evidence"], presentation
+            trace_path = os.path.join(trace_dir, "visual-trace.jsonl")
+            # The window ends on its own and the summary closes the file.
+            wait_for("the trace window to end", lambda: (
+                os.path.exists(trace_path) and '"type":"summary"' in open(trace_path, encoding="utf-8").read()),
+                timeout=90, interval=1.0)
+            assert stack.renderer.poll() is None, "the renderer exited when its trace window ended"
+            assert healthy(stack)
+            lines = [json.loads(line) for line in open(trace_path, encoding="utf-8") if line.strip()]
+            text = open(trace_path, encoding="utf-8").read()
+            header, summary = lines[0], lines[-1]
+            assert header["type"] == "header" and header["schema"] == "tilecast-visual-v1", header
+            assert header["platform"] == "headless" and header["webkit"], header
+            assert all(value is None for value in header["env"].values()), header["env"]
+            assert summary["type"] == "summary" and summary["endedBy"] == "window", summary
+            assert summary["droppedLines"] == 0 and summary["runtimeRefused"] == 0, summary
+            assert summary["pacing"]["frames"] > 100, summary
+            assert os.path.getsize(trace_path) < 32 * 1024 * 1024
+            frames = [l for l in lines if l["type"] == "frame" and l["ev"] == "rendered"]
+            assert frames and all({"seq", "buf", "w", "h", "kind"} <= f.keys() for f in frames), frames[:2]
+            assert [f["seq"] for f in frames] == list(range(1, len(frames) + 1))
+            assert any(l["type"] == "clock" for l in lines)
+            events = {(l["rec"]["scope"], l["rec"]["ev"]) for l in lines if l["type"] == "runtime"}
+            for expected in [("trace", "start"), ("stage", "stage.fill"), ("stage", "stage.ready"),
+                             ("stage", "stage.swap"), ("stage", "swap.stack"), ("stage", "fade.pin"),
+                             ("stage", "anim.create"), ("stage", "anim.ready"), ("stage", "anim.finish"),
+                             ("stage", "fade.unpin"), ("stage", "swap.settle"), ("stage", "stage.settled"),
+                             ("startup", "startup.phase"), ("startup", "startup.push"),
+                             ("startup", "startup.covered"), ("startup", "startup.remove")]:
+                assert expected in events, (expected, sorted(events))
+            # Nothing that names content, a server or a capability.
+            for private in ("item-image", "item-video", "tcmedia://", "http://", "https://", "media:still"):
+                assert private not in text, private
+            if os.environ.get("E2E_VISUAL_TRACE_OUT"):
+                shutil.copyfile(trace_path, os.environ["E2E_VISUAL_TRACE_OUT"])
+            report = visual_trace_report.analyze(lines)
+            stage = [t for t in report["transitions"] if t["scope"] == "stage" and t["frames"] > 0]
+            assert stage and stage[0]["endWindows"], report["transitions"][:1]
+            print(f"visual-trace: {len(frames)} frames, {len(events)} event kinds, {len(stage)} traced crossfades, "
+                  f"evidence {sorted(evidence)}")
         except Exception:
             stack.dump_logs()
             raise
@@ -1616,6 +1689,7 @@ def main():
         "status": scenario_status,
         "reconnect": scenario_reconnect,
         "fixture": scenario_fixture,
+        "visual-trace": scenario_visual_trace,
         "selftest": scenario_selftest,
         "website": scenario_website,
         "stream": scenario_stream,

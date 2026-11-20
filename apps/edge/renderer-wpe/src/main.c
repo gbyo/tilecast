@@ -134,6 +134,10 @@ main (int argc, char **argv)
   g_autofree char *web_control_socket = NULL;
   g_autofree char *web_frames_dir = NULL;
   gboolean console = FALSE;
+  gboolean visual_trace = FALSE;
+  gboolean visual_trace_deep = FALSE;
+  int visual_trace_seconds = TC_VISUAL_TRACE_DEFAULT_SECONDS;
+  g_autofree char *visual_trace_dir = NULL;
   gboolean probe_drm = FALSE;
   gboolean crash_backtrace = FALSE;
   int exit_after = 0;
@@ -149,6 +153,14 @@ main (int argc, char **argv)
     { "web-frames-dir", 0, 0, G_OPTION_ARG_FILENAME, &web_frames_dir,
       "Remote web helper frame sockets (default /run/tilecast-web/frames)", "PATH" },
     { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
+    { "visual-trace", 0, 0, G_OPTION_ARG_NONE, &visual_trace,
+      "Record Runtime transition events and presented-buffer metadata for a bounded time (diagnostics)", NULL },
+    { "visual-trace-deep", 0, 0, G_OPTION_ARG_NONE, &visual_trace_deep,
+      "With --visual-trace: also sample computed styles every frame (perturbs rendering)", NULL },
+    { "visual-trace-seconds", 0, 0, G_OPTION_ARG_INT, &visual_trace_seconds,
+      "Length of the visual trace (5-1800, default 120)", "N" },
+    { "visual-trace-dir", 0, 0, G_OPTION_ARG_FILENAME, &visual_trace_dir,
+      "Directory for visual-trace.jsonl (default $XDG_CACHE_HOME/tilecast-visual-trace)", "PATH" },
     { "exit-after", 0, 0, G_OPTION_ARG_INT, &exit_after, "Exit after N seconds (CI)", "N" },
     { "probe-drm", 0, 0, G_OPTION_ARG_NONE, &probe_drm, "Print the DRM/KMS outputs as JSON and exit (read-only)", NULL },
     { "crash-backtrace", 0, 0, G_OPTION_ARG_NONE, &crash_backtrace, "Print a backtrace on a fatal signal (development)", NULL },
@@ -194,6 +206,28 @@ main (int argc, char **argv)
       || !tc_is_clean_absolute_path (host.web_control_socket) || !tc_is_clean_absolute_path (host.web_frames_dir)) {
     g_printerr ("tilecast-renderer-wpe: path options must be clean absolute paths\n");
     return 2;
+  }
+  if (visual_trace_deep && !visual_trace) {
+    g_printerr ("tilecast-renderer-wpe: --visual-trace-deep needs --visual-trace\n");
+    return 2;
+  }
+  if (visual_trace_seconds < TC_VISUAL_TRACE_MIN_SECONDS || visual_trace_seconds > TC_VISUAL_TRACE_MAX_SECONDS) {
+    g_printerr ("tilecast-renderer-wpe: --visual-trace-seconds must be between %d and %d\n",
+                TC_VISUAL_TRACE_MIN_SECONDS, TC_VISUAL_TRACE_MAX_SECONDS);
+    return 2;
+  }
+  if (visual_trace) {
+    host.visual_trace = TRUE;
+    host.visual_trace_deep = visual_trace_deep;
+    host.visual_trace_seconds = (guint) visual_trace_seconds;
+    host.visual_trace_dir = visual_trace_dir ? g_strdup (visual_trace_dir)
+                                             : g_build_filename (g_get_user_cache_dir (), "tilecast-visual-trace", NULL);
+    if (!tc_is_clean_absolute_path (host.visual_trace_dir)) {
+      g_printerr ("tilecast-renderer-wpe: --visual-trace-dir must be a clean absolute path\n");
+      return 2;
+    }
+    /* A trace is read next to the page's own console output. */
+    console = TRUE;
   }
   host.console_to_stderr = console;
   host.exit_after_seconds = exit_after > 0 ? (guint) exit_after : 0;
@@ -265,6 +299,8 @@ main (int argc, char **argv)
 
   g_main_loop_run (host.loop);
   tc_live_encoder_stop_all (&host);
+  g_clear_pointer (&host.trace, tc_visual_trace_stop);
+  g_free (host.visual_trace_dir);
   tc_remote_web_stop (&host);
   g_clear_pointer (&host.present, tc_present_relay_free);
   if (host.present_dir != NULL)
