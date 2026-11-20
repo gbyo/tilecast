@@ -14,7 +14,7 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 
 ## Motion preference
 
-WebKit 2.54 inverts `WPE_SETTING_REDUCED_MOTION`: with the default (`FALSE`) pages see `prefers-reduced-motion: reduce`. A signage display has no viewer preference, and the Player Runtime's artwork (the Cast logo) stops animating under `reduce`. `main.c` sets the setting to `TRUE`, which gives `no-preference`. Recheck this when the pinned WPE version in `release/build-wpe.sh` changes.
+A signage display has no viewer preference, and the Player Runtime's startup reveal and artwork (the Cast logo) stop animating under `prefers-reduced-motion: reduce`. WebKit 2.54.0 and 2.54.1 invert `WPE_SETTING_REDUCED_MOTION`, so `TRUE` gives `no-preference`; WebKit bug 325212 removed the inversion in 2.54.2, so `FALSE` gives `no-preference` from then on. `main.c` chooses the value from the WebKit version that is loaded at run time (`src/motion-setting.h`), because a newer 2.54 library has the same SONAME and can run under the same binary. Recheck this when the pinned WPE version in `release/build-wpe.sh` changes.
 
 ## What it serves
 
