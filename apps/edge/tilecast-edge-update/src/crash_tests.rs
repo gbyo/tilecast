@@ -16,7 +16,7 @@ use edge_release::install::{
     Layout, StageOutcome, current_version, install_with_key, installed_versions, verify_installed,
 };
 use edge_release::protocol::{HelperRequest, Phase};
-use edge_release::testing::{Signer, layout, write_archive};
+use edge_release::testing::{Signer, layout, rehash, write_archive};
 
 use crate::fake::{Behavior, FakeHost};
 use crate::host::{EDGE_DAEMON, EDGE_RENDERER, EDGE_WEB};
@@ -30,6 +30,8 @@ const TIMING: Timing = Timing {
     after_rollback_wait: Duration::from_secs(10),
     poll: Duration::from_secs(1),
 };
+const AIRPLAY_UNITS: &[&str] = &["tilecast-airplay.service", "tilecast-airplay.socket"];
+const FUTURE_USER_UNIT: &str = "tilecast-future.path";
 
 struct Candidate {
     envelope: Vec<u8>,
@@ -65,9 +67,14 @@ impl World {
     }
 
     fn updater(&self, crash: Option<CrashPoint>) -> Updater<'_, FakeHost> {
+        self.updater_running("0.1.0", crash)
+    }
+
+    fn updater_running(&self, version: &str, crash: Option<CrashPoint>) -> Updater<'_, FakeHost> {
         let paths =
             HelperPaths { cas_root: self.cas_root.clone(), tilecast_uid: None, reserve_bytes: self.reserve_bytes };
         Updater::new(&self.host, self.layout.clone(), self.store.clone(), self.signer.public(), paths)
+            .with_running_version(version)
             .with_timing(TIMING)
             .crash_at(crash)
     }
@@ -75,8 +82,23 @@ impl World {
     /// Builds a signed release, its archive and envelope, and puts the
     /// archive where `tilecastd` would have: in the content store.
     fn candidate(&self, version: &str) -> Candidate {
+        self.candidate_with(version, None, |tree| {
+            for unit in AIRPLAY_UNITS {
+                std::fs::write(tree.join("packaging/systemd").join(unit), "[Unit]\n").unwrap();
+            }
+            std::fs::write(tree.join("packaging/systemd-user").join(FUTURE_USER_UNIT), "[Path]\n").unwrap();
+        })
+    }
+
+    fn candidate_with(&self, version: &str, minimum: Option<&str>, change: impl FnOnce(&std::path::Path)) -> Candidate {
         let tree = self.root.path().join(format!("tree-{version}"));
         self.signer.write_release(&tree, version);
+        change(&tree);
+        let mut manifest = rehash(&tree);
+        if let Some(minimum) = minimum {
+            manifest["minimumUpdaterVersion"] = serde_json::json!(minimum);
+        }
+        self.signer.sign(&tree, &serde_json::to_vec(&manifest).unwrap());
         let archive = self.root.path().join(format!("{version}.tar.zst"));
         write_archive(&tree, &archive);
         let envelope = self.signer.envelope_bytes(&tree, &archive, 6);
@@ -104,6 +126,15 @@ impl World {
 
     fn latest(&self) -> Transaction {
         self.store.latest().unwrap().unwrap()
+    }
+
+    async fn crash_during_rollback(&self, point: CrashPoint) {
+        if point == CrashPoint::AfterRollbackCleanupPending {
+            self.host.with(|s| s.refuse_stop.insert("tilecast-airplay.service".into()));
+        }
+        let error = self.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
+        assert!(matches!(error, UpdateError::Crashed(p) if p == point));
+        self.host.with(|s| s.refuse_stop.clear());
     }
 
     /// What production does after a crash of the helper.
@@ -135,6 +166,10 @@ impl World {
         let wanted = if expected == Phase::Confirmed { "0.2.0" } else { "0.1.0" };
         assert_eq!(current, wanted);
         assert_eq!(self.units_version(), wanted, "system files describe the current release");
+        for unit in AIRPLAY_UNITS {
+            assert_eq!(self.layout.unit_dir.join(unit).exists(), expected == Phase::Confirmed);
+        }
+        assert_eq!(self.layout.user_unit_dir.join(FUTURE_USER_UNIT).exists(), expected == Phase::Confirmed);
         assert!(self.host.with(|s| s.guard_armed_for.is_none()), "the guard ends with the transaction");
         assert!(
             self.host.is_active(EDGE_DAEMON) && self.host.is_active(EDGE_WEB) && self.host.is_active(EDGE_RENDERER),
@@ -236,8 +271,7 @@ async fn every_rollback_crash_point_finishes_the_rollback() {
             let world = World::new();
             world.staged("0.2.0").await;
             world.updater(None).activate("0.2.0").await.unwrap();
-            let error = world.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
-            assert!(matches!(error, UpdateError::Crashed(p) if p == point));
+            world.crash_during_rollback(point).await;
             world.recover(power_loss).await;
             world.assert_consistent(Phase::RolledBack);
             assert_eq!(world.latest().reason.as_deref(), Some("candidate_safe_mode"), "{point:?}");
@@ -309,6 +343,112 @@ async fn a_power_loss_while_provisional_rolls_back_before_edge_starts() {
     assert_eq!(world.latest().reason.as_deref(), Some("rebooted_while_provisional"));
     world.host.boot_edge();
     world.assert_consistent(Phase::RolledBack);
+}
+
+#[tokio::test]
+async fn rollback_removes_new_units_even_if_the_candidate_tree_is_lost() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    world.updater(None).activate("0.2.0").await.unwrap();
+    assert!(world.layout.unit_dir.join("tilecast-airplay.socket").is_file());
+    std::fs::remove_dir_all(world.layout.version_dir("0.2.0")).unwrap();
+    let transaction = world.updater(None).rollback("operator_requested").await.unwrap();
+    assert_eq!(transaction.phase, Phase::RolledBack);
+    assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+    assert!(!world.layout.unit_dir.join("tilecast-airplay.socket").exists());
+    assert!(world.host.with(|s| s.log.iter().any(|entry| entry == "stop tilecast-airplay.socket")));
+}
+
+#[tokio::test]
+async fn signed_candidates_cannot_install_host_or_guard_units() {
+    for unit in ["sshd.service", "tilecast-edge-update-guard.service", "tilecast-airplay.socket.d/override.conf"] {
+        let world = World::new();
+        let candidate = world.candidate_with("0.2.0", None, |tree| {
+            let path = tree.join("packaging/systemd").join(unit);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "[Unit]\n").unwrap();
+        });
+        assert_eq!(world.stage(&candidate).await.unwrap_err().reason_code(), "release_manifest_invalid");
+        assert!(!world.layout.unit_dir.join(unit).exists());
+        assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+    }
+}
+
+#[tokio::test]
+async fn a_new_release_unit_cannot_overwrite_a_local_mask() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    let unit = world.layout.unit_dir.join("tilecast-airplay.socket");
+    std::os::unix::fs::symlink("/dev/null", &unit).unwrap();
+    assert!(world.updater(None).activate("0.2.0").await.is_err());
+    assert_eq!(std::fs::read_link(unit).unwrap(), std::path::Path::new("/dev/null"));
+    assert!(world.store.load().unwrap().is_none());
+    assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+}
+
+#[tokio::test]
+async fn activation_preserves_a_mask_added_after_the_intent() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    let updater = world.updater(None);
+    let intent = updater.begin_activation("0.2.0").unwrap();
+    let unit = world.layout.unit_dir.join("tilecast-airplay.socket");
+    std::os::unix::fs::symlink("/dev/null", &unit).unwrap();
+    assert_eq!(updater.run_activation(intent).await.unwrap().phase, Phase::RolledBack);
+    assert_eq!(std::fs::read_link(unit).unwrap(), std::path::Path::new("/dev/null"));
+    assert!(world.host.is_active(EDGE_DAEMON));
+    assert_eq!(current_version(&world.layout).as_deref(), Some("0.1.0"));
+}
+
+#[tokio::test]
+async fn auxiliary_stop_failure_restores_playback_and_retries_without_stopping_it() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    let updater = world.updater(None);
+    updater.activate("0.2.0").await.unwrap();
+    let unit = "tilecast-airplay.service";
+    world.host.with(|s| s.refuse_stop.insert(unit.into()));
+
+    assert_eq!(updater.rollback("operator_requested").await.unwrap_err().reason_code(), "rollback_cleanup_pending");
+    assert!(world.latest().rollback_cleanup_pending);
+    assert_eq!(world.host.with(|s| s.running_version.clone()).as_deref(), Some("0.1.0"));
+    assert!(world.layout.unit_dir.join(unit).exists());
+    assert!(world.host.with(|s| s.guard_armed_for.is_some()));
+    let log = world.host.with(|s| s.log.len());
+    assert!(updater.guard().await.is_err(), "the persistent stop error keeps the guard armed");
+    world.host.with(|s| s.refuse_stop.clear());
+    updater.guard().await.unwrap();
+    assert!(world.host.with(|s| !s.log[log..].iter().any(|event| event == "stop tilecast-edge.service")));
+    world.assert_consistent(Phase::RolledBack);
+}
+
+#[tokio::test]
+async fn a_signed_updater_prerequisite_is_checked_at_stage_and_activation() {
+    let world = World::new();
+    let candidate = world.candidate_with("0.3.0", Some("0.2.0"), |_| {});
+    assert_eq!(world.stage(&candidate).await.unwrap_err().reason_code(), "update_bootstrap_required");
+    // A previously staged tree cannot skip the check when current has rolled back.
+    edge_release::install::stage_from_dir(&world.root.path().join("tree-0.3.0"), &world.layout, &world.signer.public())
+        .unwrap();
+    assert_eq!(
+        world.updater_running("0.2.0", None).activate("0.3.0").await.unwrap_err().reason_code(),
+        "update_bootstrap_required"
+    );
+    assert!(world.store.load().unwrap().is_none());
+
+    world.staged("0.2.0").await;
+    world.updater(None).activate("0.2.0").await.unwrap();
+    world.updater(None).confirm("0.2.0").await.unwrap();
+    // The previous helper can still be serving requests after confirmation.
+    assert_eq!(world.stage(&candidate).await.unwrap_err().reason_code(), "update_bootstrap_required");
+    assert_eq!(world.updater(None).activate("0.3.0").await.unwrap_err().reason_code(), "update_bootstrap_required");
+
+    let restarted = world.updater_running("0.2.0", None);
+    assert_eq!(
+        restarted.stage(&candidate.artifact, &candidate.envelope, &candidate.signature).await.unwrap(),
+        StageOutcome::AlreadyStaged { version: "0.3.0".into() }
+    );
+    assert_eq!(restarted.activate("0.3.0").await.unwrap().phase, Phase::Provisional);
 }
 
 #[tokio::test]
@@ -609,7 +749,7 @@ mod field_workaround {
                 machine.install_all();
                 world.staged("0.2.0").await;
                 world.updater(None).activate("0.2.0").await.unwrap();
-                world.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
+                world.crash_during_rollback(point).await;
                 world.recover(power_loss).await;
                 world.assert_consistent(Phase::RolledBack);
                 assert_untouched(&machine, &format!("{point:?} power loss {power_loss}"));

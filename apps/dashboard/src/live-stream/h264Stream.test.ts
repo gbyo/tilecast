@@ -3,6 +3,7 @@ import { detectAcceptedProfiles } from "./h264Support";
 import {
   MAX_DECODE_QUEUE,
   MAX_DECODER_ERRORS,
+  maxDecodeQueue,
   startH264Stream,
   type DecoderLike,
   type FrameLike,
@@ -21,12 +22,13 @@ function packet(
   width = 960,
   height = 540,
   session = SESSION,
+  code = 2,
 ) {
   const payload = Uint8Array.from(keyframe ? KEY : DELTA);
   const out = new Uint8Array(4 + 48 + payload.byteLength);
   const view = new DataView(out.buffer);
   view.setUint32(0, 48 + payload.byteLength);
-  out.set([0x54, 0x43, 0x4c, 0x53, 2, 2, keyframe ? 1 : 0, 0], 4);
+  out.set([0x54, 0x43, 0x4c, 0x53, 2, code, keyframe ? 1 : 0, 0], 4);
   out.set(
     Uint8Array.from(session.replaceAll("-", "").match(/../g)!, (b) =>
       parseInt(b, 16),
@@ -216,6 +218,41 @@ describe("H.264 Watch Live stream", () => {
     h.stop();
   });
 
+  it("decodes a 720p30 stream with the shared Level 3.1 configuration and a time-based queue bound", async () => {
+    const h = harness();
+    const send720p30 = (sequence: number, keyframe: boolean) =>
+      packet(sequence, keyframe, 1280, 720, SESSION, 4);
+    await h.send(send720p30(1, true));
+    const decoder = h.decoders[0]!;
+    expect(decoder.configs[0]).toEqual(
+      expect.objectContaining({
+        codec: "avc1.42e01f",
+        codedWidth: 1280,
+        codedHeight: 720,
+        optimizeForLatency: true,
+      }),
+    );
+    // The queue bound is about 400 ms: 12 frames at 30 FPS, 6 at 15 FPS.
+    expect(maxDecodeQueue(30)).toBe(12);
+    expect(maxDecodeQueue(15)).toBe(MAX_DECODE_QUEUE);
+    expect(maxDecodeQueue(10)).toBe(MAX_DECODE_QUEUE);
+    decoder.decodeQueueSize = 12;
+    await h.send(send720p30(2, false));
+    expect(decoder.decoded).toHaveLength(2);
+    decoder.decodeQueueSize = 13;
+    await h.send(send720p30(3, false), send720p30(4, false));
+    expect(decoder.decoded).toHaveLength(2);
+    decoder.decodeQueueSize = 0;
+    await h.send(send720p30(5, true), send720p30(6, false));
+    expect(decoder.decoded.map((chunk) => chunk.type)).toEqual([
+      "key",
+      "delta",
+      "key",
+      "delta",
+    ]);
+    h.stop();
+  });
+
   it("reconfigures on a new size at a keyframe (a profile switch)", async () => {
     const h = harness();
     await h.send(packet(1, true), packet(2, false));
@@ -285,6 +322,7 @@ describe("WebCodecs detection", () => {
         VideoDecoder: supported(["1280x720", "960x540"]),
       }),
     ).toEqual([
+      "h264-720p30",
       "h264-720p15",
       "h264-540p15",
       "h264-540p10",
@@ -297,6 +335,49 @@ describe("WebCodecs detection", () => {
         VideoDecoder: supported(["960x540"]),
       }),
     ).toEqual(["h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"]);
+  });
+
+  it("asks the decoder once per size and keeps both profiles that share it", async () => {
+    const decoder = supported(["1280x720", "960x540"]);
+    const accepted = await detectAcceptedProfiles({
+      isSecureContext: true,
+      VideoDecoder: decoder,
+    });
+    expect(accepted.filter((id) => id.startsWith("h264-720"))).toEqual([
+      "h264-720p30",
+      "h264-720p15",
+    ]);
+    // 720p30 and 720p15 share 1280x720; 540p15 and 540p10 share 960x540.
+    expect(decoder.isConfigSupported).toHaveBeenCalledTimes(2);
+    const calls = decoder.isConfigSupported.mock.calls.map(([config]) => [
+      config.codec,
+      config.codedWidth,
+      config.codedHeight,
+    ]);
+    expect(calls).toEqual([
+      ["avc1.42e01f", 1280, 720],
+      ["avc1.42e01f", 960, 540],
+    ]);
+    // A decoder that refuses 720p refuses both 720p profiles together.
+    expect(
+      await detectAcceptedProfiles({
+        isSecureContext: true,
+        VideoDecoder: supported(["960x540"]),
+      }),
+    ).not.toContain("h264-720p30");
+  });
+
+  it("never lists H.264 without a decoder, even for the best profile", async () => {
+    expect(await detectAcceptedProfiles({ isSecureContext: true })).toEqual([
+      "mjpeg-540p10",
+      "mjpeg-360p8",
+    ]);
+    expect(
+      await detectAcceptedProfiles({
+        isSecureContext: true,
+        VideoDecoder: supported([]),
+      }),
+    ).toEqual(["mjpeg-540p10", "mjpeg-360p8"]);
   });
 
   it("falls back to MJPEG without WebCodecs, outside a secure context, or on a throwing probe", async () => {

@@ -151,6 +151,11 @@ impl IpcHandler for DaemonIpc {
                 tracing::debug!(component = "renderer", event = "health", state = ?health.state, terminations = health.web_process_terminations);
                 let capability_changed = engine.renderer_health(session, &health);
                 drop(engine);
+                if health.reason_code.as_ref().map(ShortToken::as_str)
+                    == Some(edge_protocol::ipc::HEALTH_EXTERNAL_PRESENTATION_UNAVAILABLE)
+                {
+                    self.context.airplay.relay_failed();
+                }
                 if capability_changed {
                     crate::capabilities::refresh(&self.context).await;
                     // A helper reconnect reports health, not `renderer.ready`; a

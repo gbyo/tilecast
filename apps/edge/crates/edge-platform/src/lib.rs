@@ -7,6 +7,8 @@
 //! * [`activation`]: the socket that systemd passes to `tilecast-edge-update`.
 //! * [`disk`]: free-space measurement for CAS reserve enforcement.
 //! * [`fs`]: opening files that another account may control.
+//! * [`peer`]: the peer check of the helper sockets that only `tilecastd`
+//!   may use.
 //! * [`capabilities`]: the capability registry and the provider trait every
 //!   machine integration implements (§12).
 //! * [`providers`]: providers that need only filesystem/environment probes.
@@ -32,6 +34,7 @@ pub mod disk;
 pub mod display;
 pub mod fs;
 pub mod paths;
+pub mod peer;
 pub mod providers;
 pub mod systemd;
 

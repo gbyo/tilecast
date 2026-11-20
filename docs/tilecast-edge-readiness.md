@@ -90,16 +90,16 @@ records code evidence, not documentation claims. Each row uses one status:
 
 ## 8. Player commands and command results
 
-| Item                                   | Status                    | Evidence and action                                                                                                                                         |
-| -------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Poll cadence, push wake, serialization | Implemented and verified  | `player-core/src/commands.rs`. No action.                                                                                                                   |
-| Durable non-replay                     | Implemented and verified  | Idempotency-keyed records with `command_interrupted` recovery. Stronger than legacy across crashes. No action.                                              |
-| Disruptive pre-report                  | Implemented and verified  | Bounded report before restart. No action.                                                                                                                   |
-| Core handler parity                    | Implemented and verified  | Same reference result codes. No action.                                                                                                                     |
-| `clear_website_data`                   | Implemented and verified  | The type is now in `plan()` with a routing-table regression test. No action.                                                                                |
-| `restart_activity`                     | Partially implemented     | Legacy relaunches the process. Edge restarts the renderer only and reports `activity_restarted`. Action: ratify the renderer-only semantic or match legacy. |
-| AirPlay commands                       | Intentionally unsupported | Edge answers `unsupported_command`. AirPlay stays out of Edge 1. Retirement must exclude AirPlay-dependent screens.                                         |
-| Autostart commands                     | Intentionally unsupported | The installer owns the system service. No action.                                                                                                           |
+| Item                                   | Status                    | Evidence and action                                                                                                                                                                                                                                                                                  |
+| -------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Poll cadence, push wake, serialization | Implemented and verified  | `player-core/src/commands.rs`. No action.                                                                                                                                                                                                                                                            |
+| Durable non-replay                     | Implemented and verified  | Idempotency-keyed records with `command_interrupted` recovery. Stronger than legacy across crashes. No action.                                                                                                                                                                                       |
+| Disruptive pre-report                  | Implemented and verified  | Bounded report before restart. No action.                                                                                                                                                                                                                                                            |
+| Core handler parity                    | Implemented and verified  | Same reference result codes. No action.                                                                                                                                                                                                                                                              |
+| `clear_website_data`                   | Implemented and verified  | The type is now in `plan()` with a routing-table regression test. No action.                                                                                                                                                                                                                         |
+| `restart_activity`                     | Partially implemented     | Legacy relaunches the process. Edge restarts the renderer only and reports `activity_restarted`. Action: ratify the renderer-only semantic or match legacy.                                                                                                                                          |
+| AirPlay commands                       | Beta, qualification open  | Single-screen AirPlay is implemented and available as an opt-in Beta per Edge screen. It is off by default (`beta_disabled`); enabling the Studio switch makes healthy players available without a restart. Physical qualification is still pending. Group roles answer `airplay_group_unsupported`. |
+| Autostart commands                     | Intentionally unsupported | The installer owns the system service. No action.                                                                                                                                                                                                                                                    |
 
 ## 9. Screenshots, previews and Watch Live
 
@@ -162,7 +162,7 @@ records code evidence, not documentation claims. Each row uses one status:
 | Compatibility pre-check                 | Implemented and verified     | Offline read-only check against the installed profile. No action.                                                                    |
 | Identity, credential and command import | Implemented and verified     | Identity gate precedes credential storage. Executed keys union safely. No action.                                                    |
 | Manifest and media import               | Implemented and verified     | Cache-identity match, verified file import, migration pins. No action.                                                               |
-| Deliberately unmigrated state           | Intentionally unsupported    | Pairing sessions, updater stage, AirPlay, radio state and website storage stay behind. No action.                                    |
+| Deliberately unmigrated state           | Intentionally unsupported    | Pairing sessions, updater stage, AirPlay session state, radio state and website storage stay behind. No action.                      |
 | Physical kiosk migration                | Needs physical qualification | DRM probe gate and boot recovery are proven in fakes and systemd tests only. Action: qualify migrate and rollback on kiosk hardware. |
 
 ## 15. Linux hardware and display integration
@@ -212,8 +212,15 @@ rollback on a real disk.
   (Watch Live stall recovery) remain draft. PR #1377 is green. PR #1376 has
   one dashboard shard failure. PR #1378 has server, lint and dashboard
   failures. Phase 3 finishes all three without competing implementations.
-- AirPlay remains unsupported by Edge. It is out of scope and must not be
-  presented as implemented.
+- Single-screen AirPlay is implemented in Edge software and has automated
+  qualification. Physical hardware qualification is pending. Until it is
+  recorded, single-screen AirPlay must be labeled Beta rather than
+  production-qualified. It is off by default. While its dependencies are healthy, it reports
+  `beta_disabled` until an administrator enables it for that Edge screen in
+  Studio. If a dependency fails while the Beta is off, Edge reports the
+  dependency reason instead
+  ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §12). Group AirPlay
+  stays unsupported.
 - The readiness plan references `docs/tilecast-edge-sandbox-review.md`.
   That file does not exist. Sandbox material lives in
   `docs/tilecast-edge-remote-web-threat-review.md` and

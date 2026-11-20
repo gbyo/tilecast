@@ -717,8 +717,67 @@ impl PresentationNetwork {
         Self::set_status(inner, settled, None, now);
     }
 
+    /// Joins the assigned network for an AirPlay session before UxPlay starts
+    /// (docs/tilecast-edge-airplay.md §8). `network_id` must be this
+    /// player's assignment. A failure carries the helper's stable code, and
+    /// the connection is already torn down.
+    pub async fn join_for_session(
+        &self,
+        network_id: &str,
+        provisioner: &dyn Provisioner,
+        now: impl Fn() -> Timestamp,
+    ) -> Result<(), (&'static str, String)> {
+        let mut inner = self.inner.lock().await;
+        self.load(&mut inner).await;
+        if !inner.assignment.clone().flatten().is_some_and(|a| a.network_id == network_id.to_lowercase()) {
+            self.publish(&inner);
+            return Err((
+                "presentation_network_not_assigned",
+                "This player has not received that Presentation Network assignment yet.".into(),
+            ));
+        }
+        let joined = self.connect_locked(&mut inner, provisioner, &now).await;
+        let result = match joined {
+            Ok(()) if inner.status.state == "connected" => Ok(()),
+            Ok(()) => Err((
+                inner.status.failure_code.unwrap_or("presentation_network_failed"),
+                "Tilecast could not join the Presentation Network.".to_owned(),
+            )),
+            Err(failure) => Err(failure),
+        };
+        if result.is_err() {
+            let outcome = inner.status.clone();
+            self.disconnect_locked(&mut inner, "session_join_failed", now()).await;
+            inner.status.failure_code = outcome.failure_code.or(Some("presentation_network_failed"));
+            inner.status.last_failure_at = outcome.last_failure_at.or(Some(now()));
+        }
+        self.publish(&inner);
+        result
+    }
+
+    /// Leaves the session's network and restores the radio state. Idempotent.
+    pub async fn leave_for_session(&self, reason: &str, now: Timestamp) {
+        let mut inner = self.inner.lock().await;
+        self.disconnect_locked(&mut inner, reason, now).await;
+        self.publish(&inner);
+    }
+
+    /// Whether Ethernet is still this player's default route while a session
+    /// holds the network. A wireless default route, or no usable wired
+    /// address, is `ethernet_default_route_lost`.
+    pub async fn ethernet_is_default_route(&self) -> bool {
+        let capability = self.helper.status().await;
+        let wired = capability.wired_interface_available && valid_ipv4(&capability.wired_ipv4);
+        let route = capability.default_route_interface.clone();
+        let mut inner = self.inner.lock().await;
+        inner.capability = Some(capability);
+        self.publish(&inner);
+        wired && !(!route.is_empty() && is_wireless_interface(&route))
+    }
+
     /// A Tilecast connection that is up at startup is left over from a
-    /// crash: Edge has no AirPlay session that could be using it.
+    /// crash, unless the AirPlay session that resumes after the restart
+    /// still uses it; the caller then does not call this.
     pub async fn cleanup_orphaned(&self, now: Timestamp) {
         let mut inner = self.inner.lock().await;
         self.load(&mut inner).await;

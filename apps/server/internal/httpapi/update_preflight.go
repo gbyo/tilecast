@@ -21,22 +21,24 @@ type updateSelection struct {
 
 type deploymentRelease struct {
 	family, architecture, hash string
+	minimumUpdaterVersion      string
 	versionCode, size          int64
 	minimumSDK                 *int
 }
 
 type resolvedUpdateTarget struct {
-	ID                uuid.UUID `json:"screenId"`
-	Name              string    `json:"screenName"`
-	Current           *int64    `json:"currentVersionCode"`
-	Family            string    `json:"playerFamily"`
-	Architecture      string    `json:"playerArchitecture"`
-	Outcome           string    `json:"outcome"`
-	Reason            *string   `json:"reason"`
-	RecentlyContacted bool      `json:"recentlyContacted"`
-	sdk               *int
-	permission        string
-	state             string
+	ID                 uuid.UUID `json:"screenId"`
+	Name               string    `json:"screenName"`
+	Current            *int64    `json:"currentVersionCode"`
+	Family             string    `json:"playerFamily"`
+	Architecture       string    `json:"playerArchitecture"`
+	Outcome            string    `json:"outcome"`
+	Reason             *string   `json:"reason"`
+	RecentlyContacted  bool      `json:"recentlyContacted"`
+	sdk                *int
+	updaterUnconfirmed bool
+	permission         string
+	state              string
 }
 
 type updatePreview struct {
@@ -53,16 +55,24 @@ type updatePreview struct {
 // retains the existing family filtering, canary, and command behavior.
 func resolveUpdateSelection(ctx context.Context, tx pgx.Tx, input updateSelection, lockRelease bool) (deploymentRelease, []resolvedUpdateTarget, error) {
 	var release deploymentRelease
-	query := `SELECT player_family,architecture,version_code,minimum_sdk,apk_size,apk_sha256 FROM player_releases WHERE id=$1 AND verification_status='verified' AND cache_status='cached'`
+	query := `SELECT player_family,architecture,version_code,minimum_sdk,apk_size,apk_sha256,COALESCE(manifest->>'minimumUpdaterVersion','') FROM player_releases WHERE id=$1 AND verification_status='verified' AND cache_status='cached'`
 	if lockRelease {
 		// Preserve creation's protection against concurrent artifact removal.
 		query += ` FOR SHARE`
 	}
-	err := tx.QueryRow(ctx, query, input.ReleaseID).Scan(&release.family, &release.architecture, &release.versionCode, &release.minimumSDK, &release.size, &release.hash)
+	err := tx.QueryRow(ctx, query, input.ReleaseID).Scan(&release.family, &release.architecture, &release.versionCode, &release.minimumSDK, &release.size, &release.hash, &release.minimumUpdaterVersion)
 	if err != nil {
 		return release, nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT s.id,s.name,ps.player_version_code,ps.android_sdk,COALESCE(ps.install_permission_status,'unknown'),COALESCE(s.last_heartbeat_at>now()-interval '15 minutes',false),COALESCE(ps.player_architecture,''),`+screenFamilySQL+` FROM screens s LEFT JOIN screen_player_status ps ON ps.screen_id=s.id WHERE s.deleted_at IS NULL AND s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND g.deleted_at IS NULL AND m.screen_group_id=ANY($2))) ORDER BY s.id`, input.ScreenIDs, input.GroupIDs)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT s.id,s.name,ps.player_version_code,ps.android_sdk,COALESCE(ps.install_permission_status,'unknown'),COALESCE(s.last_heartbeat_at>now()-interval '15 minutes',false),COALESCE(ps.player_architecture,''),`+screenFamilySQL+`,
+		CASE WHEN $3 THEN EXISTS (
+			SELECT 1 FROM screen_update_states st
+			JOIN update_deployments d ON d.id=st.deployment_id
+			JOIN player_releases r ON r.id=d.release_id
+			WHERE st.screen_id=s.id AND st.expected_version_code=ps.player_version_code
+				AND r.player_family='edge' AND d.status IN ('active','paused') AND st.state IN ('installing','reconnecting')
+		) ELSE false END
+		FROM screens s LEFT JOIN screen_player_status ps ON ps.screen_id=s.id WHERE s.deleted_at IS NULL AND s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND g.deleted_at IS NULL AND m.screen_group_id=ANY($2))) ORDER BY s.id`, input.ScreenIDs, input.GroupIDs, release.minimumUpdaterVersion != "")
 	if err != nil {
 		return release, nil, err
 	}
@@ -70,7 +80,7 @@ func resolveUpdateSelection(ctx context.Context, tx pgx.Tx, input updateSelectio
 	targets := []resolvedUpdateTarget{}
 	for rows.Next() {
 		var target resolvedUpdateTarget
-		if err := rows.Scan(&target.ID, &target.Name, &target.Current, &target.sdk, &target.permission, &target.RecentlyContacted, &target.Architecture, &target.Family); err != nil {
+		if err := rows.Scan(&target.ID, &target.Name, &target.Current, &target.sdk, &target.permission, &target.RecentlyContacted, &target.Architecture, &target.Family, &target.updaterUnconfirmed); err != nil {
 			return release, nil, err
 		}
 		evaluateUpdateTarget(release, &target)
@@ -95,6 +105,13 @@ func evaluateUpdateTarget(release deploymentRelease, target *resolvedUpdateTarge
 		reason = fmt.Sprintf("This release requires %s architecture, but this screen reports %s.", release.architecture, reported)
 	} else if release.minimumSDK != nil && target.sdk != nil && *target.sdk < *release.minimumSDK {
 		reason = fmt.Sprintf("This release requires Android SDK %d, but this screen reports SDK %d.", *release.minimumSDK, *target.sdk)
+	} else if release.minimumUpdaterVersion != "" {
+		minimum, valid := updates.EdgeVersionCode(release.minimumUpdaterVersion)
+		if !valid || target.Current == nil || *target.Current < minimum {
+			reason = fmt.Sprintf("Install and confirm Tilecast Edge %s or later on this screen first.", release.minimumUpdaterVersion)
+		} else if target.updaterUnconfirmed {
+			reason = "Wait for this screen to confirm its current Tilecast Edge update."
+		}
 	}
 	if reason != "" {
 		target.state, target.Outcome, target.Reason = "incompatible", "incompatible", &reason

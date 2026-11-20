@@ -386,7 +386,8 @@ export function LiveStreamViewer({
             : null;
 
   const previewWidth = frameSize?.width ?? initialWidth ?? session?.maxWidth;
-  const previewHeight = frameSize?.height ?? initialHeight ?? session?.maxHeight;
+  const previewHeight =
+    frameSize?.height ?? initialHeight ?? session?.maxHeight;
 
   return (
     <>

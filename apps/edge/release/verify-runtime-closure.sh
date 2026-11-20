@@ -16,7 +16,8 @@ root=${1:-/opt/tilecast-edge/current}
 unset LD_LIBRARY_PATH LD_PRELOAD
 failed=0
 checked=0
-for required in bin/tilecast-renderer-wpe bin/tilecast-web-renderer-wpe lib/wpe/lib/libWPEWebKit-2.0.so.1; do
+for required in bin/tilecast-renderer-wpe bin/tilecast-web-renderer-wpe bin/uxplay \
+  lib/wpe/lib/libWPEWebKit-2.0.so.1 lib/wpe/lib/libdns_sd.so.1; do
   if [ ! -f "$root/$required" ]; then
     echo "runtime closure: the release has no $required" >&2
     failed=1
@@ -25,7 +26,12 @@ done
 while IFS= read -r -d '' file; do
   head -c4 "$file" | grep -q $'^\x7fELF' || continue
   checked=$((checked + 1))
-  output=$(ldd "$file" 2>&1 || true)
+  # For libraries in the private directory, model the loader's inherited
+  # search path. Check executable roots with their actual ELF search paths.
+  case "$file" in
+    "$root"/lib/wpe/lib/*) output=$(LD_LIBRARY_PATH="$root/lib/wpe/lib" ldd "$file" 2>&1 || true) ;;
+    *) output=$(ldd "$file" 2>&1 || true) ;;
+  esac
   missing=$(printf '%s\n' "$output" | grep -E '=> not found' || true)
   if [ -n "$missing" ]; then
     failed=1
@@ -34,6 +40,15 @@ while IFS= read -r -d '' file; do
     done <<< "$missing"
   fi
 done < <(find "$root" -type f -print0 | sort -z)
+dns_sd=$(ldd "$root/bin/uxplay" | awk '$1 == "libdns_sd.so.1" && $2 == "=>" {print $3}' || true)
+if [[ -z "$dns_sd" || "$(readlink -f "$dns_sd")" != "$(readlink -f "$root/lib/wpe/lib/libdns_sd.so.1")" ]]; then
+  echo "runtime closure: UxPlay did not use the release-local DNS-SD library" >&2
+  failed=1
+fi
+if ! "$root/bin/uxplay" -v | grep -q '^UxPlay version '; then
+  echo "runtime closure: UxPlay failed to start" >&2
+  failed=1
+fi
 if [ "$failed" -ne 0 ]; then
   echo "runtime closure: FAILED ($checked ELF files checked)" >&2
   exit 1

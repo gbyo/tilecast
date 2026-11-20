@@ -15,4 +15,6 @@ pub mod ids {
     pub const DISPLAY_DDC_MUTE: &str = "display.ddc.mute";
     pub const AUDIO_PIPEWIRE: &str = "audio.pipewire";
     pub const SYSTEM_SYSTEMD_WATCHDOG: &str = "system.systemd_watchdog";
+    /// Single-screen AirPlay Present (docs/tilecast-edge-airplay.md §7).
+    pub const EXTERNAL_PRESENTATION_AIRPLAY: &str = "external_presentation.airplay";
 }

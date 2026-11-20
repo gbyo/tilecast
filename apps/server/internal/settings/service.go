@@ -72,6 +72,7 @@ type PlayerConfig struct {
 	Power          map[string]any `json:"power"`
 	ManagedKiosk   map[string]any `json:"managedKiosk"`
 	LinuxKiosk     map[string]any `json:"linuxKiosk"`
+	Features       map[string]any `json:"features"`
 	Accessibility  map[string]any `json:"accessibility"`
 	Updates        map[string]any `json:"updates"`
 	// PresentationNetwork is the Linux Presentation Network assignment, filled in
@@ -150,6 +151,9 @@ func (s *Service) OrganizationValues(ctx context.Context) (map[string]any, error
 	return document.Values, nil
 }
 func (s *Service) UpdateOrganization(ctx context.Context, user uuid.UUID, revision int64, values map[string]any) (Document, error) {
+	if _, ok := values["edge.airplay.beta_enabled"]; ok {
+		return Document{}, errors.New("setting_not_allowed_at_scope: edge.airplay.beta_enabled")
+	}
 	validated, err := Validate(values, ScopeOrganization)
 	if err != nil {
 		return Document{}, err
@@ -257,6 +261,9 @@ func (s *Service) GroupPolicy(ctx context.Context, id uuid.UUID) (PolicyDocument
 	return d, err
 }
 func (s *Service) PutGroupPolicy(ctx context.Context, user, id uuid.UUID, revision int64, priority int, values map[string]any) (PolicyDocument, error) {
+	if _, ok := values["edge.airplay.beta_enabled"]; ok {
+		return PolicyDocument{}, errors.New("setting_not_allowed_at_scope: edge.airplay.beta_enabled")
+	}
 	if priority < -1000 || priority > 1000 {
 		return PolicyDocument{}, errors.New("invalid_setting_value: policy priority")
 	}
@@ -486,6 +493,7 @@ func (s *Service) PlayerConfiguration(ctx context.Context, screen uuid.UUID) (Pl
 		Power:         map[string]any{"activeHoursEnabled": v("power.active_hours_enabled"), "activeHoursTimezone": v("power.active_hours_timezone"), "activeHoursDays": v("power.active_hours_days"), "activeHoursStart": v("power.active_hours_start"), "activeHoursEnd": v("power.active_hours_end"), "startupGraceSeconds": v("power.startup_grace_seconds"), "shutdownPrepareSeconds": v("power.shutdown_prepare_seconds"), "keepScreenOn": v("power.keep_screen_on"), "sleepOutsideActiveHours": v("power.sleep_outside_active_hours"), "outsideActiveHoursDisplay": v("power.outside_active_hours_display"), "outsideActiveHoursText": v("power.outside_active_hours_text"), "outsideActiveHoursWakeAnimation": v("power.outside_active_hours_wake_animation"), "blackScreenFallback": v("power.outside_active_hours_display") == "black"},
 		ManagedKiosk:  map[string]any{"lockTaskEnabled": v("managed_kiosk.lock_task_enabled"), "blockOverlays": v("managed_kiosk.block_overlays"), "allowSettingsDuringAdmin": v("managed_kiosk.allow_settings_during_admin"), "adminSessionMinutes": v("managed_kiosk.admin_session_minutes")},
 		LinuxKiosk:    map[string]any{"fullscreenEnabled": v("linux_kiosk.fullscreen_enabled"), "preventDisplaySleep": v("linux_kiosk.prevent_display_sleep")},
+		Features:      map[string]any{"airplayBetaEnabled": v("edge.airplay.beta_enabled")},
 		Accessibility: map[string]any{"controlAssistEnabled": v("accessibility.control_assist_enabled"), "returnDelaySeconds": v("accessibility.return_delay_seconds"), "allowedPackages": v("accessibility.allowed_packages"), "pauseDuringUpdates": v("accessibility.pause_during_updates"), "pauseDuringAdminSession": v("accessibility.pause_during_admin_session"), "reportForegroundPackage": v("accessibility.report_foreground_package"), "maximumReturns": v("accessibility.maximum_returns"), "returnWindowMinutes": v("accessibility.return_window_minutes")},
 		Updates:       map[string]any{"channel": v("player.update.channel")}}
 	return config, fmt.Sprintf(`"config-%s-%d"`, screen, effective.ConfigRevision), nil

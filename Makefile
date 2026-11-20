@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check gofmt-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test windows-check windows-test format helper-check quick test watch-dashboard watch-linux
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check gofmt-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test windows-check windows-test macos-check macos-test format helper-check quick test watch-dashboard watch-linux
 
 bootstrap:
 	npm install
@@ -106,14 +106,23 @@ player-check:
 player-test:
 	bash scripts/ci/cargo-player.sh test --all-features
 
-# Tilecast Player for Windows (apps/player-windows). Unit tests run on any
-# host; the renderer and conformance need Windows with WebView2.
+# Tilecast Player for Windows (apps/player-windows) and the WebView host it
+# shares with macOS (crates/webview-host). Unit tests run on any host; the
+# renderer and conformance need Windows with WebView2.
 windows-check:
-	cargo fmt -p tilecast-windows -- --check
-	cargo clippy --locked -p tilecast-windows --all-targets --all-features -- -D warnings
+	cargo fmt -p tilecast-windows -p webview-host -- --check
+	cargo clippy --locked -p tilecast-windows -p webview-host --all-targets --all-features -- -D warnings
 
 windows-test:
-	cargo test --locked -p tilecast-windows --all-features
+	cargo test --locked -p tilecast-windows -p webview-host --all-features
+
+# Tilecast Player for macOS (apps/player-macos). Builds and tests on a Mac.
+macos-check:
+	cargo fmt -p tilecast-macos -p webview-host -- --check
+	cargo clippy --locked -p tilecast-macos -p webview-host --all-targets --all-features -- -D warnings
+
+macos-test:
+	cargo test --locked -p tilecast-macos -p webview-host --all-features
 
 edge-linux:
 	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh

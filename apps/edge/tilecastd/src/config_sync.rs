@@ -92,6 +92,8 @@ pub async fn install(context: &DaemonContext, config: Option<PlayerConfig>) {
         cas.set_automatic_threshold(effective.native.cache.automatic_threshold_bytes);
     }
     context.presentation.lock().await.apply_player_config(&context.config, &effective);
+    context.airplay.set_beta_enabled(effective.platform.airplay_beta_enabled).await;
+    context.report_status_soon();
     context.manifest_wake.notify_one();
     context.network_wake.notify_one();
     context.idle_wake.notify_one();

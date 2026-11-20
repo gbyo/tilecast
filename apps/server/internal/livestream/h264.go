@@ -13,7 +13,7 @@ const (
 	// TCLSv2HeaderBytes is the fixed TCLS version 2 header length.
 	TCLSv2HeaderBytes = 48
 	// MaxAccessUnitBytes bounds one H.264 access unit. An IDR with its
-	// parameter sets at 1280x720 and 1.5 Mbit/s is normally far smaller.
+	// parameter sets at 1280x720 and 2.5 Mbit/s is normally far smaller.
 	MaxAccessUnitBytes = 512 * 1024
 	// MaxChunkPacketBytes bounds one TCLS version 2 WebSocket message.
 	MaxChunkPacketBytes = TCLSv2HeaderBytes + MaxAccessUnitBytes

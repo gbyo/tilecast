@@ -187,7 +187,11 @@ test("privileged Edge helpers have no storage, server client, or Core dependency
     "player-client",
     "player-core",
   ]);
-  for (const helper of ["tilecast-edge-migrate", "tilecast-edge-update"]) {
+  for (const helper of [
+    "tilecast-edge-migrate",
+    "tilecast-edge-update",
+    "tilecast-airplay",
+  ]) {
     const seen = new Set();
     const queue = [helper];
     for (const name of queue) {

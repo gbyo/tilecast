@@ -39,6 +39,10 @@ export interface FontPickerProps {
   builtIn: readonly FontPickerBuiltIn[];
   /** Heading of the built-in group. Defaults to "Built-in fonts". */
   builtInLabel?: string;
+  /** Shows the choice without letting it change. */
+  disabled?: boolean;
+  /** Ids of the caller's description and error, for the trigger. */
+  describedBy?: string;
 }
 
 const LIBRARY_PREFIX = "library:";
@@ -71,6 +75,8 @@ export function FontPicker({
   onChange,
   builtIn,
   builtInLabel,
+  disabled,
+  describedBy,
 }: FontPickerProps) {
   const { t } = useTranslation("settings");
   const session = useStudioSession();
@@ -104,8 +110,13 @@ export function FontPicker({
         value={selected}
         onValueChange={(next) => onChange(fromValue(next ?? selected))}
         items={[...libraryOptions, ...builtInOptions]}
+        disabled={disabled}
       >
-        <SelectTrigger id={id} aria-label={label}>
+        <SelectTrigger
+          id={id}
+          aria-label={label}
+          aria-describedby={describedBy}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -131,7 +142,7 @@ export function FontPicker({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {canManage ? (
+      {canManage && !disabled ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Button
             type="button"

@@ -33,6 +33,7 @@ export {
   empty,
   failure,
   firstRecordsDataset,
+  LIBRARY_FONT_FAMILY,
   ready,
   type ResourceGrant,
   type ResourceTables,

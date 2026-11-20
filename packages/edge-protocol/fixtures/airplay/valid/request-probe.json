@@ -1,0 +1,6 @@
+{
+  "direction": "request",
+  "message": {
+    "type": "probe"
+  }
+}

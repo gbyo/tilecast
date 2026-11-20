@@ -25,6 +25,7 @@ import {
   widgetPreviewAssetFields,
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewFonts,
   widgetPreviewMedia,
 } from "@/content/widgetPreviewSources";
 import { useOrganizationRegionalProfile } from "@/settings/regionalProfile";
@@ -96,12 +97,22 @@ export function useComponentPreview({
     () => widgetPreviewAssetFields(fields, previewConfiguration),
     [fields, previewConfiguration],
   );
+  // Package Widgets run in a sandbox frame, which gets no library fonts,
+  // exactly as on a Player.
+  const fonts = useMemo(
+    () =>
+      component.kind === "trusted"
+        ? widgetPreviewFonts(fields, previewConfiguration)
+        : [],
+    [component.kind, fields, previewConfiguration],
+  );
   const { resources, loading, failedIds } = useWidgetPreviewResources(
     dataSourceIds,
     dataSourceIds,
     media.media,
     resolvePreviewDate(previewTime),
     assetFields,
+    fonts,
   );
 
   // Edits compile locally and update the mounted element in place; the

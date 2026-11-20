@@ -144,18 +144,48 @@
         "ui": { "section": "appearance", "order": 1, "styleCard": true }
       },
       {
+        "key": "segmentStyle",
+        "label": "Numbers",
+        "description": "Tiles set each unit on its own panel. Plain shows the numbers alone, for a busy background.",
+        "control": "select",
+        "default": "tiles",
+        "options": [
+          { "value": "tiles", "label": "Tiles" },
+          { "value": "plain", "label": "Plain" }
+        ],
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "fontId",
+        "label": "Font",
+        "description": "A font from the organization font library. Leave it empty for the Tilecast font.",
+        "control": "font",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
         "key": "backgroundColor",
         "label": "Background color",
         "control": "color",
         "default": "#0E141B",
-        "ui": { "section": "appearance", "order": 2 }
+        "ui": { "section": "appearance", "order": 4 }
+      },
+      {
+        "key": "backgroundOpacity",
+        "label": "Background opacity",
+        "description": "Lower it to let a Layout show through. At 0 the background is transparent.",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 100,
+        "ui": { "section": "appearance", "order": 5, "slider": true }
       },
       {
         "key": "foregroundColor",
         "label": "Text color",
         "control": "color",
         "default": "#F5F7FA",
-        "ui": { "section": "appearance", "order": 3 }
+        "ui": { "section": "appearance", "order": 6 }
       },
       {
         "key": "textScale",
@@ -188,7 +218,10 @@
     "showMinutes": true,
     "showSeconds": false,
     "layout": "stacked",
+    "segmentStyle": "tiles",
+    "fontId": "",
     "backgroundColor": "#0E141B",
+    "backgroundOpacity": 100,
     "foregroundColor": "#F5F7FA"
   },
   "presentationSchemaVersion": 1,
@@ -215,6 +248,8 @@
       "mode": { "$config": "mode", "default": "countdown" },
       "recurrence": { "$config": "recurrence", "default": "none" },
       "style": { "$config": "layout", "default": "stacked" },
+      "segmentStyle": { "$config": "segmentStyle", "default": "tiles" },
+      "fontId": { "$config": "fontId", "default": "" },
       "label": { "$config": "label", "default": "" },
       "completionText": { "$config": "completionText", "default": "" },
       "completionAction": {
@@ -226,6 +261,7 @@
       "showMinutes": { "$config": "showMinutes", "default": true },
       "showSeconds": { "$config": "showSeconds", "default": false },
       "background": { "$config": "backgroundColor", "default": "" },
+      "backgroundOpacity": { "$config": "backgroundOpacity", "default": 100 },
       "foreground": { "$config": "foregroundColor", "default": "" }
     },
     "empty": "render"

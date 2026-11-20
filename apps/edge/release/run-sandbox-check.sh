@@ -112,3 +112,7 @@ assert sandboxed, "the renderer's web process never ran inside bubblewrap"
 print(f"sandbox check: the release self-test passed in {report['elapsedMs']} ms with WebKit's bubblewrap sandbox on "
       f"({len(set(sandboxed))} sandboxed web process(es)); items {report['provenItems']}")
 PY
+# The AirPlay supervisor and the release's UxPlay under their own units.
+"$here/run-airplay-sandbox-check.sh" "$tree"
+# The Presentation Network helper under its own unit, without NetworkManager.
+"$here/run-networkd-sandbox-check.sh" "$tree"

@@ -1,0 +1,42 @@
+[package]
+name = "tilecast-macos"
+description = "Tilecast Player for macOS: the native Player Core host for Macs."
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+player-cas.workspace = true
+player-client.workspace = true
+player-state.workspace = true
+player-types.workspace = true
+webview-host.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+ring.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation.workspace = true
+libc.workspace = true
+objc2-core-graphics = { workspace = true, features = ["CGDirectDisplay"] }
+objc2-foundation = { workspace = true, features = ["NSLocale", "NSPathUtilities", "NSString"] }
+security-framework.workspace = true
+
+[features]
+test-util = ["webview-host/test-util"]
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

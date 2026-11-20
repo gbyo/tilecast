@@ -55,16 +55,13 @@ pub const REQUIRED_FILES: &[&str] = &[
     "packaging/modules-load.d/tilecast-edge.conf",
 ];
 
-/// The user units a release installs for the tilecast account's session
-/// (`packaging/systemd-user`). Only the path unit is enabled; it starts the
-/// bridge while `tilecastd`'s socket exists.
-pub const USER_UNITS: &[&str] = &["tilecast-session-bridge.service", "tilecast-session-bridge.path"];
+/// The path unit starts the session bridge while the daemon's socket exists.
+pub const REQUIRED_USER_UNITS: &[&str] = &["tilecast-session-bridge.service", "tilecast-session-bridge.path"];
 pub const USER_UNIT_ENABLED: &str = "tilecast-session-bridge.path";
 
-/// The systemd units a release installs. The installers only ever install,
-/// enable, start or stop units from this list, plus the update guard units
-/// that `tilecast-edge-update` writes itself.
-pub const UNITS: &[&str] = &[
+/// The core lifecycle units. Additional units can be installed from a signed
+/// manifest without making them mandatory in older releases.
+pub const REQUIRED_UNITS: &[&str] = &[
     "tilecast-edge.service",
     "tilecast-renderer.service",
     "tilecast-web-renderer.service",
@@ -78,6 +75,40 @@ pub const UNITS: &[&str] = &[
     "tilecast-edge-update.service",
     "tilecast-edge-update.socket",
 ];
+
+pub const MAX_SYSTEM_FILE_BYTES: u64 = 256 * 1024;
+pub const SYSTEM_UNITS_DIR: &str = "packaging/systemd";
+pub const USER_UNITS_DIR: &str = "packaging/systemd-user";
+
+fn valid_unit_name(name: &str) -> bool {
+    let Some((stem, kind)) = name.rsplit_once('.') else { return false };
+    let Some(suffix) = stem.strip_prefix("tilecast-") else { return false };
+    !stem.starts_with("tilecast-edge-update-guard")
+        && suffix
+            .split('-')
+            .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+        && matches!(kind, "service" | "socket" | "path" | "timer" | "target")
+}
+
+fn validate_system_file(file: &ReleaseFile) -> Result<(), ReleaseError> {
+    let Some(path) = file.path.strip_prefix("packaging/") else {
+        return if file.path == "packaging" { Err(ReleaseError::Invalid("invalid system file path")) } else { Ok(()) };
+    };
+    let valid = match path.split_once('/') {
+        Some(("systemd" | "systemd-user", name)) => valid_unit_name(name),
+        _ => matches!(
+            path,
+            "sysusers.d/tilecast-edge.conf"
+                | "tmpfiles.d/tilecast-edge.conf"
+                | "udev/70-tilecast-display.rules"
+                | "modules-load.d/tilecast-edge.conf"
+        ),
+    };
+    if !valid || file.size > MAX_SYSTEM_FILE_BYTES || file.mode != "0644" {
+        return Err(ReleaseError::Invalid("invalid packaged system file"));
+    }
+    Ok(())
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReleaseError {
@@ -141,6 +172,10 @@ pub struct ReleaseManifest {
     pub arch: String,
     pub version_name: String,
     pub version_code: u64,
+    /// Old releases omit the prerequisite so the fixed-list helper can
+    /// accept a bootstrap release.
+    #[serde(default)]
+    pub minimum_updater_version: Option<String>,
     /// The WPE WebKit build that the release carries and was qualified with.
     pub wpe_webkit_version: String,
     /// The distribution whose system libraries the release was built against.
@@ -263,6 +298,7 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
     if !is_version_name(&manifest.version_name) || manifest.version_code == 0 {
         return Err(ReleaseError::Invalid("invalid version"));
     }
+    validate_updater_floor(manifest.minimum_updater_version.as_deref(), manifest.version_code)?;
     if manifest.files.is_empty() || manifest.files.len() > MAX_FILES {
         return Err(ReleaseError::Invalid("file count out of range"));
     }
@@ -281,6 +317,7 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
         {
             return Err(ReleaseError::Invalid("invalid file entry"));
         }
+        validate_system_file(file)?;
         total = total.saturating_add(file.size);
     }
     if total > MAX_TOTAL_BYTES {
@@ -298,14 +335,11 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
             return Err(ReleaseError::Invalid("a required file is missing"));
         }
     }
-    for unit in UNITS {
-        if !paths.contains(format!("packaging/systemd/{unit}").as_str()) {
-            return Err(ReleaseError::Invalid("a required unit is missing"));
-        }
-    }
-    for unit in USER_UNITS {
-        if !paths.contains(format!("packaging/systemd-user/{unit}").as_str()) {
-            return Err(ReleaseError::Invalid("a required unit is missing"));
+    for (directory, units) in [(SYSTEM_UNITS_DIR, REQUIRED_UNITS), (USER_UNITS_DIR, REQUIRED_USER_UNITS)] {
+        for unit in units {
+            if !paths.contains(format!("{directory}/{unit}").as_str()) {
+                return Err(ReleaseError::Invalid("a required unit is missing"));
+            }
         }
     }
     Ok(())
@@ -320,6 +354,21 @@ pub fn is_version_name(value: &str) -> bool {
         && numbers.iter().all(|n| !n.is_empty() && n.len() <= 9 && n.bytes().all(|b| b.is_ascii_digit()))
         && pre.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.')
         && (value.contains('-') == !pre.is_empty())
+}
+
+pub(crate) fn validate_updater_floor(minimum: Option<&str>, candidate_code: u64) -> Result<(), ReleaseError> {
+    if minimum.is_some_and(|version| !version_code(version).is_some_and(|code| code > 0 && code < candidate_code)) {
+        return Err(ReleaseError::Invalid("minimum updater version must be a valid older Edge version"));
+    }
+    Ok(())
+}
+
+/// Checks the source version against an already verified updater prerequisite.
+pub fn updater_version_allowed(minimum: Option<&str>, current_code: Option<u64>) -> bool {
+    match minimum {
+        None => true,
+        Some(version) => version_code(version).zip(current_code).is_some_and(|(required, current)| current >= required),
+    }
 }
 
 /// The legacy code of the first coordinated release, 0.26.0. Every version
@@ -530,6 +579,34 @@ mod tests {
             matches!(verify_manifest(&shadow, &signer.public()), Err(ReleaseError::Invalid(_))),
             "a listed file may not replace the manifest itself"
         );
+    }
+
+    #[test]
+    fn system_files_must_be_flat_bounded_and_non_executable() {
+        let file = |path: &str, size, mode: &str| ReleaseFile {
+            path: path.into(),
+            size,
+            mode: mode.into(),
+            sha256: "0".repeat(64),
+        };
+        for path in
+            ["packaging/systemd/tilecast-airplay.service", "packaging/systemd-user/tilecast-session-bridge.path"]
+        {
+            assert!(validate_system_file(&file(path, MAX_SYSTEM_FILE_BYTES, "0644")).is_ok());
+            assert!(validate_system_file(&file(path, MAX_SYSTEM_FILE_BYTES + 1, "0644")).is_err());
+            assert!(validate_system_file(&file(path, 1, "0755")).is_err());
+        }
+        for path in [
+            "packaging/systemd/tilecast-foo@.service",
+            "packaging/systemd/tilecast-foo..service",
+            "packaging/systemd/tilecast-.service",
+            "packaging/systemd/tilecast-foo.mount",
+            "packaging/systemd/tilecast-foo.service.d/override.conf",
+            "packaging/sysusers.d/override.conf",
+            "packaging/systemd/../tilecast-foo.service",
+        ] {
+            assert!(validate_system_file(&file(path, 1, "0644")).is_err(), "{path}");
+        }
     }
 
     fn shipped_unit(name: &str) -> String {

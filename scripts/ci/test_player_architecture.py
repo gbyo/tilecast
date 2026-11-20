@@ -136,6 +136,69 @@ class ArchitectureTests(unittest.TestCase):
         )
         self.assertEqual(architecture.violations(self.root), [])
 
+    def webview_host(self, dependencies=""):
+        self.crate(architecture.WEBVIEW_HOST, dependencies, directory="crates/webview-host")
+
+    def macos_host(self, dependencies=""):
+        self.crate(architecture.MACOS_HOST, dependencies, directory="apps/player-macos")
+
+    def test_desktop_hosts_may_share_the_webview_host(self):
+        self.crate("player-core")
+        self.registry('[dependencies]\nplayer-core = {path = "../../crates/player-core"}')
+        self.webview_host(
+            '[dependencies]\nplayer-core = {path = "../player-core"}\n'
+            'plugin-native-registry = {path = "../../packages/plugin-native-registry"}\nserde = "1"\n'
+            '[dev-dependencies]\nwebview-host = {path = ".", features = ["test-util"]}'
+        )
+        self.windows_host('[dependencies]\nwebview-host = {path = "../../crates/webview-host"}')
+        self.macos_host(
+            '[dependencies]\nwebview-host = {path = "../../crates/webview-host"}\n'
+            '[target.\'cfg(target_os = "macos")\'.dependencies]\nobjc2 = "0.6"'
+        )
+        self.assertEqual(architecture.violations(self.root), [])
+
+    def test_webview_host_takes_no_os_or_host_dependency(self):
+        self.crate("edge-ipc", directory="apps/edge/crates/edge-ipc")
+        self.windows_host()
+        self.webview_host(
+            '[dependencies]\nobjc2 = "0.6"\nedge-protocol = "1"\n'
+            'windows-host = {package = "tilecast-windows", path = "../../apps/player-windows"}\n'
+            '[target.\'cfg(windows)\'.dependencies]\nwebview2-com = "0.39"\n'
+            'edge-ipc = {path = "../../apps/edge/crates/edge-ipc"}'
+        )
+        errors = "\n".join(architecture.violations(self.root))
+        self.assertIn("webview-host: forbidden OS-specific dependency objc2", errors)
+        self.assertIn("webview-host: forbidden OS-specific dependency webview2-com", errors)
+        self.assertIn("webview-host: forbidden native host dependency edge-protocol", errors)
+        self.assertIn("webview-host: windows-host points outside the shared Player crates", errors)
+        self.assertIn("webview-host: edge-ipc points outside the shared Player crates", errors)
+
+    def test_shared_crate_must_not_depend_on_the_webview_host(self):
+        self.webview_host()
+        self.crate("player-core", '[dependencies]\nwebview-host = {path = "../webview-host"}')
+        self.assertIn(
+            "player-core: forbidden native host dependency webview-host", "\n".join(architecture.violations(self.root))
+        )
+
+    def test_shared_crate_must_not_take_apple_dependencies(self):
+        self.crate("player-core", '[target.\'cfg(target_os = "macos")\'.dependencies]\nobjc2-web-kit = "0.3"\nsecurity-framework = "3"')
+        errors = "\n".join(architecture.violations(self.root))
+        self.assertIn("forbidden OS-specific dependency objc2-web-kit", errors)
+        self.assertIn("forbidden OS-specific dependency security-framework", errors)
+
+    def test_desktop_hosts_must_not_depend_on_each_other(self):
+        self.windows_host()
+        self.macos_host('[dependencies]\nwin = {package = "tilecast-windows", path = "../player-windows"}')
+        self.windows_host('[dependencies]\nmac = {package = "tilecast-macos", path = "../player-macos"}')
+        errors = "\n".join(architecture.violations(self.root))
+        self.assertIn("tilecast-macos: win depends on another desktop host", errors)
+        self.assertIn("tilecast-windows: mac depends on another desktop host", errors)
+
+    def test_macos_host_must_not_depend_on_edge(self):
+        self.crate("edge-ipc", directory="apps/edge/crates/edge-ipc")
+        self.macos_host('[dependencies]\nedge-ipc = {path = "../edge/crates/edge-ipc"}')
+        self.assertIn("tilecast-macos: edge-ipc depends on the Edge host", "\n".join(architecture.violations(self.root)))
+
     def android_host(self, dependencies):
         self.crate("tilecast-player-android-native", dependencies, directory="apps/player-android/native")
 

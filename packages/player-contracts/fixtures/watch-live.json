@@ -1,10 +1,20 @@
 {
-  "$comment": "Watch Live profiles and the TCLS v2 wire vectors. The Go server (internal/livestream), player-client (Rust), and Studio (src/live-stream) pin this file in tests. Order is preference order, best first. targetBitrate is an initial encoder target, not a contract rate.",
+  "$comment": "Watch Live profiles and the TCLS v2 wire vectors. The Go server (internal/livestream), player-client (Rust), and Studio (src/live-stream) pin this file in tests. Order is preference order, best first. targetBitrate is an initial encoder target, not a contract rate. Codes are identities, not ranks: 720p30 is code 4 and codes 1 to 3 never change meaning.",
   "codec": "avc1.42e01f",
   "maxAccessUnitBytes": 524288,
   "maxMjpegFrameBytes": 102400,
   "tclsV2HeaderBytes": 48,
   "profiles": [
+    {
+      "id": "h264-720p30",
+      "code": 4,
+      "transport": "h264",
+      "maxWidth": 1280,
+      "maxHeight": 720,
+      "fps": 30,
+      "frameIntervalMillis": 33,
+      "targetBitrate": 2500000
+    },
     {
       "id": "h264-720p15",
       "code": 1,
@@ -61,6 +71,7 @@
       "name": "old Studio and new Player",
       "viewer": null,
       "player": [
+        "h264-720p30",
         "h264-720p15",
         "h264-540p15",
         "h264-540p10",
@@ -72,6 +83,7 @@
     {
       "name": "new Studio and old Player",
       "viewer": [
+        "h264-720p30",
         "h264-720p15",
         "h264-540p15",
         "h264-540p10",
@@ -83,13 +95,53 @@
     },
     {
       "name": "old Edge Player",
-      "viewer": ["h264-720p15", "mjpeg-540p10", "mjpeg-360p8"],
+      "viewer": ["h264-720p30", "h264-720p15", "mjpeg-540p10", "mjpeg-360p8"],
       "player": ["legacy:edge-540p10"],
       "selected": "mjpeg-540p10"
     },
     {
-      "name": "both support 720p",
+      "name": "both support 720p30",
       "viewer": [
+        "h264-720p30",
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": [
+        "h264-720p30",
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "selected": "h264-720p30"
+    },
+    {
+      "name": "old Studio and new Edge",
+      "viewer": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": [
+        "h264-720p30",
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "selected": "h264-720p15"
+    },
+    {
+      "name": "new Studio and old Edge",
+      "viewer": [
+        "h264-720p30",
         "h264-720p15",
         "h264-540p15",
         "h264-540p10",
@@ -106,8 +158,41 @@
       "selected": "h264-720p15"
     },
     {
+      "name": "hardware encoder that qualified 720p15 only",
+      "viewer": [
+        "h264-720p30",
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": [
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "selected": "h264-720p15"
+    },
+    {
+      "name": "hardware encoder that qualified 540p15 only",
+      "viewer": [
+        "h264-720p30",
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
+      "player": ["h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"],
+      "selected": "h264-540p15"
+    },
+    {
       "name": "software encoder",
       "viewer": [
+        "h264-720p30",
         "h264-720p15",
         "h264-540p15",
         "h264-540p10",
@@ -121,6 +206,7 @@
       "name": "Studio without 720p decode",
       "viewer": ["h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"],
       "player": [
+        "h264-720p30",
         "h264-720p15",
         "h264-540p15",
         "h264-540p10",
@@ -132,6 +218,7 @@
     {
       "name": "no H.264 encoder",
       "viewer": [
+        "h264-720p30",
         "h264-720p15",
         "h264-540p15",
         "h264-540p10",
@@ -144,7 +231,14 @@
     {
       "name": "Studio without WebCodecs",
       "viewer": ["mjpeg-540p10", "mjpeg-360p8"],
-      "player": ["h264-720p15", "h264-540p15", "mjpeg-540p10", "mjpeg-360p8"],
+      "player": [
+        "h264-720p30",
+        "h264-720p15",
+        "h264-540p15",
+        "h264-540p10",
+        "mjpeg-540p10",
+        "mjpeg-360p8"
+      ],
       "selected": "mjpeg-540p10"
     },
     {
@@ -155,7 +249,7 @@
     },
     {
       "name": "nothing in common falls back to legacy",
-      "viewer": ["h264-720p15"],
+      "viewer": ["h264-720p30", "h264-720p15"],
       "player": ["mjpeg-360p8"],
       "selected": "mjpeg-360p8"
     }
@@ -186,6 +280,18 @@
         "keyframe": false,
         "payloadHex": "0000014188a0",
         "packetHex": "54434c5302020000bffef4b1f9b54b259d4f864fba88d86d000000000000000800000000001046aa03c0021c000000060000014188a0"
+      },
+      {
+        "name": "720p30 IDR with SPS and PPS",
+        "sessionId": "bffef4b1-f9b5-4b25-9d4f-864fba88d86d",
+        "profile": "h264-720p30",
+        "sequence": 30,
+        "timestampMicros": 1000000,
+        "width": 1280,
+        "height": 720,
+        "keyframe": true,
+        "payloadHex": "0000000167420028ffff0000000168ce3c800000016588840000",
+        "packetHex": "54434c5302040100bffef4b1f9b54b259d4f864fba88d86d000000000000001e00000000000f4240050002d00000001a0000000167420028ffff0000000168ce3c800000016588840000"
       }
     ],
     "invalid": [
@@ -229,7 +335,11 @@
         "keyframe": false,
         "payloadHex": "000001c188a0"
       },
-      { "name": "empty payload", "keyframe": false, "payloadHex": "" }
+      {
+        "name": "empty payload",
+        "keyframe": false,
+        "payloadHex": ""
+      }
     ]
   }
 }

@@ -1,0 +1,23 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 2,
+    "event": "presentation.activate",
+    "data": {
+      "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "generation": 4,
+      "presentation": {
+        "state": "external-presentation",
+        "sessionId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        "receiverName": "Lobby \"North\"",
+        "pin": "0000",
+        "expiresAt": "2026-11-13T18:00:00Z",
+        "connected": true,
+        "presentationNetwork": "connected",
+        "sourceId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      },
+      "content": [],
+      "timing": null
+    }
+  }
+}

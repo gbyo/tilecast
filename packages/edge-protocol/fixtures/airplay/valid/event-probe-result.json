@@ -1,0 +1,8 @@
+{
+  "direction": "event",
+  "message": {
+    "type": "probe_result",
+    "uxplayVersion": "1.73.7",
+    "avahiAvailable": true
+  }
+}

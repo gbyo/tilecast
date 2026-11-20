@@ -10,8 +10,8 @@
 # carries it.
 #
 # One package per line. This is the list that the clean-image closure check
-# installs (Dockerfile.closure) and that the Edge requirements page publishes,
-# so a package added here is a new requirement for every screen.
+# installs (Dockerfile.closure) and that the Edge requirements page publishes.
+# It must remain a subset of shipped-system-baseline.txt.
 #
 # C and C++ runtime
 libc6

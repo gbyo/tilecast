@@ -25,7 +25,8 @@
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use tokio::time::Instant;
 
 use crate::watch_live::{DowngradeMonitor, EncodedChunkSink, EncoderConfig, LiveEncoder, SinkEvent, Sustainability};
 use crate::{CaptureError, CapturedFrame, LiveOutbox, Offer};
@@ -246,6 +247,15 @@ async fn encoded_loop<H: LiveStreamHost>(
         return WorkerExit::Degrade(profile, "profile_unavailable");
     }
     let config = EncoderConfig::for_profile(profile);
+    // Which profile the session actually runs, and what this host offered:
+    // the first lines to read when judging a device (names only).
+    tracing::info!(
+        component = "live_stream",
+        event = "encoded_stream_started",
+        profile = profile.id(),
+        profile_generation = key.generation,
+        highest_offered = host.watch_live_capabilities().profiles().first().map_or("none", |offered| offered.id())
+    );
     loop {
         // Never start an encoder (and so never capture) in a protected state.
         loop {
@@ -332,6 +342,23 @@ async fn run_encoder<H: LiveStreamHost>(
                 let now = Instant::now();
                 let verdict = monitor.tick(now - last_tick);
                 last_tick = now;
+                if let Some(report) = monitor.take_report() {
+                    // Numbers only: what the device really sustained.
+                    tracing::info!(
+                        component = "live_stream",
+                        event = "profile_window",
+                        profile = profile.id(),
+                        output_fps = (report.output_fps * 10.0).round() / 10.0,
+                        nominal_fps = profile.fps(),
+                        late_percent = (report.late_ratio * 100.0).round(),
+                        resyncs = report.resyncs,
+                        verdict = match verdict {
+                            Sustainability::Sustainable => "sustainable",
+                            Sustainability::Unsustainable(reason) | Sustainability::Degrade(reason) => reason,
+                            Sustainability::Measuring => "measuring",
+                        }
+                    );
+                }
                 match verdict {
                     Sustainability::Degrade(reason) => {
                         tracing::info!(component = "live_stream", event = "profile_unsustainable", profile = profile.id(), reason);
@@ -592,7 +619,22 @@ pub async fn drive_live_stream<H, A>(
                 {
                     // Degrade this session one level, once: the next GET
                     // tells the server, which selects a lower profile.
-                    tracing::info!(component = "live_stream", event = "profile_degraded", profile = profile.id(), reason);
+                    // `to` is the next profile this Player still offers; the
+                    // server confirms or picks a lower one both sides support.
+                    let to = host
+                        .watch_live_capabilities()
+                        .below(profile)
+                        .profiles()
+                        .first()
+                        .map_or("none", |next| next.id());
+                    tracing::info!(
+                        component = "live_stream",
+                        event = "profile_degraded",
+                        profile = profile.id(),
+                        from = profile.id(),
+                        to,
+                        reason
+                    );
                     let worst = degraded.filter(|d| d.session_id == id).map_or(profile, |d| d.profile.max(profile));
                     degraded = Some(Degradation { session_id: id, profile: worst });
                 } else {
@@ -976,19 +1018,19 @@ mod tests {
         let mut driver = Driver::start(&host, LiveStreamSession::default());
         let (advertised, _) = driver.fetches.recv().await.unwrap();
         assert_eq!(advertised.profiles(), WatchLiveProfile::ALL, "the GET names every probed profile");
-        driver.set(h264(ID, WatchLiveProfile::H264_720p15, 0)).await;
+        driver.set(h264(ID, WatchLiveProfile::H264_720p30, 0)).await;
         let encoder = started.recv().await.unwrap();
-        assert_eq!(encoder.config, EncoderConfig::for_profile(WatchLiveProfile::H264_720p15));
+        assert_eq!(encoder.config, EncoderConfig::for_profile(WatchLiveProfile::H264_720p30));
         assert_eq!(
             (encoder.config.max_width, encoder.config.fps, encoder.config.keyframe_interval_frames),
-            (1280, 15, 15)
+            (1280, 30, 30)
         );
         // A delta before any keyframe is not decodable and never leaves.
         assert!(encoder.sink.push(chunk(false, 0)));
         assert!(encoder.sink.push(chunk(true, 66_666)));
         assert!(encoder.sink.push(chunk(false, 133_333)));
         let key = next_packet(&host).await;
-        assert_eq!((&key[0..4], key[4], key[5], key[6]), (&b"TCLS"[..], 2, 1, 1));
+        assert_eq!((&key[0..4], key[4], key[5], key[6]), (&b"TCLS"[..], 2, 4, 1), "720p30 is profile code 4");
         assert_eq!(&key[8..24], uuid::Uuid::parse_str(ID).unwrap().as_bytes());
         let key_sequence = u64::from_be_bytes(key[24..32].try_into().unwrap());
         let delta = next_packet(&host).await;
@@ -1084,6 +1126,82 @@ mod tests {
         assert_eq!(degraded, None);
         assert!(advertised.contains(WatchLiveProfile::H264_720p15));
         assert_eq!(started.recv().await.unwrap().config.profile, WatchLiveProfile::H264_720p15);
+        driver.stop().await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn repeated_degradation_walks_the_whole_ladder_down_to_mjpeg() {
+        let (host, _requests, mut started) = host(expiry() - 1_000);
+        let mut driver = Driver::start(&host, h264(ID, WatchLiveProfile::H264_720p30, 0));
+        let _ = driver.fetches.recv().await.unwrap();
+        let ladder = [
+            WatchLiveProfile::H264_720p30,
+            WatchLiveProfile::H264_720p15,
+            WatchLiveProfile::H264_540p15,
+            WatchLiveProfile::H264_540p10,
+        ];
+        let next_down = [
+            Some(WatchLiveProfile::H264_720p15),
+            Some(WatchLiveProfile::H264_540p15),
+            Some(WatchLiveProfile::H264_540p10),
+            None,
+        ];
+        for (generation, (profile, next)) in ladder.into_iter().zip(next_down).enumerate() {
+            let encoder = started.recv().await.unwrap();
+            assert_eq!(encoder.config.profile, profile);
+            encoder.sink.failed("test");
+            let (advertised, degraded) = driver.fetches.recv().await.unwrap();
+            assert_eq!(degraded.map(|d| d.profile), Some(profile));
+            match next {
+                Some(next) => {
+                    assert_eq!(advertised.profiles()[0], next, "one step down, never two");
+                    driver.set(h264(ID, next, generation as u64 + 1)).await;
+                }
+                None => assert_eq!(
+                    advertised.profiles(),
+                    [WatchLiveProfile::Mjpeg540p10, WatchLiveProfile::Mjpeg360p8],
+                    "the last H.264 tier falls to the existing MJPEG path"
+                ),
+            }
+        }
+        driver.stop().await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_720p30_session_stuck_at_half_rate_degrades_to_720p15_but_a_720p15_one_holds() {
+        // 15 FPS of access units: unsustainable for the 30 FPS tier only.
+        async fn feed(host: &Host, encoder: &Started, keyframe_every: u64, seconds: u64) {
+            assert!(encoder.sink.push(chunk(true, 0)));
+            for index in 1..=seconds * 15 {
+                tokio::time::sleep(Duration::from_micros(66_667)).await;
+                let _ = host.outbox.try_take();
+                let _ = encoder.sink.push(chunk(index % keyframe_every == 0, index * 66_667));
+            }
+        }
+        let (host, _requests, mut started) = host(expiry() - 1_000);
+        let mut driver = Driver::start(&host, h264(ID, WatchLiveProfile::H264_720p30, 0));
+        let _ = driver.fetches.recv().await.unwrap();
+        let encoder = started.recv().await.unwrap();
+        feed(&host, &encoder, 15, 14).await;
+        // Periodic reconciles carry no degradation; the one after the monitor
+        // gave up does.
+        let (advertised, degraded) = loop {
+            let fetch = driver.fetches.recv().await.unwrap();
+            if fetch.1.is_some() {
+                break fetch;
+            }
+        };
+        assert_eq!(degraded.map(|d| d.profile), Some(WatchLiveProfile::H264_720p30));
+        assert!(
+            advertised.contains(WatchLiveProfile::H264_720p15) && !advertised.contains(WatchLiveProfile::H264_720p30)
+        );
+        assert!(encoder.dropped.load(Ordering::SeqCst), "a degraded session stops its encoder");
+        // The server then selects 720p15 for this session; at the same real
+        // rate it is sustainable and is not degraded again.
+        driver.set(h264(ID, WatchLiveProfile::H264_720p15, 1)).await;
+        let encoder = started.recv().await.unwrap();
+        feed(&host, &encoder, 15, 20).await;
+        assert!(!encoder.dropped.load(Ordering::SeqCst), "15 FPS is sustainable for 720p15");
         driver.stop().await;
     }
 

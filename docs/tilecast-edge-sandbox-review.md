@@ -24,6 +24,8 @@ The emergency field workaround set `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`,
 
 **Contract.** [`apps/edge/release/system-baseline.txt`](../apps/edge/release/system-baseline.txt) lists the Debian packages that a release expects from the operating system. A shared library that a binary in the release loads is taken from the operating system when its package is on the list or is a dependency of a listed package. Every other library is carried in the release.
 
+The build and Edge CI check that this list is a subset of [`shipped-system-baseline.txt`](../apps/edge/release/shipped-system-baseline.txt), the baseline of Edge 0.2.1. A change to that compatibility floor needs a plan for installations that already run Edge. The updater has no network and does not install host packages. The clean closure image excludes optional services such as `avahi-daemon`; the AirPlay sandbox test provides the service separately.
+
 **Mechanism.** `stage-release.py` runs `runtime_closure.py carry` after it copies the private WPE tree.
 
 - It reads the `NEEDED` libraries of every ELF file in the staged tree, and of every library it carries.

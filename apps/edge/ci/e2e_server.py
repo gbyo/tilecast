@@ -1036,9 +1036,21 @@ def main():
             # renderer's encoder probe found a working encoder (OpenH264 in
             # this image), and the server selects an H.264 profile. The
             # stream must decode: an IDR first, then P-frames that move.
-            assert "live-encoder: H.264 Watch Live uses" in open(renderer_log_path, errors="replace").read(), \
-                "the renderer did not report a working H.264 encoder"
-            accept = ["h264-720p15", "h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"]
+            renderer_log = open(renderer_log_path, errors="replace").read()
+            probed = re.search(
+                r"live-encoder: H\.264 Watch Live uses (\S+) \((hardware|software), up to (720p30|720p15|540p15)\)",
+                renderer_log)
+            assert probed, "the renderer did not report a working H.264 encoder"
+            encoder_name, encoder_kind, probed_ceiling = probed.groups()
+            # 720p30 and 720p15 are hardware-only: a software encoder (the
+            # OpenH264 of CI) stays at the conservative 540p15 ceiling. A
+            # hardware device (never in CI) may select any tier it qualified,
+            # and Studio below lists every profile so the best one wins.
+            if encoder_kind == "software":
+                assert probed_ceiling == "540p15", f"software H.264 must stop at 540p15: {probed_ceiling}"
+            expected_profile = {"720p30": "h264-720p30", "720p15": "h264-720p15", "540p15": "h264-540p15"}[probed_ceiling]
+            print("live h264 probe:", encoder_name, encoder_kind, "up to", probed_ceiling)
+            accept = ["h264-720p30", "h264-720p15", "h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"]
             _, h264_live = client.call("POST", f"/api/v1/screens/{screen_id}/live-stream",
                                        body={"acceptProfiles": accept}, expect=201)
             h264_id = h264_live["data"]["id"]
@@ -1057,7 +1069,10 @@ def main():
             try:
                 wait_for(lambda: selected.get("profile"), "the Player to choose a Watch Live profile", timeout=30)
                 assert selected["transport"] == "h264" and selected["codec"] == "avc1.42e01f", selected
-                assert selected["profile"] in ("h264-720p15", "h264-540p15"), selected
+                assert selected["profile"] == expected_profile, (selected, expected_profile)
+                wait_for(lambda: f"live-encoder: stream started: {expected_profile} on {encoder_name}"
+                         in open(renderer_log_path, errors="replace").read(),
+                         "the renderer to log the started stream", timeout=15)
                 print("live h264:", selected["profile"], f"{selected['maxWidth']}x{selected['maxHeight']}",
                       f"target {selected['targetBitrate']} bit/s")
                 records = read_h264_records(h264_url, client.opener, want=45, timeout=60)

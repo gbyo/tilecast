@@ -26,8 +26,9 @@ use std::path::{Component, Path, PathBuf};
 use sha2::{Digest as _, Sha256};
 
 use crate::manifest::{
-    KEY_OVERRIDE_FILE, MANIFEST_NAME, MAX_FILES, ReleaseError, ReleaseFile, SIGNATURE_NAME, UNITS, USER_UNIT_ENABLED,
-    USER_UNITS, VerifiedRelease, hex, is_version_name, trusted_key, verify_manifest,
+    KEY_OVERRIDE_FILE, MANIFEST_NAME, MAX_FILES, REQUIRED_UNITS, REQUIRED_USER_UNITS, ReleaseError, ReleaseFile,
+    SIGNATURE_NAME, SYSTEM_UNITS_DIR, USER_UNIT_ENABLED, USER_UNITS_DIR, VerifiedRelease, hex, is_version_name,
+    trusted_key, verify_manifest,
 };
 
 /// Space kept free on the install filesystem after a release is staged.
@@ -125,9 +126,16 @@ pub fn stage_from_dir(
     key: &[u8; 32],
 ) -> Result<(StageOutcome, VerifiedRelease), ReleaseError> {
     let release = verify_manifest(source, key)?;
+    let source = source.canonicalize()?;
     let outcome = stage_with(&release, layout, key, |staging| {
         for file in &release.manifest.files {
-            let Some((input, size)) = edge_platform::fs::open_regular(&source.join(&file.path), file.size)? else {
+            let path = source.join(&file.path);
+            let input = if file.path.starts_with("packaging/") {
+                edge_platform::fs::open_regular_no_links(&path, file.size)?
+            } else {
+                edge_platform::fs::open_regular(&path, file.size)?
+            };
+            let Some((input, size)) = input else {
                 return Err(ReleaseError::FileUnavailable(file.path.clone()));
             };
             if size != file.size {
@@ -198,7 +206,9 @@ pub fn activate(layout: &Layout, version: &str, key: &[u8; 32]) -> Result<Verifi
         return Err(ReleaseError::NotInstalled(version.to_owned()));
     }
     let release = verify_installed(&dir, key)?;
-    install_system_files(&dir, layout)?;
+    // An operator install can replace a legacy Tilecast unit such as
+    // Networkd. Remote activation checks for local conflicts first.
+    install_system_files(layout, &release)?;
     switch_current(layout, version)?;
     Ok(release)
 }
@@ -335,42 +345,117 @@ pub fn current_version(layout: &Layout) -> Option<String> {
     is_version_name(name).then(|| name.to_owned())
 }
 
-/// Copies the release's units and system configuration into place.
-pub fn install_system_files(release_dir: &Path, layout: &Layout) -> Result<(), ReleaseError> {
-    let mut copies: Vec<(PathBuf, PathBuf, String)> = UNITS
-        .iter()
-        .map(|unit| (release_dir.join("packaging/systemd").join(unit), layout.unit_dir.clone(), (*unit).to_owned()))
-        .collect();
-    copies.push((
-        release_dir.join("packaging/sysusers.d/tilecast-edge.conf"),
-        layout.sysusers_dir.clone(),
-        "tilecast-edge.conf".into(),
-    ));
-    copies.push((
-        release_dir.join("packaging/tmpfiles.d/tilecast-edge.conf"),
-        layout.tmpfiles_dir.clone(),
-        "tilecast-edge.conf".into(),
-    ));
-    copies.push((
-        release_dir.join("packaging/udev/70-tilecast-display.rules"),
-        layout.udev_rules_dir.clone(),
-        "70-tilecast-display.rules".into(),
-    ));
-    copies.push((
-        release_dir.join("packaging/modules-load.d/tilecast-edge.conf"),
-        layout.modules_load_dir.clone(),
-        "tilecast-edge.conf".into(),
-    ));
-    copies.extend(USER_UNITS.iter().map(|unit| {
-        (release_dir.join("packaging/systemd-user").join(unit), layout.user_unit_dir.clone(), (*unit).to_owned())
-    }));
-    for (source, dir, name) in copies {
-        let bytes = edge_platform::fs::read_regular(&source, 256 * 1024)?
-            .ok_or_else(|| ReleaseError::FileUnavailable(name.clone()))?;
-        std::fs::DirBuilder::new().recursive(true).mode(0o755).create(&dir)?;
-        write_atomic(&dir, &name, &bytes, 0o644)?;
+fn system_files<'a>(
+    layout: &'a Layout,
+    release: &'a VerifiedRelease,
+) -> impl Iterator<Item = (&'a ReleaseFile, &'a Path, &'a str)> {
+    release.manifest.files.iter().filter_map(|file| {
+        let (source, name) = file.path.rsplit_once('/')?;
+        let destination = match (source, name) {
+            (SYSTEM_UNITS_DIR, _) => &layout.unit_dir,
+            (USER_UNITS_DIR, _) => &layout.user_unit_dir,
+            ("packaging/sysusers.d", "tilecast-edge.conf") => &layout.sysusers_dir,
+            ("packaging/tmpfiles.d", "tilecast-edge.conf") => &layout.tmpfiles_dir,
+            ("packaging/udev", "70-tilecast-display.rules") => &layout.udev_rules_dir,
+            ("packaging/modules-load.d", "tilecast-edge.conf") => &layout.modules_load_dir,
+            _ => return None,
+        };
+        Some((file, destination.as_path(), name))
+    })
+}
+
+fn matches_system_file(path: &Path, file: &ReleaseFile) -> Result<bool, ReleaseError> {
+    let Some(bytes) = edge_platform::fs::read_regular(path, file.size)? else { return Ok(false) };
+    Ok(bytes.len() as u64 == file.size && hex(&Sha256::digest(&bytes)) == file.sha256)
+}
+
+/// A new release unit must not replace an unrelated local unit or mask.
+pub fn check_new_unit_destinations(
+    layout: &Layout,
+    release: &VerifiedRelease,
+    previous: &VerifiedRelease,
+) -> Result<(), ReleaseError> {
+    for (file, dir, name) in system_files(layout, release) {
+        let required = if dir == layout.unit_dir {
+            REQUIRED_UNITS
+        } else if dir == layout.user_unit_dir {
+            REQUIRED_USER_UNITS
+        } else {
+            continue;
+        };
+        if required.contains(&name) || previous.manifest.file(&file.path).is_some() {
+            continue;
+        }
+        let path = dir.join(name);
+        match std::fs::symlink_metadata(&path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+            Ok(_) if matches_system_file(&path, file)? => {}
+            Ok(_) => return Err(ReleaseError::Invalid("new packaged unit conflicts with an installed file")),
+        }
+    }
+    Ok(())
+}
+
+/// Copies system files named by the verified manifest. Rechecks the bytes
+/// that actually go to the fixed system directories.
+pub fn install_system_files(layout: &Layout, release: &VerifiedRelease) -> Result<(), ReleaseError> {
+    let release_dir = layout.version_dir(&release.manifest.version_name);
+    for (file, dir, name) in system_files(layout, release) {
+        let source = release_dir.join(&file.path);
+        let bytes = edge_platform::fs::read_regular(&source, file.size)?
+            .ok_or_else(|| ReleaseError::FileUnavailable(file.path.clone()))?;
+        if bytes.len() as u64 != file.size || hex(&Sha256::digest(&bytes)) != file.sha256 {
+            return Err(ReleaseError::DigestMismatch(file.path.clone()));
+        }
+        std::fs::DirBuilder::new().recursive(true).mode(0o755).create(dir)?;
+        write_atomic(dir, name, &bytes, 0o644)?;
     }
     enable_user_unit(layout)?;
+    Ok(())
+}
+
+fn obsolete_units<'a>(
+    layout: &'a Layout,
+    outgoing: &'a VerifiedRelease,
+    incoming: &'a VerifiedRelease,
+) -> impl Iterator<Item = (&'a ReleaseFile, &'a Path, &'a str)> {
+    system_files(layout, outgoing).filter(|(file, dir, _)| {
+        (*dir == layout.unit_dir || *dir == layout.user_unit_dir) && incoming.manifest.file(&file.path).is_none()
+    })
+}
+
+/// Returns obsolete system units the helper installed and can stop. Stop
+/// activation sources first so they cannot restart an outgoing service.
+pub fn obsolete_system_units<'a>(
+    layout: &'a Layout,
+    outgoing: &'a VerifiedRelease,
+    incoming: &'a VerifiedRelease,
+) -> Result<Vec<&'a str>, ReleaseError> {
+    let mut names = Vec::new();
+    for (file, dir, name) in obsolete_units(layout, outgoing, incoming) {
+        if dir == layout.unit_dir && matches_system_file(&dir.join(name), file)? {
+            names.push(name);
+        }
+    }
+    names.sort_unstable_by_key(|name| name.ends_with(".service"));
+    Ok(names)
+}
+
+/// Remove only unchanged outgoing release files. A local replacement or
+/// symlink is left alone, and retries tolerate files already removed.
+pub fn remove_obsolete_units(
+    layout: &Layout,
+    outgoing: &VerifiedRelease,
+    incoming: &VerifiedRelease,
+) -> Result<(), ReleaseError> {
+    for (file, dir, name) in obsolete_units(layout, outgoing, incoming) {
+        let path = dir.join(name);
+        if matches_system_file(&path, file)? {
+            std::fs::remove_file(path)?;
+            sync_dir(dir)?;
+        }
+    }
     Ok(())
 }
 
@@ -395,23 +480,16 @@ fn enable_user_unit(layout: &Layout) -> std::io::Result<()> {
 /// Verifies an installed release tree: the signature, every file's size,
 /// digest and mode, and that nothing else is in the tree.
 pub fn verify_installed(dir: &Path, key: &[u8; 32]) -> Result<VerifiedRelease, ReleaseError> {
+    if !std::fs::symlink_metadata(dir)?.is_dir() {
+        return Err(ReleaseError::Invalid("the installed release is not a directory"));
+    }
     let release = verify_manifest(dir, key)?;
     let corrupt = || ReleaseError::InstalledCorrupt(release.manifest.version_name.clone());
     if dir.file_name().and_then(|n| n.to_str()) != Some(release.manifest.version_name.as_str()) {
         return Err(corrupt());
     }
     let mut expected: BTreeSet<PathBuf> = [MANIFEST_NAME, SIGNATURE_NAME].iter().map(PathBuf::from).collect();
-    for file in &release.manifest.files {
-        let path = dir.join(&file.path);
-        if hash_file(&path, file.size)?.as_deref() != Some(file.sha256.as_str()) {
-            return Err(corrupt());
-        }
-        let mode = std::fs::symlink_metadata(&path)?.permissions().mode() & 0o7777;
-        if mode != file.mode_bits() {
-            return Err(corrupt());
-        }
-        expected.insert(PathBuf::from(&file.path));
-    }
+    expected.extend(release.manifest.files.iter().map(|file| PathBuf::from(&file.path)));
     // Anything extra, including a link, means the tree was changed.
     let mut stack = vec![dir.to_path_buf()];
     let mut entries = 0usize;
@@ -432,6 +510,16 @@ pub fn verify_installed(dir: &Path, key: &[u8; 32]) -> Result<VerifiedRelease, R
             {
                 return Err(corrupt());
             }
+        }
+    }
+    for file in &release.manifest.files {
+        let path = dir.join(&file.path);
+        if hash_file(&path, file.size)?.as_deref() != Some(file.sha256.as_str()) {
+            return Err(corrupt());
+        }
+        let mode = std::fs::symlink_metadata(&path)?.permissions().mode() & 0o7777;
+        if mode != file.mode_bits() {
+            return Err(corrupt());
         }
     }
     Ok(release)
@@ -514,7 +602,26 @@ pub fn free_bytes(path: &Path) -> std::io::Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{Signer, layout};
+    use crate::testing::{Signer, layout, rehash};
+
+    #[test]
+    fn an_operator_install_replaces_the_legacy_networkd_unit() {
+        let root = tempfile::tempdir().unwrap();
+        let signer = Signer::new();
+        let source = root.path().join("unpacked");
+        signer.write_release(&source, "0.2.0");
+        let unit = "tilecast-networkd.service";
+        let packaged = b"[Service]\nExecStart=/opt/tilecast-edge/current/bin/tilecast-networkd\n";
+        std::fs::write(source.join("packaging/systemd").join(unit), packaged).unwrap();
+        signer.sign(&source, &serde_json::to_vec(&rehash(&source)).unwrap());
+        let layout = layout(root.path());
+        std::fs::create_dir(&layout.unit_dir).unwrap();
+        let target = layout.unit_dir.join(unit);
+        std::fs::write(&target, b"[Service]\nExecStart=/usr/local/bin/tilecast-networkd\n").unwrap();
+
+        install_with_key(&source, &layout, &signer.public()).unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), packaged);
+    }
 
     #[test]
     fn a_signed_release_installs_once_and_switches_current() {

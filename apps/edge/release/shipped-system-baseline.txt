@@ -1,0 +1,46 @@
+# Debian 13 host libraries required by the first dependency-closed Edge
+# release (0.2.1). This is the compatibility floor for in-place updates.
+# New feature libraries belong in the signed release. Changing this list
+# requires an explicit installed-device compatibility plan.
+libc6
+libgcc-s1
+libstdc++6
+libglib2.0-0t64
+libjson-glib-1.0-0
+libgstreamer1.0-0
+libgstreamer-plugins-base1.0-0
+libgstreamer-gl1.0-0
+libdrm2
+libgbm1
+libegl1
+libepoxy0
+libwayland-client0
+libwayland-server0
+libwayland-egl1
+libxkbcommon0
+libinput10
+libsoup-3.0-0
+libicu76
+libfreetype6
+libfontconfig1
+libharfbuzz0b
+libharfbuzz-icu0
+libpng16-16t64
+libjpeg62-turbo
+libwebp7
+libwebpmux3
+libwebpdemux2
+libjxl0.11
+libavif16
+liblcms2-2
+libxml2
+libxslt1.1
+libexpat1
+libhyphen0
+libenchant-2-2
+libflite1
+libgcrypt20
+libgpg-error0
+libtasn1-6
+libatk1.0-0t64
+libatk-bridge2.0-0t64

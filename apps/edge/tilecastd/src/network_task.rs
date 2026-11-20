@@ -52,9 +52,11 @@ impl Provisioner for ServerProvisioner<'_> {
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
-    // Edge has no AirPlay session that could still be using a Tilecast
-    // connection, so one that is up now was left by a crash.
-    context.network.cleanup_orphaned(context.now()).await;
+    // A Tilecast connection that is up now was left by a crash, unless the
+    // stored AirPlay session resumes with it (crate::airplay).
+    if !crate::airplay::keeps_network(&context).await {
+        context.network.cleanup_orphaned(context.now()).await;
+    }
     let mut last = context.network.status();
     let mut ticker = tokio::time::interval(PROBE_INTERVAL);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 	datasources "github.com/tilecast/tilecast/data-sources"
 )
@@ -24,7 +25,13 @@ var supportedControls = map[string]bool{
 	"boolean": true, "select": true, "color": true, "date": true,
 	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
 	"data_source_field": true, "media_asset": true, "repeating_group": true, "string_list": true,
+	"font": true,
 }
+
+// MaxFontFields bounds the organization library families one configuration
+// may choose. It mirrors the Player Runtime bound on the fonts one component
+// presentation declares.
+const MaxFontFields = 4
 
 var supportedNodes = map[string]bool{
 	"surface": true, "box": true, "row": true, "column": true, "stack": true,
@@ -1021,7 +1028,70 @@ func validateSchema(schema ConfigurationSchema) error {
 	if err := validateSchemaFields(schema.Fields); err != nil {
 		return err
 	}
+	if err := validateFontFields(schema.Fields); err != nil {
+		return err
+	}
 	return validateDataSourceKeys(schema)
+}
+
+// validateFontFields keeps library font choices at the top level of a
+// schema and within the per-component bound, so the families a Widget uses
+// are a short static list the Server records and projects.
+func validateFontFields(fields []FieldDefinition) error {
+	count := 0
+	for _, field := range fields {
+		switch field.Control {
+		case "font":
+			count++
+			if text, ok := field.Default.(string); field.Default != nil && (!ok || text != "") {
+				return fmt.Errorf("font field %q must default to empty", field.Key)
+			}
+		case "repeating_group":
+			if hasFontField(field.ItemFields) {
+				return fmt.Errorf("repeating group %q may not contain a font field", field.Key)
+			}
+		}
+	}
+	if count > MaxFontFields {
+		return fmt.Errorf("configuration schema declares more than %d font fields", MaxFontFields)
+	}
+	return nil
+}
+
+func hasFontField(fields []FieldDefinition) bool {
+	for _, field := range fields {
+		if field.Control == "font" || field.Control == "repeating_group" && hasFontField(field.ItemFields) {
+			return true
+		}
+	}
+	return false
+}
+
+// FontFieldValues returns the library font IDs a configuration's top-level
+// font fields choose, lowercased, without duplicates, in schema order.
+// Empty and malformed values choose nothing: saving validates them, and a
+// projection never trusts stored text as a family.
+func FontFieldValues(fields []FieldDefinition, configuration map[string]any) []string {
+	ids := []string{}
+	for _, field := range fields {
+		if field.Control != "font" {
+			continue
+		}
+		text, _ := configuration[field.Key].(string)
+		id, err := uuid.Parse(strings.TrimSpace(text))
+		if err != nil || id == uuid.Nil {
+			continue
+		}
+		value := id.String()
+		known := false
+		for _, existing := range ids {
+			known = known || existing == value
+		}
+		if !known {
+			ids = append(ids, value)
+		}
+	}
+	return ids
 }
 
 func validateSchemaFields(fields []FieldDefinition) error {

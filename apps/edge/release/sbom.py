@@ -33,12 +33,12 @@ def built_cargo_components(artifacts, metadata, lock):
     packages = {p["id"]: p for p in metadata["packages"]}
     if not package_ids or package_ids - packages.keys():
         raise ValueError("Cargo build artifacts are empty or do not match the locked metadata")
-    shipped = {"tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"}
+    shipped = {"tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"}
     binaries = {packages[a["package_id"]]["name"] for a in artifacts
                 if a.get("reason") == "compiler-artifact" and a.get("executable")
                 and "bin" in a.get("target", {}).get("kind", [])}
     if binaries != shipped:
-        raise ValueError("Cargo build artifacts must describe exactly the four shipped Edge Rust binaries")
+        raise ValueError("Cargo build artifacts must describe exactly the five shipped Edge Rust binaries")
     if not any(a.get("reason") == "build-finished" and a.get("success") for a in artifacts):
         raise ValueError("Cargo release build did not finish successfully")
     locked = {(p["name"], p["version"], p.get("source")): p for p in lock["package"]}
@@ -136,11 +136,28 @@ def carried_components(tree, snapshot):
     return [out[name] for name in sorted(out)]
 
 
+def uxplay_component(pin_path):
+    """UxPlay, the separate GPL-3.0 program that the AirPlay supervisor starts."""
+    with open(pin_path) as handle:
+        version, commit, sha256 = handle.read().split()
+    if not (re.fullmatch(r"\d+\.\d+\.\d+", version) and re.fullmatch(r"[0-9a-f]{40}", commit)
+            and re.fullmatch(r"[0-9a-f]{64}", sha256)):
+        raise ValueError("the UxPlay pin is malformed")
+    return {
+        "type": "application", "name": "uxplay", "version": version,
+        "licenses": [{"license": {"id": "GPL-3.0-or-later"}}],
+        "purl": f"pkg:github/FDH2/UxPlay@v{version}",
+        "hashes": [{"alg": "SHA-256", "content": sha256}],
+        "externalReferences": [{"type": "vcs", "url": f"https://github.com/FDH2/UxPlay/tree/{commit}"}],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--release-tree", "--version", "--snapshot", "--out", "--wpe-version", "--wpe-sha256"):
         parser.add_argument(name, required=True)
     parser.add_argument("--cargo-artifacts", required=True)
+    parser.add_argument("--uxplay-pin", required=True, help="build-uxplay.sh's pin file: version, commit, SHA-256")
     args = parser.parse_args()
     components = [{
         "type": "framework", "name": "wpewebkit", "version": args.wpe_version,
@@ -148,6 +165,7 @@ def main():
                 f"wpewebkit-{args.wpe_version}.tar.xz",
         "hashes": [{"alg": "SHA-256", "content": args.wpe_sha256}],
     }]
+    components.append(uxplay_component(args.uxplay_pin))
     components += cargo_components(args.cargo_artifacts) + npm_components() + debian_components(args.release_tree, args.snapshot)
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "0"))
     bom = {

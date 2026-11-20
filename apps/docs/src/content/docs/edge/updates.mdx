@@ -59,6 +59,8 @@ The two Linux Players never receive each other's releases. An Edge release reach
 4. At the deployment's maintenance window, and when no Takeover is running and the server is reachable, the helper stops Edge, switches to the new release, and starts it. The new release is now **provisional**.
 5. The new release must stay connected to the server, keep its renderer ready and out of safe mode, and keep playing the current presentation for two minutes without a break. Then it confirms, and the screen reports the update as succeeded.
 
+Edge installs new systemd units and creates service accounts from the signed release. If your screen needs a bootstrap update, Studio names the minimum Edge version in the deployment preview. Deploy that version first and wait for the screen to confirm it. Then deploy the release you originally selected.
+
 Until the new release confirms, the previous one stays installed:
 
 <FileTree>

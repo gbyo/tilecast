@@ -55,3 +55,35 @@ fn ipc_frame_fixtures() {
         assert!(count > 0, "{directory} has fixtures");
     }
 }
+
+/// The AirPlay supervisor control protocol. `tilecast-airplay` and
+/// `tilecastd` test against the same files.
+#[test]
+fn airplay_control_fixtures() {
+    use edge_protocol::airplay::{ControlEvent, ControlRequest, MAX_LINE_BYTES, encode_line};
+    for (directory, valid) in [("airplay/valid", true), ("airplay/invalid", false)] {
+        let mut count = 0;
+        for entry in std::fs::read_dir(fixtures().join(directory)).expect("fixture dir") {
+            let path = entry.expect("entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            count += 1;
+            let fixture: Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("read")).expect("json");
+            let line = serde_json::to_vec(&fixture["message"]).expect("line");
+            assert!(line.len() < MAX_LINE_BYTES, "{}", path.display());
+            let round_trip = match fixture["direction"].as_str() {
+                Some("request") => ControlRequest::decode(&line).map(|m| encode_line(&m)),
+                Some("event") => ControlEvent::decode(&line).map(|m| encode_line(&m)),
+                other => panic!("{}: direction {other:?}", path.display()),
+            };
+            assert_eq!(round_trip.is_ok(), valid, "{}: {:?}", path.display(), round_trip.err());
+            if let Ok(encoded) = round_trip {
+                let encoded = encoded.expect("fits in a line");
+                let value: Value = serde_json::from_slice(&encoded).expect("encoded json");
+                assert_eq!(value, fixture["message"], "{} must round-trip", path.display());
+            }
+        }
+        assert!(count > 0, "{directory} has fixtures");
+    }
+}

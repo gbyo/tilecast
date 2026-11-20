@@ -1,0 +1,7 @@
+{
+  "direction": "request",
+  "message": {
+    "type": "exec",
+    "program": "/bin/sh"
+  }
+}

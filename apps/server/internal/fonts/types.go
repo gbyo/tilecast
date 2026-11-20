@@ -68,10 +68,12 @@ type Family struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
-// InUse names the Layouts that still reference a family a person tried to
-// remove.
+// InUse names the Layouts, Widgets, and plugin instances that still
+// reference a family a person tried to remove.
 type InUse struct {
 	Layouts []LayoutRef
+	// Widgets names the Widgets whose font fields choose the family.
+	Widgets []LayoutRef
 	// Plugins names the plugin instances that use the family, by the label
 	// the plugin recorded through Host.Fonts.
 	Plugins []string

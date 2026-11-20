@@ -168,6 +168,13 @@ func (s *server) writeFontError(w http.ResponseWriter, r *http.Request, err erro
 			}
 			message += " Layouts " + strings.Join(names, ", ") + "."
 		}
+		if len(inUse.Widgets) > 0 {
+			names := make([]string, 0, len(inUse.Widgets))
+			for _, widget := range inUse.Widgets {
+				names = append(names, widget.Name)
+			}
+			message += " Widgets " + strings.Join(names, ", ") + "."
+		}
 		if len(inUse.Plugins) > 0 {
 			message += " Plugins " + strings.Join(inUse.Plugins, ", ") + "."
 		}

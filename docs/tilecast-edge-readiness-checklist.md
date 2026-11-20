@@ -77,9 +77,12 @@ All of the above, plus:
 
 1. Field deployment validation across a full release cycle.
 2. Migration and settlement rollback proven on kiosk hardware.
-3. AirPlay-dependent screens have a documented path. AirPlay remains
-   unsupported by Edge. It is out of scope and must not be presented as
-   implemented.
+3. AirPlay-dependent screens have a documented path. Single-screen AirPlay
+   is an opt-in Edge Beta while physical hardware qualification is pending.
+   It is off by default (`beta_disabled`) and can be enabled per screen in
+   Studio; do not present it as production-qualified until hardware evidence
+   is recorded ([`tilecast-edge-airplay.md`](tilecast-edge-airplay.md) §12).
+   Group sessions stay on the Electron Player.
 
 ## Current blockers
 

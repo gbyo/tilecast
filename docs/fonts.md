@@ -5,8 +5,9 @@ can use. An administrator adds a family from the Google Fonts catalog or uploads
 font files. The Tilecast Server stores each font file. Tilecast Player
 downloads a font file with the published content that uses it.
 
-The font library covers Layout text and Plugin API v2 plugins (Countdown Bar
-first). Widgets and organization default fonts are later work.
+The font library covers Layout text, Widget font fields (Countdown first), and
+Plugin API v2 plugins (Countdown Bar first). Organization default fonts are
+later work.
 
 ## Ownership
 
@@ -14,6 +15,8 @@ first). Widgets and organization default fonts are later work.
   validation, and deletion.
 - The `internal/layouts` package validates a text primitive `fontId` and
   records a `font` dependency.
+- The `internal/media` package validates a Widget `font` field and records the
+  families a Widget uses in `widget_font_references`.
 - The `internal/playlists` package puts the font faces of each Layout and of
   each Plugin API v2 state entry into the Player manifest.
 - The `internal/plugins` package implements `Host.Fonts`, which records the
@@ -25,11 +28,12 @@ first). Widgets and organization default fonts are later work.
 
 Migration `00132_font_library.sql` adds these tables:
 
-| Table             | Contents                                                                                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `font_families`   | One row for each family name. The row records the source (`google` or `upload`), the catalog ID and version, the category, the license, and the subsets.            |
-| `font_faces`      | One row for each stored file. The row records the style (`normal` or `italic`), the weight range, the subset, and the CSS `unicode-range`. It references one asset. |
-| `font_references` | One row for each family that a plugin instance uses (migration `00133`). The row records the plugin ID, the instance ID, and the instance name.                     |
+| Table                    | Contents                                                                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `font_families`          | One row for each family name. The row records the source (`google` or `upload`), the catalog ID and version, the category, the license, and the subsets.            |
+| `font_faces`             | One row for each stored file. The row records the style (`normal` or `italic`), the weight range, the subset, and the CSS `unicode-range`. It references one asset. |
+| `font_references`        | One row for each family that a plugin instance uses (migration `00133`). The row records the plugin ID, the instance ID, and the instance name.                     |
+| `widget_font_references` | One row for each family that a Widget's font fields choose (migration `00135`). The row records the Widget asset ID and the family ID.                              |
 
 Each face file is an asset with `type='font'` and `system_managed=TRUE`. The
 asset has one `original` variant with `player_compatible=TRUE`. This design
@@ -134,14 +138,16 @@ is refused.
 
 ## Deletion
 
-A person with `settings.manage` can remove a family when no Layout and no
-plugin instance uses it. A Layout uses a family when its current draft or its
-published revision has a `font` dependency on the family. A plugin instance
-uses a family when it has a `font_references` row. The Server returns
-`font_in_use` with the Layout names and the plugin instance names.
+A person with `settings.manage` can remove a family when no Layout, no Widget,
+and no plugin instance uses it. A Layout uses a family when its current draft
+or its published revision has a `font` dependency on the family. A Widget uses
+a family when it is not deleted and has a `widget_font_references` row. A
+plugin instance uses a family when it has a `font_references` row. The Server
+returns `font_in_use` with the Layout names, the Widget names, and the plugin
+instance names.
 
-The deletion locks the family row `FOR UPDATE`. A Layout save and
-`Host.Fonts.UseInTx` read the family row `FOR SHARE` before they record the
+The deletion locks the family row `FOR UPDATE`. A Layout save, a Widget save,
+and `Host.Fonts.UseInTx` read the family row `FOR SHARE` before they record the
 dependency. This order prevents a save and a deletion from passing each other.
 
 The deletion marks the family deleted and marks each face asset `deleting`.
@@ -185,6 +191,36 @@ face is a verified offline resource.
 
 If a family was removed after publication, the Server omits it from the
 manifest. The text then uses `fontFamily`. The manifest remains valid.
+
+## Widgets
+
+A Widget schema field with `control: "font"` stores a family ID, or `""` for
+the Widget's own bundled face. The catalog accepts at most four font fields in
+one schema, only at its top level (never inside a `repeating_group`), and each
+must default to `""`.
+
+1. Saving a Widget refuses a value that is not a family ID, or a family that
+   does not exist or was removed. In the save transaction, the Server reads
+   each chosen family row `FOR SHARE` and replaces the Widget's
+   `widget_font_references` rows. Clearing the field removes the row.
+2. Manifest projection resolves each chosen family like a Layout font. It adds
+   the family to the component presentation's `fonts` array and each face file
+   to the manifest `assets` array. A family that was removed, or has no ready
+   face, is dropped, and the Widget keeps its bundled face.
+3. Only bundled components carry `fonts`. A package component's sandbox frame
+   never receives library fonts.
+4. The Player Runtime projects each family as `tcf-<fontId>` with its faces
+   authorized like other media, registers the faces before it mounts the
+   Widget, and grants the family through `WidgetResources.font(fontId)`. The
+   Widget puts the family first in its font stack.
+
+Studio shows a font field with the shared `FontPicker`. Its built-in choice,
+**Tilecast font**, stores `""`. The Widget preview grants the chosen families
+and registers their faces in the Studio document, so the preview matches the
+screen.
+
+A Player that predates the key ignores it, and a Player that renders the
+Widget's compatibility presentation draws with its bundled face.
 
 ## Plugins
 

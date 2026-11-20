@@ -85,6 +85,7 @@ fn ready_event(features: &[&str]) -> Event {
         display: None,
         remote_web: None,
         support: None,
+        external_presentation: None,
     })
 }
 

@@ -26,6 +26,9 @@ func TestPrepareVideoIsIdempotentAndRecoversStrandedPanels(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE organization_settings,users CASCADE`); err != nil {
+		t.Fatal(err)
+	}
 	owner, err := auth.NewService(pool, time.Hour).Setup(ctx, auth.SetupInput{OrganizationName: "Span", OwnerName: "Owner", Username: "owner", Password: "correct horse battery staple"})
 	if err != nil {
 		t.Fatal(err)

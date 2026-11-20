@@ -170,6 +170,8 @@ pub struct DaemonContext {
     /// wake-up (a command accepted a job).
     pub update: std::sync::Mutex<Option<Arc<crate::update::Coordinator>>>,
     pub update_wake: tokio::sync::Notify,
+    /// Single-screen AirPlay Present (docs/tilecast-edge-airplay.md).
+    pub airplay: crate::airplay::Airplay,
 }
 
 impl DaemonContext {
@@ -492,6 +494,13 @@ impl Daemon {
             idle_wake: tokio::sync::Notify::new(),
             update: std::sync::Mutex::new(None),
             update_wake: tokio::sync::Notify::new(),
+            airplay: crate::airplay::Airplay::new(crate::airplay::socket_path(
+                config_for_display.dev.airplay_socket.as_deref(),
+            ))
+            .with_qualified(crate::qualification::is_qualified(
+                crate::qualification::Feature::Airplay,
+                config_for_display.dev.airplay_qualified,
+            )),
         });
 
         let bound_record = match context.db() {
@@ -627,6 +636,7 @@ impl Daemon {
         tasks.spawn(crate::live_stream::run(Arc::clone(&context)));
         tasks.spawn(crate::display_control::run(Arc::clone(&context)));
         tasks.spawn(crate::network_task::run(Arc::clone(&context)));
+        tasks.spawn(crate::airplay::run(Arc::clone(&context)));
         tasks.spawn(crate::idle_inhibit::run(Arc::clone(&context)));
         tasks.spawn(crate::update::run(Arc::clone(&context)));
 

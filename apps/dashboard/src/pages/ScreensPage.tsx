@@ -8,7 +8,7 @@ import {
 } from "../data/screens";
 
 import { formatBytes } from "../lib/formatBytes";
-import { settingsQueries } from "../data/settings";
+import { settingsKeys, settingsQueries } from "../data/settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -204,6 +204,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
+import { Switch } from "../components/ui/switch";
 import {
   Tabs,
   TabsContent,
@@ -2616,9 +2617,32 @@ export function ScreenDetailPage() {
   const playerHistory = useQuery({
     ...screenQueries.playerHistory(id),
   });
-  const screenPolicy = useQuery({
-    queryKey: ["screen", id, "policy"],
-    queryFn: () => api.screenPolicy(id),
+  const screenPolicy = useQuery(settingsQueries.screenPolicy(id));
+  const airplayBetaMutation = useMutation({
+    mutationFn: (enabled: boolean) => {
+      if (!screenPolicy.data) throw new Error("Screen policy is not loaded.");
+      const values = { ...screenPolicy.data.values };
+      if (enabled) values["edge.airplay.beta_enabled"] = true;
+      else delete values["edge.airplay.beta_enabled"];
+      return api.putScreenPolicy(
+        id,
+        screenPolicy.data.revision,
+        values,
+        auth.status?.csrfToken ?? "",
+      );
+    },
+    onSuccess: async (updated, enabled) => {
+      queryClient.setQueryData(settingsKeys.screenPolicy(id), updated);
+      await queryClient.invalidateQueries({
+        queryKey: settingsKeys.effectiveScreenPolicy(id),
+      });
+      toast.add({
+        title: enabled
+          ? t("detail.airplayBetaEnabled")
+          : t("detail.airplayBetaDisabled"),
+        type: "success",
+      });
+    },
   });
   const command = useMutation({
     mutationFn: ({
@@ -2700,6 +2724,8 @@ export function ScreenDetailPage() {
     );
   // Which controls make sense for this Player is one question, answered once.
   const isBrowserPlayer = screenRunsBrowserPlayer(screen);
+  const airplayBetaEnabled =
+    screenPolicy.data?.values["edge.airplay.beta_enabled"] === true;
   const displayCapabilities =
     reliability.data?.displayControlCapabilities ?? {};
   const hasDisplayControl = Object.keys(displayCapabilities).length > 0;
@@ -4585,10 +4611,55 @@ export function ScreenDetailPage() {
                 </dl>
               </CardContent>
             </Card>
+            {screen.playerFamily === "edge" && (
+              <Card size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    {t("detail.airplayBetaTitle")}
+                    <Badge variant="secondary">{t("detail.betaBadge")}</Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    {t("detail.airplayBetaBody")}
+                  </CardDescription>
+                  <CardAction>
+                    <Switch
+                      id="edge-airplay-beta"
+                      checked={airplayBetaEnabled}
+                      disabled={
+                        !canManageScreens(auth.status) ||
+                        screenPolicy.isLoading ||
+                        airplayBetaMutation.isPending ||
+                        policyDirty
+                      }
+                      aria-label={t("detail.airplayBetaToggle")}
+                      onCheckedChange={(enabled) =>
+                        airplayBetaMutation.mutate(enabled)
+                      }
+                    />
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    {t("detail.airplayBetaHint")}
+                  </p>
+                  {policyDirty && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {t("detail.airplayBetaUnsavedPolicy")}
+                    </p>
+                  )}
+                  {airplayBetaMutation.isError && (
+                    <p className="mt-2 text-sm text-destructive" role="alert">
+                      {t("detail.airplayBetaSaveError")}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             <PlayerPolicyEditor
               target="screen"
               id={id}
               onDirtyChange={setPolicyDirty}
+              disabled={airplayBetaMutation.isPending}
             />
           </TabsContent>
         )}

@@ -29,6 +29,7 @@ import { useWidgetPreviewResources } from "../../content/widgetPreviewResources"
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewFonts,
   widgetPreviewMedia,
 } from "../../content/widgetPreviewSources";
 
@@ -189,6 +190,14 @@ export function V2ZonePreview({
       ),
     [definitionFields, configuration, asset],
   );
+  // Sandbox frames get no library fonts, exactly as on a Player.
+  const fonts = useMemo(
+    () =>
+      resolved?.kind === "trusted"
+        ? widgetPreviewFonts(definitionFields, configuration)
+        : [],
+    [resolved?.kind, definitionFields, configuration],
+  );
   const {
     resources,
     loading: sourcesLoading,
@@ -198,6 +207,8 @@ export function V2ZonePreview({
     dataSourceIds,
     preview.media,
     previewDate,
+    [],
+    fonts,
   );
   // A granted source that cannot be loaded is a preview error, not an
   // empty Widget: without this the mount would resolve a missing document

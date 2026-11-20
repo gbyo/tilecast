@@ -717,7 +717,7 @@ func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP 
 }
 
 func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map[string]int, error) {
-	background := stringValue(c, "backgroundColor", "#0E141B")
+	background := withBackgroundOpacity(stringValue(c, "backgroundColor", "#0E141B"), c["backgroundOpacity"])
 	foreground := stringValue(c, "foregroundColor", "#F5F7FA")
 	// contentPadding and textScale are author percentages, not absolute units:
 	// padding is a fraction of each edge (10 gives the content the center 80
@@ -1009,6 +1009,27 @@ func fieldFormat(c map[string]any, field string) string {
 		return stringValue(c, "format", "")
 	}
 	return ""
+}
+
+var opaqueHexColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+
+// withBackgroundOpacity carries a Widget's background opacity (0-100) into
+// the compatibility surface as an #RRGGBBAA color, which the shared Player
+// Runtime accepts. A Player that predates eight-digit colors falls back to
+// its opaque default surface. Fully opaque, missing, and theme (empty)
+// backgrounds stay unchanged.
+func withBackgroundOpacity(background string, opacity any) string {
+	value, ok := opacity.(float64)
+	if !ok {
+		if integer, isInt := opacity.(int); isInt {
+			value, ok = float64(integer), true
+		}
+	}
+	if !ok || value >= 100 || !opaqueHexColor.MatchString(background) {
+		return background
+	}
+	alpha := int(math.Round(math.Max(0, value) * 255 / 100))
+	return fmt.Sprintf("%s%02x", strings.ToLower(background), alpha)
 }
 
 func stringValue(values map[string]any, key, fallback string) string {

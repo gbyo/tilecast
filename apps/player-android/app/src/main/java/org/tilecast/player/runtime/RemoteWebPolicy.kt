@@ -61,9 +61,10 @@ object RemoteWebColor {
 
 object RemoteWebZoom {
     /**
-     * The value for `WebView.setInitialScale`, which counts physical pixels
-     * rather than density-independent ones; 0 keeps the engine default.
+     * Preserve the Website canvas zoom used by the legacy Android player:
+     * 100 means one page pixel per physical display pixel. WebView's default
+     * (0) applies display density, which enlarges desktop pages on TV panels.
+     * Multiplying a configured zoom by density changes the same contract.
      */
-    fun initialScale(zoomPercent: Int, density: Float): Int =
-        if (zoomPercent == 100 || density <= 0f) 0 else Math.round(zoomPercent * density)
+    fun initialScale(zoomPercent: Int): Int = zoomPercent
 }

@@ -196,7 +196,7 @@ func TestPortraitMjpegProfilesPreserveFullFrame(t *testing.T) {
 	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: time.Now(), Width: 360, Height: 640, JPEG: jpeg}); err != nil {
 		t.Fatalf("portrait frame rejected: %v", err)
 	}
-	service.SelectProfile(screenID, []string{ProfileMJPEG540p10}, []string{ProfileMJPEG540p10})
+	service.SelectProfile(screenID, LegacyEdgeProfiles(), nil)
 	if err := service.Publish(screenID, session.ID, Frame{CapturedAt: time.Now(), Width: 540, Height: 960, JPEG: jpeg}); err != nil {
 		t.Fatalf("higher resolution portrait frame rejected: %v", err)
 	}

@@ -1,5 +1,6 @@
 name: "🛠️ Installation or deployment issue"
 description: Get help with installation, configuration, upgrades, proxies, containers, or startup failures
+type: Bug
 body:
   - type: markdown
     attributes:

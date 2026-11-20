@@ -36,6 +36,7 @@ import {
 } from "@tilecast/widget-sdk/executor";
 import { SandboxedWidgetExecutor } from "@tilecast/widget-sdk/sandboxed-executor";
 import type { RuntimeClock } from "../clock/scheduler";
+import { registerFontFaces } from "../compat/font-faces";
 import type { RuntimeWidgetComponentPayload } from "../host/contract";
 
 // Stable plugin identities from each plugin's tilecast.plugin.json. The
@@ -147,6 +148,12 @@ export class RuntimeWidgetHost {
     onState: (state: WidgetMountState) => void,
   ): WidgetExecution {
     const { component } = payload;
+    // Library faces register once per document. The Widget draws with its
+    // bundled face until a face loads; a face that fails never fails it.
+    const fonts = payload.execution ? [] : (payload.fonts ?? []);
+    if (fonts.length > 0) {
+      void registerFontFaces(fonts.flatMap((font) => font.faces));
+    }
     const request = {
       component: {
         type: component.type,
@@ -159,8 +166,13 @@ export class RuntimeWidgetHost {
             Object.entries(payload.documents) as [string, WidgetDataDocument][],
           ),
           media: new Map(Object.entries(payload.media)),
+          fonts: new Map(fonts.map((font) => [font.id, font.family])),
         },
-        { dataSources: component.dataSources, media: component.media },
+        {
+          dataSources: component.dataSources,
+          media: component.media,
+          fonts: fonts.map((font) => font.id),
+        },
       ),
       context: this.context(payload),
       onState,

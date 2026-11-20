@@ -66,6 +66,7 @@ fn ready() -> Event {
         display: None,
         remote_web: None,
         support: None,
+        external_presentation: None,
     })
 }
 

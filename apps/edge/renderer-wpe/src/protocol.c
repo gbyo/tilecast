@@ -66,10 +66,24 @@ tc_protocol_send_ready (TcHost *host)
   json_builder_begin_array (builder);
   for (guint i = 0; RENDERER_FEATURES[i] != NULL; i++)
     json_builder_add_string_value (builder, RENDERER_FEATURES[i]);
+  const char *decoder = NULL;
+  gboolean hardware = FALSE;
+  gboolean present = host->present_dir != NULL && tc_present_relay_probe (&decoder, &hardware);
+  if (present)
+    json_builder_add_string_value (builder, "external-presentation-video-v1");
   gboolean remote_web = tc_remote_web_available (host);
   for (guint i = 0; remote_web && REMOTE_WEB_FEATURES[i] != NULL; i++)
     json_builder_add_string_value (builder, REMOTE_WEB_FEATURES[i]);
   json_builder_end_array (builder);
+  if (present) {
+    json_builder_set_member_name (builder, "externalPresentation");
+    json_builder_begin_object (builder);
+    json_builder_set_member_name (builder, "decoder");
+    json_builder_add_string_value (builder, decoder);
+    json_builder_set_member_name (builder, "hardwareDecode");
+    json_builder_add_boolean_value (builder, hardware);
+    json_builder_end_object (builder);
+  }
   if (host->runtime_support != NULL) {
     json_builder_set_member_name (builder, "support");
     json_builder_add_value (builder, json_node_copy (host->runtime_support));
@@ -232,6 +246,16 @@ handle_configure (TcHost *host, JsonObject *data)
 }
 
 static void
+on_present_relay (gboolean ok, gpointer data)
+{
+  TcHost *host = data;
+  /* Only a relay that was asked to run can fail. */
+  if (!ok)
+    tc_protocol_send_health (host, "degraded", "external_presentation_unavailable");
+  tc_protocol_deliver_activation (host);
+}
+
+static void
 handle_activate (TcHost *host, JsonObject *data, JsonNode *data_node)
 {
   const char *activation_id = json_object_get_string_member_with_default (data, "activationId", NULL);
@@ -259,7 +283,22 @@ handle_activate (TcHost *host, JsonObject *data, JsonNode *data_node)
   host->current_generation = generation;
   g_free (host->current_activation_json);
   host->current_activation_json = node_to_json (data_node);
-  if (host->runtime_ready)
+  JsonNode *presentation = json_object_get_member (data, "presentation");
+  const char *source = presentation != NULL && JSON_NODE_HOLDS_OBJECT (presentation)
+                         ? tc_present_source_id (json_node_get_object (presentation))
+                         : NULL;
+  /* The Runtime mounts tcpresent://cap/<token> as soon as it sees the
+   * activation, so the relay must run first: the sender's only keyframe
+   * arrives when it connects. The relay calls on_present_relay exactly once
+   * for this request (at once when there is nothing to start), and that
+   * delivers the activation. */
+  tc_present_relay_set (host->present, source, on_present_relay, host);
+}
+
+void
+tc_protocol_deliver_activation (TcHost *host)
+{
+  if (host->runtime_ready && host->current_activation_json != NULL && !tc_present_relay_pending (host->present))
     tc_view_deliver (host, "presentation.activate", host->current_activation_json);
 }
 
@@ -362,6 +401,14 @@ handle_event (TcHost *host, const char *name, JsonNode *data_node)
   } else if (g_strcmp0 (name, "presentation.clear") == 0 || g_strcmp0 (name, "presentation.identify") == 0
              || g_strcmp0 (name, "renderer.command") == 0 || g_strcmp0 (name, "sync.position") == 0) {
     const char *command = json_object_get_string_member_with_default (data, "command", "");
+    if (g_strcmp0 (name, "presentation.clear") == 0 && tc_present_relay_active (host->present)) {
+      /* The clear ends the external presentation. Stopping the relay makes a
+       * grant check that is still waiting drop its answer, so the activation
+       * that it would have delivered stays undelivered. The cached copy must
+       * not come back when the Runtime reloads. */
+      tc_present_relay_set (host->present, NULL, NULL, NULL);
+      g_clear_pointer (&host->current_activation_json, g_free);
+    }
     if (g_strcmp0 (name, "renderer.command") == 0 && g_strcmp0 (command, "reload") == 0) {
       tc_view_reload_runtime (host);
       return;

@@ -42,6 +42,12 @@ impl MediaCapability {
         format!("tcwidget://cap/{}", self.0)
     }
 
+    /// The URI of the forwarded AirPlay stream for a grant minted by
+    /// [`MediaRegistry::grant_present`]: `tcpresent://cap/<opaque>`.
+    pub fn present_uri(&self) -> String {
+        format!("tcpresent://cap/{}", self.0)
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -81,6 +87,15 @@ pub struct PluginFrameUpdate {
     created: Vec<MediaCapability>,
     session: SessionId,
     generation: u64,
+}
+
+/// What a present grant authorizes: the renderer's `tcpresent` source may
+/// receive the fixed loopback RTP ports of one AirPlay session
+/// (docs/tilecast-edge-airplay.md §5). The ports are constants; the grant
+/// only says whether the session forwards audio.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PresentGrant {
+    pub audio: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,6 +152,8 @@ pub struct MediaRegistry {
     generations: HashMap<u64, Generation>,
     grants: HashMap<MediaCapability, MediaGrant>,
     retired: VecDeque<[u8; 32]>,
+    /// At most one live present grant, bound to the renderer instance.
+    present: Option<(SessionId, MediaCapability, PresentGrant)>,
 }
 
 impl fmt::Debug for MediaRegistry {
@@ -146,6 +163,7 @@ impl fmt::Debug for MediaRegistry {
             .field("generations", &self.generations.len())
             .field("grants", &self.grants.len())
             .field("retired", &self.retired.len())
+            .field("present", &self.present.is_some())
             .finish()
     }
 }
@@ -158,7 +176,13 @@ impl Default for MediaRegistry {
 
 impl MediaRegistry {
     pub fn new() -> Self {
-        Self { renderer: None, generations: HashMap::new(), grants: HashMap::new(), retired: VecDeque::new() }
+        Self {
+            renderer: None,
+            generations: HashMap::new(),
+            grants: HashMap::new(),
+            retired: VecDeque::new(),
+            present: None,
+        }
     }
 
     /// A new renderer instance invalidates every old capability immediately.
@@ -167,6 +191,7 @@ impl MediaRegistry {
             self.generations.clear();
             self.grants.clear();
             self.retired.clear();
+            self.present = None;
             self.renderer = Some(renderer);
         }
     }
@@ -179,6 +204,7 @@ impl MediaRegistry {
         if self.renderer.is_some_and(|renderer| renderer.session == session) {
             self.generations.clear();
             self.grants.clear();
+            self.present = None;
             self.renderer = None;
         }
     }
@@ -561,6 +587,43 @@ impl MediaRegistry {
         for entry in self.generations.values_mut() {
             entry.tokens.retain(|token| self.grants.contains_key(token));
         }
+    }
+
+    /// Mints the one present grant for the current renderer and revokes any
+    /// earlier one. A new renderer instance or [`Self::revoke_present`]
+    /// ends it; the `tcpresent` source asks again every second and stops.
+    pub fn grant_present(&mut self, session: SessionId, grant: PresentGrant) -> Result<MediaCapability, MediaError> {
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
+            return Err(MediaError::RendererChanged);
+        }
+        let mut bytes = [0u8; TOKEN_BYTES];
+        SystemRandom::new().fill(&mut bytes).map_err(|_| MediaError::Random)?;
+        let token = MediaCapability(bytes.iter().map(|byte| format!("{byte:02x}")).collect());
+        self.revoke_present();
+        self.present = Some((session, token.clone(), grant));
+        Ok(token)
+    }
+
+    pub fn revoke_present(&mut self) {
+        if let Some((_, token, _)) = self.present.take() {
+            self.record_retired(&token);
+        }
+    }
+
+    /// Whether a present grant is live. The renderer excludes capture while
+    /// it shows the stream; the daemon uses this as a second check.
+    pub fn present_active(&self) -> bool {
+        self.present.is_some()
+    }
+
+    /// Resolves only the present grant: a media or frame capability
+    /// presented here answers exactly like an unknown token.
+    pub fn resolve_present(&self, session: SessionId, token: &str) -> Option<PresentGrant> {
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
+            return None;
+        }
+        let token = MediaCapability::parse(token)?;
+        self.present.as_ref().filter(|(owner, live, _)| *owner == session && *live == token).map(|(_, _, grant)| *grant)
     }
 
     /// Unknown or malformed tokens get the same answer. A digest, even when
