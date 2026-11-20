@@ -322,7 +322,8 @@ impl PairingCoordinator {
         }
         let player = self.player_id(metadata.new_player_id()).await?;
         let metadata = metadata.metadata(player).await;
-        let session = client.create(identity.installation_id, &metadata).await?;
+        let session =
+            client.create(identity.installation_id, &metadata).await?.received_at(self.dependencies.clock.now());
         self.sessions.save(&session).map_err(|_| PairingError::SessionNotStored)?;
         Ok(session)
     }
@@ -523,6 +524,7 @@ mod tests {
         enabled: AtomicBool,
         polls: Mutex<VecDeque<Result<PollStatus, ServerError>>>,
         enrollments: Mutex<VecDeque<Result<Enrolled, ServerError>>>,
+        created: Mutex<Option<PairingSession>>,
     }
     #[async_trait]
     impl PairingApi for Api {
@@ -539,7 +541,7 @@ mod tests {
         async fn create(&self, id: InstallationId, _: &DeviceMetadata) -> Result<PairingSession, ServerError> {
             assert_eq!(id, installation());
             self.stores.events.lock().unwrap().push("create");
-            Ok(session())
+            Ok(self.created.lock().unwrap().clone().unwrap_or_else(session))
         }
         async fn poll(&self, _: &PairingSession) -> Result<PollStatus, ServerError> {
             self.stores.events.lock().unwrap().push("poll");
@@ -591,6 +593,7 @@ mod tests {
             enabled: AtomicBool::new(true),
             polls: Mutex::new(VecDeque::new()),
             enrollments: Mutex::new(VecDeque::new()),
+            created: Mutex::new(None),
         };
         (dir, pairing, stores, api)
     }
@@ -808,6 +811,25 @@ mod tests {
         assert_eq!(stores.state.run(|c| daemon::player_identity(c)).await.unwrap().unwrap(), first);
         stores.fail_session.store(true, Ordering::Relaxed);
         assert!(matches!(core.create_with(&api, stores.as_ref()).await, Err(PairingError::SessionNotStored)));
+    }
+
+    #[tokio::test]
+    async fn a_fresh_session_is_not_expired_by_a_fast_device_clock() {
+        let (_dir, core, stores, api) = fixture();
+        // The fixture's device clock reads 1_800_000_000_000 ms. The server
+        // issued this session an hour earlier by its own clock, so its
+        // `expiresAt` is already past on the device clock.
+        let device_now = core.dependencies.clock.now().unix_millis();
+        let server_now = device_now - 3_600_000;
+        let mut skewed = session();
+        skewed.server_time = Some(Timestamp::from_unix_millis(server_now).unwrap().to_string());
+        skewed.expires_at = Timestamp::from_unix_millis(server_now + 600_000).unwrap();
+        assert!(skewed.is_expired(core.dependencies.clock.now()), "the absolute comparison is the bug");
+        *api.created.lock().unwrap() = Some(skewed);
+        core.create_with(&api, stores.as_ref()).await.unwrap();
+        let saved = stores.session.lock().unwrap().clone().expect("session saved");
+        assert_eq!(core.step_with(&api, saved).await, PairingOutcome::Retry);
+        assert_eq!(stores.events.lock().unwrap().last(), Some(&"poll"));
     }
 
     #[tokio::test]

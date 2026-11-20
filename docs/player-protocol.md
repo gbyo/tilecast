@@ -19,7 +19,7 @@ A reduced WebSocket status must not clear the stored presentation capabilities.
 7. The player exchanges that token once. The server creates `tc_device_<public-id>.<secret>`, stores only the secret hash, clears the enrollment-token hash, and returns the credential once.
 8. The player stores the credential with Android Keystore and removes all temporary pairing secrets.
 
-Pairing sessions expire after ten minutes. Codes use an unambiguous alphabet and are compared through indexed SHA-256 hashes. Expired records are marked during pairing activity and may be removed by later maintenance.
+Pairing sessions expire after ten minutes. The Player does not compare the `expiresAt` value to its own clock. It records the time it received the session and expires the session after the lifetime that `expiresAt` minus `serverTime` gives, so a wrong device clock does not shorten the session. Codes use an unambiguous alphabet and are compared through indexed SHA-256 hashes. Expired records are marked during pairing activity and may be removed by later maintenance.
 
 ### Approval URL
 

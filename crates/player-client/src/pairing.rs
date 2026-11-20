@@ -100,6 +100,12 @@ pub struct PairingSession {
     /// countdown. Older saved sessions predate it.
     #[serde(default)]
     pub server_time: Option<String>,
+    /// The device clock when the host received the session. With
+    /// `server_time` it places the server-issued lifetime on the device
+    /// clock, so a skewed device clock does not change how long a session
+    /// lives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    received_at: Option<Timestamp>,
     pub polling_interval_seconds: u32,
     #[serde(default)]
     enrollment_token: Option<String>,
@@ -128,8 +134,28 @@ pub enum PairingFileError {
 }
 
 impl PairingSession {
+    /// Records the device time at which the session arrived.
+    #[must_use]
+    pub fn received_at(mut self, now: Timestamp) -> Self {
+        self.received_at = Some(now);
+        self
+    }
+
+    /// `now` is device time. The server's `expiresAt` is on the server's
+    /// clock, so when the receipt time and the server's clock reading are
+    /// both known the deadline is the receipt time plus the issued lifetime.
+    /// Otherwise (a session saved before receipt was recorded) the absolute
+    /// server timestamp is compared directly.
     pub fn is_expired(&self, now: Timestamp) -> bool {
-        self.expires_at.unix_millis() <= now.unix_millis()
+        let issued = self.server_time.as_deref().and_then(|time| Timestamp::parse(time).ok());
+        let deadline = match (self.received_at, issued) {
+            (Some(received), Some(issued)) => {
+                let lifetime = self.expires_at.unix_millis().saturating_sub(issued.unix_millis()).max(0);
+                received.unix_millis().saturating_add(lifetime)
+            }
+            _ => self.expires_at.unix_millis(),
+        };
+        deadline <= now.unix_millis()
     }
 
     pub fn has_enrollment_token(&self) -> bool {
@@ -252,6 +278,7 @@ impl ServerClient {
             organization_name: Some(bounded(&created.organization_name, 120)).filter(|name| !name.is_empty()),
             expires_at,
             server_time: Some(bounded(&created.server_time, 64)).filter(|time| !time.is_empty()),
+            received_at: None,
             polling_interval_seconds: created.polling_interval_seconds.clamp(2, 60),
             enrollment_token: None,
         })
@@ -312,9 +339,40 @@ mod tests {
             organization_name: None,
             expires_at: Timestamp::from_unix_millis(2_000_000_000_000).unwrap(),
             server_time: Some("2026-08-06T06:56:40Z".to_owned()),
+            received_at: None,
             polling_interval_seconds: 3,
             enrollment_token: None,
         }
+    }
+
+    #[test]
+    fn expiry_follows_the_issued_lifetime_not_the_device_clock() {
+        let ms = |text: &str| Timestamp::parse(text).unwrap();
+        let mut fresh = session();
+        fresh.server_time = Some("2026-08-06T06:00:00Z".to_owned());
+        fresh.expires_at = ms("2026-08-06T06:10:00Z");
+        // A device clock one hour ahead of the server.
+        let received = ms("2026-08-06T07:00:00Z");
+        let fresh = fresh.received_at(received);
+        assert!(!fresh.is_expired(received));
+        assert!(!fresh.is_expired(ms("2026-08-06T07:09:59Z")));
+        assert!(fresh.is_expired(ms("2026-08-06T07:10:00Z")));
+        // A device clock behind the server.
+        let mut behind = fresh.clone();
+        behind.received_at = Some(ms("2026-08-06T05:00:00Z"));
+        assert!(!behind.is_expired(ms("2026-08-06T05:09:59Z")));
+        assert!(behind.is_expired(ms("2026-08-06T05:10:00Z")));
+    }
+
+    #[test]
+    fn a_session_without_receipt_time_keeps_the_absolute_comparison() {
+        let mut saved = session();
+        saved.expires_at = Timestamp::parse("2026-08-06T07:00:00Z").unwrap();
+        assert!(!saved.is_expired(Timestamp::parse("2026-08-06T06:59:59Z").unwrap()));
+        assert!(saved.is_expired(Timestamp::parse("2026-08-06T07:00:00Z").unwrap()));
+        let mut unreadable = saved.clone().received_at(Timestamp::parse("2026-08-06T06:00:00Z").unwrap());
+        unreadable.server_time = Some("not a time".to_owned());
+        assert!(unreadable.is_expired(Timestamp::parse("2026-08-06T07:00:00Z").unwrap()));
     }
 
     #[test]
