@@ -22,6 +22,7 @@ const base: TickerConfig = {
   separator: " • ",
   fieldSeparator: " — ",
   maxItems: 15,
+  textScale: 100,
   direction: "left",
   speed: "normal",
   emptyText: "",
@@ -107,6 +108,7 @@ describe("Ticker configuration", () => {
         separator: " • ",
         fieldSeparator: " — ",
         maxItems: 15,
+        textScale: 100,
         direction: "left",
         speed: "normal",
         background: null,
@@ -121,6 +123,10 @@ describe("Ticker configuration", () => {
     [{ dataSourceId: 42 }],
     [{ dataSourceId: SOURCE, maxItems: 0 }],
     [{ dataSourceId: SOURCE, maxItems: 51 }],
+    [{ dataSourceId: SOURCE, textScale: 24 }],
+    [{ dataSourceId: SOURCE, textScale: 501 }],
+    [{ dataSourceId: SOURCE, textScale: 100.5 }],
+    [{ dataSourceId: SOURCE, textScale: "200" }],
     [{ dataSourceId: SOURCE, direction: "up" }],
     [{ dataSourceId: SOURCE, speed: "ludicrous" }],
     [{ dataSourceId: SOURCE, separator: 42 }],
@@ -248,7 +254,23 @@ describe("Ticker element", () => {
     expect(root.querySelector(".ticker")?.getAttribute("style")).toContain(
       "--tc-ticker-seconds:40s",
     );
+    expect(root.querySelector(".ticker")?.getAttribute("style")).toContain(
+      "--tc-ticker-text-scale:1",
+    );
     expect(test.states).toEqual([{ state: "ready" }]);
+    test.dispose();
+  });
+
+  it("applies a per-widget font scale, including on the leading label", async () => {
+    const { root, test } = await render(
+      { textScale: 175 },
+      documentWith([...records]),
+    );
+    expect(root.querySelector(".ticker")?.getAttribute("style")).toContain(
+      "--tc-ticker-text-scale:1.75",
+    );
+    expect(root.querySelector(".label")).not.toBeNull();
+    expect(root.querySelectorAll(".item")).toHaveLength(4);
     test.dispose();
   });
 

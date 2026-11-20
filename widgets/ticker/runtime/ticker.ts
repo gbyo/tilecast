@@ -54,6 +54,7 @@ export interface TickerConfig {
   readonly separator: string;
   readonly fieldSeparator: string;
   readonly maxItems: number;
+  readonly textScale: number;
   readonly direction: TickerDirection;
   readonly speed: TickerSpeed;
   readonly emptyText: string;
@@ -143,6 +144,18 @@ export function parseTickerConfig(value: unknown): ConfigResult<TickerConfig> {
       problem: "maxItems must be an integer from 1 to 50",
     };
   }
+  const textScale = raw["textScale"] ?? 100;
+  if (
+    typeof textScale !== "number" ||
+    !Number.isInteger(textScale) ||
+    textScale < 25 ||
+    textScale > 500
+  ) {
+    return {
+      ok: false,
+      problem: "textScale must be an integer from 25 to 500",
+    };
+  }
   const direction = raw["direction"] ?? "left";
   if (!TICKER_DIRECTIONS.includes(direction as never)) {
     return { ok: false, problem: "direction must be left or right" };
@@ -164,6 +177,7 @@ export function parseTickerConfig(value: unknown): ConfigResult<TickerConfig> {
       separator,
       fieldSeparator,
       maxItems,
+      textScale,
       direction: direction as TickerDirection,
       speed: speed as TickerSpeed,
       emptyText,
@@ -242,7 +256,8 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
       }
       .label {
         flex: none;
-        font-size: clamp(10px, min(4.5cqh, 3cqw), 72px);
+        --tc-base: clamp(10px, min(4.5cqh, 3cqw), 72px);
+        font-size: calc(var(--tc-base) * var(--tc-ticker-text-scale, 1));
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -276,7 +291,8 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
         animation-direction: reverse;
       }
       .item {
-        font-size: clamp(12px, min(6cqh, 4cqw), 110px);
+        --tc-base: clamp(12px, min(6cqh, 4cqw), 110px);
+        font-size: calc(var(--tc-base) * var(--tc-ticker-text-scale, 1));
         font-weight: 600;
         line-height: 1.3;
       }
@@ -350,7 +366,7 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
     return html`<div
       class="ticker"
       data-direction=${this.config.direction}
-      style="--tc-ticker-seconds:${SPEED_SECONDS[this.config.speed]}s"
+      style="--tc-ticker-seconds:${SPEED_SECONDS[this.config.speed]}s;--tc-ticker-text-scale:${this.config.textScale / 100}"
     >
       ${
         this.config.leadingLabel
