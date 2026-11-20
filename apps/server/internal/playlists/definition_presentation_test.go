@@ -375,3 +375,59 @@ func presentationNodeCapability(nodeType string) string {
 		return ""
 	}
 }
+
+// Manifest v13+ omits raw Widget configuration. Keep the source identifier on
+// the compiled Web descriptor, including its JSON representation.
+func TestWebsiteCompilerCarriesDataSourceID(t *testing.T) {
+	const sourceID = "4f589a71-6e9d-4db9-b91d-a244c6a9c351"
+	raw, err := json.Marshal(map[string]any{
+		"url":                 "https://example.com/screen?room={data.room}",
+		"dataSourceId":        sourceID,
+		"urlTemplatesEnabled": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentation, err := presentationTestService().compileWidgetPresentation("website", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if presentation.RequiredCapabilities["web.remote"] != 3 {
+		t.Fatalf("URL template requires web.remote v3: %#v", presentation.RequiredCapabilities)
+	}
+	if presentation.Web == nil || presentation.Web.DataSourceID != sourceID {
+		t.Fatalf("Website Data Source lost during compilation: %#v", presentation.Web)
+	}
+	wire, err := json.Marshal(presentation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded WidgetPresentation
+	if err = json.Unmarshal(wire, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Web == nil || decoded.Web.DataSourceID != sourceID {
+		t.Fatalf("Website Data Source lost on manifest wire: %#v", decoded.Web)
+	}
+}
+
+func TestStaticWebsitePresentationAllowsLiteralBraces(t *testing.T) {
+	service := presentationTestService()
+	for _, tc := range []struct {
+		url      string
+		wantFail bool
+	}{
+		{`https://example.com/?filter={"room":"A"}`, false},
+		{`https://example.com/?room={data.room}`, true},
+	} {
+		t.Run(tc.url, func(t *testing.T) {
+			config, err := json.Marshal(map[string]string{"url": tc.url})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.compileWidgetPresentation("website", config); (err != nil) != tc.wantFail {
+				t.Errorf("Website compiler error = %v, want error %t", err, tc.wantFail)
+			}
+		})
+	}
+}

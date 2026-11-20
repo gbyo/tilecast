@@ -363,6 +363,27 @@ class RuntimePresentationBuilderTest {
         assertTrue("playback" in projection)
     }
 
+    @Test fun websiteProjectionCarriesTheEnrolledScreenIdentity() {
+        val url = "https://example.com/panel?id={screen.id}"
+        val widget = ManifestWidget(
+            assetId = "website", name = "Website", provider = "website",
+            presentation = WidgetPresentation(
+                schemaVersion = 1, kind = "web",
+                web = WebSandboxPresentation(mode = "remote", url = url, allowedHosts = listOf("example.com")),
+            ),
+        )
+        val items = listOf(item("site", "website", null, "widget"))
+        for (screenId in listOf("11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222")) {
+            val manifest = manifest(items).copy(screenId = screenId, widgets = listOf(widget))
+            // Raw projection sections need not contain top-level identity;
+            // the typed verified manifest owns the enrolled screen ID.
+            val message = RuntimePresentationBuilder.hostMessage(playing(manifest, items))
+            val projected = message["projection"]!!.jsonObject["manifest"]!!.jsonObject
+            assertEquals(screenId, projected["screenId"]!!.jsonPrimitive.content)
+            assertEquals("https://example.com/panel?id=$screenId", WebsiteUrlVariables.resolve(url, projected["screenId"]!!.jsonPrimitive.content))
+        }
+    }
+
     @Test fun projectionOmittedWithoutReferences() {
         val items = listOf(item(assetType = "image"))
         val manifest = manifest(items)

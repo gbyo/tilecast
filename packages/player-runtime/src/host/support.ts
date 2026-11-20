@@ -27,7 +27,7 @@ export function runtimeSupport(
     presentationSchemas: [1, 2, COMPONENT_PRESENTATION_SCHEMA_VERSION],
     declarativeCapabilities: {
       ...SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES,
-      ...(remoteWeb ? { "web.remote": 2 } : {}),
+      ...(remoteWeb ? { "web.remote": 3 } : {}),
       ...(externalPluginFrames ? { "plugin.external-runtime": 1 } : {}),
       ...(playerServices
         ? {

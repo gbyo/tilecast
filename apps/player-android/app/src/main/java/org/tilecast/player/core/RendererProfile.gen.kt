@@ -27,7 +27,7 @@ object RendererProfile {
 
     /** The declarative capability the remote web host provides. */
     const val WEB_REMOTE_CAPABILITY = "web.remote"
-    const val WEB_REMOTE_VERSION = 2
+    const val WEB_REMOTE_VERSION = 3
 
     /** The Widget frame execution ABI capability every downloaded Widget uses. */
     const val EXTERNAL_WIDGET_RUNTIME_CAPABILITY = "widget.external-runtime"
