@@ -48,6 +48,15 @@ The installer checks the downloaded release checksum, installs the AppImage and 
 
 On Debian-family hosts, the installed service passes the system CA bundle to Electron's Node HTTP client. A CA added with `update-ca-certificates` is therefore trusted by both `curl` and the Player after the service restarts. A manually launched AppImage can use `NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt` in its launch environment. This does not bypass certificate verification or trust a new self-signed certificate automatically.
 
+If an older installation still fails to connect after trusting the CA, run `systemctl --user edit tilecast-player.service` as the kiosk user. Add this drop-in and save it.
+
+```ini
+[Service]
+Environment=NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+```
+
+Run `systemctl --user restart tilecast-player.service` to apply the change.
+
 If you do not need these capabilities, skip them when running the installer.
 
 ```sh title="Install without optional presentation features"

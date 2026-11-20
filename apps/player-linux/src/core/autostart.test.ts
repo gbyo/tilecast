@@ -289,7 +289,27 @@ describe("AutostartInstaller.repairLegacyGeneratedUnit", () => {
     expect(h.files.get(UNIT_PATH)).toContain(
       "Environment=NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
     );
-    expect(h.files.get(UNIT_PATH)).toContain("Environment=TILECAST_DISABLE_GPU=1");
+    expect(h.files.get(UNIT_PATH)).toContain(
+      "Environment=TILECAST_DISABLE_GPU=1",
+    );
+  });
+
+  it("adds a quoted CA assignment only once", async () => {
+    const extraCaCerts = "/srv/Private CA/roots.pem";
+    const h = harness({
+      files: {
+        [UNIT_PATH]: `${GENERATED_MARKER}\n[Service]\nExecStart=${APP_IMAGE} --appimage-extract-and-run\nEnvironment=PATH=${MANAGED_PLAYER_PATH}\n[Install]\nWantedBy=default.target\n`,
+      },
+      environment: { extraCaCerts },
+    });
+    const installer = new AutostartInstaller(h.d);
+
+    expect(await installer.repairLegacyGeneratedUnit()).toBe(true);
+    expect(h.files.get(UNIT_PATH)).toContain(
+      `Environment="NODE_EXTRA_CA_CERTS=${extraCaCerts}"`,
+    );
+    expect(await installer.repairLegacyGeneratedUnit()).toBe(false);
+    expect(h.runs).toEqual([["systemctl", ["--user", "daemon-reload"]]]);
   });
 });
 

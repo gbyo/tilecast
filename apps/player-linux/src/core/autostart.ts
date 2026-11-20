@@ -373,7 +373,7 @@ export class AutostartInstaller {
     const existing = await this.deps.readFile(this.unitPath());
     const missingCaTrust =
       Boolean(this.deps.environment.extraCaCerts) &&
-      !/^Environment=NODE_EXTRA_CA_CERTS=/m.test(existing ?? "");
+      !/^\s*Environment\s*=\s*"?NODE_EXTRA_CA_CERTS=/m.test(existing ?? "");
     if (
       existing === null ||
       !existing.includes(GENERATED_MARKER) ||
