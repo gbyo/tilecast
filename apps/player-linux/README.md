@@ -150,6 +150,7 @@ stored credential anywhere.
 npm install
 npm start                       # build and run
 TILECAST_SERVER_URL=... npm start   # skip the on-screen setup
+NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt npm start # use Debian's trusted CAs
 npm test                        # unit tests
 npm run dist                    # AppImage + deb via electron-builder
 ```

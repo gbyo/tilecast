@@ -42,6 +42,10 @@ RestartSec=5
 # tools discoverable even when the display manager supplied a minimal PATH.
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=TILECAST_LOG_LEVEL=info
+# Electron's Node HTTP client uses bundled roots unless given the host CA
+# bundle. This keeps private-CA HTTPS verification aligned with curl/system
+# trust on Debian-family hosts; it does not accept an untrusted certificate.
+Environment=NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 # Wayland kiosks (cage/weston): uncomment as needed
 # Environment=WAYLAND_DISPLAY=wayland-0
 # X11 kiosks:
