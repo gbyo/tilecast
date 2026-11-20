@@ -15,8 +15,9 @@ use std::sync::{Arc, Mutex};
 use crate::media::{MediaCapability, MediaRegistry};
 
 pub mod profile {
-    /// Renderer features the trusted runtime implements on Windows,
-    /// including remote web in isolated host-layer child views.
+    /// Renderer features the trusted runtime implements on every WebView
+    /// host. [`REMOTE_WEB_FEATURES`] join them only on a host that shows
+    /// remote web in isolated host-layer views.
     pub const FEATURES: &[&str] = &[
         "status-surfaces-v1",
         "image",
@@ -28,10 +29,10 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
-        "remote-web-v1",
-        "website",
-        "youtube",
     ];
+
+    /// The features of remote web in isolated host-layer views.
+    pub const REMOTE_WEB_FEATURES: &[&str] = &["remote-web-v1", "website", "youtube"];
 
     /// Declarative widget capabilities of the reference projection code the
     /// trusted runtime runs (the same versions the other native hosts
@@ -49,16 +50,20 @@ pub mod profile {
     pub const PRESENTATION_SCHEMAS: &[u32] = &[1, 2, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
 }
 
-pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
+/// The installed-release ceiling for a host with `features`. Remote web and
+/// the external Widget frame ABI are part of it only where the platform
+/// implements them.
+pub(crate) fn packaged_profile(features: crate::host::RendererFeatures) -> player_core::PackagedRendererProfile {
     let token = |name| ShortToken::new(name).expect("generated capability name");
+    let remote_web: &[&str] = if features.remote_web { profile::REMOTE_WEB_FEATURES } else { &[] };
     player_core::PackagedRendererProfile(
         player_core::RendererSupport::new(
-            profile::FEATURES.iter().map(|name| token(*name)).collect(),
+            profile::FEATURES.iter().chain(remote_web).map(|name| token(*name)).collect(),
             profile::PRESENTATION_SCHEMAS.iter().copied().collect(),
             profile::NATIVE_CAPABILITIES
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
-                .chain(std::iter::once((token("web.remote"), profile::WEB_RUNTIME_VERSION)))
+                .chain(features.remote_web.then(|| (token("web.remote"), profile::WEB_RUNTIME_VERSION)))
                 // The host script sets pluginState, so the Runtime hosts
                 // Plugin API v2 contributions with its own services.
                 .chain(player_core::shared_runtime_plugin_capabilities().map(|(name, version)| (token(name), version)))
@@ -67,26 +72,72 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
                 // The frame execution ABI is one capability for every
-                // downloaded Widget, not a discovered component: this
-                // release confines served frames, so it offers it.
-                .chain(std::iter::once((
-                    token(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY),
-                    player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
-                )))
+                // downloaded Widget, not a discovered component: a host
+                // that confines served frames offers it.
+                .chain(features.external_frames.then(|| {
+                    (
+                        token(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY),
+                        player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                    )
+                }))
                 .collect(),
         )
         .expect("bounded installed runtime profile"),
     )
 }
 
+/// What the heartbeat advertises: the live Runtime's ready report inside
+/// the installed ceiling. Before a Runtime proves itself, the ceiling.
+pub(crate) fn advertised_support(
+    features: crate::host::RendererFeatures,
+    ready: Option<&crate::bridge::RuntimeReady>,
+) -> (Vec<u32>, Vec<(String, u32)>) {
+    use player_core::RendererRequirement as Requirement;
+    let packaged = &packaged_profile(features);
+    let ceiling = &packaged.0;
+    let Some(connected) = ready.and_then(|ready| connected_profile(ready, features).ok()) else {
+        let declared = player_core::ConnectedRendererProfile(ceiling.clone());
+        let mut table = declared.declarative_capabilities();
+        table.extend(declared.widget_components());
+        return (declared.presentation_schemas(), table);
+    };
+    let schemas = connected
+        .presentation_schemas()
+        .into_iter()
+        .filter(|version| packaged.check(&Requirement::PresentationSchema(*version)).is_ok())
+        .collect();
+    let within = |name: &str, version: u32, widget: bool| {
+        let Ok(name) = ShortToken::new(name) else { return false };
+        let requirement = if widget {
+            Requirement::WidgetComponent { name, version }
+        } else {
+            Requirement::Declarative { name, version }
+        };
+        packaged.check(&requirement).is_ok()
+    };
+    let mut table: Vec<(String, u32)> = connected
+        .declarative_capabilities()
+        .into_iter()
+        .filter(|(name, version)| within(name, *version, false))
+        .collect();
+    table.extend(connected.widget_components().into_iter().filter(|(name, version)| within(name, *version, true)));
+    (schemas, table)
+}
+
 pub(crate) fn connected_profile(
     ready: &crate::bridge::RuntimeReady,
+    features: crate::host::RendererFeatures,
 ) -> Result<player_core::ConnectedRendererProfile, player_core::RendererProfileError> {
     let support = ready.support.as_ref();
+    let remote_web: &[&str] = if features.remote_web { profile::REMOTE_WEB_FEATURES } else { &[] };
     Ok(player_core::ConnectedRendererProfile(player_core::RendererSupport::new(
         // The Runtime advertises its live support namespaces; the feature
         // set is the packaged one, refined by what the Runtime implements.
-        profile::FEATURES.iter().map(|name| ShortToken::new(*name).expect("profile feature")).collect(),
+        profile::FEATURES
+            .iter()
+            .chain(remote_web)
+            .map(|name| ShortToken::new(*name).expect("profile feature"))
+            .collect(),
         support.map(|s| s.presentation_schemas.iter().copied().collect()).unwrap_or_default(),
         support
             .map(|s| {
@@ -577,14 +628,18 @@ pub fn content_refs(content: &[VerifiedContentRef]) -> Vec<VerifiedContentRef> {
 mod tests {
     use super::*;
 
+    /// The Windows host: every optional feature.
+    const FULL: crate::host::RendererFeatures =
+        crate::host::RendererFeatures { remote_web: true, external_frames: true };
+
     #[test]
     fn packaged_profile_advertises_remote_web() {
-        assert!(profile::FEATURES.contains(&"remote-web-v1"));
-        assert!(profile::FEATURES.contains(&"website"));
-        assert!(profile::FEATURES.contains(&"youtube"));
+        assert!(profile::REMOTE_WEB_FEATURES.contains(&"remote-web-v1"));
+        assert!(profile::REMOTE_WEB_FEATURES.contains(&"website"));
+        assert!(profile::REMOTE_WEB_FEATURES.contains(&"youtube"));
         assert_eq!(profile::WEB_RUNTIME_VERSION, 2);
         let web_remote = player_types::bounded::ShortToken::new("web.remote").expect("test fixture");
-        packaged_profile()
+        packaged_profile(FULL)
             .check(&player_core::RendererRequirement::Declarative { name: web_remote, version: 2 })
             .expect("web.remote v2 periodic reload");
     }
@@ -599,13 +654,64 @@ mod tests {
             version,
         };
         for (name, version) in player_core::shared_runtime_plugin_capabilities() {
-            packaged_profile().check(&declarative(name, version)).expect(name);
+            packaged_profile(FULL).check(&declarative(name, version)).expect(name);
         }
-        assert!(packaged_profile().check(&declarative(player_core::PLAYER_PLUGIN_HOST_CAPABILITY, 3)).is_err());
+        assert!(packaged_profile(FULL).check(&declarative(player_core::PLAYER_PLUGIN_HOST_CAPABILITY, 3)).is_err());
         // Events need a transport this host does not have.
-        assert!(packaged_profile().check(&declarative("player.events", 1)).is_err());
+        assert!(packaged_profile(FULL).check(&declarative("player.events", 1)).is_err());
         let script = include_str!("runtime_host.js");
         assert!(!script.contains("pluginState"), "the capability comes from the native host table");
+    }
+
+    #[test]
+    fn a_base_host_claims_neither_remote_web_nor_external_frames() {
+        let feature = |name: &str| player_core::RendererRequirement::Feature(ShortToken::new(name).expect("token"));
+        let external = player_core::RendererRequirement::WidgetComponent {
+            name: ShortToken::new(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY).expect("token"),
+            version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+        };
+        let web = player_core::RendererRequirement::Declarative {
+            name: ShortToken::new("web.remote").expect("token"),
+            version: profile::WEB_RUNTIME_VERSION,
+        };
+        let base = packaged_profile(crate::host::RendererFeatures::BASE);
+        for name in profile::REMOTE_WEB_FEATURES {
+            assert!(base.check(&feature(name)).is_err(), "{name}");
+            packaged_profile(FULL).check(&feature(name)).expect(name);
+        }
+        assert!(base.check(&web).is_err() && base.check(&external).is_err());
+        packaged_profile(FULL).check(&web).expect("web.remote");
+        packaged_profile(FULL).check(&external).expect("frame ABI");
+        // Everything else is the same shared Runtime.
+        base.check(&feature("video")).expect("video");
+        base.check(&player_core::RendererRequirement::PresentationSchema(3)).expect("schema 3");
+    }
+
+    #[test]
+    fn the_heartbeat_follows_the_ready_report_inside_the_ceiling() {
+        let base = crate::host::RendererFeatures::BASE;
+        // Before a Runtime proves itself: the ceiling.
+        let (schemas, table) = advertised_support(base, None);
+        assert_eq!(schemas, profile::PRESENTATION_SCHEMAS);
+        assert!(table.iter().any(|(name, _)| name == "content.text"));
+        assert!(!table.iter().any(|(name, _)| name == "web.remote"));
+        // A Runtime that claims more than the platform implements is
+        // clipped to the ceiling; what it does not prove is dropped.
+        let ready = crate::bridge::RuntimeReady {
+            contract_version: 1,
+            runtime_version: "1.0.0".into(),
+            support: Some(crate::bridge::RuntimeSupport {
+                presentation_schemas: vec![1, 2, 99],
+                declarative: vec![("content.text".into(), 1), ("web.remote".into(), 2)],
+                widget_components: vec![(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY.into(), 2)],
+            }),
+        };
+        let (schemas, table) = advertised_support(base, Some(&ready));
+        assert_eq!(schemas, vec![1, 2]);
+        assert_eq!(table, vec![("content.text".to_owned(), 1)]);
+        let (_, table) = advertised_support(FULL, Some(&ready));
+        assert!(table.contains(&("web.remote".to_owned(), 2)));
+        assert!(table.contains(&(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY.to_owned(), 2)));
     }
 
     /// Plugin media aliases are registered by identity beside the
@@ -662,14 +768,14 @@ mod tests {
             player_types::bounded::ShortToken::new(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY)
                 .expect("test fixture")
         };
-        packaged_profile()
+        packaged_profile(FULL)
             .check(&player_core::RendererRequirement::WidgetComponent {
                 name: name(),
                 version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
             })
             .expect("external-runtime @2");
         assert!(
-            packaged_profile()
+            packaged_profile(FULL)
                 .check(&player_core::RendererRequirement::WidgetComponent {
                     name: name(),
                     version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION + 1,

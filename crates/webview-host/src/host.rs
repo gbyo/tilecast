@@ -75,6 +75,26 @@ pub fn timezone() -> String {
         .unwrap_or_else(|| "UTC".into())
 }
 
+/// The optional renderer features a platform's WebView host actually
+/// implements. The shared host capabilities, the packaged renderer
+/// profile, and the heartbeat follow these answers, so a platform never
+/// claims a feature because its engine could render it in theory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RendererFeatures {
+    /// Remote websites and YouTube in isolated host-layer views
+    /// (`remoteWeb: "host-view"`, `web.remote`).
+    pub remote_web: bool,
+    /// Verified external Widget frames served from `tcwidget://`, behind a
+    /// subframe navigation guard (`externalFrames`,
+    /// `widget.external-runtime`).
+    pub external_frames: bool,
+}
+
+impl RendererFeatures {
+    /// Only the trusted Runtime document and its granted media.
+    pub const BASE: Self = Self { remote_web: false, external_frames: false };
+}
+
 /// The renderer host: the platform's WebView on its UI thread.
 #[async_trait::async_trait]
 pub trait RendererHost: Send + Sync + std::fmt::Debug {
@@ -87,6 +107,8 @@ pub trait RendererHost: Send + Sync + std::fmt::Debug {
     /// build without one reports no presentation support to the server,
     /// because it cannot show the content that support would select.
     fn presents(&self) -> bool;
+    /// The optional features this renderer implements.
+    fn features(&self) -> RendererFeatures;
 }
 
 /// Final-output capture of the Player's own window.

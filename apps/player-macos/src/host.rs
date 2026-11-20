@@ -6,10 +6,10 @@
 //! commands, Activity, and telemetry, and drives offline activation through
 //! the shared presentation engine and its `RendererPort`.
 //!
-//! What it does not do yet is truthful, not faked: no WKWebView renderer
-//! (gbyo/tilecast#1926), so it reports no presentation support and runs
-//! renderer-less; no final-output capture (#1928); no Server-managed
-//! updates (#1933).
+//! The WKWebView renderer ([`crate::webkit`]) presents the shared Runtime.
+//! What it does not do yet is truthful, not faked: no remote web views
+//! (gbyo/tilecast#1927), no external Widget or plugin frames, no
+//! final-output capture (#1928), and no Server-managed updates (#1933).
 
 use player_client::pairing::DeviceMetadata;
 use player_client::player_api::ServerCommand;
@@ -20,7 +20,8 @@ use std::time::Duration;
 use webview_host::capture::CapturedBgra;
 use webview_host::daemon::DaemonContext;
 use webview_host::host::{
-    DeviceFacts, HEADLESS_DISPLAY, HostIdentity, HostServices, RendererHost, UpdateHost, WindowCapture,
+    DeviceFacts, HEADLESS_DISPLAY, HostIdentity, HostServices, RendererFeatures, RendererHost, UpdateHost,
+    WindowCapture,
 };
 use webview_host::paths::HostPaths;
 use webview_host::ui::{UiError, UiEvent, UiHandle, UiServices};
@@ -81,22 +82,26 @@ impl DeviceFacts for MacosDevice {
     }
 }
 
-/// The WKWebView renderer host. Until the Runtime bridge lands
-/// (gbyo/tilecast#1926) it reports that no renderer is available, and the
-/// shared engine runs renderer-less.
+/// The WKWebView renderer on the main thread ([`crate::webkit`]).
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WebKitHost;
 
 #[async_trait::async_trait]
 impl RendererHost for WebKitHost {
-    async fn spawn(&self, _services: UiServices) -> Result<(UiHandle, tokio::sync::mpsc::Receiver<UiEvent>), UiError> {
-        Err(UiError::Unsupported)
+    async fn spawn(&self, services: UiServices) -> Result<(UiHandle, tokio::sync::mpsc::Receiver<UiEvent>), UiError> {
+        crate::webkit::spawn_ui(services).await
     }
     fn engine_version(&self) -> String {
-        "unavailable".to_owned()
+        crate::webkit::engine_version()
     }
     fn presents(&self) -> bool {
-        false
+        cfg!(target_os = "macos")
+    }
+    fn features(&self) -> RendererFeatures {
+        // Website and YouTube views need isolated WKWebViews
+        // (gbyo/tilecast#1927). External Widget and plugin frames are not
+        // served or qualified on WebKit here.
+        RendererFeatures::BASE
     }
 }
 
@@ -175,7 +180,8 @@ mod tests {
 
     #[test]
     fn nothing_unavailable_is_claimed() {
-        assert!(!WebKitHost.presents());
+        assert_eq!(WebKitHost.presents(), cfg!(target_os = "macos"));
+        assert_eq!(WebKitHost.features(), RendererFeatures::BASE);
         assert_eq!(NoCapture.capture_bgra(1, Duration::from_millis(1)).err(), Some("unavailable"));
     }
 }

@@ -138,7 +138,7 @@ fn iso(ms: i64) -> Option<String> {
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
 pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
-    let (current, current_item, progress_at, safe_mode, ready, native_services) = {
+    let (current, current_item, progress_at, safe_mode, ready, native_services, ready_report) = {
         let engine = context.presentation.lock().unwrap_or_else(|poison| poison.into_inner());
         (
             engine.current().cloned(),
@@ -147,6 +147,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             engine.is_safe_mode(),
             engine.renderer_is_ready(),
             engine.native_plugin_capabilities(),
+            engine.renderer_ready_info().cloned(),
         )
     };
     let healthy = ready
@@ -168,24 +169,21 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     };
     let uptime = ((context.now().unix_millis() - context.started_at.unix_millis()).max(0) / 1000) as u64;
     let presents = context.host.renderer.presents();
-    let native: serde_json::Map<String, serde_json::Value> = crate::renderer_adapter::profile::NATIVE_CAPABILITIES
-        .iter()
-        .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
-        .chain(std::iter::once(&(
-            player_types::frames::EXTERNAL_RUNTIME_CAPABILITY,
-            player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
-        )))
-        .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
-        // Plugin API v2: the Shared Runtime hosts it on this player, and the
-        // native services this build provides are reported as they are.
-        .chain(
-            player_core::shared_runtime_plugin_capabilities()
-                .map(|(name, version)| (name.to_owned(), serde_json::json!(version))),
-        )
-        .chain(native_services.into_iter().map(|(name, version)| (name, serde_json::json!(version))))
-        .filter(|_| presents)
+    // The live Runtime's ready report inside the platform's installed
+    // ceiling; before a Runtime proves itself, the ceiling. `web.remote`
+    // travels as `webRuntimeVersion`, never in the capability table.
+    let (schemas, table) = if presents {
+        crate::renderer_adapter::advertised_support(context.host.renderer.features(), ready_report.as_ref())
+    } else {
+        (Vec::new(), Vec::new())
+    };
+    let native: serde_json::Map<String, serde_json::Value> = table
+        .into_iter()
+        .filter(|(name, _)| name != "web.remote")
+        // The native services this build provides are reported as they are.
+        .chain(native_services.into_iter().filter(|_| presents))
+        .map(|(name, version)| (name, serde_json::json!(version)))
         .collect();
-    let schemas: &[u32] = if presents { crate::renderer_adapter::profile::PRESENTATION_SCHEMAS } else { &[] };
     let (screen_width, screen_height) = context.host.device.display_size();
     let mut heartbeat = serde_json::json!({
         "screenWidth": screen_width,

@@ -8,12 +8,14 @@
 
 pub use webview_host::{config, daemon, pairing, pairing_store};
 
+pub mod app;
 pub mod device;
 pub mod host;
 pub mod keychain;
 pub mod paths;
 pub mod secure_open;
 pub mod space;
+pub mod webkit;
 
 /// The Player release family, architecture selection excluded: the server
 /// reaches only screens that report it (`docs/player-updates.md`).

@@ -248,6 +248,7 @@ pub async fn build(
         std::sync::Arc::new(std::sync::Mutex::new(crate::media::MediaRegistry::new())),
         player_core::SupervisorConfig::default(),
         now.unix_millis(),
+        host.renderer.features(),
     );
     presentation.set_activity(activity.clone());
     let space = host.space.clone();

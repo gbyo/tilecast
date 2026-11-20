@@ -78,6 +78,11 @@ impl RendererHost for WebView2Host {
     fn presents(&self) -> bool {
         true
     }
+    fn features(&self) -> webview_host::host::RendererFeatures {
+        // Remote web runs in isolated host-layer child views; served
+        // frames sit behind the per-frame navigation guard.
+        webview_host::host::RendererFeatures { remote_web: true, external_frames: true }
+    }
 }
 
 /// Windows Graphics Capture of the player's own window.

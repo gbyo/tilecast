@@ -182,17 +182,25 @@ pub struct PresentationEngine {
     /// reads what the renderer receives, so a native part and its Shared
     /// Runtime part see one plugin state.
     native_plugins: player_core::NativePluginFeed,
+    /// The optional features the platform renderer implements.
+    features: crate::host::RendererFeatures,
 }
 
 impl PresentationEngine {
-    pub fn new(media: Arc<Mutex<MediaRegistry>>, supervisor_config: SupervisorConfig, now_ms: i64) -> Self {
+    pub fn new(
+        media: Arc<Mutex<MediaRegistry>>,
+        supervisor_config: SupervisorConfig,
+        now_ms: i64,
+        features: crate::host::RendererFeatures,
+    ) -> Self {
         Self {
             media,
+            features,
             current: None,
             renderer: None,
             incompatible_reason: None,
             native: RendererCoordinator::new(
-                crate::renderer_adapter::packaged_profile(),
+                crate::renderer_adapter::packaged_profile(features),
                 supervisor_config,
                 policy_time(now_ms),
             ),
@@ -525,6 +533,7 @@ impl PresentationEngine {
     }
 
     pub fn renderer_ready(&mut self, session: uuid::Uuid, ready: bridge::RuntimeReady) {
+        let features = self.features;
         let Some(link) = self.link_for(session) else {
             return;
         };
@@ -536,7 +545,7 @@ impl PresentationEngine {
         );
         // The packaged profile is the ceiling; live support that fails its
         // bounds fails the renderer, not the ceiling.
-        let profile = match crate::renderer_adapter::connected_profile(&ready) {
+        let profile = match crate::renderer_adapter::connected_profile(&ready, features) {
             Ok(profile) => profile,
             Err(error) => {
                 tracing::warn!(component = "presentation", event = "renderer_support_invalid", error = %error);
@@ -1165,19 +1174,20 @@ fn presented(activation: &Activation) -> Option<player_core::ActivityPresented> 
 use crate::daemon::DaemonContext;
 
 /// The host capabilities the Runtime reads before its first frame: setup
-/// entry is available, synchronized timelines are anchored by the host,
-/// remote web renders in host views, and `discovery.list` browses the LAN.
-/// Verified sandbox frames are served from the `tcwidget://` scheme handler,
-/// which sees every subframe navigation, so the Runtime keeps its default
+/// entry is available, synchronized timelines are anchored by the host, and
+/// `discovery.list` browses the LAN. Remote web renders in host views and
+/// verified sandbox frames are served from the `tcwidget://` scheme handler
+/// only where the platform renderer implements them; a frame-serving host
+/// sees every subframe navigation, so the Runtime keeps its default
 /// iframe-sandbox attribute on top of the served response policy.
-fn host_capabilities() -> Value {
+fn host_capabilities(features: crate::host::RendererFeatures) -> Value {
     serde_json::json!({
-        "remoteWeb": "host-view",
+        "remoteWeb": if features.remote_web { Value::from("host-view") } else { Value::Null },
         "synchronizedPlayback": true,
         "setup": true,
         "phoneSetup": true,
         "discovery": true,
-        "externalFrames": true,
+        "externalFrames": features.external_frames,
         // Plugin API v2: plugin_state rides the plugins message, its media
         // is registered per generation, and tcmedia://variant/ loads are
         // authorized against it.
@@ -1366,7 +1376,7 @@ pub async fn run(context: Arc<DaemonContext>) {
         cas,
         session: uuid::Uuid::new_v4(),
         user_data_dir,
-        capabilities: host_capabilities(),
+        capabilities: host_capabilities(context.host.renderer.features()),
         info: host_info(&context),
         conformance: None,
         main_window: Arc::clone(&context.main_window),
@@ -1581,9 +1591,13 @@ mod tests {
     use super::*;
     use player_types::bounded::SafeText;
 
+    const FULL: crate::host::RendererFeatures =
+        crate::host::RendererFeatures { remote_web: true, external_frames: true };
+
     #[test]
     fn host_grants_verified_frames_to_the_runtime() {
-        let capabilities = host_capabilities();
+        let capabilities = host_capabilities(FULL);
+        assert_eq!(capabilities["remoteWeb"], serde_json::json!("host-view"));
         assert_eq!(capabilities["externalFrames"], serde_json::json!(true));
         assert_eq!(capabilities["pluginState"], serde_json::json!(true));
         assert_eq!(capabilities["variantMedia"], serde_json::json!(true));
@@ -1593,9 +1607,17 @@ mod tests {
         assert!(capabilities.get("externalFrameSandbox").is_none());
     }
 
+    #[test]
+    fn a_base_host_offers_no_remote_web_or_frames() {
+        let capabilities = host_capabilities(crate::host::RendererFeatures::BASE);
+        assert!(capabilities["remoteWeb"].is_null());
+        assert_eq!(capabilities["externalFrames"], serde_json::json!(false));
+        assert_eq!(capabilities["setup"], serde_json::json!(true));
+    }
+
     fn test_engine() -> (PresentationEngine, tokio::sync::mpsc::Receiver<crate::ui::UiCommand>, uuid::Uuid) {
         let media = Arc::new(Mutex::new(MediaRegistry::new()));
-        let engine = PresentationEngine::new(Arc::clone(&media), SupervisorConfig::default(), 1_000);
+        let engine = PresentationEngine::new(Arc::clone(&media), SupervisorConfig::default(), 1_000, FULL);
         let (commands, commands_rx) = tokio::sync::mpsc::channel(32);
         let ui = UiHandle::new(commands, Arc::new(|| {}));
         let session = uuid::Uuid::new_v4();
