@@ -52,6 +52,9 @@ pub struct Transaction {
     pub reason: Option<String>,
     #[serde(default)]
     pub schema_incompatible: bool,
+    /// The previous stack is restored, and the guard still has units to retire.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rollback_cleanup_pending: bool,
     #[serde(default)]
     pub events: Vec<EventRecord>,
     pub updated_at_ms: i64,
@@ -231,6 +234,7 @@ pub(crate) mod tests {
             renderer_restarts_base: None,
             reason: None,
             schema_incompatible: false,
+            rollback_cleanup_pending: false,
             events: vec![],
             updated_at_ms: 0,
         }

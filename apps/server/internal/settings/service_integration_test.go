@@ -114,11 +114,17 @@ func TestSettingsPolicyInheritanceAndRevision(t *testing.T) {
 	if document.Values["power.active_hours_end"] != "16:00" {
 		t.Fatalf("active hours end=%#v", document.Values["power.active_hours_end"])
 	}
+	if _, err := service.UpdateOrganization(ctx, owner.User.ID, document.Revision, map[string]any{"edge.airplay.beta_enabled": true}); err == nil || err.Error() != "setting_not_allowed_at_scope: edge.airplay.beta_enabled" {
+		t.Fatalf("AirPlay beta organization write should be rejected, got %v", err)
+	}
+	if _, err := service.PutGroupPolicy(ctx, owner.User.ID, group, 0, 100, map[string]any{"edge.airplay.beta_enabled": true}); err == nil || err.Error() != "setting_not_allowed_at_scope: edge.airplay.beta_enabled" {
+		t.Fatalf("AirPlay beta group policy should be rejected, got %v", err)
+	}
 	groupPolicy, err := service.PutGroupPolicy(ctx, owner.User.ID, group, 0, 100, map[string]any{"player.playback.default_volume": 0.4, "reliability.mode": "managed_kiosk"})
 	if err != nil || groupPolicy.Revision != 1 {
 		t.Fatalf("group policy: %#v %v", groupPolicy, err)
 	}
-	_, err = service.PutScreenPolicy(ctx, owner.User.ID, screen, 0, map[string]any{"player.playback.default_volume": 0.25, "power.keep_screen_on": false, "power.outside_active_hours_display": "custom_text", "power.outside_active_hours_text": "School is closed", "power.outside_active_hours_wake_animation": false})
+	_, err = service.PutScreenPolicy(ctx, owner.User.ID, screen, 0, map[string]any{"player.playback.default_volume": 0.25, "power.keep_screen_on": false, "power.outside_active_hours_display": "custom_text", "power.outside_active_hours_text": "School is closed", "power.outside_active_hours_wake_animation": false, "edge.airplay.beta_enabled": true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +141,7 @@ func TestSettingsPolicyInheritanceAndRevision(t *testing.T) {
 	}
 	config, etag, err := service.PlayerConfiguration(ctx, screen)
 	regionalProfile, _ := config.Playback["regionalFormat"].(RegionalFormatting)
-	if err != nil || config.Playback["defaultVolume"] != 0.25 || config.Reliability["mode"] != "managed_kiosk" || config.Power["keepScreenOn"] != false || config.Power["outsideActiveHoursDisplay"] != "custom_text" || config.Power["outsideActiveHoursText"] != "School is closed" || config.Power["outsideActiveHoursWakeAnimation"] != false || config.Power["blackScreenFallback"] != false || config.LinuxKiosk["fullscreenEnabled"] != true || config.LinuxKiosk["preventDisplaySleep"] != true || etag == "" || regionalProfile.Locale != "en-US" || regionalProfile.Timezone != "America/New_York" || regionalProfile.FirstDayOfWeek != "sunday" {
+	if err != nil || config.Playback["defaultVolume"] != 0.25 || config.Reliability["mode"] != "managed_kiosk" || config.Power["keepScreenOn"] != false || config.Power["outsideActiveHoursDisplay"] != "custom_text" || config.Power["outsideActiveHoursText"] != "School is closed" || config.Power["outsideActiveHoursWakeAnimation"] != false || config.Power["blackScreenFallback"] != false || config.LinuxKiosk["fullscreenEnabled"] != true || config.LinuxKiosk["preventDisplaySleep"] != true || config.Features["airplayBetaEnabled"] != true || etag == "" || regionalProfile.Locale != "en-US" || regionalProfile.Timezone != "America/New_York" || regionalProfile.FirstDayOfWeek != "sunday" {
 		t.Fatalf("config=%#v etag=%q err=%v", config, etag, err)
 	}
 	if notifier.notes < 3 {

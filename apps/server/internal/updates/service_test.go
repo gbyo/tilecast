@@ -111,6 +111,14 @@ func TestParseAndVerifyManifestEdge(t *testing.T) {
 	if manifest.NormalizedFamily() != FamilyEdge || manifest.Architecture() != "x86_64" || manifest.AssetName() != "tilecast-edge-0.2.0-x86_64.tar.zst" || manifest.ArtifactSize() != 4096 {
 		t.Fatalf("edge accessors wrong: %+v", manifest)
 	}
+	withBootstrap := edgeEnvelope()
+	minimum := "0.1.0"
+	withBootstrap.MinimumUpdaterVersion = &minimum
+	raw, signature = sign(withBootstrap)
+	manifest, err = ParseAndVerifyManifest(raw, signature, public)
+	if err != nil || manifest.MinimumUpdaterVersion == nil || *manifest.MinimumUpdaterVersion != minimum {
+		t.Fatalf("signed updater prerequisite was lost: %+v, %v", manifest, err)
+	}
 
 	for name, change := range map[string]func(*Manifest){
 		"electron product":        func(m *Manifest) { m.Product = "tilecast-player" },
@@ -122,10 +130,12 @@ func TestParseAndVerifyManifestEdge(t *testing.T) {
 		"uppercase digest": func(m *Manifest) {
 			m.ArtifactSHA256 = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
 		},
-		"missing manifest digest": func(m *Manifest) { m.ReleaseManifestSHA256 = "" },
-		"missing state schema":    func(m *Manifest) { m.StateSchemaVersion = 0 },
-		"android fields":          func(m *Manifest) { m.ApplicationID = ApplicationID },
-		"too large":               func(m *Manifest) { m.ArtifactSizeBytes = EdgeMaxArtifactBytes + 1 },
+		"missing manifest digest":   func(m *Manifest) { m.ReleaseManifestSHA256 = "" },
+		"missing state schema":      func(m *Manifest) { m.StateSchemaVersion = 0 },
+		"empty minimum updater":     func(m *Manifest) { minimum := ""; m.MinimumUpdaterVersion = &minimum },
+		"minimum updater is target": func(m *Manifest) { m.MinimumUpdaterVersion = &m.VersionName },
+		"android fields":            func(m *Manifest) { m.ApplicationID = ApplicationID },
+		"too large":                 func(m *Manifest) { m.ArtifactSizeBytes = EdgeMaxArtifactBytes + 1 },
 	} {
 		bad := edgeEnvelope()
 		change(&bad)

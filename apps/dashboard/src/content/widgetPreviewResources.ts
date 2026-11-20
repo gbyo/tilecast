@@ -31,6 +31,10 @@ import type {
   TypedDatasetPayload,
   TypedRecordData,
 } from "../api/types";
+import {
+  libraryFamilyName,
+  usePreviewLibraryFonts,
+} from "../fonts/libraryFonts";
 import type { WidgetPreviewAssetField } from "./widgetPreviewSources";
 
 export type SavedSourcePreview =
@@ -474,15 +478,23 @@ export function useWidgetPreviewResources(
    */
   previewDate?: string,
   dataSourceAssetFields: readonly WidgetPreviewAssetField[] = [],
+  /**
+   * Library font IDs the component's font fields chose. Each maps to the
+   * generated family the Studio document registered (`tcf-<id>`).
+   */
+  declaredFonts: readonly string[] = [],
 ): PreviewResources {
   // Callers can build equivalent grant arrays on every render. TanStack's
   // combine memoization keeps resources stable until inputs or query results
   // change, so reporting readiness cannot start another input revision.
+  // The Widget draws with its own face until a chosen family's faces load.
+  usePreviewLibraryFonts(declaredFonts);
   const inputKey = JSON.stringify({
     dataSourceIds,
     declaredDataSources,
     declaredMedia,
     dataSourceAssetFields,
+    declaredFonts,
   });
   const combine = useCallback(
     (
@@ -495,11 +507,13 @@ export function useWidgetPreviewResources(
         declaredDataSources,
         declaredMedia,
         dataSourceAssetFields,
+        declaredFonts,
       } = JSON.parse(inputKey) as {
         dataSourceIds: string[];
         declaredDataSources: string[];
         declaredMedia: { assetId: string; variantId: string }[];
         dataSourceAssetFields: WidgetPreviewAssetField[];
+        declaredFonts: string[];
       };
       const documents = new Map<string, WidgetDataDocument>();
       const failedIds: string[] = [];
@@ -531,8 +545,18 @@ export function useWidgetPreviewResources(
       );
       return {
         resources: createWidgetResources(
-          { documents, media },
-          { dataSources: declaredDataSources, media: grantedMedia },
+          {
+            documents,
+            media,
+            fonts: new Map(
+              declaredFonts.map((id) => [id, libraryFamilyName(id)]),
+            ),
+          },
+          {
+            dataSources: declaredDataSources,
+            media: grantedMedia,
+            fonts: declaredFonts,
+          },
         ),
         loading: previews.some((preview) => preview.isLoading),
         failedIds,

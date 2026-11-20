@@ -24,6 +24,7 @@ use player_core::{
 #[derive(Debug)]
 struct ActiveStream {
     stream_id: uuid::Uuid,
+    profile: WatchLiveProfile,
     sink: EncodedChunkSink,
     max_width: u32,
     max_height: u32,
@@ -48,6 +49,11 @@ impl LiveEncoders {
         WatchLiveCapabilities::new(lock(&self.capabilities).iter().copied().chain([WatchLiveProfile::Mjpeg540p10]))
     }
 
+    /// The best H.264 profile the renderer's probe qualified, if any.
+    pub fn highest_h264(&self) -> Option<WatchLiveProfile> {
+        lock(&self.capabilities).iter().copied().min()
+    }
+
     /// `renderer.live_capabilities`: only known H.264 profile IDs count.
     pub fn set_capabilities(&self, report: &LiveCapabilities) {
         let profiles: Vec<_> = report
@@ -56,11 +62,14 @@ impl LiveEncoders {
             .filter_map(|id| WatchLiveProfile::from_id(id.as_str()))
             .filter(|profile| profile.transport() == player_core::WatchLiveTransport::H264)
             .collect();
+        // The first line to read on a physical device: which encoder, whether
+        // it is hardware, and the highest profile its startup probe proved.
         tracing::info!(
             component = "live_stream",
             event = "encoder_probe",
             encoder = report.encoder.as_ref().map(ShortToken::as_str).unwrap_or("none"),
             hardware = report.hardware,
+            highest_profile = profiles.iter().min().map_or("none", |profile| profile.id()),
             profiles = profiles.len()
         );
         *lock(&self.capabilities) = profiles;
@@ -90,6 +99,7 @@ impl LiveEncoders {
         // Register first so the first chunk cannot race the registration.
         let previous = lock(&self.active).replace(ActiveStream {
             stream_id,
+            profile: config.profile,
             sink,
             max_width: config.max_width,
             max_height: config.max_height,
@@ -157,10 +167,16 @@ impl LiveEncoders {
             LiveEncoderStatus::Started => tracing::info!(
                 component = "live_stream",
                 event = "encoder_started",
+                profile = stream.profile.id(),
                 encoder = state.encoder.as_ref().map(ShortToken::as_str).unwrap_or("unknown")
             ),
             LiveEncoderStatus::Failed | LiveEncoderStatus::Stopped => {
-                tracing::info!(component = "live_stream", event = "encoder_ended", code = state.code.as_str());
+                tracing::info!(
+                    component = "live_stream",
+                    event = "encoder_ended",
+                    profile = stream.profile.id(),
+                    code = state.code.as_str()
+                );
                 stream.sink.failed("renderer_encoder_failed");
             }
         }
@@ -205,7 +221,13 @@ mod tests {
         let encoders = LiveEncoders::default();
         let (sink, events) = EncodedChunkSink::new(Arc::new(AtomicU64::new(1)));
         let stream_id = uuid::Uuid::new_v4();
-        *lock(&encoders.active) = Some(ActiveStream { stream_id, sink, max_width: 960, max_height: 540 });
+        *lock(&encoders.active) = Some(ActiveStream {
+            stream_id,
+            profile: WatchLiveProfile::H264_540p15,
+            sink,
+            max_width: 960,
+            max_height: 540,
+        });
         (encoders, stream_id, events)
     }
 
@@ -242,6 +264,54 @@ mod tests {
         );
         encoders.renderer_disconnected();
         assert!(!encoders.capabilities().contains(WatchLiveProfile::H264_540p15), "a restarted renderer probes again");
+    }
+
+    fn report(profiles: &[&str], encoder: &str, hardware: bool) -> LiveCapabilities {
+        LiveCapabilities {
+            profiles: profiles.iter().map(|id| ShortToken::new(*id).unwrap()).collect(),
+            encoder: Some(ShortToken::new(encoder).unwrap()),
+            hardware,
+        }
+    }
+
+    #[test]
+    fn a_hardware_probe_that_qualified_720p30_offers_every_tier_with_720p30_first() {
+        let encoders = LiveEncoders::default();
+        encoders.set_capabilities(&report(
+            &["h264-720p30", "h264-720p15", "h264-540p15", "h264-540p10"],
+            "vah264lpenc",
+            true,
+        ));
+        assert_eq!(encoders.highest_h264(), Some(WatchLiveProfile::H264_720p30));
+        assert_eq!(
+            encoders.capabilities().profiles(),
+            [
+                WatchLiveProfile::H264_720p30,
+                WatchLiveProfile::H264_720p15,
+                WatchLiveProfile::H264_540p15,
+                WatchLiveProfile::H264_540p10,
+                WatchLiveProfile::Mjpeg540p10,
+                WatchLiveProfile::Mjpeg360p8
+            ]
+        );
+    }
+
+    #[test]
+    fn a_probe_that_stopped_at_a_lower_tier_never_offers_720p30() {
+        let encoders = LiveEncoders::default();
+        // Hardware that only passed 720p15, then hardware that only passed 540p15.
+        encoders.set_capabilities(&report(&["h264-720p15", "h264-540p15", "h264-540p10"], "vah264enc", true));
+        assert_eq!(encoders.highest_h264(), Some(WatchLiveProfile::H264_720p15));
+        assert!(!encoders.capabilities().contains(WatchLiveProfile::H264_720p30));
+        encoders.set_capabilities(&report(&["h264-540p15", "h264-540p10"], "vah264lpenc", true));
+        assert_eq!(encoders.highest_h264(), Some(WatchLiveProfile::H264_540p15));
+        // Software H.264 stays at the conservative ceiling.
+        encoders.set_capabilities(&report(&["h264-540p15", "h264-540p10"], "openh264enc", false));
+        assert_eq!(encoders.highest_h264(), Some(WatchLiveProfile::H264_540p15));
+        assert!(!encoders.capabilities().contains(WatchLiveProfile::H264_720p15));
+        // No encoder: nothing H.264, only the MJPEG profiles.
+        encoders.set_capabilities(&LiveCapabilities { profiles: vec![], encoder: None, hardware: false });
+        assert_eq!(encoders.highest_h264(), None);
     }
 
     #[test]

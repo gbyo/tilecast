@@ -1,8 +1,9 @@
 /**
  * The only way a Widget reads data. A Widget's `resolveData` receives a
- * `WidgetResources` that answers for the prepared Data Documents and the
- * verified media variants its component presentation declares, and nothing
- * else: no network, files, storage, credentials or host members.
+ * `WidgetResources` that answers for the prepared Data Documents, the
+ * verified media variants and the organization library fonts its component
+ * presentation declares, and nothing else: no network, files, storage,
+ * credentials or host members.
  *
  * The document shapes mirror Data Document v1 in the Player manifest
  * (packages/manifest-schema). They are read-only views of data the Server
@@ -108,6 +109,15 @@ export interface WidgetResources {
   mediaForAsset(assetId: string): string | null;
   /** Attribution the Data Source requires, or null. */
   attribution(dataSourceId: string): string | null;
+  /**
+   * The CSS family name (`tcf-<fontId>`) of a declared library font whose
+   * faces the host registered, or null. The Widget puts it first in its
+   * font stack; text keeps the bundled face until the font loads.
+   *
+   * Optional: the sandbox frame of a package-contributed Widget does not
+   * carry library fonts, so call it as `resources.font?.(id) ?? null`.
+   */
+  font?(fontId: string): string | null;
 }
 
 /** What a Widget's data resolution produced. */
@@ -151,6 +161,8 @@ export interface ResourceTables {
   documents?: ReadonlyMap<string, WidgetDataDocument>;
   /** Host-authorized URIs keyed by `${assetId}/${variantId}`. */
   media?: ReadonlyMap<string, string>;
+  /** Registered library family names keyed by lowercase font ID. */
+  fonts?: ReadonlyMap<string, string>;
 }
 
 export interface ResourceGrant {
@@ -158,7 +170,13 @@ export interface ResourceGrant {
   dataSources?: readonly string[];
   /** Media variants the component presentation declares. */
   media?: readonly WidgetMediaRef[];
+  /** Library font IDs the component presentation declares. */
+  fonts?: readonly string[];
 }
+
+/** A library family name: `tcf-` and a lowercase UUID, never author text. */
+export const LIBRARY_FONT_FAMILY =
+  /^tcf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const EMPTY_RESOURCES: WidgetResources = Object.freeze({
   dataDocument: () => null,
@@ -166,6 +184,7 @@ const EMPTY_RESOURCES: WidgetResources = Object.freeze({
   media: () => null,
   mediaForAsset: () => null,
   attribution: () => null,
+  font: () => null,
 });
 
 const frozenDataObjects = new WeakSet<object>();
@@ -201,7 +220,12 @@ export function createWidgetResources(
   const media = new Set(
     (grant.media ?? []).map((ref) => `${ref.assetId}/${ref.variantId}`),
   );
-  if (sources.size === 0 && media.size === 0) return EMPTY_RESOURCES;
+  const fonts = new Set(
+    (grant.fonts ?? []).map((fontId) => fontId.toLowerCase()),
+  );
+  if (sources.size === 0 && media.size === 0 && fonts.size === 0) {
+    return EMPTY_RESOURCES;
+  }
   const documentOf = (id: string) => {
     if (!sources.has(id)) return null;
     const document = tables.documents?.get(id);
@@ -234,6 +258,13 @@ export function createWidgetResources(
         (dataset) => dataset.attribution,
       )?.attribution;
       return text ? text.slice(0, 280) : null;
+    },
+    font(fontId: string) {
+      if (typeof fontId !== "string") return null;
+      const key = fontId.toLowerCase();
+      if (!fonts.has(key)) return null;
+      const family = tables.fonts?.get(key);
+      return family && LIBRARY_FONT_FAMILY.test(family) ? family : null;
     },
   });
 }

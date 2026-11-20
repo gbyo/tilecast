@@ -20,7 +20,7 @@ RUN apt-get update \
     && grep -v '^[[:space:]]*#' /tmp/system-baseline.txt | grep -v '^[[:space:]]*$' > /tmp/baseline.list \
     && xargs apt-get install -y --no-install-recommends < /tmp/baseline.list \
     && apt-get install -y --no-install-recommends \
-      systemd systemd-sysv dbus bubblewrap xdg-dbus-proxy procps python3-minimal ca-certificates \
+      systemd systemd-sysv dbus bubblewrap xdg-dbus-proxy procps python3-minimal ca-certificates avahi-daemon \
       gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav \
       gstreamer1.0-gl libgl1-mesa-dri libegl1-mesa-dev fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* /tmp/system-baseline.txt /tmp/baseline.list \

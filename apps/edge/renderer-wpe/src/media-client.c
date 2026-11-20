@@ -171,3 +171,28 @@ tc_media_read_frame (const char *socket_path, const char *capability, guint64 of
 {
   return read_expect (socket_path, capability, TRUE, offset, buffer, length, error);
 }
+
+gboolean
+tc_media_present (const char *socket_path, const char *capability, gboolean *audio, GError **error)
+{
+  g_return_val_if_fail (audio != NULL, FALSE);
+  if (!tc_is_sha256_hex (capability)) {
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "invalid present capability");
+    return FALSE;
+  }
+  g_autofree char *request = g_strdup_printf ("{\"op\":\"present\",\"capability\":\"%s\"}", capability);
+  g_autoptr (GSocketConnection) connection = NULL;
+  g_autoptr (JsonParser) parser = NULL;
+  if (!exchange (socket_path, request, &connection, &parser, error))
+    return FALSE;
+  JsonObject *reply = json_node_get_object (json_parser_get_root (parser));
+  guint64 video = 0, port = 0;
+  gboolean has_audio = json_object_has_member (reply, "audioPort");
+  if (!integer_member (reply, "videoPort", &video) || video != TC_PRESENT_VIDEO_PORT
+      || (has_audio && (!integer_member (reply, "audioPort", &port) || port != TC_PRESENT_AUDIO_PORT))) {
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "invalid present response");
+    return FALSE;
+  }
+  *audio = has_audio;
+  return TRUE;
+}

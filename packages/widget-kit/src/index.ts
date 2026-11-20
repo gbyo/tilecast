@@ -59,11 +59,13 @@ export {
   type Tone,
 } from "./templates.ts";
 export {
+  BUNDLED_FONT_STACK,
   displayTokens,
   hostStyles,
   mixColors,
   surfaceStyles,
   themeProperties,
+  withAlpha,
 } from "./tokens.ts";
 export {
   MAX_CONFIG_FIELD_LENGTH,

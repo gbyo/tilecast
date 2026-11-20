@@ -188,6 +188,14 @@ pub struct DevConfig {
     /// The update helper's socket. Default
     /// `/run/tilecast-edge-update/update.sock`.
     pub update_helper_socket: Option<PathBuf>,
+    /// The AirPlay supervisor's control socket. Default
+    /// `/run/tilecast-airplay/control.sock`.
+    pub airplay_socket: Option<PathBuf>,
+    /// `true` opens the AirPlay qualification gate on this screen, for the
+    /// hardware qualification run and for CI. Without it the release decides
+    /// (`qualification::RELEASE_QUALIFIED`); see docs/tilecast-edge-airplay.md
+    /// section 12.
+    pub airplay_qualified: Option<bool>,
     /// `false` keeps the daemon from taking a systemd-logind idle inhibitor
     /// lock, so a test never changes the host it runs on.
     pub idle_inhibit: Option<bool>,
@@ -230,6 +238,7 @@ impl EdgeConfig {
             ("dev.hardware_sys_dir", self.dev.hardware_sys_dir.as_ref()),
             ("dev.networkd_socket", self.dev.networkd_socket.as_ref()),
             ("dev.update_helper_socket", self.dev.update_helper_socket.as_ref()),
+            ("dev.airplay_socket", self.dev.airplay_socket.as_ref()),
         ] {
             if let Some(path) = path
                 && !path.is_absolute()

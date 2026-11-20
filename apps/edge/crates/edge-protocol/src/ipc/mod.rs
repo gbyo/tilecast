@@ -96,6 +96,15 @@ pub const MAX_REQUEST_ID_CHARS: usize = 64;
 /// that negotiated it, so an older renderer never sees unknown members.
 pub const RENDERER_FEATURE_WIDGET_FRAMES: &str = "widget-frames-v1";
 pub const RENDERER_FEATURE_PLUGIN_FRAMES: &str = "plugin-frames-v1";
+/// `renderer.ready` feature: the renderer relays an AirPlay session's
+/// loopback RTP to `tcpresent://cap/<token>` and the Runtime shows it
+/// (docs/tilecast-edge-airplay.md §5). The daemon sends `sourceId` only to a
+/// renderer that advertises it.
+pub const RENDERER_FEATURE_EXTERNAL_PRESENTATION_VIDEO: &str = "external-presentation-video-v1";
+/// The `renderer.health` reason (state `degraded`) while the renderer's relay
+/// for the current AirPlay source did not start or stopped for a fault. The
+/// renderer repeats it with each health tick until the next activation.
+pub const HEALTH_EXTERNAL_PRESENTATION_UNAVAILABLE: &str = "external_presentation_unavailable";
 
 /// Who is on the other end of a session. Closed set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

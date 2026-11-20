@@ -46,10 +46,12 @@ apps/ios/                    SwiftUI iOS/iPadOS Studio host and native bridge
 apps/player-android/         Android TV/Google TV/Fire TV Compose host + native Player Core adapter
 apps/player-web/             experimental Browser Player
 apps/player-windows/         Windows native Player host (Rust + WebView2)
+apps/player-macos/           macOS native Player host in development (Rust + objc2)
 apps/setup-relay/            phone setup relay (Cloudflare Worker, own lockfile)
 apps/edge/                   Linux Edge host (Rust, WPE, systemd, hardware integration)
 apps/player-linux/           legacy Linux Electron Player and helper; maintain compatibility/migration
 crates/player-{types,state,cas,client,core}/  shared native Player crates
+crates/webview-host/         Core composition shared by the Windows and macOS hosts
 packages/presentation-model/ shared pure presentation decisions
 packages/player-runtime/     shared presentation execution
 packages/player-contracts/   cross-host conformance fixtures and contracts
@@ -76,7 +78,7 @@ Read [`docs/player-core.md`](docs/player-core.md) and [`docs/player-core-readine
 - **Platforms** own OS integration, process lifecycle, storage and credentials, renderer hosting, hardware providers, network facilities, distribution, and update installation. Runtime payload presentation data stays opaque to Core.
 - **Browser Player** uses its own browser host and session model while consuming shared presentation contracts; read [`docs/browser-player.md`](docs/browser-player.md). It is experimental, not automatically qualified for every browser.
 - **Linux Edge** has binding process, privilege, sandbox, offline, and update guarantees in [`docs/tilecast-edge.md`](docs/tilecast-edge.md) and [`apps/edge/AGENTS.md`](apps/edge/AGENTS.md). Legacy Electron exists for migration and compatibility; do not introduce a second presentation implementation.
-- **Android** uses a Kotlin/Compose host and a Rust Player Core adapter; read [`docs/android-development.md`](docs/android-development.md). **Windows** uses the shared native architecture; read [`docs/tilecast-windows.md`](docs/tilecast-windows.md). **iOS/iPadOS** hosts Studio rather than duplicating its application features; read [`docs/ios-app.md`](docs/ios-app.md).
+- **Android** uses a Kotlin/Compose host and a Rust Player Core adapter; read [`docs/android-development.md`](docs/android-development.md). **Windows** uses the shared native architecture; read [`docs/tilecast-windows.md`](docs/tilecast-windows.md). **macOS** is in development on the same architecture; read [`docs/tilecast-macos.md`](docs/tilecast-macos.md). Windows and macOS share their Core composition in `crates/webview-host`, which calls no OS API; each platform supplies the narrow seams in `webview_host::host`. **iOS/iPadOS** hosts Studio rather than duplicating its application features; read [`docs/ios-app.md`](docs/ios-app.md).
 
 Do not depend on Edge crates or Edge wire framing from shared Player crates. Keep independent platform behavior consistent through natural-owner contracts and conformance fixtures, not copied implementations. Preserve shipped SQLite migration bytes and all Edge security, offline, crash, update, and renderer-isolation guarantees. Host adapters provide time and random IDs; pure shared values do not perform I/O. Run `python3 scripts/ci/check-player-architecture.py` when changing the shared architecture.
 
@@ -95,7 +97,8 @@ workflow, a version rule, or a release script.
   upload Actions artifacts and never create a GitHub release. The legacy Electron
   Linux Player keeps `linux-player-release.yml` for its own line.
 - The update version code is one rule, `(core code) * 100 + slot` from 0.26.0 on,
-  implemented in the Go server, Edge, the Windows Player and the release scripts.
+  implemented in the Go server, Edge, `crates/webview-host` (the Windows and
+  macOS Players) and the release scripts.
   `packages/player-contracts/fixtures/release-versions.json` is the one corpus
   each implementation runs. Change the rule everywhere and in the corpus in one
   change. A Beta and its Stable must have different codes.
@@ -339,6 +342,10 @@ The source `apps/server/internal/web/static/index.html` is a development fallbac
 This repository may have user-owned uncommitted work. Inspect `git status` before editing. Preserve unrelated changes. Do not use `git reset --hard`, `git checkout --`, or other destructive cleanup commands. Use `apply_patch` for intentional source edits and formatters only for mechanical formatting.
 
 Use `rg` and `rg --files` for searches. Keep modules focused and comments limited to behavior that is not obvious from the code.
+
+## Issue metadata
+
+When creating or triaging GitHub issues, follow [`.github/ISSUE_TAXONOMY.md`](.github/ISSUE_TAXONOMY.md). Use native Bug, Feature, or Task types; use Priority and Effort issue fields for planning; use labels only for area/component or cross-cutting/automation metadata. Never add the retired `bug`, `enhancement`, or `local LLM` labels.
 
 ## Documentation requirements
 

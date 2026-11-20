@@ -477,6 +477,29 @@ func TestCountdownPresentationCompilesRecurrenceAndLayouts(t *testing.T) {
 	}
 }
 
+// A translucent Countdown keeps its opacity on Players that render the
+// compatibility presentation, as an eight-digit surface color.
+func TestCountdownPresentationCarriesBackgroundOpacity(t *testing.T) {
+	for _, test := range []struct {
+		configuration string
+		want          string
+	}{
+		{`{"target":"2026-12-01T09:00","backgroundColor":"#0E141B","backgroundOpacity":40}`, "#0e141b66"},
+		{`{"target":"2026-12-01T09:00","backgroundColor":"#0E141B","backgroundOpacity":0}`, "#0e141b00"},
+		{`{"target":"2026-12-01T09:00","backgroundColor":"#0E141B","backgroundOpacity":100}`, "#0E141B"},
+		{`{"target":"2026-12-01T09:00","backgroundColor":"#0E141B"}`, "#0E141B"},
+		{`{"target":"2026-12-01T09:00","backgroundColor":"","backgroundOpacity":40}`, ""},
+	} {
+		presentation, err := presentationTestService().compileWidgetPresentation("countdown", json.RawMessage(test.configuration))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := presentation.Native.Root.Props["backgroundColor"]; got != test.want {
+			t.Fatalf("%s: surface background = %v, want %q", test.configuration, got, test.want)
+		}
+	}
+}
+
 // The author's sizing has to survive compilation: without it on the surface a
 // Player has no way to honour a custom scale or the content margins.
 func TestNativeSurfaceCarriesAuthorSizing(t *testing.T) {

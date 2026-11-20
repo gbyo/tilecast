@@ -8,8 +8,22 @@
  * Colors come from the bounded WidgetTheme. They are derived here, in code,
  * rather than with color-mix(), so every engine computes identical values.
  */
-import { css } from "lit";
+import { css, unsafeCSS } from "lit";
 import { luminance, type WidgetTheme } from "@tilecast/widget-sdk";
+
+/**
+ * The bundled face. The Player Runtime registers Geist as "Tilecast UI";
+ * Studio and Storybook load the same face as "Geist Variable". A Widget
+ * that draws with a library font keeps this stack as its fallback.
+ */
+export const BUNDLED_FONT_STACK =
+  '"Tilecast UI", "Geist Variable", "Geist", ui-sans-serif, sans-serif';
+
+/** `#rrggbb` with an alpha channel, for a translucent paint of a theme color. */
+export function withAlpha(hex: string, alpha: number): string {
+  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255);
+  return `${hex.slice(0, 7)}${a.toString(16).padStart(2, "0")}`;
+}
 
 /** Mix two `#rrggbb` colors; `amount` 0 is `from`, 1 is `to`. */
 export function mixColors(from: string, to: string, amount: number): string {
@@ -70,12 +84,7 @@ export function themeProperties(theme: WidgetTheme): Record<string, string> {
  */
 export const displayTokens = css`
   :host {
-    /*
-     * The Player Runtime registers its bundled Geist as "Tilecast UI"; Studio
-     * and Storybook load the same face as "Geist Variable".
-     */
-    --tc-font-family:
-      "Tilecast UI", "Geist Variable", "Geist", ui-sans-serif, sans-serif;
+    --tc-font-family: ${unsafeCSS(BUNDLED_FONT_STACK)};
 
     /* One dominant value per Widget. */
     --tc-type-display: clamp(28px, 24cqmin, 560px);
@@ -130,7 +139,11 @@ export const hostStyles = css`
     height: 100%;
     overflow: hidden;
     container: tc-widget / size;
-    background: var(--tc-color-bg);
+    /*
+     * The paint may be translucent (--tc-color-bg-fill) while the theme
+     * background stays opaque, so derived colors and contrast are unchanged.
+     */
+    background: var(--tc-color-bg-fill, var(--tc-color-bg));
     color: var(--tc-color-fg);
     font-family: var(--tc-font-family);
     font-weight: var(--tc-weight-body);

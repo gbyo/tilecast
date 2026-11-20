@@ -155,7 +155,9 @@
         "control": "integer",
         "minimum": 25,
         "maximum": 500,
-        "ui": { "hidden": true }
+        "default": 100,
+        "description": "Font size as a percentage of automatic sizing (100% is the default).",
+        "ui": { "section": "appearance", "order": 3, "slider": true }
       },
       {
         "key": "contentPadding",
@@ -179,7 +181,8 @@
     "speed": "normal",
     "emptyText": "",
     "backgroundColor": "",
-    "foregroundColor": ""
+    "foregroundColor": "",
+    "textScale": 100
   },
   "presentationSchemaVersion": 1,
   "requiredCapabilities": {
@@ -223,7 +226,8 @@
         "default": { "$config": "emptyState", "default": "" }
       },
       "background": { "$config": "backgroundColor", "default": "" },
-      "foreground": { "$config": "foregroundColor", "default": "" }
+      "foreground": { "$config": "foregroundColor", "default": "" },
+      "textScale": { "$config": "textScale", "default": 100 }
     },
     "dataSourceFields": ["dataSourceId"],
     "empty": "skip-eligible"

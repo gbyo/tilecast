@@ -1,5 +1,6 @@
 name: "🎨 UI, UX, or accessibility issue"
 description: Report layout, interaction, responsiveness, accessibility, or visual-consistency problems
+type: Bug
 body:
   - type: markdown
     attributes:

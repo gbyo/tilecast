@@ -160,8 +160,7 @@ forward_page_message (TcHost *host, JsonObject *message)
     tc_protocol_send_ready (host);
     if (host->current_plugins_json != NULL)
       tc_view_deliver (host, "plugin.state", host->current_plugins_json);
-    if (host->current_activation_json != NULL)
-      tc_view_deliver (host, "presentation.activate", host->current_activation_json);
+    tc_protocol_deliver_activation (host);
     return;
   }
 
@@ -421,6 +420,11 @@ tc_view_create (TcHost *host, GError **error)
    * preserves it (RuntimeDirectoryPreserve=yes). */
   if (g_file_test (host->web_frames_dir, G_FILE_TEST_IS_DIR))
     webkit_web_context_add_path_to_sandbox (host->web_context, host->web_frames_dir, TRUE);
+  /* tcpresentsrc connects to the AirPlay relay sockets (present-relay.c). The
+   * web process has its own network namespace, so the relay is the only way
+   * the forwarded RTP reaches it. */
+  if (host->present_dir != NULL)
+    webkit_web_context_add_path_to_sandbox (host->web_context, host->present_dir, TRUE);
   host->network_session = webkit_network_session_new_ephemeral ();
   tc_schemes_register (host);
 

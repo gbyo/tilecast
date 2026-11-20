@@ -1,5 +1,6 @@
 name: "📺 Player or screen issue"
 description: Report pairing, playback, synchronization, update, or screen connectivity problems
+type: Bug
 body:
   - type: markdown
     attributes:

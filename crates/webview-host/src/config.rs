@@ -1,0 +1,140 @@
+//! Operator configuration (`tilecast-windows.toml`, `tilecast-macos.toml`;
+//! [`crate::host::HostIdentity::config_file_name`]). The player runs with
+//! defaults; the file only overrides them. Unknown fields are rejected so a
+//! typo can never silently mean something else.
+
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("cannot read {path}: {source}")]
+    Read { path: PathBuf, source: std::io::Error },
+    #[error("invalid {path}: {message}")]
+    Invalid { path: PathBuf, message: String },
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct PathsConfig {
+    /// Overrides the platform's per-user state directory.
+    pub state_dir: Option<PathBuf>,
+    /// Overrides the platform's scratch directory.
+    pub runtime_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct CasConfig {
+    /// Content-store byte limit (default 8 GiB).
+    pub limit_bytes: u64,
+    /// Free-space floor the store never eats into (default 1 GiB).
+    pub reserved_free_bytes: u64,
+}
+
+impl Default for CasConfig {
+    fn default() -> Self {
+        Self { limit_bytes: 8 << 30, reserved_free_bytes: 1 << 30 }
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct LogConfig {
+    /// `error`, `warn`, `info`, `debug` or `trace` (default `info`).
+    pub level: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct HostConfig {
+    #[serde(default)]
+    pub paths: PathsConfig,
+    #[serde(default)]
+    pub cas: CasConfig,
+    #[serde(default)]
+    pub log: LogConfig,
+    #[serde(default)]
+    pub pairing: PairingConfig,
+}
+
+/// Phone setup (docs/phone-setup.md): while the screen has no server, the
+/// setup surface shows a QR code a phone can use to send the server address.
+#[derive(Debug, Clone, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct PairingConfig {
+    /// `false` shows discovery and manual entry only.
+    pub phone_setup: bool,
+    /// The setup relay. Default: the public Tilecast relay.
+    pub setup_relay_url: Option<String>,
+}
+
+impl Default for PairingConfig {
+    fn default() -> Self {
+        Self { phone_setup: true, setup_relay_url: None }
+    }
+}
+
+impl HostConfig {
+    /// Loads `path`, or defaults when it is absent and not explicit.
+    pub fn load(path: &Path, explicit: bool) -> Result<Self, ConfigError> {
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !explicit => {
+                return Ok(Self::default());
+            }
+            Err(source) => return Err(ConfigError::Read { path: path.to_path_buf(), source }),
+        };
+        let config: Self = toml::from_str(&text)
+            .map_err(|error| ConfigError::Invalid { path: path.to_path_buf(), message: error.to_string() })?;
+        config.validate().map_err(|message| ConfigError::Invalid { path: path.to_path_buf(), message })?;
+        Ok(config)
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        for (name, path) in
+            [("paths.state_dir", self.paths.state_dir.as_ref()), ("paths.runtime_dir", self.paths.runtime_dir.as_ref())]
+        {
+            if let Some(path) = path.filter(|path| !path.is_absolute()) {
+                return Err(format!("{name} must be absolute, got {}", path.display()));
+            }
+        }
+        if self.cas.reserved_free_bytes >= self.cas.limit_bytes {
+            return Err("cas.reserved_free_bytes must be below cas.limit_bytes".to_owned());
+        }
+        if let Some(url) = self.pairing.setup_relay_url.as_deref()
+            && player_core::SetupRelay::at(Some(url)).is_none()
+        {
+            return Err(format!("pairing.setup_relay_url is not an allowed address, got {url}"));
+        }
+        if let Some(level) = self.log.level.as_deref()
+            && !["error", "warn", "info", "debug", "trace"].contains(&level)
+        {
+            return Err(format!("log.level must be error, warn, info, debug or trace, got {level}"));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_validate_and_unknown_fields_are_rejected() {
+        HostConfig::default().validate().expect("defaults");
+        let parsed = toml::from_str::<HostConfig>("nope = 1\n[cas]\nlimit_bytes = 1024\nreserved_free_bytes = 2048\n")
+            .expect_err("unknown field");
+        assert!(parsed.to_string().contains("nope"), "{parsed}");
+        let parsed: HostConfig =
+            toml::from_str("[cas]\nlimit_bytes = 1024\nreserved_free_bytes = 2048\n").expect("parses");
+        assert!(parsed.validate().is_err());
+    }
+
+    #[test]
+    fn missing_implicit_config_means_defaults() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = HostConfig::load(&dir.path().join("absent.toml"), false).expect("defaults");
+        assert_eq!(config, HostConfig::default());
+        assert!(HostConfig::load(&dir.path().join("absent.toml"), true).is_err());
+    }
+}

@@ -20,6 +20,7 @@
 #include <json-glib/json-glib.h>
 #include <wpe/webkit.h>
 
+#include "present-relay.h"
 #include "preview-pixels.h"
 #include "rw-channel.h"
 
@@ -124,6 +125,11 @@ struct _TcHost {
   guint64 rw_next_clear;
   GHashTable *rw_surfaces; /* surface id -> pending or live surface */
   GHashTable *rw_clears;   /* request id -> clear_website_data command */
+
+  /* AirPlay (present-relay.c): a private 0700 directory under the unit's
+   * private /tmp for the relay sockets, the only path the web process gets. */
+  char *present_dir;
+  TcPresentRelay *present;
 };
 
 /* ipc.c */
@@ -136,6 +142,9 @@ gboolean tc_ipc_send_request (TcHost *host, const char *method, JsonNode *params
 void tc_protocol_handle_frame (TcHost *host, JsonObject *frame);
 void tc_protocol_send_ready (TcHost *host);
 void tc_protocol_send_health (TcHost *host, const char *state, const char *reason);
+/* Delivers the current activation once the Runtime is ready and no AirPlay
+ * relay request is waiting for its grant. */
+void tc_protocol_deliver_activation (TcHost *host);
 
 /* preview.c: copies the presented WPE buffer for the Watch Live encoder.
  * Main thread only. Returns tightly packed 32-bit pixels, or NULL when the

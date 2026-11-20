@@ -1,5 +1,5 @@
 /**
- * Organization library fonts for Layout text. The projection names each
+ * Organization library fonts for Layout text and Widgets. The projection names each
  * face with a host-authorized media URI; this module registers it once
  * through the CSS Font Loading API under a generated family name, so a
  * family name from the library never becomes CSS text. The runtime
@@ -28,6 +28,64 @@ const SOURCE_PATTERN = /^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/)[^\s"'()\\]+$/;
 
 export function libraryFamilyName(fontId: string): string {
   return `tcf-${fontId.toLowerCase()}`;
+}
+
+/** One face of a manifest library family (Layout or Widget component). */
+export interface ManifestLibraryFontFace {
+  assetId: string;
+  variantId: string;
+  style: string;
+  weightMin: number;
+  weightMax: number;
+  unicodeRange?: string;
+}
+
+/** The library family a manifest entry declares. */
+export interface ManifestLibraryFont {
+  id: string;
+  faces: readonly ManifestLibraryFontFace[];
+}
+
+/**
+ * The faces of one library family as media aliases the projector
+ * authorizes. Only faces whose file the manifest carries are listed, so a
+ * missing grant never rejects the content; the text then keeps its
+ * bundled fallback family.
+ */
+export function projectLibraryFont(
+  font: ManifestLibraryFont,
+  carried: (assetId: string, variantId: string) => boolean,
+): { family: string; faces: ProjectedFontFace[] } | null {
+  if (typeof font.id !== "string") return null;
+  const family = libraryFamilyName(font.id);
+  if (!LIBRARY_FAMILY_PATTERN.test(family) || !Array.isArray(font.faces)) {
+    return null;
+  }
+  const faces: ProjectedFontFace[] = [];
+  for (const face of font.faces) {
+    if (
+      !face ||
+      typeof face.assetId !== "string" ||
+      typeof face.variantId !== "string" ||
+      !carried(face.assetId, face.variantId)
+    ) {
+      continue;
+    }
+    const low = Math.round(face.weightMin);
+    const high = Math.round(face.weightMax);
+    if (!(low >= 1 && high <= 1000 && low <= high)) continue;
+    const projected: ProjectedFontFace = {
+      family,
+      src: `tcmedia://variant/${face.assetId}/${face.variantId}`,
+      weight: low === high ? String(low) : `${low} ${high}`,
+      style: face.style === "italic" ? "italic" : "normal",
+      ...(typeof face.unicodeRange === "string" && face.unicodeRange
+        ? { unicodeRange: face.unicodeRange }
+        : {}),
+    };
+    if (isProjectedFontFace(projected)) faces.push(projected);
+  }
+  return faces.length > 0 ? { family, faces } : null;
 }
 
 export function isProjectedFontFace(

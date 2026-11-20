@@ -238,6 +238,7 @@ interface WidgetResources {
   media(assetId: string, variantId: string): string | null; // host-authorized URI
   mediaForAsset(assetId: string): string | null; // only when one variant is declared
   attribution(dataSourceId: string): string | null;
+  font?(fontId: string): string | null; // `tcf-<fontId>`, bundled Widgets only
 }
 ```
 
@@ -245,7 +246,7 @@ The context has no size. The element measures its own box with CSS container que
 
 Time-sensitive Widgets use the `ClockController` from `@tilecast/widget-kit`. It schedules against `context.clock`, can wake once at a declared future boundary, then returns to its normal second or minute cadence. A Widget must not create its own timer or read wall-clock time.
 
-`WidgetResources` answers only for Data Sources and media variants that the component presentation declares (§6). Every other lookup returns `null`. The resources object has no network, file, storage or host access.
+`WidgetResources` answers only for Data Sources, media variants, and library fonts that the component presentation declares (§6). `font` is optional: the sandbox frame of a package Widget has no library fonts, so a Widget calls it as `resources.font?.(id) ?? null`. Every other lookup returns `null`. The resources object has no network, file, storage or host access.
 
 Before the SDK returns a prepared Data Document to a Widget, it freezes the document and its nested values. A Widget must create its own objects when it needs to transform data. This keeps one Widget from changing data that another reader shares. The SDK skips objects that it already froze, so repeated lookups do not traverse the same resource graph again.
 
@@ -300,6 +301,7 @@ A lap of empty Widgets pauses for 30 seconds before the next attempt. A shown Wi
 - `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
 - `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.
 - A `data_source_field` that declares the `asset` type may add exact media pairs from its selected, granted Data Source. The Server requires the selected Data Document field to have type `asset`, reads no more than the configured record limit, and resolves only active library images with a Player-compatible variant. The component grant contains at most 16 media pairs. Invalid, unavailable, private, and over-limit values receive no grant.
+- `fonts` is optional. It lists the organization library families the component's `font` fields chose, at most four, in the Layout `fonts` shape: `id`, `family`, and `faces`. Each face file is also in the manifest's `assets[]`. Only bundled components carry it. Manifests v16 to v21 accept the key additively, so a Player that predates it ignores it and the Widget keeps its bundled face. See `docs/fonts.md`.
 - `media(assetId, variantId)` requires an exact pair. `mediaForAsset(assetId)` returns a URI only when the component declares exactly one variant for that asset. It returns `null` for an ungranted or ambiguous asset.
 
 During manifest projection, the Server resolves every selected `media_asset` field in the Widget schema. The Server writes the selected variant beside the asset field. If the field key ends in `AssetId`, the Server replaces that suffix with `VariantId`; otherwise, the Server appends `VariantId`. A field named `logoAssetId` therefore receives `logoVariantId`, and a field named `brandMark` receives `brandMarkVariantId`. For fields inside a `repeating_group`, the Server writes the variant key into the matching item. The component media grant contains each resolved asset and variant pair. An empty optional field adds no variant key or grant. Clients cannot submit derived variant keys.

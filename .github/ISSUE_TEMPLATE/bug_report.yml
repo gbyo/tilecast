@@ -1,6 +1,6 @@
 name: "🐞 Bug report"
 description: Report reproducible Tilecast behavior that is not working as expected
-labels: ["bug"]
+type: Bug
 body:
   - type: markdown
     attributes:

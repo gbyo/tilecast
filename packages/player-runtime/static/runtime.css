@@ -270,6 +270,26 @@ body {
   color: #9a9a9a;
   max-width: 70%;
 }
+/* AirPlay on a host that relays the stream: the video fills the surface and
+   the ready page covers it until a sender connects. */
+#message .external-presentation__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+#message .external-presentation__video--waiting {
+  opacity: 0;
+}
+#message .external-presentation__ready {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
 #message .code {
   font-size: 120px;
   letter-spacing: 0.25em;

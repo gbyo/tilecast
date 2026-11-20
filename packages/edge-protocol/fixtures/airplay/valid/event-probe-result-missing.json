@@ -1,0 +1,8 @@
+{
+  "direction": "event",
+  "message": {
+    "type": "probe_result",
+    "avahiAvailable": true,
+    "limitation": "uxplay_missing"
+  }
+}

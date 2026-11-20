@@ -109,6 +109,18 @@ pub trait OfflineActivationHost: Send + Sync {
         time: ActivationTime,
     );
     async fn show_waiting(&self, now_ms: i64);
+    /// A device-local presentation, AirPlay Present on Edge, that outranks
+    /// the activation gates and every selection except a takeover
+    /// (docs/tilecast-edge-airplay.md §6). A pending manifest is not tried
+    /// while it shows. Hosts without one keep the default.
+    async fn external_presentation(&self) -> bool {
+        false
+    }
+    /// Shows the external presentation instead of the selection.
+    async fn show_external_presentation(&self, _time: ActivationTime) {}
+    /// The target is a takeover while an external presentation is active.
+    /// The host ends the external presentation; Core then shows the takeover.
+    async fn yield_external_presentation(&self) {}
     async fn activate(
         &self,
         candidate: &NativeManifest,
@@ -226,6 +238,21 @@ async fn tick<H: OfflineActivationHost>(
         NativeManifest::parse(stored.document.clone(), binding.screen_id, stored.digest)
     };
     let active_candidate = local.active.as_ref().and_then(|stored| parse(stored).ok());
+    if host.external_presentation().await {
+        // The target the selection would show: the pending manifest when it
+        // parses, else the committed one. Only a takeover outranks.
+        let target = local.pending.as_ref().and_then(|stored| parse(stored).ok()).or_else(|| active_candidate.clone());
+        let resolved = target.as_ref().and_then(|candidate| host.project(candidate, &configuration, time).ok());
+        if resolved.as_ref().is_some_and(|resolved| resolved.source == crate::Source::Takeover) {
+            host.yield_external_presentation().await;
+        } else {
+            state.suspend_trial(&binding).await;
+            host.show_external_presentation(time).await;
+            let next =
+                resolved.and_then(|resolved| resolved.next_transition_ms).map(|at| at.saturating_sub(time.offset_ms));
+            return earliest(earliest(hours_wake, next), retry_at);
+        }
+    }
     // A pending manifest whose trial failed is held back until this local
     // time; the committed presentation shows meanwhile.
     let mut held_until = None;
@@ -469,6 +496,9 @@ mod tests {
 
     struct Host {
         current: Mutex<Option<(Sha256Digest, Value)>>,
+        external: AtomicBool,
+        external_shown: AtomicUsize,
+        yielded: AtomicUsize,
         supported: AtomicBool,
         evidence: AtomicBool,
         activations: AtomicUsize,
@@ -481,6 +511,9 @@ mod tests {
         fn new() -> Self {
             Self {
                 current: Mutex::new(None),
+                external: AtomicBool::new(false),
+                external_shown: AtomicUsize::new(0),
+                yielded: AtomicUsize::new(0),
                 supported: AtomicBool::new(false),
                 evidence: AtomicBool::new(false),
                 activations: AtomicUsize::new(0),
@@ -512,10 +545,11 @@ mod tests {
             _: ActivationTime,
         ) -> Result<OfflineProjection<Value, Value>, &'static str> {
             let payload = candidate.document["playlist"].clone();
+            let source = if payload["label"] == "takeover" { Source::Takeover } else { Source::Direct };
             Ok(OfflineProjection {
                 projection: payload.clone(),
                 key: payload,
-                source: Source::Direct,
+                source,
                 requirements: vec![],
                 next_transition_ms: None,
             })
@@ -547,6 +581,17 @@ mod tests {
         ) {
         }
         async fn show_waiting(&self, _: i64) {}
+        async fn external_presentation(&self) -> bool {
+            self.external.load(Ordering::Relaxed)
+        }
+        async fn show_external_presentation(&self, _: ActivationTime) {
+            self.external_shown.fetch_add(1, Ordering::Relaxed);
+            *self.current.lock().unwrap() = None;
+        }
+        async fn yield_external_presentation(&self) {
+            self.yielded.fetch_add(1, Ordering::Relaxed);
+            self.external.store(false, Ordering::Relaxed);
+        }
         async fn activate(
             &self,
             candidate: &NativeManifest,
@@ -886,6 +931,47 @@ mod tests {
             assert_eq!(state.load().await.unwrap().active.unwrap().digest, digest);
             digest
         }
+    }
+
+    /// AirPlay Present outranks the committed selection and holds a pending
+    /// manifest's trial; only a takeover target outranks it, and the host is
+    /// then asked to end it before the takeover shows.
+    #[tokio::test]
+    async fn an_external_presentation_outranks_everything_but_a_takeover() {
+        let rig = rig().await;
+        let host = Host::new();
+        host.supported.store(true, Ordering::Relaxed);
+        let mut state = rig.coordinator();
+        let committed = rig.committed(&host, &mut state, 1).await;
+        host.external.store(true, Ordering::Relaxed);
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.external_shown.load(Ordering::Relaxed), 1);
+        assert_eq!(host.showing(), None, "the external presentation replaces the committed selection");
+
+        // A new manifest syncs but is not tried while the session shows.
+        let activations = host.activations.load(Ordering::Relaxed);
+        let replacement =
+            stage_pending(&rig.db, &rig.binding, manifest_document(&rig.binding, 2, "replacement"), rig.clock.now())
+                .await;
+        for boundary in [false, true] {
+            tick(&mut state, &host, boundary).await;
+        }
+        assert_eq!(host.activations.load(Ordering::Relaxed), activations);
+        assert!(state.load().await.unwrap().trial.is_none(), "no trial runs under the session");
+
+        // The session ends: the pending manifest is tried, not a stale snapshot.
+        host.external.store(false, Ordering::Relaxed);
+        tick(&mut state, &host, false).await;
+        assert_eq!(host.showing(), Some(replacement));
+        assert_ne!(host.showing(), Some(committed));
+
+        // A takeover target ends the session and shows.
+        host.external.store(true, Ordering::Relaxed);
+        let takeover =
+            stage_pending(&rig.db, &rig.binding, manifest_document(&rig.binding, 3, "takeover"), rig.clock.now()).await;
+        tick(&mut state, &host, false).await;
+        assert_eq!(host.yielded.load(Ordering::Relaxed), 1);
+        assert_eq!(host.showing(), Some(takeover));
     }
 
     /// The old Core rejected a failed trial only in memory: the replacement

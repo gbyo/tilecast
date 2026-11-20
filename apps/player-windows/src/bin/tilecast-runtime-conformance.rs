@@ -189,7 +189,7 @@ fn write_result(out_dir: &Path, result: &serde_json::Value) -> Result<(), String
 fn failure_result(fixture_name: &str, failure: &str) -> serde_json::Value {
     serde_json::json!({
         "fixture": fixture_name,
-        "engine": { "userAgent": tilecast_windows::ui::engine_version() },
+        "engine": { "userAgent": tilecast_windows::renderer::engine_version() },
         "checkpoints": [],
         "failure": failure,
     })
@@ -334,7 +334,7 @@ async fn run_fixture(options: &Options) -> Result<i32, (i32, String)> {
         }),
         main_window: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     };
-    let (ui, mut events) = tilecast_windows::ui::spawn_ui(services)
+    let (ui, mut events) = tilecast_windows::renderer::spawn_ui(services)
         .await
         .map_err(|error| (EXIT_SOFTWARE, format!("renderer: {error}")))?;
     let outcome = drive_fixture(&ui, &mut events, options, &fixture_name).await;

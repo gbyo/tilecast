@@ -185,7 +185,7 @@ private fun PageView(
                 )
                 if (page.userAgent.isNotBlank()) settings.userAgentString = page.userAgent
                 RemoteWebColor.parse(page.backgroundColor)?.let(::setBackgroundColor)
-                setInitialScale(RemoteWebZoom.initialScale(page.zoomPercent, resources.displayMetrics.density))
+                setInitialScale(RemoteWebZoom.initialScale(page.zoomPercent))
                 setPageAudioMuted(this, surface.muted || !surface.visible)
                 webChromeClient = object : WebChromeClient() {
                     override fun onPermissionRequest(request: PermissionRequest) = request.deny()

@@ -4,6 +4,7 @@
 
 #include <execinfo.h>
 #include <glib-unix.h>
+#include <glib/gstdio.h>
 #include <signal.h>
 #include <unistd.h>
 #include <wpe/drm/wpe-drm.h>
@@ -30,12 +31,31 @@ on_exit_timer (gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
+static void
+on_present_relay_stopped (gpointer user_data)
+{
+  TcHost *host = user_data;
+  /* The last presented buffer can hold mirrored pixels (threat review §8). */
+  tc_preview_clear_presented_buffer (host);
+  /* A relay that ran and stopped for a fault is reported now, not at the
+   * next health tick. */
+  if (tc_present_relay_failed (host->present))
+    tc_protocol_send_health (host, "degraded", "external_presentation_unavailable");
+}
+
 static gboolean
 on_health (gpointer user_data)
 {
   TcHost *host = user_data;
   gboolean responsive = webkit_web_view_get_is_web_process_responsive (host->view);
-  tc_protocol_send_health (host, responsive ? "healthy" : "failing", responsive ? NULL : "web_process_unresponsive");
+  if (!responsive)
+    tc_protocol_send_health (host, "failing", "web_process_unresponsive");
+  else if (tc_present_relay_failed (host->present))
+    /* Not "healthy" while the AirPlay relay is down, or tilecastd would read
+     * this tick as a recovery. */
+    tc_protocol_send_health (host, "degraded", "external_presentation_unavailable");
+  else
+    tc_protocol_send_health (host, "healthy", NULL);
   return G_SOURCE_CONTINUE;
 }
 
@@ -192,11 +212,22 @@ main (int argc, char **argv)
    *   - tcmediasrc (gst-tcmedia.c) serves opaque tcmedia URLs through the
    *     daemon's bounded media socket;
    *   - tcwebsrc (gst-tcmedia.c) receives a remote web surface's frames
-   *     from the helper's frame socket named by an opaque capability. */
-  g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia,tcweb", TRUE);
+   *     from the helper's frame socket named by an opaque capability;
+   *   - tcpresentsrc (gst-tcmedia.c) receives an AirPlay session's streams
+   *     from this process's relay (present-relay.c), named by an opaque ID. */
+  g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia,tcweb,tcpresent", TRUE);
   g_setenv ("TILECAST_MEDIA_SOCKET", host.media_socket, TRUE);
   /* tcwebsrc (gst-tcmedia.c) resolves tcweb://cap/<capability> here. */
   g_setenv ("TILECAST_WEB_FRAMES_DIR", host.web_frames_dir, TRUE);
+  host.present_dir = g_dir_make_tmp ("tilecast-present-XXXXXX", &error);
+  if (host.present_dir == NULL) {
+    g_warning ("cannot create the AirPlay relay directory: %s", error->message);
+    g_clear_error (&error);
+  } else {
+    g_setenv ("TILECAST_PRESENT_DIR", host.present_dir, TRUE);
+  }
+  host.present = tc_present_relay_new (host.present_dir, host.media_socket);
+  tc_present_relay_on_stopped (host.present, on_present_relay_stopped, &host);
   const char *existing = g_getenv ("GST_PLUGIN_PATH");
   g_autofree char *plugin_path =
     existing && *existing ? g_strjoin (":", host.gst_plugin_dir, existing, NULL) : g_strdup (host.gst_plugin_dir);
@@ -236,6 +267,10 @@ main (int argc, char **argv)
   g_main_loop_run (host.loop);
   tc_live_encoder_stop_all (&host);
   tc_remote_web_stop (&host);
+  g_clear_pointer (&host.present, tc_present_relay_free);
+  if (host.present_dir != NULL)
+    g_rmdir (host.present_dir);
+  g_free (host.present_dir);
   g_clear_pointer (&host.runtime_support, json_node_unref);
 
   tc_preview_detach_view (&host);

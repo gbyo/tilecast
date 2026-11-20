@@ -2098,7 +2098,8 @@ export type ContentDefinitionField = {
     | "data_source_field"
     | "media_asset"
     | "repeating_group"
-    | "string_list";
+    | "string_list"
+    | "font";
   required?: boolean;
   default?: unknown;
   minimum?: number;

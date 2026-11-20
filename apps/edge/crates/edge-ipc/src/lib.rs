@@ -10,9 +10,13 @@
 //! [`client::IpcClient`] is the matching Rust client used by `tilecastctl`
 //! and by tests that stand in for a renderer. The C renderer implements the
 //! same protocol independently against the shared fixtures.
+//!
+//! [`lines`] reads bounded newline-delimited messages, for the line
+//! protocols of the Edge helpers.
 
 pub mod client;
 pub mod io;
+pub mod lines;
 pub mod server;
 
 pub use server::{IpcHandler, IpcServer, PeerPolicy, SessionHandle};

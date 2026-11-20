@@ -22,7 +22,7 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::{Semaphore, watch};
 use tokio_util::sync::CancellationToken;
 
-use crate::media::{MediaGrant, MediaRegistry, ReadMode, RendererInstance};
+use crate::media::{MediaGrant, MediaRegistry, PresentGrant, ReadMode, RendererInstance};
 
 const MAX_FRAME: usize = 512;
 const MAX_READ: u32 = 1024 * 1024;
@@ -66,6 +66,9 @@ enum Request {
         #[serde(default)]
         expect: ReadExpect,
     },
+    /// The `tcpresent` source asks for the ports behind a present grant.
+    /// The answer names only the fixed loopback ports.
+    Present { capability: String },
 }
 
 /// Which grant usage a channel read expects. Absent means media: renderers
@@ -86,14 +89,26 @@ impl Request {
     fn capability(&self) -> &str {
         match self {
             Self::Head { capability, .. } | Self::Read { capability, .. } => capability,
+            Self::Present { capability } => capability,
         }
     }
 
     fn expect(&self) -> ReadExpect {
         match self {
             Self::Head { expect, .. } | Self::Read { expect, .. } => *expect,
+            Self::Present { .. } => ReadExpect::Media,
         }
     }
+}
+
+/// The reply to a granted `present` request: the fixed ports, and the audio
+/// port only when the session forwards audio.
+fn present_reply(grant: PresentGrant) -> serde_json::Value {
+    let mut reply = json!({"status": "ok", "videoPort": edge_protocol::airplay::VIDEO_RTP_PORT});
+    if grant.audio {
+        reply["audioPort"] = json!(edge_protocol::airplay::AUDIO_RTP_PORT);
+    }
+    reply
 }
 
 pub trait ProcessLineage: std::fmt::Debug + Send + Sync {
@@ -352,6 +367,24 @@ async fn serve(
         Ok(Ok(request)) => request,
         _ => return deny(&mut stream).await,
     };
+    if let Request::Present { capability } = &request {
+        let grant = registry.lock().ok().and_then(|registry| {
+            let renderer = registry.renderer()?;
+            (renderer.uid == credentials.uid() && lineage.belongs_to(renderer, pid))
+                .then(|| registry.resolve_present(renderer.session, capability))
+                .flatten()
+        });
+        let Some(grant) = grant else {
+            let retired = registry.lock().is_ok_and(|registry| registry.retired_token(capability));
+            tracing::warn!(
+                component = "media",
+                event = "grant_denied",
+                reason = if retired { "present_grant_revoked" } else { "present_grant_unknown" },
+            );
+            return deny(&mut stream).await;
+        };
+        return write_reply(&mut stream, present_reply(grant)).await;
+    }
     let expect = request.expect();
     let grant = {
         let Ok(registry) = registry.lock() else { return deny(&mut stream).await };
@@ -419,6 +452,7 @@ async fn serve(
             )
             .await
         }
+        Request::Present { .. } => deny(&mut stream).await,
         Request::Read { offset, length, .. } => {
             if length == 0
                 || length > MAX_READ
@@ -521,6 +555,29 @@ mod fixture_tests {
             r#"{"op":"head","capability":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","expect":"video"}"#
         )
         .is_err());
+        let present: Request = serde_json::from_str(include_str!(
+            "../../../../packages/edge-protocol/fixtures/media/present-request.json"
+        ))
+        .unwrap();
+        assert!(matches!(&present, Request::Present { capability } if capability == CAP));
+        assert!(
+            serde_json::from_str::<Request>(&format!(r#"{{"op":"present","capability":"{CAP}","port":42000}}"#))
+                .is_err()
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(include_str!(
+                "../../../../packages/edge-protocol/fixtures/media/present-response.json"
+            ))
+            .unwrap(),
+            present_reply(PresentGrant { audio: true })
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(include_str!(
+                "../../../../packages/edge-protocol/fixtures/media/present-video-response.json"
+            ))
+            .unwrap(),
+            present_reply(PresentGrant { audio: false })
+        );
         for (fixture, expected) in [
             (
                 include_str!("../../../../packages/edge-protocol/fixtures/media/head-response.json"),

@@ -226,7 +226,8 @@ func (s *server) handleSocketStatus(r *http.Request, ctx context.Context, princi
 }
 
 // rejectLog rate-limits Watch Live rejection warnings on one socket: a
-// misbehaving encoder at 15 FPS must not flood the server log.
+// misbehaving encoder sending up to 30 messages a second must not flood the
+// server log.
 type rejectLog struct {
 	last       time.Time
 	suppressed int

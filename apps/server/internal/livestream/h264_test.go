@@ -194,9 +194,12 @@ func TestParseChunkRejectsMalformedHeaders(t *testing.T) {
 	}
 }
 
+// allProfiles is a viewer or Player that supports everything, best first.
+var allProfiles = []string{ProfileH264720p30, ProfileH264720p15, ProfileH264540p15, ProfileH264540p10, ProfileMJPEG540p10, ProfileMJPEG360p8}
+
 func h264Session(t *testing.T, service *Service, screenID uuid.UUID, profiles ...string) Session {
 	t.Helper()
-	viewer := []string{ProfileH264720p15, ProfileH264540p15, ProfileH264540p10, ProfileMJPEG540p10, ProfileMJPEG360p8}
+	viewer := allProfiles
 	service.Start(screenID, viewer)
 	selected := service.SelectProfile(screenID, profiles, nil)
 	if selected.Transport != TransportH264 {
@@ -374,9 +377,10 @@ func TestGOPJoinBufferIsBounded(t *testing.T) {
 func TestProfileMismatchAndDowngradeNeverUpgrade(t *testing.T) {
 	service := NewService(nil)
 	screenID := uuid.New()
-	all := []string{ProfileH264720p15, ProfileH264540p15, ProfileH264540p10, ProfileMJPEG540p10, ProfileMJPEG360p8}
+	all := allProfiles
 	session := h264Session(t, service, screenID, all...)
-	if session.Profile != ProfileH264720p15 || session.ProfileGeneration != 0 || session.MaxFrameBytes != MaxAccessUnitBytes {
+	if session.Profile != ProfileH264720p30 || session.ProfileGeneration != 0 || session.MaxFrameBytes != MaxAccessUnitBytes ||
+		session.FrameIntervalMillis != 33 || session.TargetBitrate != 2_500_000 || session.MaxWidth != 1280 {
 		t.Fatalf("unexpected first selection: %+v", session)
 	}
 	jpeg := Frame{CapturedAt: time.Now(), Width: 640, Height: 360, JPEG: []byte{0xff, 0xd8, 1, 0xff, 0xd9}}
@@ -384,7 +388,10 @@ func TestProfileMismatchAndDowngradeNeverUpgrade(t *testing.T) {
 		t.Fatalf("JPEG accepted for an H.264 session: %v", err)
 	}
 	if err := publish(t, service, screenID, packet(session.ID, 2, 1, true)); !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("540p chunk accepted for a 720p session: %v", err)
+		t.Fatalf("540p chunk accepted for a 720p30 session: %v", err)
+	}
+	if err := publish(t, service, screenID, EncodeChunk(session.ID, 1, 1, 0, 1280, 720, true, testKey)); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("a 720p15 chunk (code 1) accepted for a 720p30 session: %v", err)
 	}
 	if _, _, err := service.Subscribe(screenID, session.ID); !errors.Is(err, ErrWrongTransport) {
 		t.Fatalf("MJPEG relay opened for an H.264 session: %v", err)
@@ -394,30 +401,38 @@ func TestProfileMismatchAndDowngradeNeverUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-	if again := service.SelectProfile(screenID, all, nil); again.Profile != ProfileH264720p15 || again.ProfileGeneration != 0 {
+	if again := service.SelectProfile(screenID, all, nil); again.Profile != ProfileH264720p30 || again.ProfileGeneration != 0 {
 		t.Fatalf("an unchanged poll changed the session: %+v", again)
 	}
 
-	// The Player degrades: it stops listing 720p for this session.
-	degraded := service.SelectProfile(screenID, all[1:], nil)
-	if degraded.Profile != ProfileH264540p15 || degraded.ProfileGeneration != 1 || degraded.MaxWidth != 960 {
-		t.Fatalf("downgrade did not select 540p15: %+v", degraded)
+	// The Player degrades: it stops listing 720p30 for this session. The
+	// relay request of the old profile ends and 720p15 (code 1) takes over.
+	toSlower := service.SelectProfile(screenID, all[1:], nil)
+	if toSlower.Profile != ProfileH264720p15 || toSlower.ProfileGeneration != 1 || toSlower.FrameIntervalMillis != 67 || toSlower.TargetBitrate != 1_500_000 {
+		t.Fatalf("downgrade did not select 720p15: %+v", toSlower)
 	}
 	select {
 	case <-viewer.Changed:
 	default:
 		t.Fatal("a profile change did not end the relay request")
 	}
-	if err := publish(t, service, screenID, EncodeChunk(session.ID, 1, 2, 0, 1280, 720, true, testKey)); !errors.Is(err, ErrInvalidFrame) {
+	if err := publish(t, service, screenID, EncodeChunk(session.ID, 4, 2, 0, 1280, 720, true, testKey)); !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("a chunk for the old profile was accepted after the change: %v", err)
 	}
-	// Listing 720p again never upgrades the same session.
-	if again := service.SelectProfile(screenID, all, nil); again.Profile != ProfileH264540p15 || again.ProfileGeneration != 1 {
+	if err := publish(t, service, screenID, EncodeChunk(session.ID, 1, 3, 0, 1280, 720, true, testKey)); err != nil {
+		t.Fatalf("a chunk for the new profile was refused: %v", err)
+	}
+	// Listing 720p30 again never upgrades the same session.
+	if again := service.SelectProfile(screenID, all, nil); again.Profile != ProfileH264720p15 || again.ProfileGeneration != 1 {
 		t.Fatalf("session upgraded: %+v", again)
 	}
+	degraded := service.SelectProfile(screenID, all[2:], nil)
+	if degraded.Profile != ProfileH264540p15 || degraded.ProfileGeneration != 2 || degraded.MaxWidth != 960 {
+		t.Fatalf("downgrade did not select 540p15: %+v", degraded)
+	}
 	// Degrading out of H.264 lands on MJPEG.
-	mjpeg := service.SelectProfile(screenID, all[3:], nil)
-	if mjpeg.Profile != ProfileMJPEG540p10 || mjpeg.Transport != TransportMJPEG || mjpeg.Codec != "" || mjpeg.ProfileGeneration != 2 || mjpeg.MaxFrameBytes != MaxFrameBytes {
+	mjpeg := service.SelectProfile(screenID, all[4:], nil)
+	if mjpeg.Profile != ProfileMJPEG540p10 || mjpeg.Transport != TransportMJPEG || mjpeg.Codec != "" || mjpeg.ProfileGeneration != 3 || mjpeg.MaxFrameBytes != MaxFrameBytes {
 		t.Fatalf("downgrade to MJPEG: %+v", mjpeg)
 	}
 	if err := service.Publish(screenID, session.ID, jpeg); err != nil {
@@ -425,7 +440,7 @@ func TestProfileMismatchAndDowngradeNeverUpgrade(t *testing.T) {
 	}
 	// A new session probes the best profile again.
 	fresh := h264Session(t, service, screenID, all...)
-	if fresh.Profile != ProfileH264720p15 || fresh.ProfileGeneration != 0 {
+	if fresh.Profile != ProfileH264720p30 || fresh.ProfileGeneration != 0 {
 		t.Fatalf("new session inherited the downgrade: %+v", fresh)
 	}
 }
@@ -467,15 +482,19 @@ func TestH264EndsWithTheSession(t *testing.T) {
 func TestDegradationHintAppliesOnlyToItsSession(t *testing.T) {
 	service := NewService(nil)
 	screenID := uuid.New()
-	all := []string{ProfileH264720p15, ProfileH264540p15, ProfileH264540p10, ProfileMJPEG540p10, ProfileMJPEG360p8}
+	all := allProfiles
 	session := h264Session(t, service, screenID, all...)
-	stale := &Degradation{SessionID: uuid.New(), Profile: ProfileH264720p15}
-	if kept := service.SelectProfile(screenID, all, stale); kept.Profile != ProfileH264720p15 {
+	stale := &Degradation{SessionID: uuid.New(), Profile: ProfileH264720p30}
+	if kept := service.SelectProfile(screenID, all, stale); kept.Profile != ProfileH264720p30 {
 		t.Fatalf("a hint for another session lowered this one: %+v", kept)
 	}
-	hint := &Degradation{SessionID: session.ID, Profile: ProfileH264720p15}
-	if lowered := service.SelectProfile(screenID, all, hint); lowered.Profile != ProfileH264540p15 || lowered.ProfileGeneration != 1 {
+	hint := &Degradation{SessionID: session.ID, Profile: ProfileH264720p30}
+	if lowered := service.SelectProfile(screenID, all, hint); lowered.Profile != ProfileH264720p15 || lowered.ProfileGeneration != 1 {
 		t.Fatalf("hint ignored: %+v", lowered)
+	}
+	hint.Profile = ProfileH264720p15
+	if lowered := service.SelectProfile(screenID, all, hint); lowered.Profile != ProfileH264540p15 || lowered.ProfileGeneration != 2 {
+		t.Fatalf("720p15 hint did not select 540p15: %+v", lowered)
 	}
 	hint.Profile = ProfileH264540p10
 	if lowered := service.SelectProfile(screenID, all, hint); lowered.Profile != ProfileMJPEG540p10 || lowered.Transport != TransportMJPEG {
@@ -488,7 +507,112 @@ func TestDegradationHintAppliesOnlyToItsSession(t *testing.T) {
 	// A replacement session probes the best profile again even if the
 	// Player's first poll still carries the old session's hint.
 	fresh := service.Start(screenID, all)
-	if probed := service.SelectProfile(screenID, all, &Degradation{SessionID: session.ID, Profile: ProfileH264720p15}); probed.ID != fresh.ID || probed.Profile != ProfileH264720p15 {
+	if probed := service.SelectProfile(screenID, all, &Degradation{SessionID: session.ID, Profile: ProfileH264720p30}); probed.ID != fresh.ID || probed.Profile != ProfileH264720p30 {
 		t.Fatalf("a stale hint lowered a new lease: %+v", probed)
+	}
+}
+
+func TestProfileCodesAreIdentitiesNotRanks(t *testing.T) {
+	want := map[string]byte{ProfileH264720p15: 1, ProfileH264540p15: 2, ProfileH264540p10: 3, ProfileH264720p30: 4}
+	for id, code := range want {
+		profile, _, ok := profileByID(id)
+		if !ok || profile.Code != code {
+			t.Fatalf("%s: code %d, want %d (shipped codes never move)", id, profile.Code, code)
+		}
+		byCode, ok := profileByCode(code)
+		if !ok || byCode.ID != id {
+			t.Fatalf("code %d resolves to %q, want %q", code, byCode.ID, id)
+		}
+	}
+	if Profiles[0].ID != ProfileH264720p30 || Profiles[0].Code != 4 {
+		t.Fatalf("720p30 is the best profile and keeps code 4: %+v", Profiles[0])
+	}
+	// Level 3.1 allows 27,648,000 luma samples per second, exactly 1280x720x30.
+	best := Profiles[0]
+	if best.MaxWidth*best.MaxHeight*best.FPS != 27_648_000 {
+		t.Fatalf("720p30 exceeds H.264 level 3.1: %+v", best)
+	}
+	for _, profile := range Profiles {
+		if profile.FrameInterval <= 0 || profile.FrameInterval > time.Second {
+			t.Fatalf("%s: frame interval %v", profile.ID, profile.FrameInterval)
+		}
+	}
+	for _, code := range []byte{0, 5, 255} {
+		if _, ok := profileByCode(code); ok {
+			t.Fatalf("code %d resolved", code)
+		}
+	}
+}
+
+func TestPacketsFor720p30UseCodeFour(t *testing.T) {
+	sessionID := uuid.New()
+	key := EncodeChunk(sessionID, 4, 1, 0, 1280, 720, true, testKey)
+	chunk, err := ParseChunk(key)
+	if err != nil || chunk.ProfileCode != 4 {
+		t.Fatalf("720p30 keyframe refused: %+v, %v", chunk, err)
+	}
+	if _, err := ParseChunk(EncodeChunk(sessionID, 4, 1, 0, 1920, 1080, true, testKey)); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("1080p accepted for 720p30: %v", err)
+	}
+	service := NewService(nil)
+	screenID := uuid.New()
+	session := h264Session(t, service, screenID, ProfileH264720p15, ProfileH264540p15)
+	if session.Profile != ProfileH264720p15 {
+		t.Fatalf("a Player without 720p30 must get 720p15: %+v", session)
+	}
+	if err := publish(t, service, screenID, EncodeChunk(session.ID, 4, 1, 0, 1280, 720, true, testKey)); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("a 720p30 packet reached a 720p15 session: %v", err)
+	}
+}
+
+// withProfiles temporarily replaces the server's profile table, to play an
+// older server release that does not know the newest profile.
+func withProfiles(t *testing.T, profiles []Profile) {
+	t.Helper()
+	saved := Profiles
+	Profiles = profiles
+	t.Cleanup(func() { Profiles = saved })
+}
+
+func TestOlderServerIgnoresTheUnknownProfileAndKeeps720p15(t *testing.T) {
+	// A server release before 720p30 knows only codes 1 to 3 plus MJPEG.
+	withProfiles(t, Profiles[1:])
+	service := NewService(nil)
+	screenID := uuid.New()
+	service.Start(screenID, allProfiles)
+	session := service.SelectProfile(screenID, allProfiles, nil)
+	if session.Profile != ProfileH264720p15 || session.ProfileGeneration != 0 {
+		t.Fatalf("an older server selected %+v", session)
+	}
+	if got := NormalizeProfiles(allProfiles); len(got) != len(allProfiles)-1 || got[0] != ProfileH264720p15 {
+		t.Fatalf("the unknown ID was not ignored: %v", got)
+	}
+	if _, ok := profileByCode(4); ok {
+		t.Fatal("an older server resolved code 4")
+	}
+}
+
+func TestOldStudioAndOldEdgeNeverGet720p30(t *testing.T) {
+	older := allProfiles[1:]
+	for name, test := range map[string]struct{ viewer, player []string }{
+		"old Studio, new Edge": {older, allProfiles},
+		"new Studio, old Edge": {allProfiles, older},
+		"both old":             {older, older},
+	} {
+		t.Run(name, func(t *testing.T) {
+			service := NewService(nil)
+			screenID := uuid.New()
+			service.Start(screenID, test.viewer)
+			if session := service.SelectProfile(screenID, test.player, nil); session.Profile != ProfileH264720p15 {
+				t.Fatalf("selected %q, want 720p15", session.Profile)
+			}
+		})
+	}
+}
+
+func TestUnknownProfileIDsAreIgnoredNextTo720p30(t *testing.T) {
+	got := NormalizeProfiles([]string{"h264-1080p30", ProfileH264720p30, "h265-720p30", ProfileMJPEG360p8})
+	if len(got) != 2 || got[0] != ProfileH264720p30 || got[1] != ProfileMJPEG360p8 {
+		t.Fatalf("normalized %v", got)
 	}
 }

@@ -222,12 +222,75 @@ describe("LayoutSurface playlist zones", () => {
     first.dispatchEvent(new Event("load"));
     await settle();
     clock.advance(100);
-    surface.element
-      .querySelectorAll("img")[1]!
-      .dispatchEvent(new Event("load"));
+    const next = surface.element.querySelectorAll("img")[1]!;
+    next.dispatchEvent(new Event("load"));
     await settle();
-    expect(animate).toHaveBeenCalledTimes(2);
+    expect(animate.mock.contexts).toEqual([next]);
     surface.dispose();
+  });
+});
+
+describe("LayoutSurface zone swaps", () => {
+  it("keeps the outgoing item up until the incoming video has a frame", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    const frames: VideoFrameRequestCallback[] = [];
+    Object.defineProperties(HTMLVideoElement.prototype, {
+      requestVideoFrameCallback: {
+        configurable: true,
+        value: (callback: VideoFrameRequestCallback) => frames.push(callback),
+      },
+      cancelVideoFrameCallback: { configurable: true, value: () => {} },
+    });
+    try {
+      const first = playlistZone().playlistItems![0]!;
+      const { surface, clock } = surfaceFor([
+        playlistZone({
+          loop: true,
+          playlistItems: [
+            first,
+            {
+              ...first,
+              id: "clip",
+              kind: "video",
+              src: "tcmedia://clip",
+              durationMs: null,
+              transition: "fade",
+            },
+          ],
+        }),
+      ]);
+      const zone = surface.element.firstElementChild as HTMLElement;
+      const image = zone.querySelector("img")!;
+      await surface.activate();
+      image.dispatchEvent(new Event("load"));
+      await settle();
+      expect(image.style.opacity).toBe("");
+      clock.advance(100);
+
+      const video = zone.querySelector("video")!;
+      video.dispatchEvent(new Event("canplay"));
+      await settle();
+      // It could play, but has presented nothing: showing it now would put an
+      // empty (black) element over the image.
+      expect(video.style.opacity).toBe("0");
+      expect(animate).not.toHaveBeenCalled();
+      expect(image.parentElement).toBe(zone);
+
+      frames.shift()!(0, {} as VideoFrameCallbackMetadata);
+      await settle();
+      expect(animate.mock.contexts).toEqual([video]);
+      // The fade has finished: the pin is gone and the image released.
+      expect(video.style.opacity).toBe("");
+      expect(image.parentElement).toBeNull();
+      surface.dispose();
+    } finally {
+      delete (HTMLVideoElement.prototype as Partial<HTMLVideoElement>)
+        .requestVideoFrameCallback;
+      delete (HTMLVideoElement.prototype as Partial<HTMLVideoElement>)
+        .cancelVideoFrameCallback;
+    }
   });
 });
 

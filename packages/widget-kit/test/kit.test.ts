@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { html } from "lit";
-import { defineWidget, ready, type WidgetContext } from "@tilecast/widget-sdk";
+import {
+  createWidgetResources,
+  defineWidget,
+  ready,
+  type WidgetContext,
+} from "@tilecast/widget-sdk";
 import {
   createManualClock,
   createTestContext,
@@ -75,6 +80,35 @@ type Ticking = HTMLElement & {
 
 afterEach(() => document.body.replaceChildren());
 
+type PaintConfig = { opacity: number; fontId: string };
+
+function paintDefinition() {
+  const tag = nextTag();
+  class Painted extends TilecastWidgetElement<
+    PaintConfig,
+    { font: string | null }
+  > {
+    protected override backgroundOpacity(config: PaintConfig) {
+      return config.opacity;
+    }
+    protected override libraryFont() {
+      return this.data?.font ?? null;
+    }
+    protected override renderContent() {
+      return html`<span>Painted</span>`;
+    }
+  }
+  return defineWidget<PaintConfig, { font: string | null }>({
+    type: `tilecast.${tag.slice("tc-widget-".length)}`,
+    version: 1,
+    tagName: tag,
+    parseConfig: (value) => ({ ok: true, config: value as PaintConfig }),
+    resolveData: (config, resources) =>
+      ready({ font: resources.font?.(config.fontId) ?? null }),
+    element: Painted,
+  });
+}
+
 describe("TilecastWidgetElement", () => {
   it("announces once per input change, not per clock tick", async () => {
     const clock = createManualClock(Date.parse("2026-09-28T14:25:36.500Z"));
@@ -123,6 +157,56 @@ describe("TilecastWidgetElement", () => {
     await element.updateComplete;
     expect(element.style.getPropertyValue("--tc-color-bg")).toBe("#0e141b");
     test.dispose();
+  });
+
+  it("paints a translucent background without changing the theme", async () => {
+    const definition = paintDefinition();
+    const test = mountForTest(definition, {
+      config: { opacity: 0.5, fontId: "" },
+    });
+    const element = test.element as Ticking;
+    await element.updateComplete;
+    expect(element.style.getPropertyValue("--tc-color-bg")).toBe("#0e141b");
+    expect(element.style.getPropertyValue("--tc-color-bg-fill")).toBe(
+      "#0e141b80",
+    );
+    test.mount.update({
+      component: {
+        type: definition.type,
+        version: 1,
+        config: { opacity: 1, fontId: "" },
+      },
+    });
+    await element.updateComplete;
+    expect(element.style.getPropertyValue("--tc-color-bg-fill")).toBe("");
+    test.dispose();
+  });
+
+  it("draws with a granted library font ahead of the bundled face", async () => {
+    const fontId = "5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f";
+    const family = `tcf-${fontId}`;
+    const definition = paintDefinition();
+    const test = mountForTest(definition, {
+      config: { opacity: 1, fontId },
+      resources: createWidgetResources(
+        { fonts: new Map([[fontId, family]]) },
+        { fonts: [fontId] },
+      ),
+    });
+    const element = test.element as Ticking;
+    await element.updateComplete;
+    expect(element.style.getPropertyValue("--tc-font-family")).toMatch(
+      new RegExp(`^"${family}", "Tilecast UI"`),
+    );
+    test.dispose();
+    const ungranted = mountForTest(definition, {
+      config: { opacity: 1, fontId },
+    });
+    await (ungranted.element as Ticking).updateComplete;
+    expect(
+      (ungranted.element as Ticking).style.getPropertyValue("--tc-font-family"),
+    ).toBe("");
+    ungranted.dispose();
   });
 });
 

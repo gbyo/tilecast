@@ -1,6 +1,6 @@
 name: "✨ Feature request"
 description: Propose a focused improvement to Tilecast
-labels: ["enhancement"]
+type: Feature
 body:
   - type: markdown
     attributes:

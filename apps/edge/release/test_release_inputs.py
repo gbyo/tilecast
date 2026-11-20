@@ -16,7 +16,7 @@ def load(name):
 
 sbom = load("sbom")
 inputs = load("inputs")
-BINARIES = ["tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"]
+BINARIES = ["tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"]
 
 
 def build_fixture():
@@ -31,7 +31,7 @@ def build_fixture():
     artifacts = [{"reason": "compiler-artifact", "package_id": p["id"],
                   "executable": f"/target/release/{p['name']}" if p["name"] in BINARIES else None,
                   "target": {"kind": ["bin" if p["name"] in BINARIES else "lib"]}, "fresh": True}
-                 for p in packages[:6]]
+                 for p in packages[:len(BINARIES) + 2]]
     artifacts.append({"reason": "build-finished", "success": True})
     return artifacts, {"packages": packages}, lock
 
@@ -40,12 +40,28 @@ class SbomTests(unittest.TestCase):
     def test_only_actual_build_packages_are_included_even_for_cached_builds(self):
         artifacts, metadata, lock = build_fixture()
         components = sbom.built_cargo_components(artifacts, metadata, lock)
-        self.assertEqual(len(components), 6)
+        self.assertEqual(len(components), len(BINARIES) + 2)
         self.assertEqual({p["name"] for p in components}, {*BINARIES, "shared-library"})
         versions = [p for p in components if p["name"] == "shared-library"]
         self.assertEqual([p["version"] for p in versions], ["1.0.0", "2.0.0"])
-        self.assertEqual([p["hashes"][0]["content"] for p in versions], ["4" * 64, "5" * 64])
+        self.assertEqual([p["hashes"][0]["content"] for p in versions],
+                         [str(len(BINARIES)) * 64, str(len(BINARIES) + 1) * 64])
         self.assertEqual(components, sbom.built_cargo_components(list(reversed(artifacts)), metadata, lock))
+
+    def test_uxplay_is_one_gpl_component_pinned_by_commit_and_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pin = Path(directory) / "pin"
+            pin.write_text("1.73.7\ndf67c212a433cf6dda3676dd40c097900d24e645\n" + "6" * 64 + "\n")
+            component = sbom.uxplay_component(pin)
+            self.assertEqual(component["name"], "uxplay")
+            self.assertEqual(component["version"], "1.73.7")
+            self.assertEqual(component["licenses"], [{"license": {"id": "GPL-3.0-or-later"}}])
+            self.assertEqual(component["hashes"], [{"alg": "SHA-256", "content": "6" * 64}])
+            self.assertIn("df67c212a433cf6dda3676dd40c097900d24e645", component["externalReferences"][0]["url"])
+            for bad in ["1.73\nabc\n" + "6" * 64, "1.73.7\n" + "g" * 40 + "\n" + "6" * 64, "1.73.7"]:
+                pin.write_text(bad)
+                with self.subTest(bad=bad), self.assertRaises(ValueError):
+                    sbom.uxplay_component(pin)
 
     def test_empty_failed_unknown_and_incomplete_builds_fail_closed(self):
         artifacts, metadata, lock = build_fixture()
@@ -208,3 +224,14 @@ class ReleaseVersionNumbering(unittest.TestCase):
         for name in ("0.26.0-rc.1", "1.2.3-hotfix", "21.0.0"):
             with self.assertRaises(SystemExit, msg=name):
                 self.stage.version_code(name)
+
+    def test_bootstrap_omits_the_prerequisite_and_followup_releases_require_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            config = Path(root, "updater-compatibility.txt")
+            config.write_text("bootstrap\n")
+            self.assertIsNone(self.stage.configured_updater_floor(config, "0.26.0-beta.1"))
+            config.write_text("0.26.0-beta.1\n")
+            self.assertIsNone(self.stage.configured_updater_floor(config, "0.2.2"))
+            self.assertEqual(self.stage.configured_updater_floor(config, "0.26.0-beta.2"), "0.26.0-beta.1")
+            with self.assertRaises(SystemExit):
+                self.stage.configured_updater_floor(config, "0.26.0-beta.1")

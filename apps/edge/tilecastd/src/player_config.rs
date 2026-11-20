@@ -28,6 +28,7 @@ const SECTIONS: &[&str] = &[
     "power",
     "managedKiosk",
     "linuxKiosk",
+    "features",
     "accessibility",
     "updates",
     "presentationNetwork",
@@ -168,6 +169,8 @@ impl Default for RuntimeConfiguration {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PlatformConfiguration {
     pub linux_kiosk: LinuxKiosk,
+    /// Opt-in for single-screen AirPlay while the Edge implementation is in beta.
+    pub airplay_beta_enabled: bool,
     /// Missing network settings leave the existing assignment in force.
     pub presentation_network: Option<Value>,
 }
@@ -271,6 +274,9 @@ impl PlayerConfig {
             prevent_display_sleep: flag("preventDisplaySleep"),
         };
 
+        let features = section(object, "features");
+        let airplay_beta_enabled =
+            features.and_then(|values| values.get("airplayBetaEnabled")).and_then(Value::as_bool).unwrap_or(false);
         let presentation_network = object.get("presentationNetwork").filter(|value| value.is_object()).cloned();
         let website_section = section(object, "website");
         let token = |key: &str, allowed: &[&str]| {
@@ -297,7 +303,7 @@ impl PlayerConfig {
         Ok(Self {
             native,
             runtime: RuntimeConfiguration { branding, playback, power, website },
-            platform: PlatformConfiguration { linux_kiosk, presentation_network },
+            platform: PlatformConfiguration { linux_kiosk, airplay_beta_enabled, presentation_network },
         })
     }
 
@@ -441,7 +447,8 @@ mod tests {
         let document = document(json!({
             "playback": {"futureRuntimeOption": {"transition": "new", "values": [1, 2, 3]}},
             "cache": {"maximumBytes": 4096},
-            "linuxKiosk": {"preventDisplaySleep": false}
+            "linuxKiosk": {"preventDisplaySleep": false},
+            "features": {"airplayBetaEnabled": true}
         }));
         let native = player_core::NativeConfiguration::parse(&document).unwrap();
         let projected = PlayerConfig::project(&document, native.clone()).unwrap();
@@ -452,6 +459,7 @@ mod tests {
         );
         assert_eq!(projected.native.cache.maximum_bytes, Some(4096));
         assert!(!projected.platform.linux_kiosk.prevent_display_sleep);
+        assert!(projected.platform.airplay_beta_enabled);
     }
 
     #[test]

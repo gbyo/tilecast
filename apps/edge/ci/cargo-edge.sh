@@ -3,7 +3,7 @@
 set -euo pipefail
 edge_root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 packages=(edge-protocol edge-state edge-cas edge-server edge-platform edge-ipc edge-release
-  tilecastd tilecastctl tilecast-edge-migrate tilecast-edge-update)
+  tilecastd tilecastctl tilecast-edge-migrate tilecast-edge-update tilecast-airplay)
 selection=()
 for package in "${packages[@]}"; do selection+=(-p "$package"); done
 cd "$edge_root/../.."

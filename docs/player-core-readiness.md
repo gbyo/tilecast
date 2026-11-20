@@ -1,6 +1,6 @@
 # Native Player Core readiness review
 
-**Status: stage 12 qualification ledger; evidence is scoped to its recorded commits and test environments.** The review does not authorize a general production Edge rollout or create a macOS app. Check the latest release and per-hardware evidence before interpreting any historical stage as current qualification.
+**Status: stage 12 qualification ledger; evidence is scoped to its recorded commits and test environments.** The review does not authorize a general production Edge rollout. The macOS host is in development in [`tilecast-macos.md`](tilecast-macos.md). Check the latest release and per-hardware evidence before interpreting any historical stage as current qualification.
 The governing contract is [`player-core.md`](player-core.md).
 
 ## Ownership audit
@@ -131,9 +131,14 @@ No stage is complete while its selected checks are pending or failing.
 Physical WPE, display hardware, and power-cycle qualification remain the
 existing M11 work recorded in [`tilecast-edge-next.md`](tilecast-edge-next.md).
 
-## Remaining macOS platform work
+## macOS platform work
 
-A macOS Player must supply these adapters and services:
+The macOS host (`apps/player-macos`) composes Core through the shared WebView
+host (`crates/webview-host`). It supplies the Keychain sealer, local state and
+CAS locations, secure opening, free space, device facts, and timezone. It
+pairs and reconciles with a Server. [`tilecast-macos.md`](tilecast-macos.md)
+records its status and evidence. A macOS Player must still supply the
+remaining adapters and services in this list:
 
 - WKWebView Runtime hosting, readiness support, evidence, capture, and commands.
 - A renderer adapter with secure verified-object delivery and generation retirement.

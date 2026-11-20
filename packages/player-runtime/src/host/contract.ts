@@ -98,6 +98,13 @@ export interface RuntimeCapabilitiesV1 {
    * the runtime does not know, means `"cast"`.
    */
   readonly outsideHoursLogo?: OutsideHoursLogoV1;
+  /**
+   * The host relays a connected AirPlay sender's stream to
+   * `tcpresent://cap/<sourceId>`, and the runtime shows it in the
+   * external-presentation view. Absent means unavailable: the external
+   * receiver then owns the screen while a sender is connected.
+   */
+  readonly externalPresentationVideo?: boolean;
 }
 
 /** Diagnostics only. Behavior must never branch on these values. */
@@ -321,6 +328,21 @@ export interface RuntimeWidgetSandboxExecutionV1 {
  * granted, and the regional formatting its context uses. Date-aware datasets
  * are selected for the Player instant and change when the local date changes.
  */
+/** One library family a bundled Widget component may draw with. */
+export interface RuntimeWidgetFont {
+  /** Lowercase library font ID. */
+  id: string;
+  /** Generated CSS family name, `tcf-<id>`. */
+  family: string;
+  faces: {
+    family: string;
+    src: string;
+    weight: string;
+    style: "normal" | "italic";
+    unicodeRange?: string;
+  }[];
+}
+
 export interface RuntimeWidgetComponentPayload {
   component: RuntimeWidgetComponentV1;
   /** Data Documents of `component.dataSources`, keyed by Data Source ID. */
@@ -329,6 +351,12 @@ export interface RuntimeWidgetComponentPayload {
   hidden?: boolean;
   /** URIs of `component.media`, keyed by `${assetId}/${variantId}`. */
   media: Record<string, string>;
+  /**
+   * Library fonts the component declares, each with its faces as
+   * authorized media URIs (`src`). The host registers the faces before it
+   * mounts the Widget; absent when the component chose none.
+   */
+  fonts?: RuntimeWidgetFont[];
   regional: {
     locale: string;
     timeZone: string;
@@ -515,6 +543,11 @@ export type RuntimePresentation =
       transport?: string;
       audioMode?: string;
       presentationNetwork?: "joining" | "connected" | "failed";
+      /**
+       * Opaque ID of the session's stream (64 lowercase hex). Used only with
+       * `capabilities.externalPresentationVideo`.
+       */
+      sourceId?: string;
     };
 
 /**

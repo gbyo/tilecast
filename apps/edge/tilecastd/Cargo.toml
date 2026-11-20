@@ -50,6 +50,7 @@ rusqlite.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full", "test-util"] }
 tokio-tungstenite.workspace = true
+tilecast-airplay = { path = "../tilecast-airplay" }
 tilecast-edge-update = { path = "../tilecast-edge-update" }
 
 [lints]

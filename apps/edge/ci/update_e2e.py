@@ -43,6 +43,7 @@ import base64
 import hashlib
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import sys
@@ -63,6 +64,7 @@ SOCKET = "/run/tilecast-edge-update/update.sock"
 GUARD_SERVICE = "/etc/systemd/system/tilecast-edge-update-guard.service"
 GUARD_TIMER = "/etc/systemd/system/tilecast-edge-update-guard.timer"
 EDGE_UNITS = ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service")
+INTRODUCED_UNITS = ("tilecast-airplay.service", "tilecast-airplay.socket", "tilecast-networkd.service")
 ARCH = os.uname().machine
 # The exact bytes of the 0.2.0 field workaround as it was deployed.
 FIELD = os.path.join(EDGE, "tilecast-edge-update", "tests", "field-workaround")
@@ -464,6 +466,7 @@ def stage_tree(version, bin_dir, out):
         "--web-renderer", os.path.join(m.WEB_BUILD, "tilecast-web-renderer-wpe"),
         "--session-bridge", os.path.join(m.BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(m.RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", m.RUNTIME,
+        "--uxplay-dir", m.stage_uxplay_inputs(),
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci", stdout=subprocess.DEVNULL)
     # A marker in the daemon's unit, so the test can tell whose system files
     # are installed. The manifest entry follows it.
@@ -473,6 +476,10 @@ def stage_tree(version, bin_dir, out):
     manifest_path = os.path.join(out, "tilecast-edge-release.json")
     with open(manifest_path) as handle:
         manifest = json.load(handle)
+    if version in ("0.2.0", "0.5.0"):
+        m.remove_optional_services_from_fixture(out, manifest)
+    if version in ("0.3.0", "0.4.0"):
+        manifest["minimumUpdaterVersion"] = "0.2.0"
     with open(os.path.join(out, unit), "rb") as handle:
         data = handle.read()
     for entry in manifest["files"]:
@@ -515,8 +522,9 @@ def update_releases():
         if not broken:
             # The daemon reports the version it was built as.
             m.run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p",
-                  "tilecast-edge-update", cwd=EDGE, env=dict(environment, TILECAST_EDGE_VERSION=version))
-        for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"):
+                  "tilecast-edge-update", "-p", "tilecast-airplay", cwd=EDGE,
+                  env=dict(environment, TILECAST_EDGE_VERSION=version))
+        for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"):
             shutil.copyfile(os.path.join(m.TARGET, "debug", name), os.path.join(bin_dir, name))
         if broken:
             # Test-only fixture: a daemon that exits at once, and a helper that
@@ -613,6 +621,10 @@ def update_success():
                                   f"WHERE screen_id='{screen}'") == f"edge/{ARCH}",
                  "the screen to report the edge family and its architecture", 120)
     wait_healthy("0.1.0", "before A")
+    _, preview = owner().call("POST", "/api/v1/update-deployments/preview", {
+        "releaseId": artifact_of("0.3.0")["releaseId"], "screenIds": [screen]}, expect=200)
+    target = preview["data"]["screens"][0]
+    assert target["outcome"] == "incompatible" and "confirm Tilecast Edge 0.2.0" in target["reason"], target
     release = artifact_of("0.2.0")
     partial = f"/var/lib/tilecast-edge/partial/{release['sha256']}.part"
     fanout = release["sha256"][:2]
@@ -744,6 +756,9 @@ def settle_field_workaround():
 
 def update_provisional():
     wait_healthy("0.2.0", "before B")
+    assert subprocess.run(["getent", "passwd", "tilecast-airplay"], capture_output=True).returncode == 2
+    for unit in INTRODUCED_UNITS:
+        assert not os.path.lexists(f"/etc/systemd/system/{unit}")
     release = artifact_of("0.3.0")
     deployment = deploy(owner(), release["releaseId"], "E2E update to 0.3.0, power loss")
     m.save("deployment-b.json", {"id": deployment})
@@ -752,6 +767,16 @@ def update_provisional():
     assert_state_files("B provisional")
     # Healthy: running, reconnected and playing, but not yet confirmed.
     wait_healthy("0.3.0", "B provisional", 180)
+    for unit in INTRODUCED_UNITS:
+        path = f"/etc/systemd/system/{unit}"
+        assert mode_of(path) == (0, 0, "0o644"), path
+    assert pwd.getpwnam("tilecast-airplay").pw_shell == "/usr/sbin/nologin"
+    assert show("tilecast-airplay.socket", "ActiveState", "SubState") == {"ActiveState": "active", "SubState": "listening"}
+    assert os.access(f"{INSTALL}/current/bin/tilecast-airplay", os.X_OK)
+    assert "UxPlay version 1.73.7" in output("runuser", "-u", "tilecast-airplay", "--", f"{INSTALL}/current/bin/uxplay", "-v")
+    e2e.wait_for(lambda: os.path.exists("/run/tilecast/networkd.sock"), "Networkd socket from the candidate", 30)
+    assert show("tilecast-networkd.service", "ActiveState", "UnitFileState") == {
+        "ActiveState": "active", "UnitFileState": "disabled"}
     e2e.wait_for(lambda: server_target(deployment)[0] == "reconnecting", "the server to see the candidate", 120)
     assert open_transaction()["phase"] == "provisional", "B must be cut before the stable period ends"
     print("update-provisional: 0.3.0 is healthy and provisional; the driver now cuts the power")
@@ -768,6 +793,10 @@ def update_after_reboot():
     assert_guard_disarmed("B after reboot")
     assert_state_files("B after reboot")
     wait_healthy("0.2.0", "B after reboot", 240)
+    for unit in INTRODUCED_UNITS:
+        assert not os.path.lexists(f"/etc/systemd/system/{unit}"), f"rollback left {unit} installed"
+        assert show(unit, "ActiveState")["ActiveState"] == "inactive"
+    assert not os.path.exists("/run/tilecast/networkd.sock")
 
     def this_boot(unit):
         return [e for e in journal("-u", unit) if int(e["__MONOTONIC_TIMESTAMP"]) > booted]

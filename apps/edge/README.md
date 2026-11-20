@@ -60,6 +60,7 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
 | `tilecast-edge-migrate` | The root installer and the one-way migration from the Electron player (M7).                                                                                             |
 | `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard (M10).                                                          |
+| `tilecast-airplay`      | The unprivileged AirPlay supervisor: one control connection from `tilecastd`, the release's `uxplay` with a fixed argument vector (`docs/tilecast-edge-airplay.md`).    |
 
 ### Dependency direction
 

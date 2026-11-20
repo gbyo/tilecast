@@ -722,3 +722,71 @@ fn migration_12_keeps_cas_rows_and_admits_widget_frames() {
         )
         .expect("v12 admits widget frames");
 }
+
+/// v13 to v14 adds the AirPlay session row without touching other tables;
+/// the row keeps one session, never shows its secrets in `Debug`, and a stop
+/// that began cannot be undone by a late update for the same session.
+#[test]
+fn external_presentation_row_lifecycle() {
+    use player_state::repo::external_presentation::{self, ExternalPresentation, SessionState};
+    let dir = tempfile::tempdir().expect("tempdir");
+    let connection = rusqlite::Connection::open(dir.path().join("state.db")).expect("open");
+    let through_13: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .filter(|m| m.version <= 13)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &through_13).expect("migrate to v13");
+    assert!(external_presentation::get(&connection).is_err(), "v13 has no session table");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 14);
+    assert_eq!(external_presentation::get(&connection).expect("get"), None);
+
+    let session = ExternalPresentation {
+        session_id: "3f2504e0-4f89-41d3-9a0c-0305e82c3301".into(),
+        receiver_name: "Lobby".into(),
+        pin: "0000".into(),
+        device_id: "02:00:00:00:00:01".into(),
+        profile: "1080p30".into(),
+        audio_mode: "gateway_only".into(),
+        presentation_network_id: None,
+        expires_at_ms: 2_000,
+        state: SessionState::Prepared,
+        stop_reason: None,
+    };
+    external_presentation::put(&connection, &session, 1_000).expect("put");
+    assert_eq!(external_presentation::get(&connection).expect("get").as_ref(), Some(&session));
+    let debug = format!("{session:?}");
+    assert!(!debug.contains("0000") && !debug.contains("02:00:00:00:00:01"), "{debug}");
+
+    assert!(!external_presentation::set_state(&connection, "other", SessionState::Started, None, 1_100).expect("set"));
+    assert!(
+        external_presentation::set_state(&connection, &session.session_id, SessionState::Started, None, 1_100)
+            .expect("set")
+    );
+    assert!(
+        external_presentation::set_state(
+            &connection,
+            &session.session_id,
+            SessionState::Stopping,
+            Some("expired"),
+            1_200
+        )
+        .expect("set")
+    );
+    assert!(
+        !external_presentation::set_state(&connection, &session.session_id, SessionState::Started, None, 1_300)
+            .expect("set"),
+        "a stop that began is never undone"
+    );
+    let stored = external_presentation::get(&connection).expect("get").expect("row");
+    assert_eq!((stored.state, stored.stop_reason.as_deref()), (SessionState::Stopping, Some("expired")));
+    assert!(external_presentation::delete(&connection, &session.session_id).expect("delete"));
+    assert!(!external_presentation::delete(&connection, &session.session_id).expect("delete"));
+    assert_eq!(external_presentation::get(&connection).expect("get"), None);
+    let mut bad = session.clone();
+    bad.pin = "00000".into();
+    assert!(external_presentation::put(&connection, &bad, 1_000).is_err(), "the schema checks the PIN length");
+}

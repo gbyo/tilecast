@@ -6,6 +6,7 @@ members = [
     "crates/player-cas",
     "crates/player-client",
     "crates/player-core",
+    "crates/webview-host",
     "apps/edge/crates/edge-protocol",
     "apps/edge/crates/edge-state",
     "apps/edge/crates/edge-ipc",
@@ -17,8 +18,10 @@ members = [
     "apps/edge/tilecastctl",
     "apps/edge/tilecast-edge-migrate",
     "apps/edge/tilecast-edge-update",
+    "apps/edge/tilecast-airplay",
     "apps/player-android/native",
     "apps/player-windows",
+    "apps/player-macos",
     "packages/package-guest-sdk",
     "packages/package-samples/hello-services/guest",
     "packages/plugin-native-registry",
@@ -35,6 +38,7 @@ default-members = [
     "apps/edge/tilecastctl",
     "apps/edge/tilecast-edge-migrate",
     "apps/edge/tilecast-edge-update",
+    "apps/edge/tilecast-airplay",
 ]
 
 [workspace.package]
@@ -50,6 +54,9 @@ player-state = { path = "crates/player-state" }
 player-cas = { path = "crates/player-cas" }
 player-client = { path = "crates/player-client" }
 player-core = { path = "crates/player-core" }
+# The WebView host shared by the Windows and macOS Players: composition over
+# the shared crates, never a dependency of them.
+webview-host = { path = "crates/webview-host" }
 # Internal crates. Dependency direction is documented in apps/edge/README.md;
 # a lower crate never depends on a higher one.
 edge-protocol = { path = "apps/edge/crates/edge-protocol" }
@@ -114,6 +121,13 @@ windows-core = "0.62"
 webview2-com = "0.39"
 # Minimal HWND/message-loop hosting, for the Windows Player UI thread only.
 windows-window = "0.100"
+# macOS Player only: sysctl reads, Foundation and CoreGraphics facts, and the
+# login Keychain item that holds the state sealing key.
+core-foundation = "0.10"
+libc = "0.2"
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["std"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std"] }
+security-framework = "3"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

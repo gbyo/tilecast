@@ -18,11 +18,11 @@ const browserHost = import.meta.glob<string>(
   { query: "?raw", import: "default", eager: true },
 );
 const windowsHost = import.meta.glob<string>(
-  "../../../../apps/player-windows/src/presentation.rs",
+  "../../../../crates/webview-host/src/presentation.rs",
   { query: "?raw", import: "default", eager: true },
 );
 const windowsScript = import.meta.glob<string>(
-  "../../../../apps/player-windows/src/runtime_host.js",
+  "../../../../crates/webview-host/src/runtime_host.js",
   { query: "?raw", import: "default", eager: true },
 );
 const androidChannel = import.meta.glob<string>(
@@ -38,7 +38,8 @@ const allHosts = import.meta.glob<string>(
     "../../../../apps/edge/renderer-wpe/web/*.js",
     "../../../../apps/player-web/src/**/*.ts",
     "../../../../apps/player-windows/src/**/*.rs",
-    "../../../../apps/player-windows/src/**/*.js",
+    "../../../../crates/webview-host/src/**/*.rs",
+    "../../../../crates/webview-host/src/**/*.js",
     "../../../../apps/player-android/app/src/main/**/*.kt",
     "../../../../apps/player-android/native/src/**/*.rs",
     "../../../../apps/edge/tilecastd/src/**/*.rs",

@@ -36,6 +36,7 @@ pub struct FakeState {
     pub reloads: u32,
     /// `daemon-reload` fails.
     pub fail_reload: bool,
+    pub refuse_stop: BTreeSet<String>,
     pub configuration_runs: u32,
     pub restarts: HashMap<String, u64>,
     /// Units systemd gave up on.
@@ -62,6 +63,7 @@ impl FakeHost {
                 guard_armed_for: None,
                 reloads: 0,
                 fail_reload: false,
+                refuse_stop: BTreeSet::new(),
                 configuration_runs: 0,
                 restarts: HashMap::new(),
                 failed: BTreeSet::new(),
@@ -135,13 +137,16 @@ pub fn status_for(version: &str, behavior: Behavior) -> Option<DaemonStatus> {
 impl UpdateHost for FakeHost {
     async fn stop(&self, unit: &str) -> Result<(), HostError> {
         self.with(|s| {
+            if s.refuse_stop.contains(unit) {
+                return Err(HostError::failed("unit refuses manual stop"));
+            }
             s.active.remove(unit);
             if unit == EDGE_DAEMON {
                 s.running_version = None;
             }
             s.log.push(format!("stop {unit}"));
-        });
-        Ok(())
+            Ok(())
+        })
     }
 
     async fn start(&self, unit: &str) -> Result<(), HostError> {

@@ -11,7 +11,9 @@ const (
 )
 
 // H264Codec is the WebCodecs codec string of every H.264 profile:
-// Constrained Baseline, level 3.1, which covers 1280x720 at 15 FPS.
+// Constrained Baseline, level 3.1. Level 3.1 allows 27,648,000 luma
+// samples/s, which is exactly 1280x720 at 30 FPS, so one codec string covers
+// every H.264 profile.
 const H264Codec = "avc1.42e01f"
 
 // Profile is one negotiated Watch Live capture and transport mode. Profiles
@@ -29,6 +31,7 @@ type Profile struct {
 }
 
 const (
+	ProfileH264720p30  = "h264-720p30"
 	ProfileH264720p15  = "h264-720p15"
 	ProfileH264540p15  = "h264-540p15"
 	ProfileH264540p10  = "h264-540p10"
@@ -36,8 +39,11 @@ const (
 	ProfileMJPEG360p8  = "mjpeg-360p8"
 )
 
-// Profiles lists every profile in preference order, best first.
+// Profiles lists every profile in preference order, best first. The wire Code
+// is a stable identity, not a rank: 720p30 was added after the other H.264
+// profiles and takes code 4 so no shipped code changes meaning.
 var Profiles = []Profile{
+	{ID: ProfileH264720p30, Code: 4, Transport: TransportH264, MaxWidth: 1280, MaxHeight: 720, FPS: 30, FrameInterval: 33 * time.Millisecond, TargetBitrate: 2_500_000},
 	{ID: ProfileH264720p15, Code: 1, Transport: TransportH264, MaxWidth: 1280, MaxHeight: 720, FPS: 15, FrameInterval: 67 * time.Millisecond, TargetBitrate: 1_500_000},
 	{ID: ProfileH264540p15, Code: 2, Transport: TransportH264, MaxWidth: 960, MaxHeight: 540, FPS: 15, FrameInterval: 67 * time.Millisecond, TargetBitrate: 900_000},
 	{ID: ProfileH264540p10, Code: 3, Transport: TransportH264, MaxWidth: 960, MaxHeight: 540, FPS: 10, FrameInterval: 100 * time.Millisecond, TargetBitrate: 700_000},

@@ -20,8 +20,19 @@ export interface WatchLiveProfile {
   fps: number;
 }
 
-/** Every profile, best first. */
+/**
+ * Every profile, best first. Order is preference; `code` is the wire
+ * identity (720p30 is 4 because codes 1 to 3 already shipped).
+ */
 export const WATCH_LIVE_PROFILES: readonly WatchLiveProfile[] = [
+  {
+    id: "h264-720p30",
+    code: 4,
+    transport: "h264",
+    maxWidth: 1280,
+    maxHeight: 720,
+    fps: 30,
+  },
   {
     id: "h264-720p15",
     code: 1,
@@ -73,6 +84,13 @@ export function profileById(id: string | undefined) {
   return WATCH_LIVE_PROFILES.find((profile) => profile.id === id);
 }
 
+/** An H.264 profile by its TCLS version 2 wire code (never 0). */
+export function profileByCode(code: number) {
+  return WATCH_LIVE_PROFILES.find(
+    (profile) => profile.code !== 0 && profile.code === code,
+  );
+}
+
 export interface ChunkHeader {
   sessionId: string;
   profileCode: number;
@@ -121,9 +139,7 @@ export function parseChunk(packet: Uint8Array): {
   ) {
     throw new LiveStreamProtocolError("unsupported header");
   }
-  const profile = WATCH_LIVE_PROFILES.find(
-    (candidate) => candidate.code !== 0 && candidate.code === packet[5],
-  );
+  const profile = profileByCode(packet[5] ?? 0);
   if (!profile) throw new LiveStreamProtocolError("unknown profile");
   const flags = packet[6] ?? 0;
   if ((flags & ~1) !== 0 || packet[7] !== 0) {

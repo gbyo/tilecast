@@ -103,7 +103,7 @@ Settlement reads `status.get` over the Edge socket. A compromised `tilecast` acc
 ## 6. Review checklist for changes
 
 - A new side effect gets an intent phase or a crash point, and the crash matrix covers it.
-- A new unit name is a constant, and is added to the release manifest's required units.
+- New packaged units must pass the [signed system file rules](tilecast-edge-update-threat-review.md#45-system-files). Migration lifecycle operations use fixed unit names.
 - A new file read under the kiosk account's home uses the descriptor-relative, no-link, owner-checked open.
 - Nothing from the kiosk account, the server or the status socket becomes a unit name, a path to execute or a command argument.
 - The migrator never reads or logs the credential's contents.

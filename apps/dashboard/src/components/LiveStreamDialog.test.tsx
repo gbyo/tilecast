@@ -348,6 +348,7 @@ describe("LiveStreamDialog", () => {
 
   it("negotiates H.264, plays it, and falls back to MJPEG when decoding fails", async () => {
     webCodecs.offered = [
+      "h264-720p30",
       "h264-720p15",
       "h264-540p15",
       "h264-540p10",
@@ -372,13 +373,13 @@ describe("LiveStreamDialog", () => {
     };
     const selected = {
       ...negotiating,
-      profile: "h264-720p15",
+      profile: "h264-720p30",
       transport: "h264",
       codec: "avc1.42e01f",
-      frameIntervalMillis: 67,
+      frameIntervalMillis: 33,
       maxWidth: 1280,
       maxHeight: 720,
-      targetBitrate: 1500000,
+      targetBitrate: 2500000,
     };
     const fallback = {
       ...base,
@@ -442,14 +443,14 @@ describe("LiveStreamDialog", () => {
     ).toBeTruthy();
     expect(requests[0]?.body).toEqual({ acceptProfiles: webCodecs.offered });
 
-    // The Player chose H.264 720p15: the viewer renders a canvas.
+    // The Player chose H.264 720p30: the viewer renders a canvas.
     const canvas = await screen.findByRole(
       "img",
       { name: "Live Tilecast output from Lobby" },
       { timeout: 3000 },
     );
     expect(canvas.tagName).toBe("CANVAS");
-    expect(webCodecs.streams).toHaveLength(1);
+    await waitFor(() => expect(webCodecs.streams).toHaveLength(1));
     const stream = webCodecs.streams[0]!;
     expect(stream.options.url).toBe(
       "/api/v1/screens/screen-1/live-stream/session-h264/h264",
@@ -458,7 +459,7 @@ describe("LiveStreamDialog", () => {
     act(() => stream.options.callbacks.onFirstFrame());
     expect(screen.getByText("Live")).toBeTruthy();
     expect(
-      screen.getByText("15 FPS · 1280×720 · H.264 (about 1.5 Mbit/s)"),
+      screen.getByText("30 FPS · 1280×720 · H.264 (about 2.5 Mbit/s)"),
     ).toBeTruthy();
 
     // Decoding fails for good: the lease restarts offering MJPEG only.

@@ -68,6 +68,41 @@ def env():
                 PATH="/target/cargo-home/bin:/opt/cargo/bin:" + os.environ.get("PATH", "/usr/bin:/bin"))
 
 
+def stage_uxplay_inputs():
+    """The files stage-release.py takes from a UxPlay build, with the test
+    stand-in as the program. These tests install and migrate; they never start
+    UxPlay, and the real build is checked by the release build."""
+    directory = os.path.join(WORK, "uxplay")
+    os.makedirs(directory, exist_ok=True)
+    shutil.copyfile(os.path.join(EDGE, "tilecast-airplay", "tests", "fake-uxplay"), os.path.join(directory, "uxplay"))
+    for name, text in (("pin", "1.73.7\n0\n0\n"), ("UxPlay-1.73.7.tar.gz", ""), ("LICENSE", "test stand-in\n")):
+        with open(os.path.join(directory, name), "w") as handle:
+            handle.write(text)
+    return directory
+
+
+def remove_optional_services_from_fixture(tree, manifest):
+    """Model a signed release from before AirPlay and Networkd."""
+    remove = {"packaging/systemd/tilecast-airplay.service", "packaging/systemd/tilecast-airplay.socket",
+              "packaging/systemd/tilecast-networkd.service", "bin/tilecast-airplay", "bin/uxplay", "bin/tilecast-networkd"}
+    for path in remove:
+        os.remove(os.path.join(tree, path))
+    manifest["files"] = [entry for entry in manifest["files"] if entry["path"] not in remove]
+
+    for path in ("packaging/sysusers.d/tilecast-edge.conf", "packaging/systemd/tilecast-edge.service"):
+        target = os.path.join(tree, path)
+        with open(target) as handle:
+            lines = handle.readlines()
+        omitted = ("u tilecast-airplay ", "g tilecast-network ", "Wants=tilecast-airplay.socket",
+                   "Wants=tilecast-networkd.service")
+        data = "".join(line.replace(" tilecast-airplay.socket", "").replace(" tilecast-networkd.service", "")
+                       .replace(" tilecast-network\n", "\n") for line in lines if not line.startswith(omitted)).encode()
+        with open(target, "wb") as handle:
+            handle.write(data)
+        entry = next(entry for entry in manifest["files"] if entry["path"] == path)
+        entry.update(sha256=hashlib.sha256(data).hexdigest(), size=len(data))
+
+
 def user_systemctl(*argv, check=True):
     return subprocess.run(["systemctl", "--user", f"--machine={KIOSK}@.host", *argv], check=check,
                           capture_output=True, text=True)
@@ -152,11 +187,10 @@ def migrate(expect_code, settle=120):
     return attempt(), time.monotonic() - started
 
 
-# /usr/bin/true is dynamically linked, so the sandbox must also provide its
-# loader from /lib64; without that bind the exec fails with ENOENT, which
-# preflight would misreport as missing user-namespace support.
+# /usr/bin/true is dynamically linked. Architectures that have /lib64
+# need that path to reach the loader as well as the merged /usr tree.
 SANDBOX_PROBE = ("bwrap", "--die-with-parent", "--unshare-pid", "--proc", "/proc", "--dev", "/dev",
-                 "--ro-bind", "/usr", "/usr", "--ro-bind", "/lib64", "/lib64",
+                 "--ro-bind", "/usr", "/usr", "--ro-bind-try", "/lib64", "/lib64",
                  "--symlink", "usr/lib", "/lib", "--symlink", "usr/bin", "/bin",
                  "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp", "/usr/bin/true")
 
@@ -236,7 +270,9 @@ def setup():
     # The update helper as it ships, without the integration-test feature.
     # The base release stands for Edge 0.2.0, whose update helper does not
     # know the field-workaround cleanup, so it is built to behave like it.
-    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE, env=base)
+    # tilecast-airplay is a binary of every release (stage-release.py).
+    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p", "tilecast-airplay",
+        cwd=EDGE, env=base)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-update", "--features", "legacy-helper-emulation",
         cwd=EDGE, env=base)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-migrate", "--features", "integration-test",
@@ -266,8 +302,9 @@ def setup():
         "--web-renderer", os.path.join(WEB_BUILD, "tilecast-web-renderer-wpe"),
         "--session-bridge", os.path.join(BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", RUNTIME,
+        "--uxplay-dir", stage_uxplay_inputs(),
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci")
-    key = os.path.join(WORK, "release-key.pem")
+    key =os.path.join(WORK, "release-key.pem")
     run("openssl", "genpkey", "-algorithm", "ed25519", "-out", key)
     public = subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-outform", "DER"], check=True,
                             capture_output=True).stdout[-32:]
@@ -276,6 +313,11 @@ def setup():
         handle.write(base64.b64encode(public).decode() + "\n")
     os.chmod("/etc/tilecast-edge/release-signing-key", 0o644)
     manifest = os.path.join(RELEASE, "tilecast-edge-release.json")
+    with open(manifest) as handle:
+        installed = json.load(handle)
+    remove_optional_services_from_fixture(RELEASE, installed)
+    with open(manifest, "w") as handle:
+        json.dump(installed, handle)
     signature = subprocess.run(["openssl", "pkeyutl", "-sign", "-rawin", "-inkey", key, "-in", manifest],
                                check=True, capture_output=True).stdout
     with open(manifest + ".sig", "w") as handle:
@@ -536,12 +578,30 @@ def accept():
     assert status["server"]["screenId"] == screen["screenId"] and status["link"]["state"] == "connected", status
     check_hardware_packaging()
     check_webkit_sandbox()
+    check_lan_discovery()
     save("accepted-status.json", {"startedAt": status["startedAt"],
                                   "lastProgressAt": status["renderer"]["lastProgressAt"]})
     rollback = subprocess.run([MIGRATE, "rollback"], capture_output=True, text=True)
     assert rollback.returncode != 0 and "rollback window has ended" in rollback.stderr, rollback.stderr
     print(f"accept: accepted after {elapsed:.0f} s of migration; Edge plays the server presentation, the legacy "
           "player is disabled and its files are unchanged, and rollback is refused")
+
+
+def check_lan_discovery():
+    name = "Edge discovery regression"
+    url = "http://edge-discovery.local:8080"
+    with subprocess.Popen(["avahi-publish-service", name, "_tilecast._tcp", "8080", f"base-url={url}"],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as advertiser:
+        try:
+            def discover():
+                assert advertiser.poll() is None, "Avahi test advertisement exited"
+                result = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "discover"))
+                assert result["available"], result
+                return {"name": name, "serverUrl": url} in result["servers"]
+
+            e2e.wait_for(discover, "Tilecast discovery to resolve the real Avahi advertisement", 30)
+        finally:
+            advertiser.terminate()
 
 
 def tilecast_systemctl(*argv):

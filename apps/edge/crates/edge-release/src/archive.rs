@@ -141,6 +141,9 @@ pub fn verify_archive(
     {
         return Err(ReleaseError::ArchiveMismatch("release version"));
     }
+    if inner.minimum_updater_version != envelope.envelope.minimum_updater_version {
+        return Err(ReleaseError::ArchiveMismatch("minimum updater version"));
+    }
     if inner.file(SBOM_PATH).map(|file| file.sha256.as_str()) != Some(envelope.envelope.sbom_sha256.as_str()) {
         return Err(ReleaseError::ArchiveMismatch("SBOM digest"));
     }

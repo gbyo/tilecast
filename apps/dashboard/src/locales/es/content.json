@@ -951,7 +951,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "Quitar {{label}} {{index}}",
         "addEntry": "Añadir entrada",
-        "noEntries": "Ninguna"
+        "noEntries": "Ninguna",
+        "tilecastFont": "Fuente de Tilecast"
       },
       "data": {
         "none": "Sin datos conectados",

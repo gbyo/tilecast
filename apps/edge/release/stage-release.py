@@ -35,21 +35,6 @@ import runtime_closure
 
 EDGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "system-baseline.txt")
-UNITS = [
-    "tilecast-edge.service",
-    "tilecast-renderer.service",
-    "tilecast-web-renderer.service",
-    "tilecast-edge-migrate.service",
-    "tilecast-edge-migrate-recover.service",
-    "tilecast-edge-selftest.service",
-    "tilecast-renderer-selftest.service",
-    "tilecast-renderer-probe.service",
-    "tilecast-edge-compat.service",
-    "tilecast-edge-import.service",
-    "tilecast-edge-update.service",
-    "tilecast-edge-update.socket",
-]
-USER_UNITS = ["tilecast-session-bridge.service", "tilecast-session-bridge.path"]
 SYSTEM_FILES = [
     ("sysusers.d/tilecast-edge.conf", "packaging/sysusers.d/tilecast-edge.conf"),
     ("tmpfiles.d/tilecast-edge.conf", "packaging/tmpfiles.d/tilecast-edge.conf"),
@@ -68,11 +53,39 @@ def version_code(version):
     return code
 
 
+# The one source of the Presentation Network helper. Edge carries these exact
+# bytes as bin/tilecast-networkd; the legacy installer serves the same file
+# (docs/tilecast-edge-airplay.md section 8).
+NETWORKD = os.path.join(EDGE, "..", "server", "internal", "httpapi", "install", "tilecast-networkd")
+
+
 def copy(source, out, relative, mode):
     target = os.path.join(out, relative)
     os.makedirs(os.path.dirname(target), exist_ok=True)
     shutil.copyfile(source, target)
     os.chmod(target, mode)
+
+
+def stage_uxplay(uxplay_dir, out):
+    """UxPlay (GPL-3.0) as a separate program: the binary that the AirPlay
+    supervisor starts, the exact source archive it was built from, and its
+    license (docs/tilecast-edge-airplay.md §11)."""
+    with open(os.path.join(uxplay_dir, "pin")) as handle:
+        version = handle.read().split()[0]
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        sys.exit(f"stage-release: UxPlay version {version!r} is malformed")
+    copy(os.path.join(uxplay_dir, "uxplay"), out, "bin/uxplay", 0o755)
+    copy(os.path.join(uxplay_dir, f"UxPlay-{version}.tar.gz"), out, f"share/tilecast/source/UxPlay-{version}.tar.gz", 0o644)
+    copy(os.path.join(uxplay_dir, "LICENSE"), out, "share/doc/tilecast-edge/licenses/uxplay/LICENSE", 0o644)
+    notice = os.path.join(out, "share/doc/tilecast-edge/licenses/uxplay/NOTICE")
+    with open(notice, "w") as handle:
+        handle.write(
+            f"bin/uxplay is UxPlay {version} (https://github.com/FDH2/UxPlay), free software under the GNU\n"
+            "General Public License version 3 (LICENSE in this directory). It is a separate program that\n"
+            "tilecast-airplay starts; no Tilecast code links it. The exact source it was built from is\n"
+            f"share/tilecast/source/UxPlay-{version}.tar.gz, and the build steps are\n"
+            "apps/edge/release/build-uxplay.sh in the Tilecast source of this release.\n")
+    os.chmod(notice, 0o644)
 
 
 def copy_wpe(prefix, out):
@@ -137,24 +150,42 @@ def require_plugin_bridge(tree):
         sys.exit("stage-release: the packaged WPE bridge does not enable external plugin frames")
 
 
+def configured_updater_floor(path, version):
+    # The legacy version-code bridge must remain readable by the old helper.
+    if path is None or release_version.version_channel(version) is None:
+        return None
+    with open(path, encoding="utf-8") as handle:
+        floor = handle.read().strip()
+    if floor == "bootstrap":
+        return None
+    code = release_version.version_code(floor)
+    if code is None or not 0 < code < version_code(version):
+        sys.exit("stage-release: the minimum updater version must be an older Edge version")
+    return floor
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
-                 "--gst-plugin-dir", "--runtime-dir", "--sbom",
+                 "--gst-plugin-dir", "--runtime-dir", "--sbom", "--uxplay-dir",
                  "--wpe-version", "--base-distribution"):
         parser.add_argument(name, required=True)
     parser.add_argument("--wpe-lib-dir", help="a private WPE WebKit build to carry under lib/wpe")
+    parser.add_argument("--updater-compatibility-file", help="the production Edge updater prerequisite")
     args = parser.parse_args()
+    minimum_updater_version = configured_updater_floor(args.updater_compatibility_file, args.version)
     out = os.path.abspath(args.out)
     if os.path.exists(out):
         shutil.rmtree(out)
     os.makedirs(out)
 
-    for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"):
+    for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update", "tilecast-airplay"):
         copy(os.path.join(args.bin_dir, name), out, f"bin/{name}", 0o755)
     copy(args.renderer, out, "bin/tilecast-renderer-wpe", 0o755)
     copy(args.web_renderer, out, "bin/tilecast-web-renderer-wpe", 0o755)
     copy(args.session_bridge, out, "bin/tilecast-session-bridge", 0o755)
+    copy(NETWORKD, out, "bin/tilecast-networkd", 0o755)
+    stage_uxplay(args.uxplay_dir, out)
     copy(os.path.join(args.gst_plugin_dir, "libgsttcmedia.so"), out, "lib/gstreamer-1.0/libgsttcmedia.so", 0o644)
     for root, _, names in os.walk(args.runtime_dir):
         for name in names:
@@ -167,10 +198,12 @@ def main():
         # The renderer binaries are already staged: their NEEDED libraries
         # and those of the private WebKit decide what else must travel.
         runtime_closure.carry(out, SYSTEM_BASELINE)
-    for unit in UNITS:
-        copy(os.path.join(EDGE, "packaging", "systemd", unit), out, f"packaging/systemd/{unit}", 0o644)
-    for unit in USER_UNITS:
-        copy(os.path.join(EDGE, "packaging", "systemd-user", unit), out, f"packaging/systemd-user/{unit}", 0o644)
+    for directory in ("packaging/systemd", "packaging/systemd-user"):
+        with os.scandir(os.path.join(EDGE, directory)) as units:
+            for unit in sorted(units, key=lambda entry: entry.name):
+                if not unit.is_file(follow_symlinks=False):
+                    sys.exit(f"stage-release: unexpected entry {unit.path}")
+                copy(unit.path, out, f"{directory}/{unit.name}", 0o644)
     for source, target in SYSTEM_FILES:
         copy(os.path.join(EDGE, "packaging", source), out, target, 0o644)
     copy(args.sbom, out, "share/doc/tilecast-edge/sbom.cdx.json", 0o644)
@@ -197,6 +230,8 @@ def main():
         "baseDistribution": args.base_distribution,
         "files": files,
     }
+    if minimum_updater_version is not None:
+        manifest["minimumUpdaterVersion"] = minimum_updater_version
     with open(os.path.join(out, "tilecast-edge-release.json"), "w") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True)
         handle.write("\n")

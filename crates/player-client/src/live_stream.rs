@@ -16,27 +16,33 @@
 //! stale data is never intentionally emitted. An inactive, expired,
 //! malformed, or incomplete session fails closed to no streaming.
 //!
-//! Bounds mirror the server maximum: 960x540, 100 KiB, 100 ms target
-//! interval (about 8 FPS). Server numbers are never trusted for allocations
-//! or timing: dimensions and byte limits are clamped to the local maximums,
-//! and the capture cadence has a local lower bound.
+//! The MJPEG bounds below mirror the server's MJPEG maximum: 960x540,
+//! 100 KiB, 100 ms target interval. They guard only the TCLS version 1 path
+//! and the legacy session fields; an H.264 profile takes its dimensions,
+//! frame rate, and bitrate from [`WatchLiveProfile`] instead. Server numbers
+//! are never trusted for allocations or timing: MJPEG dimensions and byte
+//! limits are clamped to the local maximums, and the MJPEG capture cadence
+//! has a local lower bound.
 
 use serde_json::Value;
 
-/// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
+/// Local maximum MJPEG frame dimensions (the server's `MaxWidth`/`MaxHeight`
+/// for MJPEG). H.264 profiles carry their own dimensions.
 pub const MAX_WIDTH: u32 = 960;
-/// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
+/// Local maximum MJPEG frame height.
 pub const MAX_HEIGHT: u32 = 540;
 /// Local maximum encoded frame bytes (the server's `MaxFrameBytes`).
 pub const MAX_FRAME_BYTES: usize = 100 * 1024;
-/// Lower bound for the capture cadence: a faster server interval never speeds
-/// captures beyond the protocol's 100 ms minimum.
+/// Lower bound for the MJPEG capture cadence: a faster server interval never
+/// speeds JPEG captures beyond the protocol's 100 ms minimum. H.264 cadence is
+/// the profile's frame interval (down to 33 ms at 30 FPS).
 pub const MIN_FRAME_INTERVAL_MILLIS: u64 = 100;
 /// Safe defaults for older servers and missing capability fields.
 pub const DEFAULT_FRAME_INTERVAL_MILLIS: u64 = 125;
 pub const DEFAULT_WIDTH: u32 = 640;
 pub const DEFAULT_HEIGHT: u32 = 360;
-/// Minimum pause between captures so a zero elapsed time cannot busy-loop.
+/// Minimum pause between MJPEG captures so a zero elapsed time cannot
+/// busy-loop.
 pub const MIN_CAPTURE_PAUSE_MILLIS: u64 = 25;
 
 /// TCLS version 1 binary header length.
@@ -61,7 +67,8 @@ pub const TCLS_VERSION_H264: u8 = 2;
 /// Largest H.264 access unit a TCLS version 2 message carries.
 pub const MAX_ACCESS_UNIT_BYTES: usize = 512 * 1024;
 /// The WebCodecs codec string of every H.264 profile: Constrained
-/// Baseline, level 3.1 (enough for 1280x720 at 15 FPS).
+/// Baseline, level 3.1. Level 3.1 allows 27,648,000 luma samples per second,
+/// which is exactly 1280x720 at 30 FPS.
 pub const H264_CODEC: &str = "avc1.42e01f";
 
 /// How a Watch Live profile reaches Studio.
@@ -75,6 +82,7 @@ pub enum WatchLiveTransport {
 /// order, best first, so `a < b` means `a` is the better profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum WatchLiveProfile {
+    H264_720p30,
     H264_720p15,
     H264_540p15,
     H264_540p10,
@@ -84,11 +92,18 @@ pub enum WatchLiveProfile {
 
 impl WatchLiveProfile {
     /// Every profile, best first.
-    pub const ALL: [WatchLiveProfile; 5] =
-        [Self::H264_720p15, Self::H264_540p15, Self::H264_540p10, Self::Mjpeg540p10, Self::Mjpeg360p8];
+    pub const ALL: [WatchLiveProfile; 6] = [
+        Self::H264_720p30,
+        Self::H264_720p15,
+        Self::H264_540p15,
+        Self::H264_540p10,
+        Self::Mjpeg540p10,
+        Self::Mjpeg360p8,
+    ];
 
     pub fn id(self) -> &'static str {
         match self {
+            Self::H264_720p30 => "h264-720p30",
             Self::H264_720p15 => "h264-720p15",
             Self::H264_540p15 => "h264-540p15",
             Self::H264_540p10 => "h264-540p10",
@@ -101,9 +116,12 @@ impl WatchLiveProfile {
         Self::ALL.into_iter().find(|profile| profile.id() == id)
     }
 
-    /// The TCLS version 2 profile code; zero for MJPEG profiles.
+    /// The TCLS version 2 profile code; zero for MJPEG profiles. A code is a
+    /// wire identity, not a rank: 720p30 was added after the others and takes
+    /// 4, so codes 1 to 3 keep their meaning for older peers.
     pub fn code(self) -> u8 {
         match self {
+            Self::H264_720p30 => 4,
             Self::H264_720p15 => 1,
             Self::H264_540p15 => 2,
             Self::H264_540p10 => 3,
@@ -117,7 +135,7 @@ impl WatchLiveProfile {
 
     pub fn max_dimensions(self) -> (u32, u32) {
         match self {
-            Self::H264_720p15 => (1280, 720),
+            Self::H264_720p30 | Self::H264_720p15 => (1280, 720),
             Self::H264_540p15 | Self::H264_540p10 | Self::Mjpeg540p10 => (960, 540),
             Self::Mjpeg360p8 => (640, 360),
         }
@@ -125,6 +143,7 @@ impl WatchLiveProfile {
 
     pub fn fps(self) -> u32 {
         match self {
+            Self::H264_720p30 => 30,
             Self::H264_720p15 | Self::H264_540p15 => 15,
             Self::H264_540p10 | Self::Mjpeg540p10 => 10,
             Self::Mjpeg360p8 => 8,
@@ -132,16 +151,18 @@ impl WatchLiveProfile {
     }
 
     pub fn frame_interval_millis(self) -> u64 {
-        match self.fps() {
-            15 => 67,
-            10 => 100,
-            _ => 125,
+        match self {
+            Self::H264_720p30 => 33,
+            Self::H264_720p15 | Self::H264_540p15 => 67,
+            Self::H264_540p10 | Self::Mjpeg540p10 => 100,
+            Self::Mjpeg360p8 => 125,
         }
     }
 
     /// Initial encoder target in bits per second; zero for MJPEG.
     pub fn target_bitrate(self) -> u32 {
         match self {
+            Self::H264_720p30 => 2_500_000,
             Self::H264_720p15 => 1_500_000,
             Self::H264_540p15 => 900_000,
             Self::H264_540p10 => 700_000,
@@ -214,12 +235,13 @@ pub struct LiveStreamSession {
     pub active: bool,
     /// Lease expiry as the server's RFC 3339 timestamp, if any.
     pub expires_at: Option<String>,
-    /// Target milliseconds between frames, floored at
-    /// [`MIN_FRAME_INTERVAL_MILLIS`].
+    /// Target milliseconds between MJPEG frames, floored at
+    /// [`MIN_FRAME_INTERVAL_MILLIS`]. An H.264 session ignores it and uses
+    /// [`WatchLiveProfile::frame_interval_millis`].
     pub frame_interval_millis: u64,
-    /// Capture width bound, clamped to [`MAX_WIDTH`].
+    /// MJPEG capture width bound, clamped to [`MAX_WIDTH`].
     pub max_width: u32,
-    /// Capture height bound, clamped to [`MAX_HEIGHT`].
+    /// MJPEG capture height bound, clamped to [`MAX_HEIGHT`].
     pub max_height: u32,
     /// Frame byte bound, clamped to [`MAX_FRAME_BYTES`].
     pub max_frame_bytes: usize,
@@ -505,6 +527,36 @@ mod tests {
     }
 
     #[test]
+    fn preference_order_and_wire_codes_are_separate_and_shipped_codes_never_move() {
+        assert_eq!(
+            WatchLiveProfile::ALL.map(WatchLiveProfile::id),
+            ["h264-720p30", "h264-720p15", "h264-540p15", "h264-540p10", "mjpeg-540p10", "mjpeg-360p8"]
+        );
+        // Codes shipped before 720p30 existed: a rolling upgrade depends on them.
+        assert_eq!(WatchLiveProfile::H264_720p15.code(), 1);
+        assert_eq!(WatchLiveProfile::H264_540p15.code(), 2);
+        assert_eq!(WatchLiveProfile::H264_540p10.code(), 3);
+        assert_eq!(WatchLiveProfile::H264_720p30.code(), 4);
+        let (width, height) = WatchLiveProfile::H264_720p30.max_dimensions();
+        assert_eq!((width, height, WatchLiveProfile::H264_720p30.fps()), (1280, 720, 30));
+        assert_eq!(WatchLiveProfile::H264_720p30.frame_interval_millis(), 33);
+        assert_eq!(WatchLiveProfile::H264_720p30.target_bitrate(), 2_500_000);
+        // Level 3.1 allows 27,648,000 luma samples per second and no more.
+        let rate = u64::from(width) * u64::from(height) * u64::from(WatchLiveProfile::H264_720p30.fps());
+        assert_eq!(rate, 27_648_000);
+        for profile in WatchLiveProfile::ALL {
+            let interval = profile.frame_interval_millis();
+            assert!(interval >= 1, "{}: a zero interval would busy-loop", profile.id());
+            let nominal = 1000 / u64::from(profile.fps());
+            assert!(interval.abs_diff(nominal) <= 1, "{}: {interval} ms vs {nominal} ms", profile.id());
+            assert!(profile.transport() == WatchLiveTransport::Mjpeg || (1..=4).contains(&profile.code()));
+        }
+        let codes: std::collections::HashSet<_> =
+            WatchLiveProfile::ALL.iter().map(|profile| profile.code()).filter(|code| *code != 0).collect();
+        assert_eq!(codes.len(), 4, "H.264 codes are unique");
+    }
+
+    #[test]
     fn tcls_v2_matches_the_shared_vectors_and_refuses_invalid_access_units() {
         let fixture = fixture();
         for vector in fixture["tclsV2"]["valid"].as_array().unwrap() {
@@ -543,6 +595,7 @@ mod tests {
             ChunkHeader { profile: WatchLiveProfile::Mjpeg540p10, ..base },
             ChunkHeader { session_id: uuid::Uuid::nil(), ..base },
             ChunkHeader { width: 1280, height: 720, ..base },
+            ChunkHeader { profile: WatchLiveProfile::H264_720p15, width: 1920, height: 1080, ..base },
             ChunkHeader { width: 959, ..base },
             ChunkHeader { width: 8, height: 8, ..base },
             ChunkHeader { keyframe: false, ..base },
@@ -559,9 +612,13 @@ mod tests {
         let all = WatchLiveCapabilities::new(WatchLiveProfile::ALL);
         assert_eq!(
             all.query(),
-            "profile=h264-720p15&profile=h264-540p15&profile=h264-540p10&profile=mjpeg-540p10&profile=mjpeg-360p8&captureProfile=edge-540p10"
+            "profile=h264-720p30&profile=h264-720p15&profile=h264-540p15&profile=h264-540p10&profile=mjpeg-540p10&profile=mjpeg-360p8&captureProfile=edge-540p10"
         );
         assert_eq!(WatchLiveCapabilities::legacy().query(), "profile=mjpeg-360p8");
+        let from_720p30 = all.below(WatchLiveProfile::H264_720p30);
+        assert!(
+            !from_720p30.contains(WatchLiveProfile::H264_720p30) && from_720p30.contains(WatchLiveProfile::H264_720p15)
+        );
         let degraded = all.below(WatchLiveProfile::H264_720p15);
         assert!(!degraded.contains(WatchLiveProfile::H264_720p15) && degraded.contains(WatchLiveProfile::H264_540p15));
         let mjpeg = all.below(WatchLiveProfile::H264_540p10);
@@ -576,6 +633,17 @@ mod tests {
         });
         data.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
         live_stream_session(&data)
+    }
+
+    #[test]
+    fn a_720p30_session_takes_its_cadence_from_the_profile_not_the_mjpeg_floor() {
+        let session = active(serde_json::json!({
+            "profile": "h264-720p30", "transport": "h264", "codec": H264_CODEC, "frameIntervalMillis": 33,
+        }));
+        assert!(session.active);
+        // The legacy field keeps its MJPEG floor; the mode ignores it.
+        assert_eq!(session.frame_interval_millis, MIN_FRAME_INTERVAL_MILLIS);
+        assert_eq!(session.mode(), StreamMode::H264(WatchLiveProfile::H264_720p30));
     }
 
     #[test]

@@ -27,11 +27,7 @@ import type {
   ManifestLayoutFont,
   ManifestWidget,
 } from "./content-types";
-import {
-  libraryFamilyName,
-  LIBRARY_FAMILY_PATTERN,
-  type ProjectedFontFace,
-} from "../font-faces";
+import { projectLibraryFont, type ProjectedFontFace } from "../font-faces";
 import type {
   Manifest,
   ManifestAsset,
@@ -81,38 +77,19 @@ export function layoutFonts(
   return result;
 }
 
-/**
- * The faces a text primitive needs, as media aliases the projector
- * authorizes. Only faces whose file is in the manifest are listed, so a
- * missing grant never rejects the Layout; the text then keeps its bundled
- * fallback family.
- */
+/** The faces a text primitive needs (see projectLibraryFont). */
 function libraryFontFaces(
   fontId: string | null | undefined,
   ctx: LayoutRenderContext,
 ): { family: string; faces: ProjectedFontFace[] } | null {
   if (!fontId) return null;
   const font = ctx.fonts?.get(fontId.toLowerCase());
-  const family = libraryFamilyName(fontId);
-  if (!font || !LIBRARY_FAMILY_PATTERN.test(family)) return null;
-  const faces: ProjectedFontFace[] = [];
-  for (const face of font.faces) {
-    const asset = ctx.manifest.assets.find(
-      (a) => a.assetId === face.assetId && a.variantId === face.variantId,
-    );
-    if (!asset) continue;
-    const low = Math.round(face.weightMin);
-    const high = Math.round(face.weightMax);
-    if (!(low >= 1 && high <= 1000 && low <= high)) continue;
-    faces.push({
-      family,
-      src: mediaSrc(asset),
-      weight: low === high ? String(low) : `${low} ${high}`,
-      style: face.style === "italic" ? "italic" : "normal",
-      ...(face.unicodeRange ? { unicodeRange: face.unicodeRange } : {}),
-    });
-  }
-  return faces.length > 0 ? { family, faces } : null;
+  if (!font) return null;
+  return projectLibraryFont({ ...font, id: fontId }, (assetId, variantId) =>
+    ctx.manifest.assets.some(
+      (a) => a.assetId === assetId && a.variantId === variantId,
+    ),
+  );
 }
 
 function assetVariant(

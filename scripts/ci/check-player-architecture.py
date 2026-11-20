@@ -25,11 +25,26 @@ KINDS = ("dependencies", "dev-dependencies", "build-dependencies")
 # under plugins/<plugin>/native/<id>, which pluginctl bounds to shared crates.
 NATIVE_REGISTRY = Path("packages/plugin-native-registry")
 NATIVE_REGISTRY_CRATE = "plugin-native-registry"
-# Anything only a Windows host can use stays in apps/player-windows; the
-# shared crates build and test on every host OS.
-PLATFORM_PREFIXES = ("windows", "webview2")
+# Anything only one OS can use stays in its platform crate; the shared
+# crates and the shared WebView host build and test on every host OS.
+PLATFORM_PREFIXES = (
+    "windows",
+    "webview2",
+    "objc2",
+    "block2",
+    "dispatch2",
+    "security-framework",
+    "core-foundation",
+    "core-graphics",
+)
 WINDOWS_HOST = "tilecast-windows"
 WINDOWS_MANIFEST = Path("apps/player-windows/Cargo.toml")
+MACOS_HOST = "tilecast-macos"
+MACOS_MANIFEST = Path("apps/player-macos/Cargo.toml")
+# The WebView host shared by the Windows and macOS Players: Core composition
+# with no OS API. It is a host layer, never a sixth shared Player crate.
+WEBVIEW_HOST = "webview-host"
+WEBVIEW_HOST_DIR = Path("crates/webview-host")
 
 
 def read_manifest(path):
@@ -149,29 +164,77 @@ def shared_violations(root, registered):
     return errors
 
 
-def windows_violations(root):
-    """The Windows host builds on the shared crates, never on another host."""
-    path = root / WINDOWS_MANIFEST
+def desktop_host_violations(root, manifest_path, host_name):
+    """A desktop WebView host builds on the shared layers, never on another host."""
+    path = root / manifest_path
     if not path.is_file():
         return []
     manifest = read_manifest(path)
-    if manifest.get("package", {}).get("name") != WINDOWS_HOST:
-        return [f"{WINDOWS_MANIFEST}: the Windows host keeps its documented package name"]
+    if manifest.get("package", {}).get("name") != host_name:
+        return [f"{manifest_path}: the host keeps its documented package name {host_name}"]
     errors = []
     workspace_path, workspace = workspace_for(path)
-    hosts = ((root / "apps" / "edge").resolve(), "the Edge host"), ((root / "apps" / "player-linux").resolve(), "the Electron Player")
+    hosts = [
+        ((root / "apps" / "edge").resolve(), "the Edge host"),
+        ((root / "apps" / "player-linux").resolve(), "the Electron Player"),
+        ((root / "apps" / "player-android").resolve(), "the Android Player"),
+    ]
+    for other in (WINDOWS_MANIFEST, MACOS_MANIFEST):
+        if other != manifest_path:
+            hosts.append(((root / other).parent.resolve(), "another desktop host"))
     for alias, original in dependency_tables(manifest):
         kind, package, target = classify_dependency(alias, original, path.parent, workspace_path, workspace)
         if kind == "unresolved":
-            errors.append(f"{WINDOWS_HOST}: unresolved workspace dependency {alias}")
+            errors.append(f"{host_name}: unresolved workspace dependency {alias}")
         elif kind == "missing":
-            errors.append(f"{WINDOWS_HOST}: missing local dependency {alias}")
+            errors.append(f"{host_name}: missing local dependency {alias}")
         elif kind == "local":
             for host, label in hosts:
                 if target == host or host in target.parents:
-                    errors.append(f"{WINDOWS_HOST}: {alias} depends on {label}")
+                    errors.append(f"{host_name}: {alias} depends on {label}")
         elif package.startswith(("edge-", "tilecast")):
-            errors.append(f"{WINDOWS_HOST}: forbidden native host dependency {package}")
+            errors.append(f"{host_name}: forbidden native host dependency {package}")
+    return errors
+
+
+def windows_violations(root):
+    """The Windows host builds on the shared layers, never on another host."""
+    return desktop_host_violations(root, WINDOWS_MANIFEST, WINDOWS_HOST)
+
+
+def macos_violations(root):
+    """The macOS host builds on the shared layers, never on another host."""
+    return desktop_host_violations(root, MACOS_MANIFEST, MACOS_HOST)
+
+
+def webview_host_violations(root):
+    """The shared WebView host depends on the shared crates and the native
+    registry only, and on no OS-specific library."""
+    path = root / WEBVIEW_HOST_DIR / "Cargo.toml"
+    if not path.is_file():
+        return []
+    manifest = read_manifest(path)
+    if manifest.get("package", {}).get("name") != WEBVIEW_HOST:
+        return [f"{WEBVIEW_HOST_DIR}/Cargo.toml: expected package {WEBVIEW_HOST}"]
+    errors = []
+    workspace_path, workspace = workspace_for(path)
+    for alias, original in dependency_tables(manifest):
+        kind, package, target = classify_dependency(alias, original, path.parent, workspace_path, workspace)
+        if kind in ("unresolved", "missing"):
+            errors.append(f"{WEBVIEW_HOST}: {kind} dependency {alias}")
+            continue
+        if kind == "local":
+            if package == WEBVIEW_HOST and target == path.parent.resolve():
+                continue
+            if is_native_registry(root, package, target):
+                continue
+            if package not in SHARED or target != (root / "crates" / package).resolve():
+                errors.append(f"{WEBVIEW_HOST}: {alias} points outside the shared Player crates")
+            continue
+        if target_is_host(package):
+            errors.append(f"{WEBVIEW_HOST}: forbidden native host dependency {package}")
+        elif package.startswith(PLATFORM_PREFIXES):
+            errors.append(f"{WEBVIEW_HOST}: forbidden OS-specific dependency {package}")
     return errors
 
 
@@ -250,7 +313,13 @@ def target_is_host(package):
 
 def violations(root):
     registered = registered_crates(root)
-    return shared_violations(root, registered) + windows_violations(root) + native_registry_violations(root)
+    return (
+        shared_violations(root, registered)
+        + windows_violations(root)
+        + macos_violations(root)
+        + webview_host_violations(root)
+        + native_registry_violations(root)
+    )
 
 
 def main():
