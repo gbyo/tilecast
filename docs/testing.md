@@ -275,6 +275,12 @@ Edge PRs select Rust, WPE, runtime, conformance, real-server, migration, and act
 
 Windows PRs select the `windows` area: native Rust unit tests on Windows x64 and Windows ARM64 (including the MSIX, envelope, package-identity, and version-mapping contract tests), a Windows-only code cross-check on Linux, and, on `main`, the WebView2 conformance engine against the Electron reference. A weekly scheduled run exercises the current Evergreen WebView2. Shared Player crate changes also select Windows validation through the `player_core` graph edge. Run `make windows-check` and `make windows-test` locally; unit tests run on any host.
 
+The conformance runner resolves the Electron executable through the installed
+`electron` package. Electron 42 downloads its binary on first use. A direct
+`dist/electron.exe` path skips that installation step on a clean runner.
+`TILECAST_ELECTRON` can select an existing executable. The runner records process
+startup errors, termination signals, and exit failures in the engine summary.
+
 The image dependency chain is in `scripts/ci/edge-images.hcl`. Bake uses explicit parent targets and separate GHA cache scopes. Run a selected image build locally:
 
 ```sh
