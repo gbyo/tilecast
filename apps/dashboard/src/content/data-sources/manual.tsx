@@ -634,15 +634,13 @@ export function ManualDataSourceEditor({
             rows={10}
             disabled={readOnly}
             aria-invalid={listInvalid}
-            aria-describedby={
-              [
-                "manual-text-list-hint",
-                listTooMany ? "manual-text-list-too-many" : "",
-                listTooLong ? "manual-text-list-too-long" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")
-            }
+            aria-describedby={[
+              "manual-text-list-hint",
+              listTooMany ? "manual-text-list-too-many" : "",
+              listTooLong ? "manual-text-list-too-long" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             onChange={(event) => changeTextList(event.target.value)}
           />
           <FieldDescription id="manual-text-list-hint">
