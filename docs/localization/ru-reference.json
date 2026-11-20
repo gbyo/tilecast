@@ -782,7 +782,7 @@
   "From name": "Имя отправителя",
   "From state": "Из состояния",
   "Full": "Полный",
-  "Full backups include the database, media files, thumbnails, variants, and cached player updates.": "Полная резервная копия содержит базу данных, медиафайлы, миниатюры, варианты и кэшированные обновления проигрывателя.",
+  "Full backups include the database, media files, thumbnails, and variants. Cached player update artifacts are excluded and can be fetched again.": "Полная резервная копия содержит базу данных, медиафайлы, миниатюры и варианты. Кэшированные файлы обновлений проигрывателя не включаются и при необходимости могут быть загружены снова.",
   "Full HD landscape": "Full HD, альбомный",
   "Full HD portrait": "Full HD, портретный",
   "Fullscreen public website content. Duration is configured in the playlist.": "Публичный веб-сайт во весь экран. Длительность настраивается в плейлисте.",
