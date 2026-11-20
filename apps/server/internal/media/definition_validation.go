@@ -262,7 +262,7 @@ func (validator *dataSourceSelectionValidator) fieldTypes(ctx context.Context, r
 
 func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context, field contentdefs.FieldDefinition, value any, path string) (any, error) {
 	switch field.Control {
-	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset":
+	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset", "font":
 		text, ok := value.(string)
 		if !ok {
 			return nil, fmt.Errorf("%s must be text", field.Label)
@@ -348,6 +348,24 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 			}
 			if len(field.MediaTypes) > 0 && !containsString(field.MediaTypes, assetType) {
 				return nil, fmt.Errorf("%s references an incompatible media asset", field.Label)
+			}
+			text = id.String()
+		case "font":
+			if text == "" && !field.Required {
+				break
+			}
+			id, err := uuid.Parse(text)
+			if err != nil || id == uuid.Nil {
+				return nil, fmt.Errorf("%s must identify a library font", field.Label)
+			}
+			// The save transaction locks the family FOR SHARE before it
+			// records the reference; this read only refuses early.
+			var exists bool
+			if err := normalizer.service.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM font_families WHERE id=$1 AND deleted_at IS NULL)`, id).Scan(&exists); err != nil {
+				return nil, err
+			}
+			if !exists {
+				return nil, fmt.Errorf("%s references a font that is not in the font library", field.Label)
 			}
 			text = id.String()
 		}

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { createWidgetResources } from "@tilecast/widget-sdk";
 import {
   createManualClock,
   createTestContext,
@@ -8,7 +9,9 @@ import widget from "./index.ts";
 import {
   parseCountdownConfig,
   readCountdown,
+  resolveCountdownData,
   segmentsFor,
+  shortUnitLabel,
   unitLabel,
   type CountdownConfig,
 } from "./countdown.ts";
@@ -29,7 +32,13 @@ function config(overrides: Record<string, unknown> = {}): CountdownConfig {
   return parsed.config;
 }
 
-async function render(overrides: Record<string, unknown> = {}) {
+const FONT_ID = "5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f";
+const FAMILY = `tcf-${FONT_ID}`;
+
+async function render(
+  overrides: Record<string, unknown> = {},
+  resources?: Parameters<typeof mountForTest>[1]["resources"],
+) {
   const clock = createManualClock(now);
   const test = mountForTest(widget, {
     config: {
@@ -39,6 +48,7 @@ async function render(overrides: Record<string, unknown> = {}) {
       ...overrides,
     },
     context: createTestContext({ clock }),
+    resources,
   });
   const element = test.element as CountdownElement;
   await element.updateComplete;
@@ -133,10 +143,57 @@ describe("Countdown configuration", () => {
     [{ style: "<b>" }],
     [{ showDays: "yes" }],
     [{ label: "x".repeat(121) }],
+    [{ segmentStyle: "neon" }],
+    [{ backgroundOpacity: 101 }],
+    [{ backgroundOpacity: 12.5 }],
+    [{ backgroundOpacity: "50" }],
+    [{ fontId: "Inter" }],
   ])("refuses %j", (value) => {
     expect(
       parseCountdownConfig({ target: "2026-12-01T09:00", ...value }).ok,
     ).toBe(false);
+  });
+
+  it("defaults a saved configuration to opaque tiles in the bundled face", () => {
+    expect(config()).toMatchObject({
+      segmentStyle: "tiles",
+      backgroundOpacity: 1,
+      fontId: null,
+    });
+    expect(
+      config({
+        segmentStyle: "plain",
+        backgroundOpacity: 0,
+        fontId: FONT_ID.toUpperCase(),
+      }),
+    ).toMatchObject({
+      segmentStyle: "plain",
+      backgroundOpacity: 0,
+      fontId: FONT_ID,
+    });
+  });
+
+  it("resolves only a declared, registered library font", () => {
+    const granted = createWidgetResources(
+      { fonts: new Map([[FONT_ID, FAMILY]]) },
+      { fonts: [FONT_ID] },
+    );
+    expect(resolveCountdownData(config({ fontId: FONT_ID }), granted)).toEqual({
+      state: "ready",
+      data: { font: FAMILY },
+    });
+    expect(
+      resolveCountdownData(
+        config({ fontId: FONT_ID }),
+        createWidgetResources({}, {}),
+      ),
+    ).toEqual({ state: "ready", data: { font: null } });
+    expect(resolveCountdownData(config({ target: "" }), granted)).toMatchObject(
+      {
+        state: "empty",
+        reason: "no_target",
+      },
+    );
   });
 
   it("never repeats a count up, as the saved rule required", () => {
@@ -212,6 +269,8 @@ describe("Countdown reading", () => {
     expect(unitLabel("day", 2, "en-US")).toBe("days");
     expect(unitLabel("day", 1, "en-US")).toBe("day");
     expect(unitLabel("hour", 3, "es")).toBe("horas");
+    expect(shortUnitLabel("day", 5, "en-US")).toBe("d");
+    expect(shortUnitLabel("minute", 35, "en-US")).toBe("m");
   });
 });
 
@@ -224,6 +283,53 @@ describe("Countdown element", () => {
       "5 days 0 hours 35 minutes",
     );
     expect(test.states.at(-1)).toEqual({ state: "ready" });
+  });
+
+  it("draws on tiles by default and as plain numbers when chosen", async () => {
+    const tiles = await render();
+    const tileFrame = tiles.root.querySelector(".countdown");
+    expect(tileFrame?.getAttribute("data-segments")).toBe("tiles");
+    expect(tileFrame?.hasAttribute("data-translucent")).toBe(false);
+    expect(
+      tiles.root.querySelector('[data-unit="day"] .unit')?.textContent,
+    ).toBe("days");
+    expect(
+      tiles.root.querySelector('[data-unit="day"] .unit-short')?.textContent,
+    ).toBe("d");
+    tiles.test.dispose();
+    const plain = await render({ segmentStyle: "plain" });
+    expect(
+      plain.root.querySelector(".countdown")?.getAttribute("data-segments"),
+    ).toBe("plain");
+    plain.test.dispose();
+  });
+
+  it("lowers only the background paint and keeps tiles readable", async () => {
+    const { element, root } = await render({ backgroundOpacity: 0 });
+    expect(element.style.getPropertyValue("--tc-color-bg")).toBe("#0e141b");
+    expect(element.style.getPropertyValue("--tc-color-bg-fill")).toBe(
+      "#0e141b00",
+    );
+    // A tile never falls below 60 % opacity over a transparent background.
+    expect(element.style.getPropertyValue("--countdown-tile")).toMatch(
+      /^#[0-9a-f]{6}99$/,
+    );
+    expect(
+      root.querySelector(".countdown")?.hasAttribute("data-translucent"),
+    ).toBe(true);
+  });
+
+  it("draws with a granted library font", async () => {
+    const { element } = await render(
+      { fontId: FONT_ID },
+      createWidgetResources(
+        { fonts: new Map([[FONT_ID, FAMILY]]) },
+        { fonts: [FONT_ID] },
+      ),
+    );
+    expect(element.style.getPropertyValue("--tc-font-family")).toMatch(
+      new RegExp(`^"${FAMILY}",`),
+    );
   });
 
   it("ticks each second from the Widget clock when seconds show", async () => {

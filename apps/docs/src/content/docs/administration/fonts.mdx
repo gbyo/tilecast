@@ -1,9 +1,9 @@
 ---
-title: Add fonts for Layout text and plugins
-description: Add Google Fonts families or upload your own TTF and OTF files so Layout text and plugins such as Countdown Bar can use your organization's typefaces.
+title: Add fonts for Layouts, Widgets, and plugins
+description: Add Google Fonts families or upload your own TTF and OTF files so Layout text, Widgets such as Countdown, and plugins such as Countdown Bar can use your organization's typefaces.
 ---
 
-Open **Settings** > **Fonts** to manage the typefaces your organization can choose for Layout text and for plugins that offer a font setting, such as [Countdown Bar](../../operations/plugins/countdown-bar/). Anyone whose role can see screens or change settings can see the list. You need permission to change settings (Owners and Administrators have it) to add or remove a font.
+Open **Settings** > **Fonts** to manage the typefaces your organization can choose for Layout text, for Widgets that offer a **Font** setting such as Countdown, and for plugins that offer a font setting, such as [Countdown Bar](../../operations/plugins/countdown-bar/). Anyone whose role can see screens or change settings can see the list. You need permission to change settings (Owners and Administrators have it) to add or remove a font.
 
 Tilecast keeps every font on your server. A screen downloads a font together with the published content that uses it and keeps it for offline playback. Neither the screens nor Studio contact Google.
 
@@ -45,13 +45,21 @@ If a font's own license flags say it may not be embedded, Studio warns you after
 
 The text layer also keeps a built-in font as a fallback. Screens show the fallback while the font file downloads, and screens running an older Player version keep using it.
 
+## Use a font in a Widget
+
+1. Open the Widget, for example a Countdown, and go to **Style**.
+2. In **Font**, choose a family under **Organization fonts**, or keep **Tilecast font**. The **Add fonts** shortcut works the same as in the Layout editor.
+3. Save the Widget.
+
+The preview draws the Widget in the chosen font. Screens show the Widget's own font while the font file downloads, and screens on an older Player keep using it.
+
 ## Use a font in a plugin
 
 Open the plugin's page and choose the family in **Font**. Countdown Bar offers it today. The list and the **Add fonts** shortcut work the same as in the Layout editor. Screens that can't load the font, including screens on an older Player, use the plugin's default font.
 
 ## Remove a font
 
-Select the trash icon next to the family and confirm. If a Layout draft or published Layout, or a plugin item such as a countdown bar, still uses the font, Tilecast lists them. Choose another font in each one first.
+Select the trash icon next to the family and confirm. If a Layout draft or published Layout, a Widget, or a plugin item such as a countdown bar, still uses the font, Tilecast lists them. Choose another font in each one first.
 
 Screens that already downloaded the font keep their copy until their next content update.
 

@@ -474,7 +474,7 @@ func (s *Service) ensureNameFree(ctx context.Context, family string) error {
 }
 
 // Delete removes a family that no current Layout draft or published
-// revision uses. Its files are removed by the media worker's ordinary file
+// revision, Widget, or plugin instance uses. Its files are removed by the media worker's ordinary file
 // deletion job.
 func (s *Service) Delete(ctx context.Context, userID, id uuid.UUID) error {
 	tx, err := s.db.Begin(ctx)
@@ -511,6 +511,25 @@ func (s *Service) Delete(ctx context.Context, userID, id uuid.UUID) error {
 	if err = rows.Err(); err != nil {
 		return err
 	}
+	// Widgets record their font field choices when they are saved.
+	widgets, err := tx.Query(ctx, `SELECT a.id,a.name FROM widget_font_references r
+		JOIN assets a ON a.id=r.widget_id AND a.deleted_at IS NULL
+		WHERE r.font_id=$1 ORDER BY lower(a.name),a.id LIMIT 20`, id)
+	if err != nil {
+		return err
+	}
+	for widgets.Next() {
+		var ref LayoutRef
+		if err = widgets.Scan(&ref.ID, &ref.Name); err != nil {
+			widgets.Close()
+			return err
+		}
+		inUse.Widgets = append(inUse.Widgets, ref)
+	}
+	widgets.Close()
+	if err = widgets.Err(); err != nil {
+		return err
+	}
 	// Plugin instances record their use through Host.Fonts.
 	refs, err := tx.Query(ctx, `SELECT label FROM font_references WHERE font_id=$1 ORDER BY lower(label),owner_id LIMIT 20`, id)
 	if err != nil {
@@ -528,7 +547,7 @@ func (s *Service) Delete(ctx context.Context, userID, id uuid.UUID) error {
 	if err = refs.Err(); err != nil {
 		return err
 	}
-	if len(inUse.Layouts) > 0 || len(inUse.Plugins) > 0 {
+	if len(inUse.Layouts) > 0 || len(inUse.Widgets) > 0 || len(inUse.Plugins) > 0 {
 		return inUse
 	}
 	if _, err = tx.Exec(ctx, `UPDATE font_families SET deleted_at=now(),updated_at=now() WHERE id=$1`, id); err != nil {

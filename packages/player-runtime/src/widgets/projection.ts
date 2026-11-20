@@ -13,8 +13,10 @@
 import type {
   RuntimeWidgetComponentPayload,
   RuntimeWidgetComponentV1,
+  RuntimeWidgetFont,
   RuntimeWidgetSandboxExecutionV1,
 } from "../host/contract";
+import { projectLibraryFont } from "../compat/font-faces";
 import type {
   DataDocument,
   ManifestDataSource,
@@ -40,6 +42,8 @@ const LEGACY_COMPONENT_PRESENTATION_SCHEMA = 2;
 
 const MAX_DATA_SOURCES = 8;
 const MAX_MEDIA = 16;
+/** Mirrors the Server bound on the families one component declares. */
+const MAX_FONTS = 4;
 const IDENTIFIER = /^[A-Za-z0-9-]{1,64}$/;
 /** Mirrors the package SDK's package identity rule (at most 128 runes). */
 const PACKAGE_ID =
@@ -163,6 +167,7 @@ function frameExecutionOf(
 function componentOf(widget: ManifestWidget): {
   component: RuntimeWidgetComponentV1;
   execution?: RuntimeWidgetSandboxExecutionV1;
+  fonts: unknown[];
 } | null {
   const presentation = widget.presentation;
   if (
@@ -218,7 +223,17 @@ function componentOf(widget: ManifestWidget): {
   }
   const execution = frameExecutionOf(raw.package);
   if (execution === null) return null;
+  // Library fonts are a bundled-component resource: a sandbox frame does
+  // not receive them. More families than the Server emits are corrupt and
+  // dropped rather than failing the Widget, which keeps its bundled face.
+  const fonts =
+    execution === undefined &&
+    Array.isArray(raw.fonts) &&
+    raw.fonts.length <= MAX_FONTS
+      ? (raw.fonts as unknown[])
+      : [];
   return {
+    fonts,
     component: {
       type,
       version,
@@ -253,6 +268,27 @@ export function projectWidgetComponent(
   const projected = componentOf(widget);
   if (!projected) return null;
   const { component, execution } = projected;
+  const fonts: RuntimeWidgetFont[] = [];
+  for (const raw of projected.fonts) {
+    const font = raw as { id?: unknown; faces?: unknown } | null;
+    if (!font || typeof font.id !== "string" || !Array.isArray(font.faces)) {
+      continue;
+    }
+    const library = projectLibraryFont(
+      { id: font.id, faces: font.faces },
+      (assetId, variantId) =>
+        ctx.assets?.some(
+          (asset) => asset.assetId === assetId && asset.variantId === variantId,
+        ) ?? false,
+    );
+    if (library && !fonts.some((known) => known.family === library.family)) {
+      fonts.push({
+        id: font.id.toLowerCase(),
+        family: library.family,
+        faces: library.faces,
+      });
+    }
+  }
   const documents: Record<string, unknown> = {};
   let hidden = false;
   for (const id of component.dataSources) {
@@ -304,6 +340,9 @@ export function projectWidgetComponent(
     component,
     documents,
     media,
+    // Face sources use the media alias form, so the projector authorizes
+    // them through the host's media table like any other variant.
+    ...(fonts.length > 0 ? { fonts } : null),
     ...(hidden ? { hidden: true } : null),
     regional: {
       locale: ctx.regionalFormat.locale,

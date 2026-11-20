@@ -39,6 +39,11 @@ type ComponentPresentation struct {
 	DataSources []string            `json:"dataSources"`
 	Media       []ComponentMediaRef `json:"media"`
 	Empty       string              `json:"empty,omitempty"`
+	// Fonts are the organization library families the component's font
+	// fields choose, with their faces. Manifest projection fills it, and
+	// adds each face file to the manifest assets. Bundled components only:
+	// a package sandbox frame never receives library fonts.
+	Fonts []ManifestFont `json:"fonts,omitempty"`
 	// Package names the installed package supplying an external
 	// component: its identity, verified digest, and bundle download.
 	// It is nil for release components, which Players already bundle.

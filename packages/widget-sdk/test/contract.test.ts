@@ -711,9 +711,40 @@ describe("resources", () => {
       "attribution",
       "dataDocument",
       "dataset",
+      "font",
       "media",
       "mediaForAsset",
     ]);
+  });
+
+  it("answers a library font only when declared and registered", () => {
+    const granted = "5C0A2F8E-3C1B-4D2A-9E7F-0A1B2C3D4E5F";
+    const family = "tcf-5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f";
+    const fonts = new Map([
+      [granted.toLowerCase(), family],
+      ["11111111-1111-4111-8111-111111111111", "Comic Sans"],
+      [
+        "22222222-2222-4222-8222-222222222222",
+        "tcf-22222222-2222-4222-8222-222222222222",
+      ],
+    ]);
+    const resources = createWidgetResources(
+      { fonts },
+      {
+        fonts: [
+          granted,
+          "11111111-1111-4111-8111-111111111111",
+          "33333333-3333-4333-8333-333333333333",
+        ],
+      },
+    );
+    expect(resources.font?.(granted)).toBe(family);
+    expect(resources.font?.(granted.toLowerCase())).toBe(family);
+    // An undeclared, unregistered or non-generated family never resolves.
+    expect(resources.font?.("22222222-2222-4222-8222-222222222222")).toBeNull();
+    expect(resources.font?.("33333333-3333-4333-8333-333333333333")).toBeNull();
+    expect(resources.font?.("11111111-1111-4111-8111-111111111111")).toBeNull();
+    expect(createWidgetResources({ fonts }, {}).font?.(granted)).toBeNull();
   });
 
   it("resolves an asset only when its grant names one exact variant", () => {

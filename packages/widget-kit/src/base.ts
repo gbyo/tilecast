@@ -6,8 +6,9 @@
  * the CSSOM, and announces ready or empty after each change of inputs. A
  * clock tick is not a change of inputs, so a ticking Widget announces once.
  *
- * Subclasses implement renderContent() and, optionally, renderEmpty() and
- * themeOverrides(). They never touch the host object, storage or network.
+ * Subclasses implement renderContent() and, optionally, renderEmpty(),
+ * themeOverrides(), backgroundOpacity() and libraryFont(). They never touch
+ * the host object, storage or network.
  */
 import {
   LitElement,
@@ -21,6 +22,7 @@ import {
   announceEmpty,
   announceError,
   announceReady,
+  LIBRARY_FONT_FAMILY,
   resolveTheme,
   type WidgetContext,
   type WidgetElementInputs,
@@ -28,10 +30,12 @@ import {
 } from "@tilecast/widget-sdk";
 import { emptyState, statusStyles } from "./templates.ts";
 import {
+  BUNDLED_FONT_STACK,
   displayTokens,
   hostStyles,
   surfaceStyles,
   themeProperties,
+  withAlpha,
 } from "./tokens.ts";
 
 const INPUTS = ["config", "data", "empty", "context"] as const;
@@ -60,6 +64,7 @@ export abstract class TilecastWidgetElement<Config, Data>
   declare context: WidgetContext;
 
   private appliedTheme = "";
+  private appliedFont: string | null = null;
   private lastPresentationState = "";
 
   /** The theme after this Widget's permitted author overrides. */
@@ -77,6 +82,25 @@ export abstract class TilecastWidgetElement<Config, Data>
   protected themeOverrides(
     _config: Config,
   ): Partial<Record<"background" | "foreground" | "accent", unknown>> | null {
+    return null;
+  }
+
+  /**
+   * How opaque the Widget paints its own background, from 0 (transparent,
+   * so the Layout shows through) to 1. Only the paint changes: the theme
+   * background stays opaque, so derived surfaces and text contrast do not.
+   * Override when the authoring schema declares a background opacity.
+   */
+  protected backgroundOpacity(_config: Config): number {
+    return 1;
+  }
+
+  /**
+   * A library family that resolveData() received from
+   * `resources.font()`, or null for the bundled face. Only generated
+   * `tcf-<id>` names are applied; the bundled stack stays the fallback.
+   */
+  protected libraryFont(): string | null {
     return null;
   }
 
@@ -111,6 +135,7 @@ export abstract class TilecastWidgetElement<Config, Data>
 
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has("context") || changed.has("config")) this.applyTheme();
+    if (changed.has("config") || changed.has("data")) this.applyFont();
   }
 
   protected override render(): TemplateResult {
@@ -138,14 +163,42 @@ export abstract class TilecastWidgetElement<Config, Data>
     else announceReady(this);
   }
 
+  private applyFont(): void {
+    const family = this.libraryFont();
+    const font =
+      typeof family === "string" && LIBRARY_FONT_FAMILY.test(family)
+        ? family
+        : null;
+    if (font === this.appliedFont) return;
+    this.appliedFont = font;
+    if (font) {
+      this.style.setProperty(
+        "--tc-font-family",
+        `"${font}", ${BUNDLED_FONT_STACK}`,
+      );
+    } else {
+      this.style.removeProperty("--tc-font-family");
+    }
+  }
+
   private applyTheme(): void {
     const theme = this.theme;
-    const key = `${theme.scheme}${theme.background}${theme.foreground}${theme.accent}${this.context.motion.reduced}`;
+    const raw = this.config ? this.backgroundOpacity(this.config) : 1;
+    const opacity = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 1;
+    const key = `${theme.scheme}${theme.background}${theme.foreground}${theme.accent}${this.context.motion.reduced}${opacity}`;
     if (key === this.appliedTheme) return;
     this.appliedTheme = key;
     const properties = themeProperties(theme);
     for (const [name, value] of Object.entries(properties)) {
       this.style.setProperty(name, value);
+    }
+    if (opacity < 1) {
+      this.style.setProperty(
+        "--tc-color-bg-fill",
+        withAlpha(theme.background, opacity),
+      );
+    } else {
+      this.style.removeProperty("--tc-color-bg-fill");
     }
     this.style.setProperty("color-scheme", theme.scheme);
     const still = this.context.motion.reduced;

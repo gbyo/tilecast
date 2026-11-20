@@ -25,6 +25,8 @@
     "mode": "countdown",
     "recurrence": "weekly",
     "style": "horizontal",
+    "segmentStyle": "tiles",
+    "fontId": "",
     "label": "Board meeting",
     "completionText": "Started",
     "completionAction": "hide",
@@ -33,6 +35,7 @@
     "showMinutes": true,
     "showSeconds": false,
     "background": "#000000",
+    "backgroundOpacity": 100,
     "foreground": "#ffffff"
   },
   "expect": "ready"

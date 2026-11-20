@@ -106,6 +106,26 @@ export function useLibraryFonts() {
   return { ...query, families: query.data ?? [], version };
 }
 
+/**
+ * Registers the faces of the given library families for a Widget preview.
+ * The library is fetched only when a preview chose a family, so previews
+ * without fonts make no request.
+ */
+export function usePreviewLibraryFonts(fontIds: readonly string[]) {
+  const key = fontIds.join(",");
+  const query = useQuery({
+    ...fontQueries.library(),
+    enabled: fontIds.length > 0,
+  });
+  useEffect(() => {
+    if (!query.data?.length || key === "") return;
+    const wanted = new Set(key.split(","));
+    void registerLibraryFonts(
+      query.data.filter((family) => wanted.has(family.id.toLowerCase())),
+    );
+  }, [query.data, key]);
+}
+
 /** CSS stack for Layout text: the library family first, then the bundled fallback. */
 export function libraryFontStack(
   fontId: string | null | undefined,

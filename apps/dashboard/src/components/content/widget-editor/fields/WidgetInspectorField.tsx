@@ -57,6 +57,7 @@ import { InspectorFieldFrame } from "./InspectorFieldFrame";
 import { useDeferredFocus, useStableRowIds } from "./rowIdentity";
 import { WidgetDataSourceField } from "./WidgetDataSourceField";
 import { WidgetFieldMapping } from "./WidgetFieldMapping";
+import { WidgetFontField } from "./WidgetFontField";
 import { WidgetMediaField } from "./WidgetMediaField";
 import { WidgetRepeatingField } from "./WidgetRepeatingField";
 
@@ -69,6 +70,8 @@ export function WidgetInspectorField(props: InspectorFieldProps) {
       return <WidgetFieldMapping {...props} />;
     case "media_asset":
       return <WidgetMediaField {...props} />;
+    case "font":
+      return <WidgetFontField {...props} />;
     case "repeating_group":
       return <WidgetRepeatingField {...props} />;
     case "boolean":

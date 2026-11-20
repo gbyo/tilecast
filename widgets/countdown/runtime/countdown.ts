@@ -8,10 +8,19 @@
  * hidden larger unit folds into the next visible one, so hiding days
  * shows "52 hours" rather than dropping two days.
  *
- * Three styles follow the saved Countdown layouts:
- * - stacked: the title over large unit segments;
- * - horizontal: the title beside the segments;
- * - countdown_only: the segments alone.
+ * Three arrangements follow the saved Countdown layouts:
+ * - stacked: the title over the units;
+ * - horizontal: the title beside the units;
+ * - countdown_only: the units alone.
+ *
+ * Each unit is drawn on a tile, or as plain numbers. Type is sized from
+ * the Widget's box and then fitted by measurement, so the numbers are as
+ * large as the box allows with any font, and unit labels scale with them
+ * instead of shrinking to a fixed caption size. A very small box shows
+ * compact labels ("5d 04h") instead of none.
+ *
+ * The author may choose an organization library font and lower the
+ * background opacity so a Layout shows through.
  *
  * This is the Countdown Widget, a content item. It is unrelated to the
  * Countdown Bar plugin, which draws an overlay strip.
@@ -19,7 +28,13 @@
  * Time comes only from the corrected Widget clock, once a second when
  * seconds show and once a minute otherwise.
  */
-import { css, html, nothing, type TemplateResult } from "lit";
+import {
+  css,
+  html,
+  nothing,
+  type PropertyValues,
+  type TemplateResult,
+} from "lit";
 import {
   empty,
   parseHexColor,
@@ -27,11 +42,15 @@ import {
   validTimeZone,
   type ConfigResult,
   type WidgetResolution,
+  type WidgetResources,
 } from "@tilecast/widget-sdk";
 import {
   boundText,
   ClockController,
+  FitController,
+  mixColors,
   TilecastWidgetElement,
+  withAlpha,
 } from "@tilecast/widget-kit";
 import {
   resolveCountdownTarget,
@@ -56,6 +75,9 @@ export const COUNTDOWN_STYLES = [
 ] as const;
 export type CountdownStyle = (typeof COUNTDOWN_STYLES)[number];
 
+export const SEGMENT_STYLES = ["tiles", "plain"] as const;
+export type SegmentStyle = (typeof SEGMENT_STYLES)[number];
+
 export const COMPLETION_ACTIONS = [
   "completed_text",
   "hide",
@@ -73,6 +95,9 @@ const UNIT_MS: Record<CountdownUnit, number> = {
   second: 1_000,
 };
 
+const FONT_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const LOCAL_TARGET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
 const INSTANT_TARGET =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/i;
@@ -85,12 +110,22 @@ export interface CountdownConfig {
   readonly mode: CountdownMode;
   readonly recurrence: CountdownRecurrence;
   readonly style: CountdownStyle;
+  readonly segmentStyle: SegmentStyle;
   readonly label: string;
   readonly completionText: string;
   readonly completionAction: CompletionAction;
   readonly units: Readonly<Record<CountdownUnit, boolean>>;
   readonly background: string | null;
   readonly foreground: string | null;
+  /** Background paint opacity, from 0 (transparent) to 1. */
+  readonly backgroundOpacity: number;
+  /** An organization library font ID, or null for the bundled face. */
+  readonly fontId: string | null;
+}
+
+/** What resolution hands the element: the registered library family. */
+export interface CountdownData {
+  readonly font: string | null;
 }
 
 function oneOf<T extends string>(
@@ -132,16 +167,33 @@ export function parseCountdownConfig(
   const mode = oneOf(raw["mode"], COUNTDOWN_MODES, "countdown");
   const recurrence = oneOf(raw["recurrence"], RECURRENCES, "none");
   const style = oneOf(raw["style"], COUNTDOWN_STYLES, "stacked");
+  const segmentStyle = oneOf(raw["segmentStyle"], SEGMENT_STYLES, "tiles");
   const completionAction = oneOf(
     raw["completionAction"],
     COMPLETION_ACTIONS,
     "completed_text",
   );
-  if (!mode || !recurrence || !style || !completionAction) {
+  if (!mode || !recurrence || !style || !segmentStyle || !completionAction) {
     return {
       ok: false,
       problem: "mode, recurrence, style and completion must be known values",
     };
+  }
+  const opacity = raw["backgroundOpacity"] ?? 100;
+  if (
+    typeof opacity !== "number" ||
+    !Number.isInteger(opacity) ||
+    opacity < 0 ||
+    opacity > 100
+  ) {
+    return {
+      ok: false,
+      problem: "background opacity must be a whole number from 0 to 100",
+    };
+  }
+  const fontId = raw["fontId"] ?? "";
+  if (typeof fontId !== "string" || (fontId !== "" && !FONT_ID.test(fontId))) {
+    return { ok: false, problem: "fontId must identify a library font" };
   }
   const units = {
     day: optionalBoolean(raw["showDays"], true),
@@ -180,22 +232,33 @@ export function parseCountdownConfig(
       // Only a count down repeats; the saved rule refused anything else.
       recurrence: mode === "countdown" ? recurrence : "none",
       style,
+      segmentStyle,
       label: boundText(label.trim(), 120),
       completionText: boundText(completionText.trim(), 240),
       completionAction,
       units: visible,
       background: parseHexColor(raw["background"]),
       foreground: parseHexColor(raw["foreground"]),
+      backgroundOpacity: opacity / 100,
+      fontId: fontId === "" ? null : fontId.toLowerCase(),
     },
   };
 }
 
-/** Without a target there is nothing to count: an expected empty state. */
+/**
+ * Without a target there is nothing to count: an expected empty state.
+ * Otherwise the only resource is the chosen library font, when the
+ * presentation declares it and the host registered its faces.
+ */
 export function resolveCountdownData(
   config: CountdownConfig,
-): WidgetResolution<null> {
+  resources?: WidgetResources,
+): WidgetResolution<CountdownData> {
   if (config.target === "") return empty("no_target");
-  return ready(null);
+  const font = config.fontId
+    ? (resources?.font?.(config.fontId) ?? null)
+    : null;
+  return ready({ font });
 }
 
 export interface CountdownSegment {
@@ -282,28 +345,21 @@ export function readCountdown(
 
 const unitFormats = new Map<string, Intl.NumberFormat>();
 
-/** The plural unit word for a value in the screen locale ("days", "días"). */
-export function unitLabel(
+function unitParts(
   unit: CountdownUnit,
   value: number,
   locale: string,
+  display: "long" | "narrow",
 ): string {
-  const key = `${locale}|${unit}`;
+  const key = `${locale}|${unit}|${display}`;
   let format = unitFormats.get(key);
   if (!format) {
-    if (unitFormats.size >= 32) unitFormats.clear();
+    if (unitFormats.size >= 64) unitFormats.clear();
+    const options = { style: "unit", unit, unitDisplay: display } as const;
     try {
-      format = new Intl.NumberFormat(locale, {
-        style: "unit",
-        unit,
-        unitDisplay: "long",
-      });
+      format = new Intl.NumberFormat(locale, options);
     } catch {
-      format = new Intl.NumberFormat("en-US", {
-        style: "unit",
-        unit,
-        unitDisplay: "long",
-      });
+      format = new Intl.NumberFormat("en-US", options);
     }
     unitFormats.set(key, format);
   }
@@ -311,223 +367,337 @@ export function unitLabel(
     .formatToParts(value)
     .filter((part) => part.type === "unit")
     .map((part) => part.value)
-    .join(" ");
+    .join(" ")
+    .trim();
 }
+
+/** The plural unit word for a value in the screen locale ("days", "días"). */
+export function unitLabel(
+  unit: CountdownUnit,
+  value: number,
+  locale: string,
+): string {
+  return unitParts(unit, value, locale, "long");
+}
+
+/** The compact unit for a small box in the screen locale ("d", "ч"). */
+export function shortUnitLabel(
+  unit: CountdownUnit,
+  value: number,
+  locale: string,
+): string {
+  return unitParts(unit, value, locale, "narrow");
+}
+
+/*
+ * Sizing. A tile is about 1.8 em wide for two digits and 1.6 em tall with
+ * its label, so the value size is the smaller of what the width allows for
+ * `--n` tiles and what the height allows. FitController then scales
+ * everything down by --tc-fit only when a wide font or a long title would
+ * still overflow.
+ */
+const styles = css`
+  .countdown {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--tc-gutter);
+  }
+  .frame {
+    --n: 3;
+    --fit: var(--tc-fit, 1);
+    --value: min(calc(90cqw / (var(--n) * 1.8)), 44cqh);
+    --title: clamp(16px, min(10cqh, 6.4cqw), 200px);
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--fit) * clamp(6px, 4.5cqh, 80px));
+    overflow: hidden;
+    text-align: center;
+  }
+  .frame[data-count="1"] {
+    --n: 1.3;
+  }
+  .frame[data-count="2"] {
+    --n: 2;
+  }
+  .frame[data-count="4"] {
+    --n: 4;
+  }
+  [data-style="countdown_only"] .frame {
+    --value: min(calc(94cqw / (var(--n) * 1.8)), 58cqh);
+  }
+
+  .title {
+    max-width: 100%;
+    font-size: calc(var(--fit) * var(--title));
+    font-weight: 650;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+
+  .segments {
+    display: grid;
+    grid-auto-flow: column;
+    /* Never narrower than its digits, so an overflow reaches the fit. */
+    grid-auto-columns: auto;
+    justify-content: center;
+    align-items: stretch;
+    gap: 0.12em;
+    font-size: calc(var(--fit) * var(--value));
+    line-height: 1;
+  }
+  .segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6em;
+    padding: 0.14em 0.2em 0.16em;
+    border-radius: 0.16em;
+    background: var(--countdown-tile);
+    box-shadow: inset 0 0 0 max(1px, 0.008em) var(--countdown-tile-edge);
+  }
+  .value {
+    font-size: 1em;
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+  .unit {
+    margin-top: 0.42em;
+    font-size: max(12px, 0.2em);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--tc-color-fg-muted);
+  }
+  .unit-short {
+    display: none;
+    font-size: 0.5em;
+    font-weight: 600;
+    margin-inline-start: 0.06em;
+    color: var(--tc-color-fg-muted);
+  }
+
+  /* Plain numbers: no tiles, a little more room for each digit. */
+  [data-segments="plain"] .frame {
+    --value: min(calc(90cqw / (var(--n) * 1.75)), 46cqh);
+  }
+  [data-segments="plain"][data-style="countdown_only"] .frame {
+    --value: min(calc(94cqw / (var(--n) * 1.75)), 60cqh);
+  }
+  [data-segments="plain"] .segments {
+    gap: 0.5em;
+  }
+  [data-segments="plain"] .segment {
+    min-width: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+  [data-segments="plain"] .unit {
+    margin-top: 0.3em;
+    font-size: max(12px, 0.22em);
+  }
+  /* Over a Layout, plain numbers keep a soft edge for photographs. */
+  [data-segments="plain"][data-translucent] .segments,
+  [data-segments="plain"][data-translucent] .title,
+  [data-translucent] .complete {
+    text-shadow: 0 0.02em 0.12em var(--countdown-shadow);
+  }
+
+  .complete {
+    max-width: 100%;
+    font-size: calc(var(--fit) * clamp(20px, min(22cqh, 10cqw), 440px));
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+  .complete-title {
+    font-size: calc(var(--fit) * clamp(14px, min(7cqh, 4cqw), 120px));
+    font-weight: 650;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tc-color-accent);
+  }
+
+  /* Side by side: the title beside the units. */
+  [data-style="horizontal"] .frame {
+    --value: min(calc(56cqw / (var(--n) * 1.8)), 52cqh);
+    --title: clamp(16px, min(13cqh, 4.6cqw), 200px);
+    flex-direction: row;
+    gap: calc(var(--fit) * clamp(10px, 4cqw, 96px));
+  }
+  [data-segments="plain"][data-style="horizontal"] .frame {
+    --value: min(calc(56cqw / (var(--n) * 1.75)), 56cqh);
+  }
+  [data-style="horizontal"] .title {
+    flex: 0 1 auto;
+    max-width: 40%;
+    text-align: start;
+  }
+
+  /* Wide strip: one line, title first. */
+  @container tc-widget (aspect-ratio > 3.2) {
+    .frame,
+    [data-style="horizontal"] .frame {
+      --value: min(calc(66cqw / (var(--n) * 1.8)), 56cqh);
+      --title: clamp(14px, min(30cqh, 3.6cqw), 140px);
+      flex-direction: row;
+      gap: calc(var(--fit) * clamp(10px, 3cqw, 80px));
+    }
+    [data-style="countdown_only"] .frame {
+      --value: min(calc(90cqw / (var(--n) * 1.8)), 60cqh);
+    }
+    [data-segments="plain"] .frame {
+      --value: min(calc(66cqw / (var(--n) * 1.75)), 58cqh);
+    }
+    .title {
+      flex: 0 1 auto;
+      max-width: 36%;
+      text-align: start;
+    }
+  }
+
+  /* Portrait or tall sidebar: units in two columns. */
+  @container tc-widget (aspect-ratio < 0.75) {
+    .frame,
+    [data-style="horizontal"] .frame,
+    [data-style="countdown_only"] .frame {
+      --value: min(calc(88cqw / 3.7), 24cqh);
+      --title: clamp(16px, 9cqw, 180px);
+      flex-direction: column;
+    }
+    .frame[data-count="1"],
+    [data-style] .frame[data-count="1"] {
+      --value: min(calc(88cqw / 2.4), 34cqh);
+    }
+    [data-segments="plain"] .frame {
+      --value: min(calc(88cqw / 3.4), 26cqh);
+    }
+    [data-style="horizontal"] .title {
+      max-width: 100%;
+      text-align: center;
+    }
+    .segments {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(2, auto);
+      gap: 0.16em;
+    }
+    .frame[data-count="1"] .segments {
+      grid-template-columns: auto;
+    }
+    .frame[data-count="3"] .segment:first-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* A small Layout zone: numbers with compact units, no title. */
+  @container tc-widget (max-height: 150px) or (max-width: 220px) {
+    .frame {
+      --value: min(calc(92cqw / (var(--n) * 1.9)), 62cqh);
+    }
+    .title,
+    .complete-title,
+    .unit {
+      display: none;
+    }
+    .unit-short {
+      display: inline;
+    }
+    .segment {
+      flex-direction: row;
+      align-items: baseline;
+      padding: 0.08em 0.14em;
+      min-width: 0;
+    }
+    .frame {
+      gap: 0;
+    }
+  }
+`;
 
 export class TilecastCountdownWidget extends TilecastWidgetElement<
   CountdownConfig,
-  null
+  CountdownData
 > {
   static override styles = [
     ...(TilecastWidgetElement.styles as never[]),
-    css`
-      .countdown {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: var(--tc-gutter);
-      }
-      .frame {
-        --n: 3;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: min(5cqh, 3cqw);
-        max-width: 100%;
-        min-width: 0;
-        text-align: center;
-      }
-      .frame[data-count="1"] {
-        --n: 1.6;
-      }
-      .frame[data-count="2"] {
-        --n: 2;
-      }
-      .frame[data-count="4"] {
-        --n: 4;
-      }
-      .title {
-        max-width: 100%;
-        font-size: clamp(14px, min(8cqh, 5cqw), 180px);
-        font-weight: 650;
-        line-height: 1.12;
-        letter-spacing: -0.015em;
-        text-wrap: balance;
-        overflow-wrap: anywhere;
-      }
-      .segments {
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        gap: min(3cqh, calc(8cqw / var(--n)));
-      }
-      .segment {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-width: 0;
-      }
-      .value {
-        font-size: clamp(
-          24px,
-          min(38cqh, calc(62cqw / var(--n) / 1.25)),
-          620px
-        );
-        font-weight: 650;
-        line-height: 0.92;
-        letter-spacing: -0.04em;
-      }
-      .unit {
-        margin-top: 0.5em;
-        font-size: clamp(11px, min(4.6cqh, calc(9cqw / var(--n))), 84px);
-        font-weight: 600;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--tc-color-fg-muted);
-      }
-      .separator {
-        font-size: clamp(
-          24px,
-          min(38cqh, calc(62cqw / var(--n) / 1.25)),
-          620px
-        );
-        line-height: 0.92;
-        font-weight: 400;
-        color: var(--tc-color-fg-subtle);
-      }
-      .complete {
-        max-width: 100%;
-        font-size: clamp(20px, min(20cqh, 10cqw), 420px);
-        font-weight: 650;
-        line-height: 1.05;
-        letter-spacing: -0.03em;
-        text-wrap: balance;
-        overflow-wrap: anywhere;
-      }
-      .complete-title {
-        font-size: clamp(12px, min(5cqh, 3cqw), 96px);
-        font-weight: 650;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--tc-color-accent);
-      }
-
-      /* Horizontal: the title beside the segments. */
-      [data-style="horizontal"] .frame {
-        flex-direction: row;
-        align-items: center;
-        gap: min(6cqh, 4cqw);
-        text-align: start;
-      }
-      [data-style="horizontal"] .title {
-        max-width: 34%;
-        font-size: clamp(14px, min(9cqh, 4.4cqw), 180px);
-      }
-      [data-style="horizontal"] .value,
-      [data-style="horizontal"] .separator {
-        font-size: clamp(
-          22px,
-          min(30cqh, calc(44cqw / var(--n) / 1.25)),
-          520px
-        );
-      }
-
-      /* Wide strip: one line, units read as small suffixes. */
-      @container tc-widget (aspect-ratio > 3.2) {
-        .frame,
-        [data-style="horizontal"] .frame {
-          flex-direction: row;
-          align-items: center;
-          gap: 5cqh;
-        }
-        .title,
-        [data-style="horizontal"] .title {
-          max-width: 36%;
-          font-size: clamp(12px, 30cqh, 120px);
-        }
-        .segment {
-          flex-direction: row;
-          align-items: baseline;
-          gap: 0.3em;
-        }
-        .value,
-        .separator,
-        [data-style="horizontal"] .value,
-        [data-style="horizontal"] .separator {
-          font-size: clamp(16px, min(62cqh, calc(40cqw / var(--n))), 260px);
-        }
-        .unit {
-          margin-top: 0;
-          font-size: clamp(10px, 16cqh, 64px);
-        }
-        .separator {
-          display: none;
-        }
-      }
-
-      /* Portrait or tall sidebar: segments in two columns. */
-      @container tc-widget (aspect-ratio < 0.75) {
-        [data-style="horizontal"] .frame {
-          flex-direction: column;
-          text-align: center;
-        }
-        [data-style="horizontal"] .title {
-          max-width: 100%;
-        }
-        .segments {
-          display: grid;
-          grid-template-columns: repeat(2, auto);
-          gap: 5cqh 8cqw;
-        }
-        .frame[data-count="1"] .segments {
-          grid-template-columns: auto;
-        }
-        .frame[data-count="3"] .segments .segment:first-child {
-          grid-column: 1 / -1;
-        }
-        .separator {
-          display: none;
-        }
-        .value,
-        [data-style="horizontal"] .value {
-          font-size: clamp(24px, 30cqw, 420px);
-        }
-        .unit {
-          font-size: clamp(11px, 5.4cqw, 84px);
-        }
-        .title {
-          font-size: clamp(14px, 8cqw, 160px);
-        }
-      }
-
-      /* Small Layout zone: the numbers only. */
-      @container tc-widget (max-height: 150px) or (max-width: 200px) {
-        .title,
-        .complete-title,
-        .unit {
-          display: none;
-        }
-        .frame {
-          gap: 0;
-        }
-      }
-    `,
+    styles,
   ];
 
   private readonly ticks = new ClockController(this, {
     granularity: () => (this.config?.units.second ? "second" : "minute"),
   });
 
+  // Fits the whole arrangement so a long title or a wide library font
+  // never overflows; legibility floor is 35 % of the box-derived size.
+  private readonly fitter = new FitController(this, {
+    target: () => this.renderRoot?.querySelector<HTMLElement>(".frame"),
+    minimum: 0.35,
+  });
+
   private reading: CountdownReading | null = null;
+  private appliedTile = "";
 
   protected override themeOverrides(config: CountdownConfig) {
     return { background: config.background, foreground: config.foreground };
   }
 
+  protected override backgroundOpacity(config: CountdownConfig): number {
+    return config.backgroundOpacity;
+  }
+
+  protected override libraryFont(): string | null {
+    return this.data?.font ?? null;
+  }
+
   private get zone(): string {
     return this.config.timeZone ?? this.context.timeZone;
+  }
+
+  protected override willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
+    if (changed.has("config") || changed.has("context")) this.applyTile();
+  }
+
+  /*
+   * A tile keeps its own surface when the background is translucent, so
+   * numbers over a photograph stay readable: at full opacity it is the
+   * raised surface, and it never drops below 60 % opacity.
+   */
+  private applyTile(): void {
+    if (!this.config || !this.context) return;
+    const { background, foreground } = this.theme;
+    const opacity = this.config.backgroundOpacity;
+    const key = `${background}${foreground}${opacity}`;
+    if (key === this.appliedTile) return;
+    this.appliedTile = key;
+    const surface = mixColors(background, foreground, 0.1);
+    this.style.setProperty(
+      "--countdown-tile",
+      withAlpha(surface, 0.6 + 0.4 * opacity),
+    );
+    this.style.setProperty(
+      "--countdown-tile-edge",
+      withAlpha(foreground, 0.08),
+    );
+    this.style.setProperty("--countdown-shadow", withAlpha(background, 0.55));
   }
 
   protected override presentationState() {
@@ -558,16 +728,19 @@ export class TilecastCountdownWidget extends TilecastWidgetElement<
   protected override renderContent(): TemplateResult {
     const reading =
       this.reading ?? readCountdown(this.config, this.ticks.now, this.zone);
-    const { style, label } = this.config;
-    const title =
-      style !== "countdown_only" && label
-        ? html`<div class="title">${label}</div>`
-        : nothing;
+    const { style, label, segmentStyle } = this.config;
+    const translucent = this.config.backgroundOpacity < 1;
+    const showTitle = style !== "countdown_only" && label !== "";
     if (reading.phase !== "counting") {
-      return html`<div class="countdown" data-style=${style}>
+      return html`<div
+        class="countdown"
+        data-style=${style}
+        data-segments=${segmentStyle}
+        ?data-translucent=${translucent}
+      >
         <div class="frame" data-phase="complete">
           ${
-            style !== "countdown_only" && label
+            showTitle
               ? html`<div class="complete-title">${label}</div>`
               : nothing
           }
@@ -584,33 +757,35 @@ export class TilecastCountdownWidget extends TilecastWidgetElement<
           `${segment.value} ${unitLabel(segment.unit, segment.value, locale)}`,
       )
       .join(" ");
-    return html`<div class="countdown" data-style=${style}>
+    return html`<div
+      class="countdown"
+      data-style=${style}
+      data-segments=${segmentStyle}
+      ?data-translucent=${translucent}
+    >
       <div
         class="frame"
         data-phase="counting"
         data-direction=${reading.direction}
         data-count=${String(reading.segments.length)}
       >
-        ${title}
+        ${showTitle ? html`<div class="title">${label}</div>` : nothing}
         <div class="segments" role="timer" aria-label=${spoken}>
           ${reading.segments.map(
             (segment, index) =>
-              html`${
-                  index > 0
-                    ? html`<span class="separator" aria-hidden="true">:</span>`
-                    : nothing
-                }
-                <div class="segment">
-                  <span class="value tc-numeric"
-                    >${
-                      index === 0
-                        ? String(segment.value)
-                        : String(segment.value).padStart(2, "0")
-                    }</span
-                  ><span class="unit"
-                    >${unitLabel(segment.unit, segment.value, locale)}</span
-                  >
-                </div>`,
+              html`<div class="segment" data-unit=${segment.unit}>
+                <span class="value tc-numeric"
+                  >${
+                    index === 0
+                      ? String(segment.value)
+                      : String(segment.value).padStart(2, "0")
+                  }</span
+                ><span class="unit-short" aria-hidden="true"
+                  >${shortUnitLabel(segment.unit, segment.value, locale)}</span
+                ><span class="unit" aria-hidden="true"
+                  >${unitLabel(segment.unit, segment.value, locale)}</span
+                >
+              </div>`,
           )}
         </div>
       </div>

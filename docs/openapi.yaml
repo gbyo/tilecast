@@ -13790,6 +13790,7 @@ components:
                 media_asset,
                 repeating_group,
                 string_list,
+                font,
               ],
           }
         required: { type: boolean }
