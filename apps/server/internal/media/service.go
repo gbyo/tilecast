@@ -43,6 +43,7 @@ type Service struct {
 	invalidator AssetInvalidator
 	definitions contentdefs.Catalogs
 	pluginGate  PluginSourceGate
+	packageGate PackageSourceGate
 	hooks       FinalizationHooks
 	// uploadAuthorizer re-decides, inside the transaction that registers an
 	// uploaded asset, whether the upload's creator may still place content in
