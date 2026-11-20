@@ -386,29 +386,7 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
-    struct TestOpener;
-
-    impl player_cas::SecureOpener for TestOpener {
-        fn open_regular(&self, path: &Path, max_bytes: u64) -> std::io::Result<player_cas::RegularOpen> {
-            use player_cas::RegularOpen;
-            if path.symlink_metadata().is_ok_and(|meta| meta.file_type().is_symlink()) {
-                return Ok(RegularOpen::Refused);
-            }
-            match std::fs::File::open(path) {
-                Ok(file) => {
-                    let meta = file.metadata()?;
-                    if !meta.is_file() || meta.len() > max_bytes {
-                        Ok(RegularOpen::Refused)
-                    } else {
-                        Ok(RegularOpen::Opened(file, meta.len()))
-                    }
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(RegularOpen::Missing),
-                Err(error) => Err(error),
-            }
-        }
-    }
+    use player_cas::open::TestOpener;
 
     async fn test_store(dir: &Path, limit_bytes: u64) -> ContentStore {
         let db = player_state::StateDb::open(dir.join("state.db"), player_state::OpenOptions::default()).unwrap();

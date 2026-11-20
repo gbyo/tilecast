@@ -862,7 +862,7 @@ mod tests {
             db,
             clock,
             std::sync::Arc::new(crate::host::StatvfsProbe),
-            std::sync::Arc::new(crate::host::AndroidSecureOpener),
+            std::sync::Arc::new(player_cas::UnixSecureOpener),
             StorePolicy { limit_bytes: CAS_LIMIT_BYTES, reserved_free_bytes: CAS_RESERVED_FREE_BYTES },
             std::sync::Arc::new(LruByDomain),
         )

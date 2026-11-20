@@ -494,7 +494,7 @@ mod tests {
             db.clone(),
             clock.clone(),
             std::sync::Arc::new(crate::host::StatvfsProbe),
-            std::sync::Arc::new(crate::host::AndroidSecureOpener),
+            std::sync::Arc::new(player_cas::UnixSecureOpener),
             StorePolicy { limit_bytes: 8 * 1024 * 1024, reserved_free_bytes: 0 },
             std::sync::Arc::new(LruByDomain),
         )
