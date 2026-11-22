@@ -149,11 +149,33 @@ type Targets interface {
 	AppliesToScreen(ctx context.Context, screenID uuid.UUID, targets ScreenTargets) (bool, error)
 }
 
+// TakeoverPriorityClass is one of the four core preemption classes. Higher
+// classes win independently on each screen. The empty value is accepted by the
+// host as routine so Plugin API v1/v2 callers keep their existing behavior.
+type TakeoverPriorityClass string
+
+const (
+	TakeoverPriorityRoutine   TakeoverPriorityClass = "routine"
+	TakeoverPriorityPriority  TakeoverPriorityClass = "priority"
+	TakeoverPriorityUrgent    TakeoverPriorityClass = "urgent"
+	TakeoverPriorityEmergency TakeoverPriorityClass = "emergency"
+)
+
+func (c TakeoverPriorityClass) Valid() bool {
+	switch c {
+	case TakeoverPriorityRoutine, TakeoverPriorityPriority, TakeoverPriorityUrgent, TakeoverPriorityEmergency:
+		return true
+	default:
+		return false
+	}
+}
+
 type TakeoverRequest struct {
 	Name          string
 	Description   string
 	PlaylistID    uuid.UUID
 	Targets       ScreenTargets
+	PriorityClass TakeoverPriorityClass
 	ActivatedBy   uuid.UUID
 	ActivatedAt   time.Time
 	ExpiresAt     time.Time
