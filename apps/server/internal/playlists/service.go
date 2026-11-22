@@ -33,6 +33,7 @@ type Service struct {
 	plugins               PluginProjector
 	externalPlugins       ExternalPluginProjector
 	presentationOverrides PresentationOverrideProjector
+	takeoverReconciler    TakeoverReconciler
 	span                  SpanProjector
 	// approvalGate refuses assignment of content that is waiting for review.
 	// Nil means this installation does not gate assignment at all. It runs inside
@@ -64,6 +65,10 @@ type SpanProjector interface {
 	PrepareVideo(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (span.VideoPanel, error)
 }
 
+type TakeoverReconciler interface {
+	ReconcileExpiredForScreen(context.Context, uuid.UUID) error
+}
+
 // PackagePayloads answers the verified player bundle of one installed
 // package Widget. The contributions service implements it; playlists
 // holds it as an injected boundary so content compilation never imports
@@ -86,6 +91,10 @@ func (s *Service) SetExternalPluginProjector(projector ExternalPluginProjector) 
 func (s *Service) SetSpanProjector(projector SpanProjector) { s.span = projector }
 func (s *Service) SetPresentationOverrides(projector PresentationOverrideProjector) {
 	s.presentationOverrides = projector
+}
+
+func (s *Service) SetTakeoverReconciler(reconciler TakeoverReconciler) {
+	s.takeoverReconciler = reconciler
 }
 
 // SetPackagePayloads installs the installed-package bundle resolver used
@@ -1640,38 +1649,12 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			return Manifest{}, "", err
 		}
 	}
-	now := time.Now().UTC()
-	// Expiration is persisted during reconciliation so an unchanged ETag can never
-	// hide the removal of a takeover from a player. The takeover state transition
-	// and manifest version bump share one transaction; a failed bump cannot leave
-	// an expired takeover with an old conditional-response identity.
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return Manifest{}, "", err
-	}
-	defer tx.Rollback(ctx)
-	var expired bool
-	if err = tx.QueryRow(ctx, `WITH changed AS (
-		UPDATE takeovers e SET status='expired',updated_at=now()
-		WHERE e.status='active' AND e.expires_at<=now() AND EXISTS(SELECT 1 FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.screen_id=$1)
-		RETURNING e.id),
-		updated AS (
-		UPDATE takeover_screen_states es SET state='expired',restored_at=now(),last_updated_at=now()
-		WHERE es.screen_id=$1 AND es.takeover_id IN(SELECT id FROM changed) RETURNING true)
-		SELECT EXISTS(SELECT 1 FROM changed) OR EXISTS(SELECT 1 FROM updated)`, screenID).Scan(&expired); err != nil {
-		return Manifest{}, "", err
-	}
-	expirationNotes := []notification{}
-	if expired {
-		expirationNotes, err = bumpScreensInTx(ctx, tx, []uuid.UUID{screenID}, "takeover.expired")
-		if err != nil {
+	if s.takeoverReconciler != nil {
+		if err := s.takeoverReconciler.ReconcileExpiredForScreen(ctx, screenID); err != nil {
 			return Manifest{}, "", err
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return Manifest{}, "", err
-	}
-	s.notify(expirationNotes)
+	now := time.Now().UTC()
 	assignment, err := s.Assignment(ctx, screenID)
 	if err != nil {
 		return Manifest{}, "", err
