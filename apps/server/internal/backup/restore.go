@@ -316,6 +316,19 @@ func loadDatabaseContents(ctx context.Context, opts ApplyOptions, manifest Manif
 			return fmt.Errorf("disable triggers on %s: %w", name, err)
 		}
 	}
+	// Migrations seed a few rows (for example presentation_catalog_state), and
+	// the archive holds the same rows. A restore replaces all data, so the
+	// rebuilt tables start empty or the load stops on a duplicate key. Foreign
+	// keys are already dropped, so the tables can be emptied together.
+	if len(schemaTables) > 0 {
+		quoted := make([]string, len(schemaTables))
+		for index, name := range schemaTables {
+			quoted[index] = quoteIdentifier(name)
+		}
+		if _, err := conn.Exec(ctx, `TRUNCATE `+strings.Join(quoted, ", ")); err != nil {
+			return fmt.Errorf("empty the rebuilt tables before loading: %w", err)
+		}
+	}
 
 	loaded := make(map[string]bool, len(manifestTables))
 	_, err = walkArchive(opts.ArchivePath, opts.Limits, func(entry archiveEntry) error {
