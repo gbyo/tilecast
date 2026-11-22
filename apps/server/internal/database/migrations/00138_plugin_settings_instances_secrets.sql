@@ -127,11 +127,16 @@ CREATE TABLE plugin_secret_kek_exports (
     acknowledged_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- A Studio restore records the operator's confirmation that plugin secrets
+-- protected by a KEK this installation lacks will need new values.
+ALTER TABLE backup_jobs ADD COLUMN confirm_unreadable_secrets BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 
+ALTER TABLE backup_jobs DROP COLUMN confirm_unreadable_secrets;
 DROP TABLE plugin_secret_kek_exports;
 DROP TABLE plugin_secrets;
 DROP TABLE plugin_secret_deks;

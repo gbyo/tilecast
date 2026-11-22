@@ -157,3 +157,14 @@ func (s *Service) invokeRoute(pluginID string, handler plugin.Handler) plugin.Ha
 		return handler(w, r.WithContext(ctx))
 	}
 }
+
+// backgroundWorker runs a plugin worker inside a background invocation.
+func (s *Service) backgroundWorker(pluginID string, worker plugin.Worker) plugin.Worker {
+	run := worker.Run
+	worker.Run = func(ctx context.Context) error {
+		invocationCtx, done := s.backgroundInvocation(ctx, pluginID)
+		defer done()
+		return run(invocationCtx)
+	}
+	return worker
+}

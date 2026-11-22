@@ -48,6 +48,9 @@ const (
 	ErrCodeConflict     = "conflict"
 	ErrCodeTooLarge     = "too_large"
 	ErrCodeUnavailable  = "unavailable"
+	// ErrCodeSecretUnavailable answers secrets.read@1 for a secret that is
+	// not set or that this installation cannot decrypt.
+	ErrCodeSecretUnavailable = "secret_unavailable"
 )
 
 // Actor is the authenticated Studio operator behind a studio-context
@@ -66,6 +69,9 @@ type Call struct {
 	ExecutionEpoch uuid.UUID
 	PackageDigest  string
 	PackageID      string
+	// PluginID is set, and PackageID empty, for a bundled Plugin Manifest
+	// API 3 plugin. The host binds it; plugin code never supplies it.
+	PluginID string
 	Context        string
 	Actor          *Actor
 	Grants         []packagemanifest.ServiceGrant
@@ -175,6 +181,8 @@ type Dependencies struct {
 	Managed         *managedpresentations.Service
 	Settings        *settings.Service
 	Shared          plugins.SharedHost
+	// Plugins serves bundled plugins' own settings and secrets.
+	Plugins *plugins.Service
 	Limits          Limits
 	Now             func() time.Time
 }
@@ -209,9 +217,19 @@ func (d *Dispatcher) now() time.Time {
 // transport must answer a stable host error; a CallError means the
 // transport must answer a failure envelope; data means success.
 func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	operation, _, ok := LookupOperation(call.Operation)
+	operation, capability, ok := LookupOperation(call.Operation)
 	if !ok {
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "unknown service operation"}, nil
+	}
+	caller := CallerPackage
+	if call.PluginID != "" {
+		caller = CallerBundled
+		if call.PackageID != "" || call.ExecutionEpoch != uuid.Nil {
+			return nil, &Denial{Kind: DenialInvalidActor, Message: "a call names one caller"}, nil
+		}
+	}
+	if !capability.AllowsCaller(caller) {
+		return nil, &Denial{Kind: DenialMissingGrant, Message: operation.CapabilityID + " is not available to this caller"}, nil
 	}
 	if !Granted(call.Grants, operation) {
 		return nil, &Denial{Kind: DenialMissingGrant, Message: "the active manifest does not grant " + operation.CapabilityID}, nil
@@ -224,9 +242,9 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		if call.Actor == nil || call.Actor.UserID == uuid.Nil || call.Actor.Role == "" {
 			return nil, &Denial{Kind: DenialInvalidActor, Message: "studio calls require an authenticated actor"}, nil
 		}
-	case ContextBackground:
+	case ContextBackground, ContextSystem:
 		if call.Actor != nil {
-			return nil, &Denial{Kind: DenialInvalidActor, Message: "background calls never carry an actor"}, nil
+			return nil, &Denial{Kind: DenialInvalidActor, Message: "background and system calls never carry an actor"}, nil
 		}
 	default:
 		return nil, &Denial{Kind: DenialForbiddenContext, Message: "unknown invocation context"}, nil
@@ -318,6 +336,10 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.playerCommand(ctx, call, playercaps.DisplayMute)
 	case "players.display-control@1/display.brightness":
 		return d.playerCommand(ctx, call, playercaps.DisplayBrightness)
+	case "settings.read@1/get":
+		return d.pluginSettingsGet(ctx, call)
+	case "secrets.read@1/get":
+		return d.pluginSecretGet(ctx, call)
 	default:
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "operation has no handler"}, nil
 	}

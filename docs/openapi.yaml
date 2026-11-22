@@ -9632,61 +9632,122 @@ paths:
   /api/v1/plugins/countdown-bar/instances:
     get:
       operationId: listCountdownBarInstances
-      description: List configured Countdown Bar instances.
+      description: List countdown bars, strongest priority first.
       responses:
-        "200": { description: Configured Countdown Bar instances }
+        "200":
+          description: countdown bars
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CountdownBarInstance"
+                      total:
+                        type: integer
     post:
       operationId: createCountdownBarInstance
-      description: >-
-        Create a Countdown Bar instance. Requires an Owner or Administrator.
+      description: Create a countdown bar. Requires plugins.manage and screen access to its targets.
       parameters:
-        - { $ref: "#/components/parameters/CSRFToken" }
+        - $ref: "#/components/parameters/CSRFToken"
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/CountdownBarInput" }
+            schema:
+              $ref: "#/components/schemas/CountdownBarInstanceInput"
       responses:
-        "201": { description: Countdown Bar instance created }
-        "400": { description: Typed configuration or targets are invalid }
-        "403": { description: Owner or Administrator required }
+        "201":
+          description: countdown bar created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CountdownBarInstance"
+        "400":
+          description: Configuration or targets are invalid
+        "403":
+          description: Capability or screen access missing
+        "409":
+          description: The plugin is not installed
   /api/v1/plugins/countdown-bar/instances/{id}:
     get:
       operationId: getCountdownBarInstance
-      description: Get a Countdown Bar instance.
+      description: Get a countdown bar.
       parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
+        - $ref: "#/components/parameters/ResourceID"
       responses:
-        "200": { description: Countdown Bar instance }
-        "404": { description: Instance not found }
+        "200":
+          description: countdown bar
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CountdownBarInstance"
+        "404":
+          description: Not found
     put:
       operationId: updateCountdownBarInstance
-      description: >-
-        Replace a Countdown Bar instance. Requires an Owner or Administrator.
+      description: Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
       parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/CountdownBarInput" }
+            schema:
+              $ref: "#/components/schemas/CountdownBarInstanceUpdate"
       responses:
-        "200": { description: Countdown Bar instance replaced }
-        "400": { description: Typed configuration or targets are invalid }
-        "403": { description: Owner or Administrator required }
-        "404": { description: Instance not found }
+        "200":
+          description: countdown bar replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CountdownBarInstance"
+        "400":
+          description: Configuration or targets are invalid
+        "403":
+          description: Capability or screen access missing
+        "404":
+          description: Not found
+        "409":
+          description: Stale revision; nothing changed
+        "428":
+          description: expectedRevision is missing
     delete:
       operationId: deleteCountdownBarInstance
-      description: >-
-        Delete a Countdown Bar instance. Requires an Owner or Administrator.
+      description: Delete a countdown bar and remove it from its screens.
       parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
       responses:
-        "204": { description: Countdown Bar instance deleted }
-        "403": { description: Owner or Administrator required }
-        "404": { description: Instance not found }
+        "204":
+          description: countdown bar deleted
+        "403":
+          description: Capability or screen access missing
+        "404":
+          description: Not found
   /api/v1/alerts/nws:
     get:
       operationId: getNwsMonitor
@@ -19207,99 +19268,310 @@ components:
           description: >-
             Chosen image asset, or null when no background is set and the login page falls back to its default artwork.
         imageUrl: { type: string }
-    CountdownBarInput:
+    CountdownBarInstanceInput:
       type: object
       additionalProperties: false
       required:
-        [
-          name,
-          message,
-          scheduleType,
-          daysOfWeek,
-          timezone,
-          leadTimeSeconds,
-          completionText,
-          showConfetti,
-          displayMode,
-          heightPx,
-          urgencyEnabled,
-          startingSoonSeconds,
-          urgentSeconds,
-          pulseSeconds,
-          enabled,
-          priority,
-          targetScope,
-          targetIds,
-        ]
+        - name
+        - targetScope
+        - targetIds
+        - timezone
       properties:
-        name: { type: string, minLength: 1, maxLength: 180 }
-        message: { type: string, minLength: 1, maxLength: 280 }
-        scheduleType: { enum: [weekly, one_time] }
-        targetTime: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
-        daysOfWeek:
-          type: array
-          uniqueItems: true
-          items: { type: integer, minimum: 0, maximum: 6 }
-        oneTimeAt: { type: string, format: date-time }
-        timezone: { type: string, minLength: 1, maxLength: 100 }
-        leadTimeSeconds: { type: integer, minimum: 60, maximum: 2592000 }
-        completionText: { type: string, maxLength: 280 }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+          description: Defaults to true on create and keeps its value on update.
+        message:
+          description: Message
+          type: string
+          maxLength: 1120
+          default: Lunch ends in
+        completionText:
+          description: Shown for one minute after the target; leave blank to hide at zero.
+          type: string
+          maxLength: 1120
         showConfetti:
+          description: Show confetti when the countdown reaches zero
           type: boolean
           default: false
-          description: >-
-            Show a short confetti fall from the top of the Player when the countdown reaches zero. This does not require completion text.
-        displayMode: { enum: [overlay, push] }
-        heightPx: { type: integer, minimum: 40, maximum: 320 }
+        scheduleType:
+          description: Schedule
+          enum:
+            - weekly
+            - one_time
+          default: weekly
+        targetTime:
+          description: Target time
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        daysOfWeek:
+          description: Days of the week
+          type: array
+          uniqueItems: true
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+          default: &a1
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+        oneTimeAt:
+          description: The Player counts down to this instant.
+          type: string
+          format: date-time
+        timezone:
+          description: Timezone
+          type: string
+        leadTimeSeconds:
+          description: Appear this many minutes before
+          type: integer
+          minimum: 60
+          maximum: 2592000
+          default: 900
+        displayMode:
+          description: Mode
+          enum:
+            - overlay
+            - push
+          default: overlay
+        heightPx:
+          description: Bottom-bar height (px)
+          type: integer
+          minimum: 40
+          maximum: 320
+          default: 72
         progressFill:
-          enum: [none, drain]
+          description: Drain empties the bar from right to left as the target approaches.
+          enum:
+            - none
+            - drain
           default: none
-          description: >-
-            Background treatment behind the bar text. "drain" starts the bar fully tinted when the lead window opens and retreats the tint leftward as the target approaches, leaving only the bar background at zero. Omitted means "none".
         contentPadding:
+          description: Lower padding gives the message and countdown more room.
           type: integer
           minimum: 0
           maximum: 40
           default: 4
-          description: >-
-            Share of each side left as a gutter, as a percentage of the bar width. Lowering it gives a long message or a larger type size more room. The default 4 matches the bar's original gutters.
         textScale:
+          description: Increase the type size without changing the bar height.
           type: integer
           minimum: 25
           maximum: 500
           default: 100
-          description: >-
-            Percentage applied to the height-derived type size, so a bar can carry larger text without changing its height. 100 is the original appearance.
         fontId:
+          description: Add fonts in Settings. Screens that cannot load the font keep the default.
           type: string
           format: uuid
-          description: >-
-            An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
         urgencyEnabled:
+          description: Change the bar automatically as the target approaches.
           type: boolean
           default: false
-          description: Enable automatic starting-soon, urgent, and final pulse stages.
         startingSoonSeconds:
+          description: Starting soon (orange), minutes before
           type: integer
           minimum: 2
           maximum: 86400
           default: 300
         urgentSeconds:
+          description: Urgent (red), seconds before
           type: integer
           minimum: 2
           maximum: 3600
           default: 60
         pulseSeconds:
+          description: The bar and text grow by 25% during this final stage.
           type: integer
           minimum: 1
           maximum: 60
           default: 10
-          description: Final seconds during which the urgent bar pulses and grows by 25 percent.
-        enabled: { type: boolean }
-        priority: { type: integer, minimum: -1000, maximum: 1000 }
-        targetScope: { enum: [all, screens, sync_groups, locations] }
+        priority:
+          type: integer
+          minimum: -1000
+          maximum: 1000
+          default: 0
+        targetScope:
+          enum:
+            - all
+            - screens
+            - sync_groups
+            - locations
         targetIds:
           type: array
           uniqueItems: true
           maxItems: 250
-          items: { type: string, format: uuid }
+          items:
+            type: string
+            format: uuid
+    CountdownBarInstanceUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - targetScope
+        - targetIds
+        - expectedRevision
+        - timezone
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+          description: Defaults to true on create and keeps its value on update.
+        message:
+          description: Message
+          type: string
+          maxLength: 1120
+          default: Lunch ends in
+        completionText:
+          description: Shown for one minute after the target; leave blank to hide at zero.
+          type: string
+          maxLength: 1120
+        showConfetti:
+          description: Show confetti when the countdown reaches zero
+          type: boolean
+          default: false
+        scheduleType:
+          description: Schedule
+          enum:
+            - weekly
+            - one_time
+          default: weekly
+        targetTime:
+          description: Target time
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        daysOfWeek:
+          description: Days of the week
+          type: array
+          uniqueItems: true
+          maxItems: 7
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+          default: *a1
+        oneTimeAt:
+          description: The Player counts down to this instant.
+          type: string
+          format: date-time
+        timezone:
+          description: Timezone
+          type: string
+        leadTimeSeconds:
+          description: Appear this many minutes before
+          type: integer
+          minimum: 60
+          maximum: 2592000
+          default: 900
+        displayMode:
+          description: Mode
+          enum:
+            - overlay
+            - push
+          default: overlay
+        heightPx:
+          description: Bottom-bar height (px)
+          type: integer
+          minimum: 40
+          maximum: 320
+          default: 72
+        progressFill:
+          description: Drain empties the bar from right to left as the target approaches.
+          enum:
+            - none
+            - drain
+          default: none
+        contentPadding:
+          description: Lower padding gives the message and countdown more room.
+          type: integer
+          minimum: 0
+          maximum: 40
+          default: 4
+        textScale:
+          description: Increase the type size without changing the bar height.
+          type: integer
+          minimum: 25
+          maximum: 500
+          default: 100
+        fontId:
+          description: Add fonts in Settings. Screens that cannot load the font keep the default.
+          type: string
+          format: uuid
+        urgencyEnabled:
+          description: Change the bar automatically as the target approaches.
+          type: boolean
+          default: false
+        startingSoonSeconds:
+          description: Starting soon (orange), minutes before
+          type: integer
+          minimum: 2
+          maximum: 86400
+          default: 300
+        urgentSeconds:
+          description: Urgent (red), seconds before
+          type: integer
+          minimum: 2
+          maximum: 3600
+          default: 60
+        pulseSeconds:
+          description: The bar and text grow by 25% during this final stage.
+          type: integer
+          minimum: 1
+          maximum: 60
+          default: 10
+        priority:
+          type: integer
+          minimum: -1000
+          maximum: 1000
+          default: 0
+        targetScope:
+          enum:
+            - all
+            - screens
+            - sync_groups
+            - locations
+        targetIds:
+          type: array
+          uniqueItems: true
+          maxItems: 250
+          items:
+            type: string
+            format: uuid
+        expectedRevision:
+          type: integer
+          minimum: 1
+          description: The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.
+    CountdownBarInstance:
+      allOf:
+        - $ref: "#/components/schemas/CountdownBarInstanceInput"
+        - type: object
+          required:
+            - id
+            - kind
+            - revision
+            - createdAt
+            - updatedAt
+          properties:
+            id:
+              type: string
+              format: uuid
+            kind:
+              const: instance
+            revision:
+              type: integer
+              minimum: 1
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time

@@ -297,7 +297,7 @@ func instanceBlockers(ctx context.Context, tx pgx.Tx, manifest plugin.Manifest) 
 			return nil, err
 		}
 		if count > 0 {
-			out = append(out, plugin.Blocker{Kind: manifest.ID + "." + kind.Kind, Count: count, Singular: kind.Noun.Singular,
+			out = append(out, plugin.Blocker{Kind: manifest.ID + "_" + kind.Kind, Count: count, Singular: kind.Noun.Singular,
 				Plural: kind.Noun.Plural, Resolution: plugin.ResolveDelete})
 		}
 	}

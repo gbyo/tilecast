@@ -259,6 +259,8 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireCapability(auth.CapSystemManage), s.requireScope("read")).Get("/system/status", s.systemStatus)
 			dashboard.With(s.requireCapability(auth.CapSystemManage), s.requireCSRF, s.requireScope("admin")).Post("/system/maintenance/{action}", s.systemMaintenance)
 			if s.backups != nil {
+				dashboard.With(s.requireCapability(auth.CapSystemBackups), s.requireScope("admin")).Get("/system/plugin-secrets", s.pluginSecretStatus)
+				dashboard.With(s.requireCapability(auth.CapSystemBackups), s.requireCSRF, s.requireScope("admin")).Post("/system/plugin-secrets/export-confirmations", s.confirmPluginSecretExport)
 				dashboard.With(s.requireCapability(auth.CapSystemBackups), s.requireScope("admin")).Get("/system/backups", s.listBackups)
 				dashboard.With(s.requireCapability(auth.CapSystemBackups), s.requireCSRF, s.requireScope("admin")).Post("/system/backups", s.createBackup)
 				dashboard.With(s.requireCapability(auth.CapSystemBackups), s.requireScope("admin")).Get("/system/backups/jobs/current", s.currentBackupJob)

@@ -302,6 +302,8 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 		return fmt.Errorf("declares a player contribution but implements neither InstanceProjector nor PlayerStateProjector, so no Player would ever activate it")
 	case m.Player != nil && len(m.Player.V1ManifestTypes) > 0 && !projectsInstances:
 		return fmt.Errorf("declares player.v1ManifestTypes but does not implement InstanceProjector, which returns the Plugin API 1 entries")
+	case len(m.Instances) == 0 && implementsDemoInstances(p):
+		return fmt.Errorf("implements InstanceDemoSeeder without declaring instances")
 	case validates && len(m.Instances) == 0:
 		return fmt.Errorf("implements InstanceValidator without declaring instances")
 	case consumes && len(m.Services) == 0:
@@ -341,4 +343,9 @@ func GeneratedRoutes(m Manifest) []GeneratedRoute {
 			GeneratedRoute{http.MethodDelete, collection + "/{id}"})
 	}
 	return out
+}
+
+func implementsDemoInstances(p Plugin) bool {
+	_, ok := p.(InstanceDemoSeeder)
+	return ok
 }

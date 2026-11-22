@@ -195,7 +195,7 @@ func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
 	}
 	items := []CatalogPlugin{}
 	for _, hosted := range s.hosted {
-		status, reported, err := reportedStatus(ctx, hosted)
+		status, reported, err := s.statusFor(ctx, hosted)
 		if err != nil {
 			return Catalog{}, err
 		}
@@ -231,6 +231,31 @@ func reportedStatus(ctx context.Context, hosted hostedPlugin) (pluginStatus, boo
 	if !ok {
 		return pluginStatus{}, false, nil
 	}
+	return reporterStatus(ctx, hosted, reporter)
+}
+
+// statusFor answers a plugin's catalog status: the host's own counts for a
+// Plugin Manifest API 3 plugin whose instances it stores, with any
+// attention notes the plugin reports, or the plugin's own report.
+func (s *Service) statusFor(ctx context.Context, hosted hostedPlugin) (pluginStatus, bool, error) {
+	if !hosted.manifest.HostOwnsInstances() {
+		return reportedStatus(ctx, hosted)
+	}
+	status, err := s.instanceStatus(ctx, hosted.manifest.ID)
+	if err != nil {
+		return pluginStatus{}, true, fmt.Errorf("plugin %s: status: %w", hosted.manifest.ID, err)
+	}
+	if reporter, ok := hosted.plugin.(plugin.StatusReporter); ok {
+		own, _, err := reporterStatus(ctx, hosted, reporter)
+		if err != nil {
+			return pluginStatus{}, true, err
+		}
+		status.attention = own.attention
+	}
+	return status, true, nil
+}
+
+func reporterStatus(ctx context.Context, hosted hostedPlugin, reporter plugin.StatusReporter) (pluginStatus, bool, error) {
 	reported, err := reporter.Status(ctx)
 	if err != nil {
 		return pluginStatus{}, true, fmt.Errorf("plugin %s: status: %w", hosted.manifest.ID, err)
@@ -400,7 +425,12 @@ func (s *Service) manifestForScreen(ctx context.Context, screenID uuid.UUID, plu
 			continue
 		}
 		var items []ManifestPlugin
-		if projector, ok := hosted.plugin.(plugin.ManifestProjector); ok {
+		if hosted.manifest.HostOwnsInstances() {
+			items, err = s.instanceLegacyEntries(ctx, hosted, screenID)
+			if err == nil {
+				err = checkManifestTypes(hosted.manifest, items)
+			}
+		} else if projector, ok := hosted.plugin.(plugin.ManifestProjector); ok {
 			items, err = projector.ProjectManifest(ctx, screenID)
 			if err == nil {
 				err = checkManifestTypes(hosted.manifest, items)
@@ -430,17 +460,29 @@ func (s *Service) PlayerStateForScreen(ctx context.Context, screenID uuid.UUID, 
 	}
 	out := []PlayerStateEntry{}
 	for _, hosted := range s.hosted {
-		projector, ok := hosted.plugin.(plugin.PlayerStateProjector)
-		if !ok || !installed[hosted.manifest.ID] || hosted.manifest.Player == nil {
+		projector, projectsState := hosted.plugin.(plugin.PlayerStateProjector)
+		_, projectsInstances := hosted.plugin.(plugin.InstanceProjector)
+		if (!projectsState && !projectsInstances) || !installed[hosted.manifest.ID] || hosted.manifest.Player == nil {
 			continue
 		}
 		player := hosted.manifest.Player
 		if len(player.Native) == 0 && !plugin.ServicesAvailable(reported, player.RequiredServices()) {
 			continue
 		}
-		states, err := projector.ProjectPlayerState(ctx, screenID)
-		if err != nil {
-			return nil, err
+		states := []plugin.PlayerState{}
+		if projectsInstances && hosted.manifest.HostOwnsInstances() {
+			projected, err := s.instancePlayerState(ctx, hosted, screenID)
+			if err != nil {
+				return nil, err
+			}
+			states = append(states, projected...)
+		}
+		if projectsState {
+			own, err := s.projectOwnState(ctx, hosted, projector, screenID)
+			if err != nil {
+				return nil, err
+			}
+			states = append(states, own...)
 		}
 		entries, err := plugin.EncodePlayerState(hosted.manifest, states, s.clock.Now())
 		if err != nil {
@@ -465,4 +507,15 @@ func checkManifestTypes(manifest plugin.Manifest, items []ManifestPlugin) error 
 		}
 	}
 	return nil
+}
+
+// projectOwnState calls a plugin's own Player state projector, inside a
+// system invocation for a Plugin Manifest API 3 plugin.
+func (s *Service) projectOwnState(ctx context.Context, hosted hostedPlugin, projector plugin.PlayerStateProjector, screenID uuid.UUID) ([]plugin.PlayerState, error) {
+	if hosted.manifest.APIVersion >= 3 {
+		invocationCtx, done := s.systemInvocation(ctx, hosted.manifest.ID)
+		defer done()
+		ctx = invocationCtx
+	}
+	return projector.ProjectPlayerState(ctx, screenID)
 }

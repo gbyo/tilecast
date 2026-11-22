@@ -680,7 +680,13 @@ export function pluginFieldProblems(
         problems.push(
           `${where} field "${field.key}" uses a Data Source control, which plugin settings do not support yet`,
         );
-      if (field.control === "repeating_group") walk(field.itemFields ?? []);
+      if (field.control === "repeating_group") {
+        if ((field.itemFields ?? []).some((item) => item.personal))
+          problems.push(
+            `${where} field "${field.key}" holds a personal field; personal fields are top-level until per-record retention exists`,
+          );
+        walk(field.itemFields ?? []);
+      }
     }
   };
   walk(fields);

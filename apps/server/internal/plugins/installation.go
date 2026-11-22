@@ -317,13 +317,21 @@ func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]
 		return nil, err
 	}
 	resources = append(resources, static...)
-	guard, ok := hosted.plugin.(plugin.RemovalGuard)
-	if !ok {
-		return resources, nil
+	blockers := []plugin.Blocker{}
+	if hosted.manifest.HostOwnsInstances() {
+		// Every host-owned instance, enabled or not, blocks removal.
+		owned, err := instanceBlockers(ctx, tx, hosted.manifest)
+		if err != nil {
+			return nil, err
+		}
+		blockers = append(blockers, owned...)
 	}
-	blockers, err := guard.RemovalBlockers(ctx, tx)
-	if err != nil {
-		return nil, fmt.Errorf("plugin %s: removal blockers: %w", id, err)
+	if guard, ok := hosted.plugin.(plugin.RemovalGuard); ok {
+		own, err := guard.RemovalBlockers(ctx, tx)
+		if err != nil {
+			return nil, fmt.Errorf("plugin %s: removal blockers: %w", id, err)
+		}
+		blockers = append(blockers, own...)
 	}
 	for _, blocker := range blockers {
 		if blocker.Count <= 0 {

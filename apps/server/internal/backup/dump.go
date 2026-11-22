@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 )
 
 // snapshotInfo carries everything read from the database inside one
@@ -19,6 +21,7 @@ type snapshotInfo struct {
 	OrganizationName string
 	Tables           []TableDump
 	Sequences        []SequenceState
+	PluginSecrets    *PluginSecretsManifest
 }
 
 // dumpDatabase writes one gzipped COPY dump per table into the archive from
@@ -44,6 +47,23 @@ func dumpDatabase(ctx context.Context, db *pgxpool.Pool, writer *archiveWriter, 
 	}
 	if err := tx.QueryRow(ctx, `SELECT installation_id, organization_name FROM organization_settings WHERE singleton`).Scan(&info.InstallationID, &info.OrganizationName); err != nil {
 		return snapshotInfo{}, fmt.Errorf("read installation identity (has setup completed?): %w", err)
+	}
+	// Encrypted plugin secrets ride in the snapshot; the manifest names the
+	// KEKs they need so a restore can check for them first.
+	locations, err := pluginsecrets.Locations(ctx, tx)
+	if err != nil {
+		return snapshotInfo{}, fmt.Errorf("read plugin secret locations: %w", err)
+	}
+	if len(locations) > 0 {
+		info.PluginSecrets = &PluginSecretsManifest{Locations: locations}
+		seen := map[string]bool{}
+		for _, location := range locations {
+			if !seen[location.KEKID] {
+				seen[location.KEKID] = true
+				info.PluginSecrets.RequiredKEKIDs = append(info.PluginSecrets.RequiredKEKIDs, location.KEKID)
+			}
+		}
+		sort.Strings(info.PluginSecrets.RequiredKEKIDs)
 	}
 
 	tableNames, err := listBaseTables(ctx, tx)

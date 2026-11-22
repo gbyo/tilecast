@@ -35,15 +35,29 @@ Usage:
   tilecast-server restore verify <file>    Verify an archive and show the restore plan
   tilecast-server restore apply <file>     Restore a backup (stop the server first)
   tilecast-server mfa reset <username>     Clear a user's multi-factor enrollment
+  tilecast-server secrets status           Show plugin secret keys and migration state
+  tilecast-server secrets rotate-kek       Add a key encryption key and rewrap every DEK
+  tilecast-server secrets rotate-dek       Start a new data encryption key for new secrets
+  tilecast-server secrets export-kek <file>  Write the key encryption keys to a new file
+  tilecast-server secrets import-kek <file>  Add the keys of an export to this installation
+  tilecast-server secrets prune-keks       Remove key encryption keys no DEK uses
 
 Restore flags (tilecast-server restore apply):
   --yes                             Skip the interactive confirmation
   --confirm-identity-mismatch       Restore an archive from a different installation
   --skip-pre-restore-backup         Do not create a pre-restore backup first
   --force                           Proceed even if a running server holds the database lock
+  --confirm-unreadable-secrets      Restore although some plugin secrets need keys this server lacks
 
 Multi-factor reset flags (tilecast-server mfa reset):
   --yes                             Skip the interactive confirmation
+
+Plugin secrets are encrypted with keys in TILECAST_SECRETS_KEY_FILE, which is
+never part of a backup. Export the keys after the first start and after every
+rotate-kek, and store the export apart from backups. Without the keys, a
+restored installation asks for each secret again. The server can keep running
+during rotate-kek and rotate-dek; it moves secrets to a new DEK in the
+background.
 
 Use "mfa reset" only when no Owner or Administrator can perform the reset in
 Studio. It clears the account's authenticator, passkeys, and recovery codes,
@@ -71,6 +85,8 @@ func runCLI(command string, args []string) {
 		cliRestoreApply(ctx, logger, args[1:])
 	case command == "mfa" && len(args) > 1 && args[0] == "reset":
 		cliMFAReset(ctx, args[1:])
+	case command == "secrets" && len(args) > 0:
+		cliSecrets(ctx, logger, args)
 	default:
 		printUsage()
 		os.Exit(2)
@@ -229,6 +245,11 @@ func cliRestoreVerify(ctx context.Context, path string) {
 	} else {
 		fmt.Println("\nInstallation identity matches. Players can reconnect after restore.")
 	}
+	if check := plan.Manifest.CheckSecrets(cliSecretKEKIDs(cfg)); check.NeedsConfirmation() {
+		printSecretCheck(check)
+	} else if len(check.RequiredKEKIDs) > 0 {
+		fmt.Println("This server holds every key the archive's plugin secrets need.")
+	}
 }
 
 func cliRestoreApply(ctx context.Context, logger *slog.Logger, args []string) {
@@ -237,6 +258,7 @@ func cliRestoreApply(ctx context.Context, logger *slog.Logger, args []string) {
 	confirmMismatch := flags.Bool("confirm-identity-mismatch", false, "restore an archive from a different installation")
 	skipPreRestore := flags.Bool("skip-pre-restore-backup", false, "do not create a pre-restore backup first")
 	force := flags.Bool("force", false, "proceed even if a running server holds the database lock")
+	confirmSecrets := flags.Bool("confirm-unreadable-secrets", false, "restore although some plugin secrets need keys this server lacks")
 	if err := flags.Parse(args); err != nil {
 		os.Exit(2)
 	}
@@ -280,6 +302,13 @@ func cliRestoreApply(ctx context.Context, logger *slog.Logger, args []string) {
 			cliFail("cannot restore", errors.New("pass --confirm-identity-mismatch to restore an archive from a different installation"))
 		}
 	}
+	availableKEKs := cliSecretKEKIDs(cfg)
+	if check := plan.Manifest.CheckSecrets(availableKEKs); check.NeedsConfirmation() {
+		printSecretCheck(check)
+		if !*confirmSecrets {
+			cliFail("cannot restore", errors.New("import the exported keys with tilecast-server secrets import-kek, or pass --confirm-unreadable-secrets"))
+		}
+	}
 
 	if !*yes {
 		fmt.Print("\nThis REPLACES the current database and all Tilecast-managed files.\nType RESTORE to continue: ")
@@ -299,17 +328,19 @@ func cliRestoreApply(ctx context.Context, logger *slog.Logger, args []string) {
 
 	fmt.Println("Restoring...")
 	result, err := backup.Apply(ctx, backup.ApplyOptions{
-		DB:                      db,
-		DatabaseURL:             cfg.DatabaseURL,
-		MediaRoot:               cfg.Media.Root,
-		UpdatesRoot:             cfg.Updates.Root,
-		BackupRoot:              cfg.Backup.Root,
-		ArchivePath:             path,
-		Build:                   version.CurrentBuild(),
-		ReservedFreeBytes:       cfg.Backup.ReservedFreeBytes,
-		Limits:                  cliLimits(cfg),
-		SkipPreRestoreBackup:    *skipPreRestore,
-		ConfirmIdentityMismatch: *confirmMismatch,
+		DB:                       db,
+		DatabaseURL:              cfg.DatabaseURL,
+		MediaRoot:                cfg.Media.Root,
+		UpdatesRoot:              cfg.Updates.Root,
+		BackupRoot:               cfg.Backup.Root,
+		ArchivePath:              path,
+		Build:                    version.CurrentBuild(),
+		ReservedFreeBytes:        cfg.Backup.ReservedFreeBytes,
+		Limits:                   cliLimits(cfg),
+		SkipPreRestoreBackup:     *skipPreRestore,
+		ConfirmIdentityMismatch:  *confirmMismatch,
+		AvailableKEKIDs:          availableKEKs,
+		ConfirmUnreadableSecrets: *confirmSecrets,
 		Progress: func(phase string, percent int) {
 			fmt.Printf("  %-40s %3d%%\n", phase, percent)
 		},

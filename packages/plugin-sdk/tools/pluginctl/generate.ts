@@ -23,6 +23,7 @@ import {
   NATIVE_REGISTRY_CARGO,
   NATIVE_REGISTRY_LIB,
 } from "./native-registry.ts";
+import { effectiveAutomation, effectiveFragment } from "./hosted-api.ts";
 import { composeOpenAPI, COMPOSED_OPENAPI, CORE_OPENAPI } from "./openapi.ts";
 import type { Problem, Repo } from "./repo.ts";
 
@@ -125,17 +126,15 @@ export async function generate(
   const coreText = existsSync(corePath) ? readFileSync(corePath, "utf8") : null;
   for (const plugin of repo.plugins) {
     const id = plugin.manifest.id;
-    const automationPath = join(plugin.path, AUTOMATION_FILENAME);
-    if (!existsSync(automationPath)) continue;
-    const declared = plugin.manifest.api?.openapi;
-    const fragmentPath =
-      declared !== undefined ? join(plugin.path, declared) : null;
+    // Plugin Manifest API 3 instance kinds add generated operations to the
+    // plugin's own automation.yaml and OpenAPI fragment.
+    const automation = effectiveAutomation(plugin);
+    if (!automation) continue;
+    const fragment = effectiveFragment(plugin);
     const { problems: resolvedProblems, resolved } = resolveAutomation(
       id,
-      readFileSync(automationPath, "utf8"),
-      fragmentPath !== null && existsSync(fragmentPath)
-        ? readFileSync(fragmentPath, "utf8")
-        : null,
+      automation.text,
+      fragment?.text ?? null,
       coreText,
     );
     problems.push(...resolvedProblems);

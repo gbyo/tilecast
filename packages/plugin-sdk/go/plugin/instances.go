@@ -87,3 +87,22 @@ type InstanceProjection struct {
 type InstanceProjector interface {
 	ProjectInstance(ctx context.Context, instance HostedInstance, target ProjectionTarget) (InstanceProjection, error)
 }
+
+// DemoInstance is one instance a plugin contributes to Demo Mode. The host
+// creates it through its own instance service, with every check a Studio
+// write gets.
+type DemoInstance struct {
+	Kind          string
+	Name          string
+	Enabled       bool
+	Priority      int
+	Target        *Target
+	Schedule      *InstanceSchedule
+	Configuration map[string]any
+}
+
+// InstanceDemoSeeder contributes Demo Mode instances. A Plugin Manifest API
+// 3 plugin implements it instead of writing host-owned storage itself.
+type InstanceDemoSeeder interface {
+	DemoInstances(ctx context.Context, demo Demo) ([]DemoInstance, error)
+}

@@ -46,6 +46,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
 	"github.com/tilecast/tilecast/apps/server/internal/presentnet"
 	"github.com/tilecast/tilecast/apps/server/internal/previews"
@@ -147,7 +148,19 @@ func serve() {
 	backupGuard := backup.NewGuard()
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	managedPresentationService := managedpresentations.NewService(db)
-	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithScreens(deviceService), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
+	// Plugin secrets use envelope encryption under the KEKs in
+	// TILECAST_SECRETS_KEY_FILE. A missing file is created at first start;
+	// a file that exists but cannot be used stops startup, because replacing
+	// it would make every stored secret unreadable.
+	secretRing, secretRingCreated, secretRingErr := pluginsecrets.LoadOrCreate(cfg.SecretsKeyFile)
+	if secretRingErr != nil {
+		fail("load "+pluginsecrets.KeyFileEnvironmentVariable, secretRingErr)
+	}
+	if secretRingCreated {
+		logger.Warn("created a new plugin secrets key file; export it with tilecast-server secrets export-kek and store it apart from backups", "path", cfg.SecretsKeyFile)
+	}
+	pluginSecrets := pluginsecrets.NewStore(db, secretRing, logger)
+	pluginService := plugins.NewService(db, deviceService, plugins.WithSecrets(pluginSecrets), plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithScreens(deviceService), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
 	// The marketplace joins cached catalog listings into the plugin
 	// store. The server knows the official catalog address itself, so the
 	// marketplace is always on and needs no operator configuration.
@@ -270,14 +283,18 @@ func serve() {
 	playlistService.SetScheduling(schedulingService)
 	settingsService := settings.NewService(db, deviceService, settings.HardLimits{MaxUploadBytes: cfg.Media.MaxUploadBytes, MaxTakeoverMinutes: cfg.Operations.MaxTakeoverDurationHours * 60, MaxWebsiteTimeout: cfg.Website.MaxTimeoutSeconds, MaxPrefetchDays: cfg.Scheduling.PrefetchDays, PrivateHTTPAllowed: cfg.Website.AllowPrivateHTTP})
 	schedulingService.SetOrganizationSettingsProvider(settingsService)
-	wasmService.SetServiceCaller(services.NewDispatcher(services.Dependencies{
+	// One service registry for packages (tilecast.call_v1) and bundled
+	// Plugin Manifest API 3 plugins (the SDK's typed Go client).
+	serviceDispatcher := services.NewDispatcher(services.Dependencies{
 		DB: db, Devices: deviceService, Playlists: playlistService,
 		Layouts: layoutService, Media: mediaService, Scheduling: schedulingService,
 		Takeovers: takeoverService, Managed: managedPresentationService,
 		Settings: settingsService, Shared: pluginService.Shared(),
-		ExternalPlugins: externalPluginService,
-		Limits:          services.Limits{MaxTakeoverTargets: cfg.Operations.MaxTakeoverTargets, MaxPendingCommands: cfg.Operations.MaxPendingCommands, DefaultCommandExpiryMinutes: cfg.Operations.DefaultCommandExpiryMinutes},
-	}))
+		ExternalPlugins: externalPluginService, Plugins: pluginService,
+		Limits: services.Limits{MaxTakeoverTargets: cfg.Operations.MaxTakeoverTargets, MaxPendingCommands: cfg.Operations.MaxPendingCommands, DefaultCommandExpiryMinutes: cfg.Operations.DefaultCommandExpiryMinutes},
+	})
+	wasmService.SetServiceCaller(serviceDispatcher)
+	pluginService.SetServiceCaller(serviceDispatcher)
 	// Presentation Networks seal Wi-Fi credentials with an environment-backed
 	// key. A missing key must not stop the server: signage, AirPlay without a
 	// Presentation Network, and every other feature keep working, and Studio
@@ -313,6 +330,7 @@ func serve() {
 		ReservedFreeBytes: cfg.Backup.ReservedFreeBytes,
 		Limits:            backup.Limits{MaxFiles: cfg.Backup.MaxArchiveFiles, MaxExpandedBytes: cfg.Backup.MaxArchiveBytes},
 		Build:             version.CurrentBuild(),
+		SecretKEKIDs:      func() []string { return pluginSecrets.Ring().IDs() },
 	}, logger)
 	backupWorker.Start(ctx)
 	defer backupWorker.Stop()
@@ -396,7 +414,18 @@ func serve() {
 	workerCtx, stopWorkers := context.WithCancel(ctx)
 	workersDone := make(chan struct{})
 	go func() { defer close(workersDone); pluginService.RunWorkers(workerCtx) }()
-	defer func() { stopWorkers(); <-workersDone }()
+	maintenanceDone := make(chan struct{})
+	go func() { defer close(maintenanceDone); pluginService.RunMaintenance(workerCtx) }()
+	secretsDone := make(chan struct{})
+	go func() {
+		defer close(secretsDone)
+		pluginSecrets.RunMigrationWorker(workerCtx, func() <-chan struct{} {
+			done := make(chan struct{})
+			time.AfterFunc(10*time.Minute, func() { close(done) })
+			return done
+		})
+	}()
+	defer func() { stopWorkers(); <-workersDone; <-maintenanceDone; <-secretsDone }()
 	if cfg.MDNSEnabled {
 		identity, identityErr := deviceService.Identity(ctx)
 		if identityErr != nil {
@@ -456,6 +485,7 @@ func serve() {
 		SecureCookies:        cfg.CookieSecure,
 		ReleasePublishToken:  cfg.Updates.PublishToken,
 		Backups:              backupService,
+		PluginSecrets:        pluginSecrets,
 		BackupWorker:         backupWorker,
 		BackupLimits:         backup.Limits{MaxFiles: cfg.Backup.MaxArchiveFiles, MaxExpandedBytes: cfg.Backup.MaxArchiveBytes},
 		Operations: httpapi.OperationsConfig{

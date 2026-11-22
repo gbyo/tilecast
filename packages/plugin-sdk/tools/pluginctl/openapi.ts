@@ -13,6 +13,7 @@ import YAML, {
   type Document,
   type YAMLMap,
 } from "yaml";
+import { effectiveFragment } from "./hosted-api.ts";
 import type { Problem, Repo } from "./repo.ts";
 
 export const CORE_OPENAPI = "docs/openapi/core.yaml";
@@ -37,24 +38,26 @@ export function composeOpenAPI(repo: Repo): {
   const paths = core.get("paths") as YAMLMap;
   for (const plugin of repo.plugins) {
     const declared = plugin.manifest.api?.openapi;
-    if (!declared) continue;
     const id = plugin.manifest.id;
-    const fragmentPath = join(plugin.path, declared);
-    const file = relative(repo.root, fragmentPath);
-    if (!existsSync(fragmentPath)) {
+    if (declared && !existsSync(join(plugin.path, declared))) {
       problems.push({
         plugin: id,
-        file,
+        file: relative(repo.root, join(plugin.path, declared)),
         message: "declared OpenAPI fragment does not exist",
       });
       continue;
     }
-    const fragment = YAML.parseDocument(readFileSync(fragmentPath, "utf8"));
+    // A Plugin Manifest API 3 plugin's settings and instance operations are
+    // generated from its manifest and merged with its own fragment.
+    const effective = effectiveFragment(plugin);
+    if (!effective) continue;
+    const file = effective.file;
+    const fragment = YAML.parseDocument(effective.text);
     if (fragment.errors.length > 0) {
       problems.push({ plugin: id, file, message: fragment.errors[0]!.message });
       continue;
     }
-    rewriteCoreReferences(fragment, dirname(fragmentPath), corePath);
+    rewriteCoreReferences(fragment, effective.dir, corePath);
     const allowed = (plugin.manifest.api?.basePaths ?? []).map(
       (base) => `/api/v1${base}`,
     );

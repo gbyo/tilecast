@@ -5,7 +5,9 @@ package backup
 
 import (
 	"encoding/json"
+
 	"fmt"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"strings"
 	"time"
 )
@@ -104,6 +106,17 @@ type Manifest struct {
 	// build fields above. The full rows ride in the database snapshot; this
 	// summary names them without a restore.
 	Packages []PackageRecord `json:"packages,omitempty"`
+	// PluginSecrets names the key encryption keys the archive's encrypted
+	// plugin secrets need, and where those secrets are. The archive holds the
+	// encrypted secrets and wrapped DEKs; it never holds a KEK. Additive:
+	// older archives have no plugin secrets.
+	PluginSecrets *PluginSecretsManifest `json:"pluginSecrets,omitempty"`
+}
+
+// PluginSecretsManifest summarizes encrypted plugin secrets without values.
+type PluginSecretsManifest struct {
+	RequiredKEKIDs []string                       `json:"requiredKekIds"`
+	Locations      []pluginsecrets.SecretLocation `json:"locations"`
 }
 
 // PackageRecord pins one activated package inside a backup manifest.
@@ -220,4 +233,40 @@ func validateArchivePath(path string) error {
 		}
 	}
 	return fmt.Errorf("archive entry %q is outside the expected layout", path)
+}
+
+// SecretRestoreCheck compares an archive's plugin secrets with the KEKs the
+// restoring installation holds.
+type SecretRestoreCheck struct {
+	RequiredKEKIDs []string                       `json:"requiredKekIds"`
+	MissingKEKIDs  []string                       `json:"missingKekIds"`
+	Unreadable     []pluginsecrets.SecretLocation `json:"unreadable"`
+}
+
+// NeedsConfirmation reports whether a restore would leave secrets unreadable.
+func (c SecretRestoreCheck) NeedsConfirmation() bool { return len(c.MissingKEKIDs) > 0 }
+
+// CheckSecrets names the plugin settings that become unreadable when the
+// archive is restored on an installation that holds only available KEKs.
+func (m Manifest) CheckSecrets(available []string) SecretRestoreCheck {
+	check := SecretRestoreCheck{RequiredKEKIDs: []string{}, MissingKEKIDs: []string{}, Unreadable: []pluginsecrets.SecretLocation{}}
+	if m.PluginSecrets == nil {
+		return check
+	}
+	held := map[string]bool{}
+	for _, id := range available {
+		held[id] = true
+	}
+	check.RequiredKEKIDs = append(check.RequiredKEKIDs, m.PluginSecrets.RequiredKEKIDs...)
+	for _, id := range m.PluginSecrets.RequiredKEKIDs {
+		if !held[id] {
+			check.MissingKEKIDs = append(check.MissingKEKIDs, id)
+		}
+	}
+	for _, location := range m.PluginSecrets.Locations {
+		if !held[location.KEKID] {
+			check.Unreadable = append(check.Unreadable, location)
+		}
+	}
+	return check
 }

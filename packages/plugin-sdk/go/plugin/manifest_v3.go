@@ -274,6 +274,11 @@ func validatePluginFields(where string, fields []configschema.Field) error {
 				return fmt.Errorf("%s field %q uses a Data Source control, which plugin settings do not support yet", where, field.Key)
 			}
 			if field.Control == "repeating_group" {
+				for _, item := range field.ItemFields {
+					if item.Personal != nil {
+						return fmt.Errorf("%s field %q holds a personal field; personal fields are top-level until per-record retention exists", where, field.Key)
+					}
+				}
 				if err := walk(field.ItemFields); err != nil {
 					return err
 				}

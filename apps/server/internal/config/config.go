@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +42,10 @@ type Config struct {
 	// the schema, a backup, or the configuration export.
 	PresentationNetworkKey string
 	Packages               PackagesConfig
+	// SecretsKeyFile holds the key encryption keys of plugin secrets
+	// (TILECAST_SECRETS_KEY_FILE). It must be outside every directory a
+	// backup, a package, or the media library includes.
+	SecretsKeyFile string
 }
 
 // NotificationsConfig carries the SMTP relay. These are environment values
@@ -352,6 +357,11 @@ func Load() (Config, error) {
 	}
 	cfg.Packages.AllowUnsigned = allowUnsigned
 
+	cfg.SecretsKeyFile = get("TILECAST_SECRETS_KEY_FILE", "/data/secrets/kek.json")
+	if err := checkSecretsKeyFile(cfg); err != nil {
+		return Config{}, err
+	}
+
 	// The marketplace needs no configuration: the server knows the
 	// official catalog address itself. The retired
 	// TILECAST_MARKETPLACE_CATALOG_URL and TILECAST_MARKETPLACE_PUBLIC_KEY
@@ -390,4 +400,33 @@ func get(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// checkSecretsKeyFile refuses a key file inside a directory that a backup,
+// an extension package, or the media library includes: the key must never
+// travel with the encrypted data it protects.
+func checkSecretsKeyFile(cfg Config) error {
+	key, err := filepath.Abs(cfg.SecretsKeyFile)
+	if err != nil {
+		return fmt.Errorf("TILECAST_SECRETS_KEY_FILE: %w", err)
+	}
+	for name, root := range map[string]string{
+		"TILECAST_MEDIA_ROOT":    cfg.Media.Root,
+		"TILECAST_UPDATE_ROOT":   cfg.Updates.Root,
+		"TILECAST_BACKUP_ROOT":   cfg.Backup.Root,
+		"TILECAST_PACKAGES_ROOT": cfg.Packages.Root,
+	} {
+		if root == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+		relative, err := filepath.Rel(absolute, key)
+		if err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("TILECAST_SECRETS_KEY_FILE must not be inside %s (%s)", name, root)
+		}
+	}
+	return nil
 }

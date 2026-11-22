@@ -819,12 +819,12 @@
     "version": 138,
     "file": "00138_plugin_settings_instances_secrets.sql",
     "owner": "core",
-    "sha256": "d8a299bd4b14f1a022f9c110f4790222adfca10d27b45c6c2e1f17b03d79acb0"
+    "sha256": "972a29e185c3913793f263309f2a22db4907acf1a88d4b2d38b09b4d6c002ed7"
   },
   {
     "version": 139,
     "file": "00139_countdown_bar_generic_instances.sql",
     "owner": "countdown_bar",
-    "sha256": "d8a299bd4b14f1a022f9c110f4790222adfca10d27b45c6c2e1f17b03d79acb0"
+    "sha256": "3264e92e99ee5e40e145bef26de8ab07984cbc3d8885f6ea071f6749d73dabca"
   }
 ]

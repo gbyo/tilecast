@@ -32,6 +32,7 @@ import {
   type OperationMetadata,
   type ParamMeta,
 } from "./automation-params.ts";
+import { effectiveAutomation } from "./hosted-api.ts";
 import type { Problem, Repo } from "./repo.ts";
 import { collectOperations } from "./supported.ts";
 
@@ -191,13 +192,13 @@ export function checkAutomationFiles(
   }[] = [];
   for (const plugin of repo.plugins) {
     const id = plugin.manifest.id;
-    const absolute = join(plugin.path, AUTOMATION_FILENAME);
-    if (!existsSync(absolute)) continue;
-    const file = relative(repo.root, absolute);
+    const effective = effectiveAutomation(plugin);
+    if (!effective) continue;
+    const file = effective.file;
     const result = checkAutomationFile({
       plugin: id,
       file,
-      text: readFileSync(absolute, "utf8"),
+      text: effective.text,
       ownOperationIds: idsByPlugin.get(id) ?? new Set<string>(),
     });
     problems.push(...result.problems);

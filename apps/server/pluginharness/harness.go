@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	"time"
@@ -44,6 +46,9 @@ type Harness struct {
 	Host    plugin.Host
 	OrgID   uuid.UUID
 	OwnerID uuid.UUID
+	// Secrets is the plugin secret store, on a key file in a temporary
+	// directory.
+	Secrets *pluginsecrets.Store
 
 	t         *testing.T
 	id        string
@@ -58,6 +63,17 @@ type Option func(*options)
 type options struct {
 	maxConnections int
 	backgroundJobs *bool
+	upgradeFrom    int64
+	seed           func(context.Context, *pgxpool.Pool) (orgID, ownerID uuid.UUID)
+}
+
+// UpgradeFrom builds the harness on a scratch database stopped at an older
+// schema version. seed writes the rows an installation of that version would
+// hold, including its organization and an Owner, and returns their IDs; the
+// harness then migrates to the current schema and hosts the plugin on that
+// data. A plugin uses it to prove its migrations keep existing data working.
+func UpgradeFrom(version int64, seed func(ctx context.Context, pool *pgxpool.Pool) (orgID, ownerID uuid.UUID)) Option {
+	return func(o *options) { o.upgradeFrom, o.seed = version, seed }
 }
 
 // MaxConnections bounds the plugin's database pool. With 1, a plugin that
@@ -101,6 +117,19 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) })
+	var seededOrg, seededOwner uuid.UUID
+	if chosen.upgradeFrom > 0 {
+		databaseURL = scratchDatabase(t, ctx, databaseURL)
+		if err = database.MigrateTo(ctx, databaseURL, chosen.upgradeFrom); err != nil {
+			t.Fatal(err)
+		}
+		seedPool, seedErr := pgxpool.New(ctx, databaseURL)
+		if seedErr != nil {
+			t.Fatal(seedErr)
+		}
+		seededOrg, seededOwner = chosen.seed(ctx, seedPool)
+		seedPool.Close()
+	}
 	if err = database.Migrate(ctx, databaseURL); err != nil {
 		t.Fatal(err)
 	}
@@ -120,14 +149,23 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if _, err = pool.Exec(ctx, `TRUNCATE organization_settings,users,plugin_installations CASCADE`); err != nil {
+	h := &Harness{Ctx: ctx, Pool: pool, OrgID: uuid.New(), OwnerID: uuid.New(), t: t, id: p.Manifest().ID}
+	if chosen.upgradeFrom > 0 {
+		h.OrgID, h.OwnerID = seededOrg, seededOwner
+	} else {
+		if _, err = pool.Exec(ctx, `TRUNCATE organization_settings,users,plugin_installations,plugin_secret_deks CASCADE`); err != nil {
+			t.Fatal(err)
+		}
+		h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
+		h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
+		h.exec(`INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, h.OwnerID)
+		h.exec(`INSERT INTO user_screen_access(user_id,mode) VALUES($1,'all')`, h.OwnerID)
+	}
+	ring, _, err := pluginsecrets.LoadOrCreate(filepath.Join(t.TempDir(), "kek.json"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	h := &Harness{Ctx: ctx, Pool: pool, OrgID: uuid.New(), OwnerID: uuid.New(), t: t, id: p.Manifest().ID}
-	h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
-	h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
-	h.exec(`INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, h.OwnerID)
-	h.exec(`INSERT INTO user_screen_access(user_id,mode) VALUES($1,'all')`, h.OwnerID)
+	h.Secrets = pluginsecrets.NewStore(pool, ring, nil)
 	playlistService := playlists.NewService(pool, nil)
 	storage, err := media.NewLocalStorage(t.TempDir())
 	if err != nil {
@@ -140,7 +178,7 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	if chosen.backgroundJobs != nil {
 		jobsAllowed = *chosen.backgroundJobs
 	}
-	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p),
+	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p), plugins.WithSecrets(h.Secrets),
 		plugins.WithTakeovers(h.takeovers),
 		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
 		plugins.WithBackgroundJobsAllowed(func() bool { return jobsAllowed }),
@@ -423,4 +461,35 @@ func (h *Harness) ServeAs(userID uuid.UUID, role, method, path, body string) Res
 	decoded := map[string]any{}
 	_ = json.Unmarshal(raw, &decoded)
 	return Response{Status: recorder.Code, Body: decoded}
+}
+
+// scratchDatabase creates an empty database beside the test database and
+// drops it when the test ends.
+func scratchDatabase(t *testing.T, ctx context.Context, baseURL string) string {
+	t.Helper()
+	admin, err := pgx.Connect(ctx, baseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "tilecast_upgrade_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
+	if _, err = admin.Exec(ctx, `CREATE DATABASE `+name); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = admin.Exec(context.Background(), `DROP DATABASE IF EXISTS `+name+` WITH (FORCE)`)
+		_ = admin.Close(context.Background())
+	})
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed.Path = "/" + name
+	return parsed.String()
+}
+
+// SeedDemo builds the plugin's Demo Mode data through the host, as the demo
+// scenario builder does: it installs the plugin and creates its demo
+// instances with every check a Studio write gets.
+func (h *Harness) SeedDemo(demo plugin.Demo) error {
+	return h.service.SeedDemo(h.Ctx, demo)
 }

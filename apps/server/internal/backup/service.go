@@ -163,7 +163,7 @@ func (s *Service) EnqueueVerify(ctx context.Context, archiveID uuid.UUID, trigge
 }
 
 // EnqueueRestore queues a restore job for a complete archive.
-func (s *Service) EnqueueRestore(ctx context.Context, archiveID uuid.UUID, requestedBy *uuid.UUID, confirmIdentityMismatch bool) (Job, error) {
+func (s *Service) EnqueueRestore(ctx context.Context, archiveID uuid.UUID, requestedBy *uuid.UUID, confirmIdentityMismatch, confirmUnreadableSecrets bool) (Job, error) {
 	archive, err := s.Get(ctx, archiveID)
 	if err != nil {
 		return Job{}, err
@@ -171,7 +171,14 @@ func (s *Service) EnqueueRestore(ctx context.Context, archiveID uuid.UUID, reque
 	if archive.Status != "complete" {
 		return Job{}, ErrArchiveNotUsable
 	}
-	return s.enqueue(ctx, "restore", "manual", &archiveID, requestedBy, confirmIdentityMismatch)
+	job, err := s.enqueue(ctx, "restore", "manual", &archiveID, requestedBy, confirmIdentityMismatch)
+	if err != nil || !confirmUnreadableSecrets {
+		return job, err
+	}
+	if _, err := s.db.Exec(ctx, `UPDATE backup_jobs SET confirm_unreadable_secrets=TRUE WHERE id=$1 AND status='queued'`, job.ID); err != nil {
+		return Job{}, fmt.Errorf("record the restore confirmation: %w", err)
+	}
+	return job, nil
 }
 
 func (s *Service) enqueue(ctx context.Context, kind, trigger string, archiveID *uuid.UUID, requestedBy *uuid.UUID, confirmIdentityMismatch bool) (Job, error) {

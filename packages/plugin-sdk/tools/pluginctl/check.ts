@@ -16,6 +16,7 @@ import {
 } from "../../src/manifest.ts";
 import { checkAutomationFiles } from "./automation.ts";
 import { checkBoundaries } from "./boundaries.ts";
+import { effectiveFragment } from "./hosted-api.ts";
 import { checkCssScope } from "./css-scope.ts";
 import { generate, stale } from "./generate.ts";
 import { CONTRIBUTION_ENTRY } from "./native-registry.ts";
@@ -397,14 +398,12 @@ function readApiFragments(
 ): { plugin: string; file: string; text: string }[] {
   const fragments: { plugin: string; file: string; text: string }[] = [];
   for (const plugin of repo.plugins) {
-    const declared = plugin.manifest.api?.openapi;
-    if (!declared) continue;
-    const absolute = join(plugin.path, declared);
-    if (!existsSync(absolute)) continue;
+    const effective = effectiveFragment(plugin);
+    if (!effective) continue;
     fragments.push({
       plugin: plugin.manifest.id,
-      file: relative(repo.root, absolute),
-      text: readFileSync(absolute, "utf8"),
+      file: effective.file,
+      text: effective.text,
     });
   }
   return fragments;
