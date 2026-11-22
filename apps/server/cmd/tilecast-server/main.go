@@ -529,17 +529,8 @@ func serve() {
 				_, _ = db.Exec(shutdownCtx, `UPDATE player_commands SET state='expired',completed_at=now(),updated_at=now() WHERE state IN ('pending','delivered','acknowledged','running') AND expires_at<=now()`)
 				_, _ = db.Exec(shutdownCtx, `DELETE FROM player_commands WHERE completed_at<now()-make_interval(days=>COALESCE((SELECT (settings->>'retention.command_history_days')::int FROM organization_runtime_settings),$1))`, cfg.Operations.CommandRetentionDays)
 				_, _ = db.Exec(shutdownCtx, `DELETE FROM audit_logs WHERE created_at<now()-make_interval(days=>COALESCE((SELECT (settings->>'retention.audit_days')::int FROM organization_runtime_settings),365))`)
-				rows, err := db.Query(shutdownCtx, `WITH expired AS (UPDATE takeovers SET status='expired',updated_at=now() WHERE status='active' AND expires_at<=now() RETURNING id), affected AS (UPDATE takeover_screen_states SET state='expired',restored_at=now(),last_updated_at=now() WHERE takeover_id IN(SELECT id FROM expired) RETURNING screen_id), bumped AS (UPDATE screen_manifest_state SET manifest_version=manifest_version+1,changed_at=now(),change_reason='takeover.expired' WHERE screen_id IN(SELECT DISTINCT screen_id FROM affected) RETURNING screen_id,manifest_version) SELECT screen_id,manifest_version FROM bumped`)
-				if err == nil {
-					for rows.Next() {
-						var screen uuid.UUID
-						var version int64
-						if rows.Scan(&screen, &version) == nil {
-							deviceService.Notify(screen, map[string]any{"type": "takeover.changed", "manifestVersion": version})
-							deviceService.Notify(screen, map[string]any{"type": "manifest.changed", "manifestVersion": version})
-						}
-					}
-					rows.Close()
+				if err := takeoverService.ExpireDue(shutdownCtx); err != nil {
+					logger.Error("takeover expiry failed", "error", err)
 				}
 			}
 		}
