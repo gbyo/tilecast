@@ -227,6 +227,7 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 	result, afterCommit, err := s.takeovers.ActivateInTx(r.Context(), tx, plugin.TakeoverRequest{
 		Name: input.Name, Description: input.Description, PlaylistID: input.PlaylistID,
+		PriorityClass: plugin.TakeoverPriorityRoutine,
 		Targets:     plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
 		ActivatedBy: user.ID, ActivatedAt: now, ExpiresAt: input.ExpiresAt,
 	})
