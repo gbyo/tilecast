@@ -802,5 +802,11 @@
     "file": "00135_widget_font_references.sql",
     "owner": "core",
     "sha256": "9e129d4141b87eb69b6fd4b076ea006559ce87dc0641d43a572e02800172a234"
+  },
+  {
+    "version": 136,
+    "file": "00136_takeover_priority_classes.sql",
+    "owner": "core",
+    "sha256": "12457a65cccf04f6b931cba0912c3fb825e2840645469b08858b10d21bd25e27"
   }
 ]
