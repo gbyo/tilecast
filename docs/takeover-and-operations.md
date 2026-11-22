@@ -29,9 +29,11 @@ delivered through the Player plugin channel described in
 [plugins.md](plugins.md), alongside the Countdown Bar, and takes the bar slot
 from any countdown while the alert is live.
 
-Takeover is an explicit, temporary fullscreen override. It is not a priority-1000 schedule. Resolution is active Takeover, normal schedule, direct fallback, then no content. Activation requires a ready non-empty playlist, at least one screen or group target, and an expiration no more than `TILECAST_MAX_TAKEOVER_DURATION_HOURS` (24 by default). Overlapping screens move to the newly activated Takeover; unaffected screens remain on the older Takeover. The server serializes activations with a transaction-scoped advisory lock, so two concurrent activations cannot both stay active on one screen.
+Takeover is an explicit, temporary fullscreen override. It is not a priority-1000 schedule. Resolution is active Takeover, normal schedule, direct fallback, then no content. Activation requires a ready non-empty playlist, at least one screen or group target, and an expiration no more than `TILECAST_MAX_TAKEOVER_DURATION_HOURS` (24 by default).
 
-The server stores per-screen preparation and activation state and increments only affected manifests. Manifest v4 carries the Takeover ID, playlist ID, activation instant, and expiration instant. Its released JSON field remains `emergency` for wire compatibility; current server and player models expose it as Takeover. The player verifies Download-policy assets before atomic activation. Working playback remains visible if preparation fails. A received Takeover continues offline until its half-open expiration `[activatedAt, expiresAt)`; then the player evaluates the current normal schedule instead of resuming stale content. An offline player that never received the Takeover cannot display it, and a badly incorrect device clock can affect offline expiration.
+Takeovers have four Server-side priority classes: `routine`, `priority`, `urgent`, and `emergency`, in that order. Manual Studio takeovers and the existing package Takeover service create `routine` takeovers. Emergency Alerts creates `emergency` takeovers. Each screen resolves its winner independently: the highest class wins, and a newer activation wins within the same class. A losing takeover is `suspended` on that screen rather than cancelled, so it can remain visible on its other screens and can resume when the winner is cancelled or expires. The Server serializes activation, cancellation, and expiry with one transaction-scoped lifecycle lock. Only screens whose selected winner changes receive an activation or cancellation manifest revision.
+
+The server stores per-screen preparation, suspension, and activation state. Manifest v4 still carries only the selected Takeover ID, playlist ID, activation instant, and expiration instant; priority never crosses the Player wire. Its released JSON field remains `emergency` for wire compatibility; current server and player models expose it as Takeover. The player verifies Download-policy assets before atomic activation. Working playback remains visible if preparation fails. A received Takeover continues offline until its half-open expiration `[activatedAt, expiresAt)`; then the player evaluates the current normal schedule instead of resuming stale content. An offline player that never received the Takeover cannot display it, and a badly incorrect device clock can affect offline expiration.
 
 ## National Weather Service monitoring
 
@@ -49,7 +51,7 @@ caches the result in Studio. The background worker requests the official
 active-alert GeoJSON feed using an identifying User-Agent. Area and zone scopes
 are fetched separately and unioned by NWS alert ID. Repeated polls update both
 the existing `(alert, rule)` activation and its built-in live data rather than
-raising duplicates. A new match raises a Takeover, or publishes a ticker to the
+raising duplicates. A new match raises an `emergency`-class Takeover, or publishes a ticker to the
 rule's targets; the earlier of the alert's end/expiry and the rule ceiling
 determines expiration either way. Repeated polls revise a ticker's manifests when
 the alert text or the office's own end time changes, but not when the rule ceiling
