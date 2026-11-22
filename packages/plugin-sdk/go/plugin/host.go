@@ -190,9 +190,8 @@ type TakeoverResult struct {
 }
 
 // ErrTakeoverInactive is returned by Takeovers.CancelInTx when the takeover
-// is already inactive. Reconcilers tolerate it: a poll clearing an alert
-// whose takeover another Takeover already replaced still has to mark the
-// alert cleared, and the desired end state already holds.
+// is already inactive. Reconcilers tolerate it: a poll clearing an alert after
+// its takeover expired or was cancelled still has to mark the alert cleared.
 var ErrTakeoverInactive = errors.New("takeover is no longer active")
 
 type Takeovers interface {
