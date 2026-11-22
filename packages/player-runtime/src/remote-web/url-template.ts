@@ -101,8 +101,13 @@ export function resolveWebsiteUrl(
     const fieldName = match[1];
     if (!fieldName) return undefined;
     const index = match[2] ? Number(match[2]) : 0;
-    if (data.records.length) return data.records[index]?.rawFields[fieldName];
-    return index === 0 ? data.rawObjectValues[fieldName] : undefined;
+    // Own properties only: `constructor` or `__proto__` must not resolve.
+    const own = (fields: Record<string, string> | undefined) =>
+      fields && Object.prototype.hasOwnProperty.call(fields, fieldName)
+        ? fields[fieldName]
+        : undefined;
+    if (data.records.length) return own(data.records[index]?.rawFields);
+    return index === 0 ? own(data.rawObjectValues) : undefined;
   };
 
   try {

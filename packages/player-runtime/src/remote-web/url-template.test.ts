@@ -124,6 +124,13 @@ describe("Website URL variables", () => {
     expect(url.pathname).toBe("/100%/x");
     expect(url.searchParams.get("room")).toBe("Кабинет & 3");
   });
+  it("does not resolve inherited object properties as fields", () => {
+    for (const name of ["constructor", "toString", "__proto__"]) {
+      expect(
+        resolveWebsiteUrl(`https://example.org/?x={data.${name}}`, context),
+      ).toBeNull();
+    }
+  });
   it("fails closed on missing data, unknown token, and unsafe placement", () => {
     expect(
       resolveWebsiteUrl("https://{screen.id}.org/?x=1", context),
