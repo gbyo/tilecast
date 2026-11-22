@@ -240,7 +240,10 @@ export function createProjector(
           if (widget && isRemoteWebWidget(widget)) {
             // A web or YouTube Widget plays as a remote web item; the same
             // surface shows it at the root and inside a Layout zone.
-            const remoteWeb = remoteWebForWidget(widget, manifest.assets, at);
+            const remoteWeb = remoteWebForWidget(widget, manifest.assets, at, {
+              screenId: manifest.screenId,
+              dataSources,
+            });
             if (remoteWeb) {
               const { widget: _reference, ...rest } = item;
               void _reference;

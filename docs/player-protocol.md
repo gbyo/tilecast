@@ -8,6 +8,26 @@ A heartbeat that omits all presentation capability fields keeps the last report.
 An explicit empty schema list or capability map clears that part of the report.
 A reduced WebSocket status must not clear the stored presentation capabilities.
 
+## Website URL variables (`web.remote` 3)
+
+A Player that reports `webRuntimeVersion` 3 can expand URL variables in a Website.
+A Website that sets `urlTemplatesEnabled` requires `web.remote` 3.
+A Website that does not set it requires `web.remote` 1 and its URL is never changed.
+
+The compiled `web` descriptor carries `url`, `urlTemplatesEnabled`, and `dataSourceId`.
+The raw Widget configuration is not in a v13 manifest.
+A Player expands the variables when it shows the item, from the manifest `screenId`, its own clock, and the Data Sources in the manifest.
+
+The variables are `{screen.id}`, `{date}`, `{time}`, `{datetime}`, `{data.FIELD}`, `{data.FIELD:N}`, `{data.values}`, and `{data.json}`.
+A Player expands them only inside query parameter values.
+It percent-encodes each value like `encodeURIComponent`.
+It refuses to load the page if a variable is unknown, a value is missing, a placeholder is in the host, path, fragment, or a parameter name, or the result is longer than 2,048 characters.
+A Player that cannot apply a Data Source date selection must refuse `{data.*}` variables for that source.
+Do not choose a different record than the other Players choose.
+
+Clock variables use the Player's local time.
+The Player expands them when the Website surface starts, not when it projects the Playlist.
+
 ## Pairing
 
 1. The player reads `GET /api/v1/system/identity`.

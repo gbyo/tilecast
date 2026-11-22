@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
@@ -364,6 +365,7 @@ func (s *server) createWidget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
+	body.Provider = strings.ToLower(strings.TrimSpace(body.Provider))
 	if body.Provider == "website" && !s.widgetPrivateHTTPAllowed(r, body.Configuration) {
 		writeError(w, 422, "setting_exceeds_hard_limit", "Private HTTP websites are disabled by runtime settings.")
 		return
@@ -374,6 +376,10 @@ func (s *server) createWidget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.requireWholeLibrary(w, r) {
+		return
+	}
+	if body.Provider == "website" && websiteUsesDataSource(body.Configuration) && !principal.Can(auth.CapDataSourceRead) {
+		writeError(w, http.StatusForbidden, "forbidden", "Reading Data Sources is required to attach one to a Website.")
 		return
 	}
 	user := principal.User
@@ -412,6 +418,10 @@ func (s *server) updateWidget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if body.Provider == "website" && websiteUsesDataSource(body.Configuration) && !principal.Can(auth.CapDataSourceRead) {
+		writeError(w, http.StatusForbidden, "forbidden", "Reading Data Sources is required to attach one to a Website.")
+		return
+	}
 	user := principal.User
 	asset, err := s.media.UpdateWidget(r.Context(), id, user.ID, body)
 	if err != nil {
@@ -419,6 +429,15 @@ func (s *server) updateWidget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": asset})
+}
+
+// websiteUsesDataSource checks the complete submitted Website configuration for
+// a source attachment. This is checked on every edit, including URL-only edits.
+func websiteUsesDataSource(configuration json.RawMessage) bool {
+	var selected struct {
+		DataSourceID string `json:"dataSourceId"`
+	}
+	return json.Unmarshal(configuration, &selected) == nil && strings.TrimSpace(selected.DataSourceID) != ""
 }
 
 // orgPrivateHTTP reports website.private_http_enabled for the organization,

@@ -375,3 +375,66 @@ func presentationNodeCapability(nodeType string) string {
 		return ""
 	}
 }
+
+// Manifest v13+ omits raw Widget configuration. Keep the source identifier on
+// the compiled Web descriptor, including its JSON representation.
+func TestWebsiteCompilerCarriesDataSourceID(t *testing.T) {
+	const sourceID = "4f589a71-6e9d-4db9-b91d-a244c6a9c351"
+	raw, err := json.Marshal(map[string]any{
+		"url":                 "https://example.com/screen?room={data.room}",
+		"dataSourceId":        sourceID,
+		"urlTemplatesEnabled": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentation, err := presentationTestService().compileWidgetPresentation("website", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if presentation.RequiredCapabilities["web.remote"] != 3 {
+		t.Fatalf("URL template requires web.remote v3: %#v", presentation.RequiredCapabilities)
+	}
+	if presentation.Web == nil || presentation.Web.DataSourceID != sourceID {
+		t.Fatalf("Website Data Source lost during compilation: %#v", presentation.Web)
+	}
+	wire, err := json.Marshal(presentation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded WidgetPresentation
+	if err = json.Unmarshal(wire, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Web == nil || decoded.Web.DataSourceID != sourceID {
+		t.Fatalf("Website Data Source lost on manifest wire: %#v", decoded.Web)
+	}
+}
+
+// A Website without the URL variables flag is static. Saved configurations
+// that carry placeholder-looking text keep compiling and play literally; the
+// authoring path rejects new ones (see media.TestWebsitePlaceholdersRequireOptIn).
+func TestStaticWebsitePresentationKeepsLiteralBraces(t *testing.T) {
+	service := presentationTestService()
+	for _, rawURL := range []string{
+		`https://example.com/?filter={"room":"A"}`,
+		`https://example.com/?room={data.room}`,
+	} {
+		t.Run(rawURL, func(t *testing.T) {
+			config, err := json.Marshal(map[string]string{"url": rawURL})
+			if err != nil {
+				t.Fatal(err)
+			}
+			presentation, err := service.compileWidgetPresentation("website", config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if presentation.Web.URL != rawURL || presentation.Web.URLTemplatesEnabled {
+				t.Errorf("static Website was altered: %#v", presentation.Web)
+			}
+			if presentation.RequiredCapabilities["web.remote"] != 1 {
+				t.Errorf("static Website must not require web.remote v3: %#v", presentation.RequiredCapabilities)
+			}
+		})
+	}
+}

@@ -52,7 +52,7 @@ class DeclarativeContractTest {
         val presentation = json.decodeFromString<WidgetPresentation>(
             """{"schemaVersion":1,"kind":"web","requiredCapabilities":{"web.remote":2},"web":{"mode":"remote","url":"https://docs.google.com/presentation/d/example/embed","allowedHosts":["docs.google.com"],"externalNetworkAccess":true,"onlineOnly":true,"fallbackBehavior":"placeholder","loadTimeoutSeconds":30,"lifecycle":"keep_warm","warmSeconds":60,"reload":{"mode":"periodic","intervalSeconds":900}}}"""
         )
-        assertEquals(2, PlayerPresentationSupport.webRuntimeVersion)
+        assertEquals(3, PlayerPresentationSupport.webRuntimeVersion)
         assertEquals("periodic", presentation.web?.reload?.mode)
         assertEquals(900, presentation.web?.reload?.intervalSeconds)
     }
