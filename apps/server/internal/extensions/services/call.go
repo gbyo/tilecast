@@ -71,12 +71,12 @@ type Call struct {
 	PackageID      string
 	// PluginID is set, and PackageID empty, for a bundled Plugin Manifest
 	// API 3 plugin. The host binds it; plugin code never supplies it.
-	PluginID string
-	Context        string
-	Actor          *Actor
-	Grants         []packagemanifest.ServiceGrant
-	Operation      string
-	Input          []byte
+	PluginID  string
+	Context   string
+	Actor     *Actor
+	Grants    []packagemanifest.ServiceGrant
+	Operation string
+	Input     []byte
 }
 
 // Denial is a transport-level refusal: unknown operation, missing
@@ -183,8 +183,8 @@ type Dependencies struct {
 	Shared          plugins.SharedHost
 	// Plugins serves bundled plugins' own settings and secrets.
 	Plugins *plugins.Service
-	Limits          Limits
-	Now             func() time.Time
+	Limits  Limits
+	Now     func() time.Time
 }
 
 // Dispatcher routes authorized service calls to domain services.

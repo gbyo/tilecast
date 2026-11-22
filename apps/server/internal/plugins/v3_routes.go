@@ -132,7 +132,7 @@ func (s *Service) handlePutSettings(pluginID, scope string) plugin.Handler {
 				return err
 			}
 		}
-		var write settingsWrite
+		var write SettingsWrite
 		if err := plugin.DecodeJSONLimit(w, r, &write, MaxInstanceBodyBytes); err != nil {
 			return err
 		}

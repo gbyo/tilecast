@@ -143,7 +143,7 @@ func (s *Service) readSettings(ctx context.Context, q queryer, pluginID, scope s
 // current (0 for a scope never written). Secret fields are written and
 // cleared through the secret store; their values never reach the document,
 // the audit event, or a log.
-func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, screenID, userID uuid.UUID, write settingsWrite) (SettingsDocument, error) {
+func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, screenID, userID uuid.UUID, write SettingsWrite) (SettingsDocument, error) {
 	hosted, fields, err := s.settingsFields(pluginID, scope)
 	if err != nil {
 		return SettingsDocument{}, err

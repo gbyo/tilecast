@@ -178,7 +178,8 @@ type SettingsDocument struct {
 	UpdatedAt *time.Time                     `json:"updatedAt,omitempty"`
 }
 
-type settingsWrite struct {
+// SettingsWrite is one settings update request.
+type SettingsWrite struct {
 	Values           map[string]any    `json:"values"`
 	Secrets          map[string]string `json:"secrets"`
 	ClearSecrets     []string          `json:"clearSecrets"`
