@@ -448,8 +448,8 @@ func (s *Service) cancelTakeover(ctx context.Context, takeoverID uuid.UUID, _ ti
 	defer tx.Rollback(ctx)
 	afterCommit, err := s.host.Takeovers.CancelInTx(ctx, tx, takeoverID, uuid.Nil, "NWS alert is no longer active")
 	if errors.Is(err, plugin.ErrTakeoverInactive) {
-		// Another Takeover already replaced this one. The alert still has to
-		// be marked cleared below; the takeover end state already holds.
+		// The takeover already ended. The alert still has to be marked cleared
+		// below; the takeover end state already holds.
 		return nil
 	}
 	if err != nil {
