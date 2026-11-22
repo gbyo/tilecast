@@ -123,6 +123,11 @@ multilingual content, device speech synthesis, advertising slots, federation,
 live video ingest, and audience measurement. Interactive and touch Players
 are deferred.
 
+Audience measurement estimates who is in front of a screen. A count of
+deliberate actions, such as scans of a public link (section 8a), is not
+audience measurement. It is plugin data. It never becomes Activity
+vocabulary.
+
 ### 2. One declarative model, two security boundaries
 
 A plugin is one manifest with Plugin Manifest API 3. Both trust classes use
@@ -196,6 +201,11 @@ schema, a targeting mode (`screens` or `none`), a schedule mode (`none`,
 `window`, or `weekly`), and an optional priority. Phase 1 sets an upper bound
 for the number of kinds from the generated Studio navigation and records the
 reason.
+
+The schedule mode controls when the host projects an instance. A domain
+calendar, such as A and B days or a bell schedule with exceptions, is plugin
+data. The plugin computes the current day type or period, puts it in state,
+and sets timers for the next change. It does not need a host schedule mode.
 
 The host owns:
 
@@ -335,7 +345,57 @@ reference. Phase 6 adds it.
 - A `tcp` origin follows the plain HTTP rules above: `operator` origin,
   private addresses only, and the same consents. A `tls` origin follows the
   address rules of `https`.
-- MQTT is an open question.
+- Long-lived streams use stream connections. See below.
+
+#### Stream connections
+
+Some systems send live values on a connection that stays open. Examples are
+an MQTT broker with door counters, and the WebSocket API of presentation
+software in a worship hall. A plugin cannot hold such a connection, because
+a hook runs for at most 30 seconds. The host holds it.
+
+- A stream connection declares the scheme `wss`, `mqtts`, `ws`, or `mqtt`.
+- `wss` and `mqtts` follow the address rules of `https`. `ws` and `mqtt`
+  follow the plain HTTP rules above: `operator` origin, private addresses
+  only, and the same consents.
+- A WebSocket stream can send headers with secret references, as
+  `http.fetch@1` does. An MQTT stream can take its user name and password
+  from `secret` settings. MQTT 3.1.1 and MQTT 5 are in scope.
+- An MQTT stream declares its topic filters. A filter is fixed in the
+  manifest, or it is an operator setting below a fixed prefix. The host
+  subscribes with QoS 0 or 1 and never publishes.
+- A WebSocket stream can send a text message with `streams.send@1`. A message
+  is at most 16 KiB, and the host allows 4 messages each second for each
+  stream.
+- The host keeps one connection for each stream and owner (`organization` or
+  an instance). It reconnects with exponential backoff from 1 second to
+  5 minutes.
+
+**Delivery.** Stream messages are live values. They do not use the durable
+delivery queue of section 9, because a busy broker would fill the database.
+
+- An inbound message is at most 16 KiB. The host drops a larger message and
+  counts it.
+- Each message has a key: the MQTT topic, or a JSON Pointer into a WebSocket
+  message that the stream declares.
+- The host keeps only the latest message for each key in memory. It delivers
+  keys to the stream hook in the order of their first arrival, with one call
+  in progress for each stream. A bundled plugin implements
+  `HandleStreamMessage(ctx, plugin.StreamMessage) error`. An installed
+  plugin exports `handle_stream_message`. A message that arrives during a call
+  replaces the waiting message of its key. A slow plugin therefore receives
+  fewer messages, not older messages.
+- A stream holds at most 256 keys. A message with a new key after that limit
+  is dropped and counted.
+- After a connection opens again, the plugin receives `stream.connected`. It
+  must read the current values again, for example from MQTT retained
+  messages or with `http.fetch@1`. Messages during an interruption are lost.
+- The plugin status shows the connection state, the last message time, and
+  the dropped message counts.
+- A plugin that must keep a value writes it to state, storage, or a feed.
+
+Stream connections run on the Server. UDP, multicast, and device buses stay
+native Player services.
 
 #### OAuth 2.0
 
@@ -460,6 +520,63 @@ have none.
   lifetime of at most 10,080 minutes for calendar events, need a renewal
   job. The plugin owns it with a durable timer.
 
+### 8a. Public links
+
+A QR code on a screen often needs a short address that the Server counts and
+then sends on, for example to a sign-up page. A webhook cannot do this,
+because a webhook is a `POST` request that receives `202`. A participant
+route needs a join code. The host owns public links.
+
+**Declaration.** A plugin declares each link kind with:
+
+- the target origins: a fixed list of `https` origins, or `operator`;
+- the counting granularity: total, or by screen;
+- a maximum lifetime, at most 400 days.
+
+**Creation.**
+
+- `links.create@1` takes a link kind, a target address, an optional instance,
+  an optional screen, and an expiry. It returns a code and the complete
+  public address.
+- The target must be an `https` address on an approved origin of the link
+  kind. The host stores the target with the code. A request cannot change it.
+  This prevents an open redirect.
+- The code is 10 random Base62 characters. A code is not a secret, because
+  it is on a screen.
+- The public address is `<public URL>/api/v1/links/{code}`. It holds no
+  plugin identity, so the QR code stays small.
+- A plugin shows one code for each screen when it projects the instance for
+  that screen. `links.create@1` with the same kind, target, instance, and
+  screen returns the same code.
+
+**Request.**
+
+- The host answers `GET` with `303` and the stored target. No plugin code
+  runs, so a scan cannot cause plugin work.
+- The host sets no cookie and adds `Referrer-Policy: no-referrer` and
+  `Cache-Control: no-store`.
+- An expired or deleted code receives a `404` page that names the
+  installation and nothing else.
+- The host applies a rate limit for each client address and for each code.
+
+**Counts.**
+
+- The host adds one to a counter for each code and hour.
+- The host counts one request for each client address, code, and 10 minutes.
+  It keeps the addresses for this rule in memory only.
+- The host stores no client address, user agent, referrer, or other request
+  data.
+- `links.stats@1` returns the counters for a period. Studio labels them
+  "scans". A scan is not a view, and Studio does not show a scan rate as a
+  rate of viewers.
+- The host deletes counters after 400 days. Removal keeps them, as for all
+  plugin data. An explicit purge deletes them.
+- A removed plugin's codes receive the `404` page.
+
+**Reachability.** Phones off the local network can open a link only when the
+installation has a public address. Studio shows the address that the QR code
+will contain.
+
 ### 9. Events
 
 A plugin subscribes to core events from a closed vocabulary:
@@ -469,6 +586,30 @@ A plugin subscribes to core events from a closed vocabulary:
 - `incident.opened@1`, `incident.recovered@1`
 - `schedule.changed@1`
 - `feed.stale@1` for the plugin's own feeds
+
+**Plugin events.** A plugin can also publish events that other plugins
+receive. For example, a bell schedule plugin publishes `period.started`,
+and a hall display plugin changes its overlay. These are Server events. They
+are not the Player plugin events of Plugin API v2.
+
+- A plugin declares each event that it publishes with a name, a version, and
+  a payload schema from `packages/config-schema`. The full name is
+  `plugin.<identity>.<name>@<version>`.
+- A payload is at most 4 KiB. It carries no `secret` field. A `personal`
+  field is refused.
+- `events.publish@1` writes the event in the publisher's transaction. The
+  delivery rules below apply to each subscriber.
+- A plugin subscribes by the full name. The install review shows each
+  subscription and the plugin that publishes it.
+- A subscription to an event of a plugin that is not installed is accepted
+  and receives nothing. Studio shows it as inactive.
+- The meaning of an event name never changes. A changed payload is a new
+  version.
+- Core code never names a plugin event. When the automation engine exists, a
+  declared plugin event can also be a trigger in the `automation.triggers`
+  slot.
+- A plugin event cannot change which presentation a screen selects. That
+  stays core (section 1).
 
 **Hooks.** A bundled plugin implements `HandleEvent(ctx, plugin.Event)
 error`. An installed plugin exports `handle_event`. The call runs in the
@@ -493,7 +634,8 @@ Player reports, and timers. It follows the outbox and backoff pattern of
 - The host queues nothing for a plugin that is not installed. Removal deletes
   the queue of the plugin.
 - A new event version is a new name. When a plugin stops subscribing to a
-  name, the host deletes its queued items of that name at startup.
+  name, the host deletes its queued items of that name at startup. This
+  applies to core events and to plugin events.
 - A payload is bounded and carries no secret.
 
 ### 10. Durable timers
@@ -556,6 +698,35 @@ publication removes also removes its overrides.
 - Images are in backups with other media variants. An explicit purge deletes
   them. Removal keeps plugin data, as for every plugin.
 
+**Plugin assets.** A record field of type `plugin_asset` names a private
+plugin asset by its ID. Plugin state can name one too.
+
+- A remote image import (above) creates a plugin asset.
+- An approved moderation item can create a plugin asset. See section 13a.
+- A plugin asset is not in the Media library. The host grants it to a Player
+  only while a current feed record or the plugin state for that screen names
+  it.
+- The 24-hour discard rule above applies to every plugin asset.
+
+**Withdrawal.** Content from outside can be wrong, and an operator must be
+able to remove it from every screen.
+
+- A publication without a record, or plugin state without a value, removes
+  it at the next plugin-only revision. An online Player stops showing it
+  within normal delivery time.
+- When no current record or state names a plugin asset, the host adds its
+  SHA-256 digest to the purge list of each screen that received it. The
+  manifest carries the purge list for 7 days. The list holds at most 256
+  digests, newest first.
+- A Player deletes each cached object on the purge list unless its current
+  manifest names the same digest for another reason, for example as a Media
+  library item. It never uses a purged object as an offline fallback.
+- A feed or plugin state that can hold moderated input declares `untrusted`.
+  The host then limits `validUntil` to 72 hours after the publication. The
+  plugin publishes again to extend it. A Player that stays offline stops
+  showing the data when it expires and shows the plugin fallback. Without
+  this limit, an offline Player could show withdrawn content for weeks.
+
 ### 13. Personal data
 
 - A setting, instance field, feed field, or participant field can be marked
@@ -612,9 +783,11 @@ The host owns moderation. A plugin does not keep its own review state.
   approval.
 - A repeated item ID changes nothing.
 - A full queue refuses a new item with `queue_full`.
-- The item states are `pending`, `approved`, `rejected`, `expired`, and
-  `withdrawn`. Only a `pending` item can change state. The plugin can
-  withdraw a pending item.
+- The item states are `pending`, `approved`, `rejected`, `expired`,
+  `withdrawn`, and `taken_down`. A `pending` item can change to `approved`,
+  `rejected`, `expired`, or `withdrawn`. An `approved` item can change to
+  `taken_down`. No other change is possible. The plugin can withdraw a
+  pending item.
 
 **Decisions.**
 
@@ -630,6 +803,25 @@ error`. An installed plugin exports `handle_moderation`.
   give the same result when it receives the same item ID again.
 - The audit event records the reviewer, the queue, the item ID, and the
   decision. It never records a `personal` field value.
+- In the hook, `moderation.promote@1` turns a media reference of the approved
+  item into a plugin asset (section 12). Only an approved item can be
+  promoted. A plugin asset records the item that it came from.
+
+**Takedown.** A person with the reviewer capability can take down an
+approved item.
+
+- The item state becomes `taken_down`. Only an `approved` item can change to
+  this state.
+- The host calls the moderation hook with the decision `taken_down`. The
+  plugin removes the item from its state, feeds, and content.
+- The host revokes each plugin asset that came from the item. It stops the
+  grant to Players even when a record or state still names the asset. It puts
+  the digest on the purge list at once and does not wait for the 24-hour
+  discard rule.
+- The host records the takedown before it calls the hook, so a failed hook
+  cannot keep a revoked asset on a screen. When the hook fails, the host
+  retries it and shows the item in the plugin status until the hook
+  succeeds.
 
 **Retention.**
 
@@ -647,10 +839,21 @@ semantics. The plugin supplies one function.
 | Slot                     | Core feature               | The plugin supplies                          |
 | ------------------------ | -------------------------- | -------------------------------------------- |
 | `notifications.channels` | `notify`                   | Delivery of a rendered message to a channel. |
-| `contenthealth.checks`   | `contenthealth`            | A check that returns a named condition.      |
+| `contenthealth.checks`   | `contenthealth`            | A check of one item that core passes in.     |
 | `automation.triggers`    | Automation engine (future) | A trigger source with typed events.          |
 | `automation.actions`     | Automation engine (future) | An action with typed input.                  |
 | `takeovers`              | Takeovers                  | A request up to the declared maximum class.  |
+
+**Content health checks.** A check declares the item kinds that it reads:
+playlist, Layout, Widget instance, or media item. During its sweep,
+`contenthealth` passes each changed item of those kinds to the check in the
+`system` context. The item is a read-only API model, not a database row. The
+check returns zero or more named conditions with a severity and a short
+reason. A bundled plugin implements `CheckContent(ctx, plugin.ContentItem)
+([]plugin.Condition, error)`. An installed plugin exports `check_content`. Core owns the incident and the Studio report. A check gets no other
+read access to content, because a sweep has no operator and no content
+access decision. A readability check, for example, compares text size and
+contrast in the item that it receives.
 
 `notify` keeps its incident rule: volume comes from incidents. A message to
 one named person, such as a visitor's host, is not a notification channel.
@@ -723,6 +926,23 @@ contribution prints each
 job ID once and sends the result with `player.report@1`. A job with personal
 data, such as a visitor badge, is `sensitive` state.
 
+**Digital inputs.** `player.gpio@1` on Edge reads digital input lines, such
+as a door counter, a beam sensor, or a push button.
+
+- An Owner assigns lines of one GPIO chip to the screen in Studio. The
+  plugin names a line by its setting, never by a chip path.
+- Edge uses the Linux GPIO character device (`/dev/gpiochipN`) through the
+  version 2 interface. It does not use the deprecated sysfs GPIO interface.
+- Edge adds a udev rule, a group, and `DeviceAllow=char-gpiochip rw`, as for
+  `player.serial@1`. Only `tilecast-edge.service` joins the group.
+- The service reports edges with a debounce time from 1 to 1,000
+  milliseconds, and it keeps a count of edges for each line. The plugin
+  receives counts and the current level. It does not receive each edge.
+- The service sets no output line. An output, such as a relay or a beacon,
+  needs a separate decision, because it acts on the physical world.
+- No phase includes this service. It is added with the first plugin that
+  needs it. The capability matrix lists each qualified board.
+
 **Gateway pattern.** One Player owns a device, such as a scoreboard console.
 It sends decoded values with `player.report@1`. The Server part of the plugin
 writes state, and other screens receive it.
@@ -755,9 +975,12 @@ If a fast path is needed:
 - `content.write@1` creates and changes playlists, Widgets, and schedules
   through the canonical domain services, with the operator's authorization.
   Content Review applies when the review policy requires it.
-- Both services run in the `studio` context only. A timer, a job, an event, a
-  webhook, and a Player report have no operator. They cannot call these
-  services.
+- `content.read@1` reads playlists, Layouts, Widget instances, schedules, and
+  media items as API models. It applies the operator's content access and
+  screen scope, as the Studio API does.
+- These three services run in the `studio` context only. A timer, a job, an
+  event, a webhook, and a Player report have no operator. They cannot call
+  these services.
 - A plugin that acts on outside input, such as a chat message that asks for a
   publication, puts the input in moderation. The reviewer's decision runs in
   the `studio` context, so the hook can write content as the reviewer.
@@ -771,8 +994,10 @@ If a fast path is needed:
 ### 17. Studio
 
 - The host generates the settings page, the instance pages, the connections
-  page, the webhook page, the moderation queue pages, the personal-data page,
-  and the status page.
+  page, the webhook page, the moderation queue pages, the public link page
+  with its scan counts, the personal-data page, and the status page. The
+  status page shows stream connections, parked deliveries, and inactive
+  event subscriptions.
 - A bundled plugin can add React pages. An installed plugin can add a
   sandbox frame page.
 - Staff pages, kiosks, and participant pages follow the companion access
@@ -786,6 +1011,7 @@ install review shows:
 - `validate_instance` and `project_state`
 - `handle_event`, `handle_webhook`, `verify_webhook`
 - `handle_player_report`, `handle_timer`, `handle_moderation`
+- `handle_stream_message` and `check_content`
 - `run_job` and `handle_ui_request`, as today
 
 ### 19. Tooling
@@ -801,16 +1027,16 @@ install review shows:
 Each phase delivers real plugins. A phase ends when those plugins pass their
 checks and the contracts describe the new members.
 
-| Phase | Scope                                                                                                                          | Proof                                                    |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| 0     | Takeover priority classes. Terminology and the rename. One extension overview.                                                 | Emergency Alerts survives an operator Takeover           |
-| 1     | `config-schema`, settings, secrets, instances, personal-data declarations, the registry Go client                              | Countdown Bar on Plugin Manifest API 3, with line counts |
-| 2     | `http.fetch@1`, connections, local `http` origins, OAuth, feeds with overrides and images, `storage.kv@1`, timers              | Room sign display; POS menu board                        |
-| 3     | Events, `token`, `signature`, and `fetch-back` webhooks, the delivery engine, notification channels, `contenthealth` checks    | Planning Center sync; offline notifier                   |
-| 4     | Plugin capabilities, staff pages, kiosks, moderation, `public` webhooks                                                        | "Now serving" keypad; scorekeeper page                   |
-| 5     | `player.report@1`, `player.audio.cue@1` with sequences, `player.serial@1` on Edge, the fast-path measurement                   | Scoreboard gateway; spoken queue call                    |
-| 6     | Installed parity: every member for packages, `plugin-runtime.state@1` on instances, Player frame ABI 2 on services, blobs, TCP | One plugin shipped as a package; transit arrivals        |
-| 7     | Participant sessions; content and media services; editor action slots                                                          | Live poll; Slack publishing through moderation           |
+| Phase | Scope                                                                                                                                              | Proof                                                                      |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 0     | Takeover priority classes. Terminology and the rename. One extension overview.                                                                     | Emergency Alerts survives an operator Takeover                             |
+| 1     | `config-schema`, settings, secrets, instances, personal-data declarations, the registry Go client                                                  | Countdown Bar on Plugin Manifest API 3, with line counts                   |
+| 2     | `http.fetch@1`, connections, local `http` origins, OAuth, feeds with overrides and images, `storage.kv@1`, timers                                  | Room sign display; POS menu board                                          |
+| 3     | Core and plugin events, `token`, `signature`, and `fetch-back` webhooks, the delivery engine, notification channels, `contenthealth` checks        | Planning Center sync; offline notifier; bell schedule events               |
+| 4     | Plugin capabilities, staff pages, kiosks, moderation with plugin assets and takedown, the purge list, `public` webhooks, public links              | "Now serving" keypad; scorekeeper page; community flyer wall with QR links |
+| 5     | `player.report@1`, `player.audio.cue@1` with sequences, `player.serial@1` on Edge, the fast-path measurement                                       | Scoreboard gateway; spoken queue call                                      |
+| 6     | Installed parity: every member for packages, `plugin-runtime.state@1` on instances, Player frame ABI 2 on services, blobs, TCP, stream connections | One plugin shipped as a package; transit arrivals; MQTT occupancy sign     |
+| 7     | Participant sessions; content read, content write, and media services; editor action slots                                                         | Live poll; Slack publishing through moderation                             |
 
 Emergency Alerts and Forms move to Plugin Manifest API 3 after phase 3.
 Plugin API v1 is deleted after both move.
@@ -842,7 +1068,17 @@ Plugin API v1 is deleted after both move.
 - OAuth connections need an HTTPS public URL and an OAuth client that the
   operator registers.
 - `player.serial@1` widens the Edge device policy. It needs hardware
-  qualification.
+  qualification. `player.gpio@1` and `player.printer@1` do the same when a
+  plugin first needs them.
+- Stream connections keep sockets open from the Server to brokers and local
+  systems. Messages during an interruption are lost, so a plugin must read
+  current values again after each reconnect.
+- Public links accept requests from the internet. They run no plugin code
+  and store no request data, but a scan count can be inflated within the
+  rate limits. Studio presents it as an indication, not a measurement.
+- Manifests carry a bounded purge list, and every Player host must delete
+  purged objects from its cache. An untrusted feed needs a publication at
+  least every 72 hours.
 
 ## Rejected alternatives
 
@@ -883,16 +1119,28 @@ Plugin API v1 is deleted after both move.
   presentation mechanism and language behavior. Section 1 makes it core.
 - **Plain HTTP to any address.** It would expose public traffic and cloud
   metadata addresses to plugins.
+- **Stream messages in the durable delivery queue.** A busy broker would
+  write each message to the database. Live values need the latest value, not
+  every value.
+- **Stream connections held by plugin code.** A hook runs for at most 30
+  seconds, and an installed plugin has no socket.
+- **A plugin route that redirects.** Plugin code would run for each scan,
+  and a plugin could build an open redirect.
+- **Withdrawal through normal cache eviction.** A Player evicts an unpinned
+  object only under storage pressure, so withdrawn content could stay on
+  disk and return as an offline fallback.
+- **Plugin events with free names.** A name without the publisher's identity
+  could collide, and core would need to know plugin names.
 
 ## Open questions
 
-- Does a connection need MQTT and other long-lived streams? An installed
-  plugin then needs a host-held connection that delivers messages.
-- Which abuse controls must public webhooks and participant sessions have
-  beyond rate limits? Tilecast must not require a proprietary service.
+- Which abuse controls must public webhooks, public links, and participant
+  sessions have beyond rate limits? Tilecast must not require a proprietary service.
 - How does a plugin send a message to one named person without breaking the
   incident rule of `notify`?
 - How does a person link an external chat or calendar identity to a Tilecast
   account, so that a plugin can attribute an action to that person?
 - Which Player hosts can keep sensitive state in memory only without a
   change to their cache design?
+- Can each Player host delete one purged object at once? The Browser Player
+  can delete from Cache Storage but not from the browser HTTP cache.
