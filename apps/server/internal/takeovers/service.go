@@ -301,7 +301,7 @@ func (s *Service) CancelInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor
 	if !active {
 		return nil, ErrInactive
 	}
-	rows, err := tx.Query(ctx, `SELECT screen_id FROM takeover_screen_states WHERE takeover_id=$1 AND state NOT IN ('suspended','restored','cancelled','expired') ORDER BY screen_id`, id)
+	rows, err := tx.Query(ctx, `SELECT screen_id FROM takeover_screen_states WHERE takeover_id=$1 AND state NOT IN ('restored','cancelled','expired') ORDER BY screen_id`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +433,7 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 }
 
 func (s *Service) RefreshInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, reason string) (plugin.AfterCommit, error) {
-	rows, err := tx.Query(ctx, `SELECT screen_id FROM takeover_screen_states WHERE takeover_id=$1 AND state NOT IN ('restored','cancelled','expired') ORDER BY screen_id`, id)
+	rows, err := tx.Query(ctx, `SELECT screen_id FROM takeover_screen_states WHERE takeover_id=$1 AND state NOT IN ('suspended','restored','cancelled','expired') ORDER BY screen_id`, id)
 	if err != nil {
 		return nil, err
 	}
