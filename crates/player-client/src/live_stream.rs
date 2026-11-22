@@ -16,7 +16,7 @@
 //! stale data is never intentionally emitted. An inactive, expired,
 //! malformed, or incomplete session fails closed to no streaming.
 //!
-//! The MJPEG bounds below mirror the server's MJPEG maximum: 960x540,
+//! The MJPEG bounds below mirror the server's MJPEG maximum: 960 on either axis,
 //! 100 KiB, 100 ms target interval. They guard only the TCLS version 1 path
 //! and the legacy session fields; an H.264 profile takes its dimensions,
 //! frame rate, and bitrate from [`WatchLiveProfile`] instead. Server numbers
@@ -30,7 +30,7 @@ use serde_json::Value;
 /// for MJPEG). H.264 profiles carry their own dimensions.
 pub const MAX_WIDTH: u32 = 960;
 /// Local maximum MJPEG frame height.
-pub const MAX_HEIGHT: u32 = 540;
+pub const MAX_HEIGHT: u32 = 960;
 /// Local maximum encoded frame bytes (the server's `MaxFrameBytes`).
 pub const MAX_FRAME_BYTES: usize = 100 * 1024;
 /// Lower bound for the MJPEG capture cadence: a faster server interval never
@@ -136,8 +136,9 @@ impl WatchLiveProfile {
     pub fn max_dimensions(self) -> (u32, u32) {
         match self {
             Self::H264_720p30 | Self::H264_720p15 => (1280, 720),
-            Self::H264_540p15 | Self::H264_540p10 | Self::Mjpeg540p10 => (960, 540),
-            Self::Mjpeg360p8 => (640, 360),
+            Self::H264_540p15 | Self::H264_540p10 => (960, 540),
+            Self::Mjpeg540p10 => (960, 960),
+            Self::Mjpeg360p8 => (640, 640),
         }
     }
 
@@ -658,7 +659,7 @@ mod tests {
         // local bounds, never TCLS version 2.
         let old = active(serde_json::json!({}));
         assert!(old.active);
-        assert!(matches!(old.mode(), StreamMode::Mjpeg { max_width: MAX_WIDTH, max_height: MAX_HEIGHT, .. }));
+        assert!(matches!(old.mode(), StreamMode::Mjpeg { max_width: MAX_WIDTH, max_height: 720, .. }));
         let unknown = active(serde_json::json!({"profile": "av1-1080p30", "transport": "av1"}));
         assert!(unknown.active && matches!(unknown.mode(), StreamMode::Mjpeg { .. }));
         for inconsistent in [
@@ -697,7 +698,9 @@ mod tests {
         let jpeg = [0xFF, 0xD8, 0x01, 0xFF, 0xD9];
         assert!(encode_live_stream_frame(&session_id, 1, 0, 360, &jpeg).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 961, 360, &jpeg).is_none());
-        assert!(encode_live_stream_frame(&session_id, 1, 640, 541, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 640, 961, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 360, 640, &jpeg).is_some());
+        assert!(encode_live_stream_frame(&session_id, 1, 540, 960, &jpeg).is_some());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, b"GIF89a").is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0xFF]).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0x01, 0x02]).is_none());

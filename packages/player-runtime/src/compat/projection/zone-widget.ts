@@ -10,6 +10,13 @@ import type { WidgetRenderPayload } from "./render-tree";
 import { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
 import { renderWidget } from "./widget-render";
 
+export class UnresolvedWebsiteUrlError extends Error {
+  constructor() {
+    super("Layout Widget remote web URL could not be resolved");
+    this.name = "UnresolvedWebsiteUrlError";
+  }
+}
+
 export type ZoneWidgetProjection =
   | {
       kind: "widget";
@@ -24,9 +31,19 @@ export function projectZoneWidget(
   zoneHeight: number,
 ): ZoneWidgetProjection {
   if (isRemoteWebWidget(widget)) {
-    const remoteWeb = remoteWebForWidget(widget, ctx.manifest.assets, ctx.at);
-    if (!remoteWeb)
+    const remoteWeb = remoteWebForWidget(widget, ctx.manifest.assets, ctx.at, {
+      screenId: ctx.manifest.screenId,
+      dataSources: ctx.dataSources,
+    });
+    if (!remoteWeb) {
+      if (
+        widget.provider === "website" &&
+        widget.presentation?.kind === "web"
+      ) {
+        throw new UnresolvedWebsiteUrlError();
+      }
       throw new Error("Layout Widget remote web projection failed");
+    }
     return { kind: "remote-web", remoteWeb };
   }
   const payload =

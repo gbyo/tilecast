@@ -388,6 +388,8 @@ playback.
 
 Website playlist items require `durationMs` and always use `deliveryPolicy: "stream"`. Manifest schema v3 carries relevant website settings and optional fallback image/variant references. It never includes dashboard users, audit data, credentials, filesystem paths, full player logs, or unrelated websites.
 
+A Website configuration can set `urlTemplatesEnabled` and an optional `dataSourceId`. When `urlTemplatesEnabled` is true, Players expand `{screen.id}`, `{date}`, `{time}`, `{datetime}`, and `{data.*}` in query parameter values, and the Website requires `web.remote` 3 (see [Website URL variables](player-protocol.md#website-url-variables-webremote-3)). Saving a URL that contains one of these placeholders without `urlTemplatesEnabled` fails with a validation error. Setting `dataSourceId` requires `datasource.read` on every create and update that submits it, including URL-only edits, because a changed URL could otherwise send the source's records to another host. The Server does not check that the Data Source exists when it saves; a Player refuses a URL that needs a source it does not have.
+
 Website data clearing is the typed `clear_website_data` persistent player command. It is Owner/Administrator-only and CSRF protected.
 
 ## Widgets and Data Sources

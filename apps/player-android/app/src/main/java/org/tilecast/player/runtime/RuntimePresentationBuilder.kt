@@ -128,6 +128,9 @@ object RuntimePresentationBuilder {
                 PROJECTION_MANIFEST_KEYS.forEach { key ->
                     raw[key]?.let { put(key, it) }
                 }
+                // Website widgets in Layouts resolve {screen.id} in Runtime,
+                // rather than through the legacy Kotlin Website item path.
+                put("screenId", manifest.screenId)
             }
             putJsonArray("media") {
                 manifest.assets
@@ -254,7 +257,10 @@ object RuntimePresentationBuilder {
             val config = runCatching { json.decodeFromJsonElement<WebsiteSourceConfig>(widget.configuration) }.getOrNull()
                 ?: return BuiltRuntimeItem(unresolvableItem(resolved), false)
             return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
-                url = config.url,
+                url = (if (config.urlTemplatesEnabled) WebsiteUrlVariables.resolve(
+                    config.url, manifest.screenId, dataSourceId = config.dataSourceId,
+                    sources = manifest.dataSources,
+                ) else config.url) ?: return BuiltRuntimeItem(unresolvableItem(resolved), false),
                 allowedHosts = config.allowedHosts,
                 javascriptEnabled = config.javascriptEnabled,
                 domStorageEnabled = config.domStorageEnabled,

@@ -709,6 +709,8 @@ type CalendarPreview struct {
 
 type WebsiteConfig struct {
 	URL                    string     `json:"url"`
+	DataSourceID           string     `json:"dataSourceId,omitempty"`
+	URLTemplatesEnabled    bool       `json:"urlTemplatesEnabled,omitempty"`
 	DisplayURL             string     `json:"displayUrl"`
 	AllowedHosts           []string   `json:"allowedHosts"`
 	JavaScriptEnabled      bool       `json:"javascriptEnabled"`

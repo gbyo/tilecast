@@ -34,7 +34,7 @@ func (c *Catalog) WidgetDataSourceIDs(provider string, raw json.RawMessage) []uu
 		return ids
 	}
 	switch provider {
-	case "ticker", "menu", "list", "table", "agenda", "metric", "cards", "weather", "spotlight", "stat_grid", "chart", "progress", "timeline":
+	case "website", "ticker", "menu", "list", "table", "agenda", "metric", "cards", "weather", "spotlight", "stat_grid", "chart", "progress", "timeline":
 		value, _ := values["dataSourceId"].(string)
 		appendID(value)
 	}

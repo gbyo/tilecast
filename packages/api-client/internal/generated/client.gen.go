@@ -7373,21 +7373,23 @@ type CompiledPresentationRepeat struct {
 
 // CompiledWebPresentation defines model for CompiledWebPresentation.
 type CompiledWebPresentation struct {
-	AllowedHosts          []string           `json:"allowedHosts"`
-	BundleId              *string            `json:"bundleId,omitempty"`
-	DownloadPath          *string            `json:"downloadPath,omitempty"`
-	EntryPoint            *string            `json:"entryPoint,omitempty"`
-	ExternalNetworkAccess bool               `json:"externalNetworkAccess"`
-	FallbackBehavior      string             `json:"fallbackBehavior"`
-	IntegritySha256       *string            `json:"integritySha256,omitempty"`
-	Lifecycle             string             `json:"lifecycle"`
-	LoadTimeoutSeconds    int                `json:"loadTimeoutSeconds"`
-	Mode                  string             `json:"mode"`
-	OnlineOnly            bool               `json:"onlineOnly"`
-	PackageSize           *int64             `json:"packageSize,omitempty"`
-	Reload                *CompiledWebReload `json:"reload,omitempty"`
-	Url                   *string            `json:"url,omitempty"`
-	WarmSeconds           int                `json:"warmSeconds"`
+	AllowedHosts          []string            `json:"allowedHosts"`
+	BundleId              *string             `json:"bundleId,omitempty"`
+	DataSourceId          *openapi_types.UUID `json:"dataSourceId,omitempty"`
+	DownloadPath          *string             `json:"downloadPath,omitempty"`
+	EntryPoint            *string             `json:"entryPoint,omitempty"`
+	ExternalNetworkAccess bool                `json:"externalNetworkAccess"`
+	FallbackBehavior      string              `json:"fallbackBehavior"`
+	IntegritySha256       *string             `json:"integritySha256,omitempty"`
+	Lifecycle             string              `json:"lifecycle"`
+	LoadTimeoutSeconds    int                 `json:"loadTimeoutSeconds"`
+	Mode                  string              `json:"mode"`
+	OnlineOnly            bool                `json:"onlineOnly"`
+	PackageSize           *int64              `json:"packageSize,omitempty"`
+	Reload                *CompiledWebReload  `json:"reload,omitempty"`
+	Url                   *string             `json:"url,omitempty"`
+	UrlTemplatesEnabled   *bool               `json:"urlTemplatesEnabled,omitempty"`
+	WarmSeconds           int                 `json:"warmSeconds"`
 }
 
 // CompiledWebReload defines model for CompiledWebReload.
@@ -12818,11 +12820,14 @@ type WebAuthnCredentialType string
 
 // WebsiteConfig defines model for WebsiteConfig.
 type WebsiteConfig struct {
-	AllowedHosts           []string                     `json:"allowedHosts"`
-	BackgroundColor        string                       `json:"backgroundColor"`
-	CookiePolicy           WebsiteConfigCookiePolicy    `json:"cookiePolicy"`
-	CreatedAt              time.Time                    `json:"createdAt"`
-	CustomUserAgent        string                       `json:"customUserAgent"`
+	AllowedHosts    []string                  `json:"allowedHosts"`
+	BackgroundColor string                    `json:"backgroundColor"`
+	CookiePolicy    WebsiteConfigCookiePolicy `json:"cookiePolicy"`
+	CreatedAt       time.Time                 `json:"createdAt"`
+	CustomUserAgent string                    `json:"customUserAgent"`
+
+	// DataSourceId Optional Data Source whose records `{data.*}` URL variables read. Setting it requires the `datasource.read` capability.
+	DataSourceId           *openapi_types.UUID          `json:"dataSourceId,omitempty"`
 	DisplayUrl             string                       `json:"displayUrl"`
 	DomStorageEnabled      bool                         `json:"domStorageEnabled"`
 	FailureBehavior        WebsiteConfigFailureBehavior `json:"failureBehavior"`
@@ -12835,7 +12840,10 @@ type WebsiteConfig struct {
 	ScrollY                int                          `json:"scrollY"`
 	UpdatedAt              time.Time                    `json:"updatedAt"`
 	Url                    string                       `json:"url"`
-	ZoomPercent            int                          `json:"zoomPercent"`
+
+	// UrlTemplatesEnabled Expands `{screen.id}`, `{date}`, `{time}`, `{datetime}` and `{data.*}` in query parameter values. A Website that enables it requires a Player that reports `web.remote` 3. A URL that contains a placeholder is rejected unless this is true.
+	UrlTemplatesEnabled *bool `json:"urlTemplatesEnabled,omitempty"`
+	ZoomPercent         int   `json:"zoomPercent"`
 }
 
 // WebsiteConfigCookiePolicy defines model for WebsiteConfig.CookiePolicy.
