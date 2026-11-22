@@ -58,6 +58,10 @@ Source is unavailable, or the resolved URL would exceed 2,048 characters,
 Tilecast refuses to load that address rather than exposing an unresolved
 template. Static Website URLs remain unchanged.
 
+Studio refuses to save a URL that contains a variable while **Enable URL variables** is off, so a typo cannot reach a screen as literal text. Saved Websites that already contain text like `{date}` keep playing unchanged until you edit them.
+
+Android Players refuse `{data.*}` variables for a Data Source that limits records by date. The other Players apply that limit first, so Android would show different records. Use a Data Source without a date limit for Websites that run on Android.
+
 URL variables require an updated Player reporting `web.remote@3`. Older Players that report `web.remote@1` or `web.remote@2` are rejected during compatibility checks for variable-enabled Websites; ordinary static Websites continue to work. Upgrade Android, Edge, Windows and Linux Players before assigning URL variables.
 
 Date and time values are resolved when the Website starts playing, not when the Playlist is first projected. This keeps a changing clock token from restarting a preceding Playlist item. A page already open retains its URL until the next activation. The site must be able to parse the query values it receives.

@@ -11033,6 +11033,9 @@ export interface components {
     CompiledWebPresentation: {
       mode: string;
       url?: string;
+      /** Format: uuid */
+      dataSourceId?: string;
+      urlTemplatesEnabled?: boolean;
       bundleId?: string;
       entryPoint?: string;
       integritySha256?: string;
@@ -11664,6 +11667,13 @@ export interface components {
     };
     WebsiteConfig: {
       url: string;
+      /**
+       * Format: uuid
+       * @description Optional Data Source whose records `{data.*}` URL variables read. Setting it requires the `datasource.read` capability.
+       */
+      dataSourceId?: string;
+      /** @description Expands `{screen.id}`, `{date}`, `{time}`, `{datetime}` and `{data.*}` in query parameter values. A Website that enables it requires a Player that reports `web.remote` 3. A URL that contains a placeholder is rejected unless this is true. */
+      urlTemplatesEnabled?: boolean;
       displayUrl: string;
       allowedHosts: string[];
       javascriptEnabled: boolean;

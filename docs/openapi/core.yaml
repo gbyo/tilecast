@@ -17009,6 +17009,8 @@ components:
       properties:
         mode: { type: string }
         url: { type: string }
+        dataSourceId: { type: string, format: uuid }
+        urlTemplatesEnabled: { type: boolean }
         bundleId: { type: string }
         entryPoint: { type: string }
         integritySha256: { type: string }
@@ -17904,6 +17906,19 @@ components:
         ]
       properties:
         url: { type: string }
+        dataSourceId:
+          type: string
+          format: uuid
+          description: >-
+            Optional Data Source whose records `{data.*}` URL variables read.
+            Setting it requires the `datasource.read` capability.
+        urlTemplatesEnabled:
+          type: boolean
+          description: >-
+            Expands `{screen.id}`, `{date}`, `{time}`, `{datetime}` and
+            `{data.*}` in query parameter values. A Website that enables it
+            requires a Player that reports `web.remote` 3. A URL that contains
+            a placeholder is rejected unless this is true.
         displayUrl: { type: string }
         allowedHosts:
           type: array
