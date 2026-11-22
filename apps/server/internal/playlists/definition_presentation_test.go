@@ -411,22 +411,29 @@ func TestWebsiteCompilerCarriesDataSourceID(t *testing.T) {
 	}
 }
 
-func TestStaticWebsitePresentationAllowsLiteralBraces(t *testing.T) {
+// A Website without the URL variables flag is static. Saved configurations
+// that carry placeholder-looking text keep compiling and play literally; the
+// authoring path rejects new ones (see media.TestWebsitePlaceholdersRequireOptIn).
+func TestStaticWebsitePresentationKeepsLiteralBraces(t *testing.T) {
 	service := presentationTestService()
-	for _, tc := range []struct {
-		url      string
-		wantFail bool
-	}{
-		{`https://example.com/?filter={"room":"A"}`, false},
-		{`https://example.com/?room={data.room}`, true},
+	for _, rawURL := range []string{
+		`https://example.com/?filter={"room":"A"}`,
+		`https://example.com/?room={data.room}`,
 	} {
-		t.Run(tc.url, func(t *testing.T) {
-			config, err := json.Marshal(map[string]string{"url": tc.url})
+		t.Run(rawURL, func(t *testing.T) {
+			config, err := json.Marshal(map[string]string{"url": rawURL})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.compileWidgetPresentation("website", config); (err != nil) != tc.wantFail {
-				t.Errorf("Website compiler error = %v, want error %t", err, tc.wantFail)
+			presentation, err := service.compileWidgetPresentation("website", config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if presentation.Web.URL != rawURL || presentation.Web.URLTemplatesEnabled {
+				t.Errorf("static Website was altered: %#v", presentation.Web)
+			}
+			if presentation.RequiredCapabilities["web.remote"] != 1 {
+				t.Errorf("static Website must not require web.remote v3: %#v", presentation.RequiredCapabilities)
 			}
 		})
 	}

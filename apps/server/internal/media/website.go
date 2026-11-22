@@ -28,6 +28,11 @@ type WebsitePolicy struct {
 var colorPattern = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 var hostPattern = regexp.MustCompile(`^[A-Za-z0-9.-]+$`)
 
+// websitePlaceholder matches the URL variables Players expand when a Website
+// enables them. Keep it aligned with the Player resolvers in
+// packages/player-runtime/src/remote-web/url-template.ts.
+var websitePlaceholder = regexp.MustCompile(`\{(?:screen\.id|date|time|datetime|data\.[A-Za-z_][A-Za-z0-9_-]*(?::[0-9]{1,3})?)\}`)
+
 func (in *WebsiteInput) UnmarshalJSON(data []byte) error {
 	type alias WebsiteInput
 	var decoded alias
@@ -142,6 +147,9 @@ func (s *Service) normalizeWebsite(ctx context.Context, in WebsiteInput) (Websit
 			return in, errors.New("website dataSourceId must be a valid UUID")
 		}
 		in.DataSourceID = id.String()
+	}
+	if !in.URLTemplatesEnabled && websitePlaceholder.MatchString(in.URL) {
+		return in, errors.New("enable URL variables before using Website placeholders")
 	}
 	if len(in.Name) < 1 || len(in.Name) > 180 {
 		return in, errors.New("name must be between 1 and 180 characters")

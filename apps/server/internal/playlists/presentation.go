@@ -28,7 +28,6 @@ const maxSafeDocumentInteger int64 = 1<<53 - 1
 
 var documentDecimalNumber = regexp.MustCompile(`^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$`)
 var documentDateTime = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]+)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$`)
-var websitePlaceholder = regexp.MustCompile(`\{(?:screen\.id|date|time|datetime|data\.[A-Za-z_][A-Za-z0-9_-]*(?::[0-9]{1,3})?)\}`)
 
 var NativePresentationCapabilities = presentationcaps.Baseline()
 
@@ -715,9 +714,6 @@ func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP 
 	requiredVersion := 1
 	if provider == "website" && c["urlTemplatesEnabled"] == true {
 		requiredVersion = 3
-	}
-	if provider == "website" && requiredVersion == 1 && websitePlaceholder.MatchString(rawURL) {
-		return nil, errors.New("enable URL variables before using Website placeholders")
 	}
 	return &WidgetPresentation{
 		SchemaVersion: PresentationSchemaVersion, Kind: "web",

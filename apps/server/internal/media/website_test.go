@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 )
 
@@ -101,6 +102,7 @@ func TestWebsiteQueryVariableAndDataSourceValidation(t *testing.T) {
 	in := validWebsite()
 	in.URL = "https://example.com/screen?screen={screen.id}&date={date}&list={data.json}"
 	in.DataSourceID = "00000000-0000-4000-8000-000000000001"
+	in.URLTemplatesEnabled = true
 	got, err := s.normalizeWebsite(context.Background(), in)
 	if err != nil {
 		t.Fatalf("valid template was rejected: %v", err)
@@ -116,5 +118,46 @@ func TestWebsiteQueryVariableAndDataSourceValidation(t *testing.T) {
 		if _, err := s.normalizeWebsite(context.Background(), in); err == nil {
 			t.Errorf("invalid dataSourceId accepted: %q", bad)
 		}
+	}
+}
+
+func TestWebsitePlaceholdersRequireOptIn(t *testing.T) {
+	s := websiteService(false)
+	in := validWebsite()
+	in.URL = "https://example.com/screen?screen={screen.id}"
+	if _, err := s.normalizeWebsite(context.Background(), in); err == nil {
+		t.Fatal("placeholder accepted without enabling URL variables")
+	}
+	in.URL = `https://example.com/?filter={"room":"A"}`
+	if _, err := s.normalizeWebsite(context.Background(), in); err != nil {
+		t.Fatalf("literal braces were rejected: %v", err)
+	}
+	in.URL = "https://example.com/screen?screen={screen.id}"
+	in.URLTemplatesEnabled = true
+	got, err := s.normalizeWebsite(context.Background(), in)
+	if err != nil || !got.URLTemplatesEnabled {
+		t.Fatalf("opted-in template failed: %v", err)
+	}
+}
+
+// The Website provider decodes strictly and stores its typed config, so the
+// opt-in flag must survive that round trip or templates can never be enabled.
+func TestWebsiteConfigPersistsURLTemplatesEnabled(t *testing.T) {
+	s := websiteService(false)
+	raw := json.RawMessage(`{"url":"https://example.com/?s={screen.id}","urlTemplatesEnabled":true,"dataSourceId":"4f589a71-6e9d-4db9-b91d-a244c6a9c351","allowedHosts":[],"loadTimeoutSeconds":20,"zoomPercent":100,"cookiePolicy":"first_party","reloadPolicy":"on_each_activation","failureBehavior":"placeholder","backgroundColor":"#0E141B","domStorageEnabled":true}`)
+	normalized, err := websiteWidgetProvider{s}.Normalize(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := json.Marshal(normalized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(stored, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if fields["urlTemplatesEnabled"] != true {
+		t.Fatalf("urlTemplatesEnabled was lost: %s", stored)
 	}
 }
