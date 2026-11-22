@@ -217,9 +217,49 @@ impl UiHandle {
     }
 }
 
-/// The bootstrap script injected before Runtime scripts execute. It owns
-/// the single `globalThis.tilecastRuntimeHost` object.
+/// The shared `TilecastRuntimeHostV1` contract script. It owns the single
+/// `globalThis.tilecastRuntimeHost` object; a transport fills its native
+/// channel ([`bootstrap_script`]).
 pub const BOOTSTRAP_JS: &str = include_str!("runtime_host.js");
+
+/// The native channel the bootstrap speaks. The contract and its semantics
+/// are identical; only the message transport differs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BridgeTransport {
+    /// WebView2 JSON web messaging (`window.chrome.webview`).
+    WebView2,
+    /// WebKit script message handlers with reply
+    /// (`window.webkit.messageHandlers`): see [`WEBKIT_RUNTIME_CHANNEL`].
+    WebKit,
+}
+
+/// The WebKit Runtime→host channel: one JSON message per call, validated
+/// by [`crate::bridge::parse_runtime_message`].
+pub const WEBKIT_RUNTIME_CHANNEL: &str = "tilecastRuntime";
+/// The WebKit host→Runtime pull channel: the body is the document id, the
+/// reply a JSON array of host messages in order.
+pub const WEBKIT_HOST_MESSAGES_CHANNEL: &str = "tilecastHostMessages";
+
+impl BridgeTransport {
+    fn source(self) -> &'static str {
+        match self {
+            Self::WebView2 => include_str!("runtime_host_webview2.js"),
+            Self::WebKit => include_str!("runtime_host_webkit.js"),
+        }
+    }
+}
+
+/// The document-start bootstrap for `transport`, with the host `info` and
+/// `capabilities` the Runtime reads before its first frame.
+pub fn bootstrap_script(transport: BridgeTransport, info: &Value, capabilities: &Value) -> String {
+    let json = |value: &Value| serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string());
+    // The transport source is Tilecast's own file; it is substituted first
+    // so no JSON value can introduce a placeholder.
+    BOOTSTRAP_JS
+        .replace("__TILECAST_HOST_TRANSPORT__", transport.source().trim().trim_end_matches(';'))
+        .replace("__TILECAST_HOST_INFO__", &json(info))
+        .replace("__TILECAST_HOST_CAPABILITIES__", &json(capabilities))
+}
 
 /// The [`UiEvent::Fatal`] reason the UI thread reports when its message
 /// loop ends because the window closed (as opposed to a failed renderer,
@@ -234,6 +274,28 @@ mod tests {
     fn bootstrap_exposes_exactly_the_contract_global() {
         assert!(BOOTSTRAP_JS.contains("tilecastRuntimeHost"));
         assert!(!BOOTSTRAP_JS.contains("AddHostObjectToScript"));
+    }
+
+    #[test]
+    fn each_transport_fills_the_one_contract() {
+        let info = serde_json::json!({"host": "tilecast-test"});
+        let capabilities = serde_json::json!({"remoteWeb": null});
+        for (transport, channel, other) in [
+            (BridgeTransport::WebView2, "window.chrome.webview", "messageHandlers"),
+            (BridgeTransport::WebKit, "window.webkit.messageHandlers", "chrome.webview"),
+        ] {
+            let script = bootstrap_script(transport, &info, &capabilities);
+            assert!(!script.contains("__TILECAST_"), "{transport:?}: every placeholder is filled");
+            assert!(script.contains(channel), "{transport:?}");
+            assert!(!script.contains(other), "{transport:?} carries only its own channel");
+            assert!(script.contains(r#"info: {"host":"tilecast-test"}"#), "{transport:?}");
+            assert!(script.contains(r#"capabilities = {"remoteWeb":null};"#), "{transport:?}");
+            // The contract itself is the shared one, not a copy.
+            assert!(script.contains("lastPlugins") && script.contains("reportPlaybackError"));
+            assert!(script.contains(r#"window.location.href !== "tilecast://runtime/index.html""#));
+        }
+        let webkit = bootstrap_script(BridgeTransport::WebKit, &info, &capabilities);
+        assert!(webkit.contains(WEBKIT_RUNTIME_CHANNEL) && webkit.contains(WEBKIT_HOST_MESSAGES_CHANNEL));
     }
 
     #[test]

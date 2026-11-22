@@ -1,11 +1,14 @@
-/* Tilecast Windows host bootstrap: the one Tilecast-owned script injected
- * before Runtime scripts execute. It exposes exactly one object,
- * globalThis.tilecastRuntimeHost, implementing TilecastRuntimeHostV1 over
- * WebView2 JSON web messaging. There is no generic invoke and no host
- * object: every capability is a named, typed member below.
+/* Tilecast native WebView host bootstrap: the one Tilecast-owned script
+ * injected before Runtime scripts execute. It exposes exactly one object,
+ * globalThis.tilecastRuntimeHost, implementing TilecastRuntimeHostV1. There
+ * is no generic invoke and no host object: every capability is a named,
+ * typed member below.
  *
- * __TILECAST_HOST_INFO__ and __TILECAST_HOST_CAPABILITIES__ are replaced by
- * the native host with JSON before injection.
+ * The contract is shared by every native WebView host. Only the transport
+ * differs: the native host substitutes the transport placeholder below with
+ * a platform function (runtime_host_webview2.js, runtime_host_webkit.js)
+ * that returns { post(message), listen(deliver) }, or null when its native
+ * channel is absent, and the info and capabilities placeholders with JSON.
  */
 (function () {
   "use strict";
@@ -14,16 +17,14 @@
     window.location.href !== "tilecast://runtime/index.html"
   )
     return;
-  if (typeof window.chrome === "undefined" || !window.chrome.webview) {
-    return;
-  }
   if (globalThis.tilecastRuntimeHost) {
     return;
   }
-  var webview = window.chrome.webview;
-  var post = function (message) {
-    webview.postMessage(JSON.stringify(message));
-  };
+  var transport = __TILECAST_HOST_TRANSPORT__();
+  if (!transport) {
+    return;
+  }
+  var post = transport.post;
 
   var listeners = new Set();
   var lastPresentation = null;
@@ -42,13 +43,7 @@
 
   var pending = new Map();
   var nextId = 1;
-  webview.addEventListener("message", function (event) {
-    var message = null;
-    try {
-      message = JSON.parse(event.data);
-    } catch (error) {
-      return;
-    }
+  transport.listen(function (message) {
     if (
       message &&
       message.kind === "response" &&

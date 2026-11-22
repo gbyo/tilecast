@@ -15,7 +15,8 @@
 pub use webview_host::{
     activity, bridge, capture, clock, commands, config, config_sync, credential, daemon, discovery, link, live_stream,
     manifest, media, offline, pairing, pairing_store, player_config, presentation, presentation_capabilities, preview,
-    projection, ranges, remote_web, renderer_adapter, runtime_files, schemes, telemetry, ui, widget_capabilities,
+    projection, ranges, remote_web, renderer_adapter, runtime_files, schemes, serve, telemetry, ui,
+    widget_capabilities,
 };
 
 pub mod device;

@@ -1,8 +1,8 @@
 # Tilecast Player for macOS
 
-**Status:** In development. The host composes Player Core, pairs, and
-reconciles with a Server. It does not present content. It is not released.
-Tracking issue: gbyo/tilecast#1922.
+**Status:** In development. The host composes Player Core, pairs,
+reconciles with a Server, and presents the shared Player Runtime in a
+`WKWebView`. It is not released. Tracking issue: gbyo/tilecast#1922.
 
 The macOS Player (`apps/player-macos`, package `tilecast-macos`) is the
 third native host of the shared Player crates, after Edge and Windows. It
@@ -31,20 +31,25 @@ The Windows and macOS Players share one composition crate,
 - the Runtime projection, the presentation engine, and its `RendererPort`
   (`WebViewPort`);
 - verified media grants, the `tilecast://` and `tcmedia://` scheme contract,
-  range parsing, remote web surfaces, and the capture broker;
+  range parsing, and the scheme responses (`webview_host::serve`);
+- the `TilecastRuntimeHostV1` bootstrap (`runtime_host.js`) with one
+  transport for each WebView engine;
+- remote web surfaces and the capture broker;
 - the sealed credential and pairing-session stores;
 - the release version rule (`release_version`), which runs the shared
   corpus in `packages/player-contracts/fixtures/release-versions.json`.
 
 The crate calls no OS API and does not branch on a platform name. A
 platform supplies its answers through the narrow seams in
-`webview_host::host`:
+`webview_host::host`. `RendererHost::features` states which optional
+renderer features the platform implements. The host capabilities, the
+packaged renderer profile, and the heartbeat follow that answer:
 
 | Seam            | Windows                           | macOS                                   |
 | --------------- | --------------------------------- | --------------------------------------- |
 | `HostIdentity`  | `tilecast-windows`, `webview2`    | `tilecast-macos`, `wkwebview`           |
 | `DeviceFacts`   | Registry, monitor, and tick count | `sysctl`, `NSLocale`, and Core Graphics |
-| `RendererHost`  | WebView2 on its STA thread        | Not available yet (gbyo/tilecast#1926)  |
+| `RendererHost`  | WebView2 on its STA thread        | `WKWebView` on the AppKit main thread   |
 | `WindowCapture` | Windows Graphics Capture          | Not available yet (gbyo/tilecast#1928)  |
 | `UpdateHost`    | Signed MSIX updates               | Not available yet (gbyo/tilecast#1933)  |
 | `Sealer`        | User-scoped DPAPI                 | AES-256-GCM key in the login Keychain   |
@@ -85,22 +90,127 @@ One `tilecast-macos run` process holds an exclusive lock on
 `.instance.lock` in the state root. A second copy exits before it reads or
 writes state.
 
-## Current behavior
+## Renderer
 
-The host:
+The renderer is `apps/player-macos/src/webkit`. It supplies the WebKit
+transport for the shared contracts. It does not contain a presentation
+engine, a projection, a recovery policy, or a copy of the scheme policy.
 
-- pairs with the ordinary pairing protocol and enrolls once;
-- verifies installation identity before it sends the credential;
-- keeps a session across a restart and resumes it;
-- reconciles configuration and manifests and prepares verified content;
-- runs commands, Activity, and telemetry through Player Core;
-- removes the credential when the Server revokes it.
+### Process and threads
 
-The host reports truthful support:
+`tilecast-macos run` gives the main thread to AppKit. The Player daemon runs
+on a Tokio runtime on other threads. `run --headless` runs without AppKit
+and without a renderer.
 
-- `RendererHost::presents` is `false`. The heartbeat reports no
-  presentation schemas and no native presentation capabilities. The
-  presentation task parks with `renderer_unavailable`.
+- Every AppKit and WebKit object lives on the main thread.
+- The Player sends `UiCommand` values on a bounded channel. A wake puts one
+  drain block on the main dispatch queue. Only one drain block is waiting
+  at a time.
+- WebKit callbacks send `UiEvent` values on a bounded channel.
+- No Player task waits synchronously for a WebKit callback.
+
+The window is a minimal host window. It covers the visible frame of the
+main screen and has no close button. Kiosk presentation belongs to
+gbyo/tilecast#1930.
+
+### Trusted Runtime origin
+
+The renderer loads `tilecast://runtime/index.html`. The `tilecast` and
+`tcmedia` schemes have a `WKURLSchemeHandler`. Each request goes to
+`webview_host::serve`, the same policy that the Windows Player uses:
+
+- `tilecast://runtime/` serves only files in the Runtime manifest, at their
+  manifested sizes. All other paths get `404`.
+- `tcmedia://` serves only a grant for the current renderer session. The
+  host opens only verified CAS objects and checks the granted size.
+- A single `Range` gets `206`. A range that cannot be satisfied gets `416`.
+  `HEAD` gets headers without a body.
+- Media responses allow CORS reads only from `tilecast://runtime`, so fonts
+  load in CORS mode.
+- An invalid, expired, retired, or wrong-session grant gets the same `404`.
+- Media is served only while the top-level document of the web view is the
+  Runtime document.
+
+A worker on the Player runtime streams a file body in chunks of 512 KiB. One
+chunk is in flight for each task. The main thread gives each chunk to
+WebKit only while WebKit still owns the task. A stopped task stops the
+read.
+
+The navigation delegate lets the top frame load only the Runtime document.
+It refuses every other navigation and every subframe navigation. The web
+view uses a non-persistent website data store.
+
+### Runtime bridge
+
+The bootstrap is the shared `runtime_host.js` with the WebKit transport
+(`runtime_host_webkit.js`). It is a document-start user script for the main
+frame only. It defines `globalThis.tilecastRuntimeHost` before Runtime
+scripts execute. The contract and its members are the same as on Windows.
+
+The transport uses two `WKScriptMessageHandlerWithReply` channels in the
+page content world:
+
+| Channel                | Direction      | Body                     | Reply                         |
+| ---------------------- | -------------- | ------------------------ | ----------------------------- |
+| `tilecastRuntime`      | Runtime → host | One JSON message         | An acknowledgement            |
+| `tilecastHostMessages` | host → Runtime | The document ID (a pull) | A JSON array of host messages |
+
+The host keeps the newest pull open. It answers the pull with the queued
+host messages, in order, when it has messages. The transport then pulls
+again. A request reply travels as a `response` message with the request ID.
+
+Before the host reads a message, it checks all of these conditions:
+
+- the message is from the main frame;
+- the security origin is `tilecast://runtime` with no port;
+- the top-level document of the web view is `tilecast://runtime/index.html`;
+- the web view is the current renderer generation.
+
+A message that fails a check gets a refusal and does not reach the parser.
+Runtime messages go to `webview_host::bridge::parse_runtime_message`, which
+applies the 64 KiB limit and the V1 vocabulary. A host message larger than
+4 MiB is refused. At most 256 messages and 16 MiB wait for a pull.
+
+### Media autoplay
+
+`mediaTypesRequiringUserActionForPlayback` is empty. Video and audio start
+without a gesture, with the mute and volume that the content specifies. The
+inactive scheduling policy is `none`, so an occluded window continues to
+present.
+
+### Renderer lifecycle and recovery
+
+| Event                                  | Renderer behavior                                                                                                                      |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Start or `Restart`                     | A new web view with a new generation and a new session. The host binds the session to the media registry and sends `UiEvent::Session`. |
+| `Reload`                               | The web view reloads the Runtime document. The new document pulls with a new document ID.                                              |
+| `webViewWebContentProcessDidTerminate` | `UiEvent::ProcessFailed` with `render-process-exited:terminated`. The shared recovery ladder decides to reload or restart.             |
+| The Runtime document fails to load     | `UiEvent::Fatal`. The shared engine restarts the renderer within its limit.                                                            |
+| `Shutdown`                             | The host releases the session grants and closes the window.                                                                            |
+
+A restart removes the old web view, its queued messages, its pull, and its
+scheme tasks. A callback from an old generation is ignored. The old
+session's grants stop resolving when the new session binds.
+
+### Truthful support
+
+`WebKitHost::presents` is `true`. `engine_version` reports the WebKit
+build and the macOS release. The renderer features are
+`RendererFeatures::BASE`:
+
+- `remoteWeb` is `null` and the heartbeat reports `webRuntimeVersion` 0.
+  Website and YouTube views belong to gbyo/tilecast#1927.
+- `externalFrames` is `false`. The host does not serve `tcwidget://` and
+  does not report `widget.external-runtime`. External Plugin frames
+  (`plugin.external-runtime@1`) stay disabled.
+- `CapturePreview` answers that preview capture is not available. Final
+  output capture belongs to gbyo/tilecast#1928.
+
+The heartbeat reports the Runtime's ready report inside the packaged
+ceiling of the platform. Before a Runtime is ready, it reports the ceiling.
+
+Other behavior:
+
 - Capture returns `unavailable`. Player Core settles preview requests as
   unavailable.
 - `install_player_update` fails with `unsupported_command`. The heartbeat
@@ -122,9 +232,16 @@ make macos-test
 Windows host runs the same scenarios over its services. The Keychain unit
 test writes a throwaway item to the login Keychain and removes it.
 
-Run the host against a Server:
+`src/webkit/policy.rs` tests the bridge source checks, the navigation
+policy, and the host message queue without a WebKit process. The shared
+scheme policy has its tests in `webview_host::serve`.
+
+Run the host against a Server. Build the Runtime first
+(`npm run build:runtime -w @tilecast/player-runtime`) and point
+`TILECAST_RUNTIME_DIR` at `packages/player-runtime/dist/runtime`:
 
 ```sh
+cargo run -p tilecast-macos -- run --pair https://signs.example.org
 cargo run -p tilecast-macos -- run --headless --pair https://signs.example.org
 cargo run -p tilecast-macos -- status
 ```
@@ -139,14 +256,44 @@ local Server built from the same branch. The build:
 - reconnected after a clean restart without a new pairing session;
 - removed its sealed credential after revocation.
 
-This evidence does not qualify an Intel Mac, a signed or sandboxed app, a
-launch at login, or a locked login Keychain.
+On 2026-11-17, a local debug build with the `WKWebView` renderer ran on the
+same Mac against a local Server built from the same branch. The build:
+
+- loaded the Runtime from `tilecast://runtime/index.html` and received its
+  ready report through the WebKit bridge;
+- showed the pairing and idle surfaces, then a playlist with a PNG image, an
+  H.264 and AAC video of 15 MB, and a WebM upload, with `image-shown` and
+  `video-progress` evidence for each item;
+- played the videos through `tcmedia://` range requests (`206`), without a
+  gesture, unmuted at the authored volume;
+- showed a Layout with a Clock Widget component, whose shadow root had six
+  adopted stylesheets;
+- loaded an organization font from the font library through `tcmedia://`
+  for a Countdown Bar (`FontFace` status `loaded`);
+- sent Activity, and the heartbeat reported `playing`, schemas 1, 2, and 3,
+  no `web.remote`, and no `widget.external-runtime`;
+- activated its committed Layout from local content after a restart, before
+  it contacted the Server.
+
+Known results and limits of this evidence:
+
+- The Server transcodes a WebM upload to an H.264 and AAC playback variant,
+  so the Player received H.264. VP9 and Opus playback in this renderer is not
+  verified.
+- The WebKit media loader requested many small ranges. Each range is a
+  verified open. Performance on large media is not qualified.
+- A rebuilt, ad-hoc-signed binary could not read the Keychain sealing key that
+  an earlier build created, so it did not connect after its restart. The
+  Keychain policy belongs to gbyo/tilecast#1929.
+- The run did not terminate the web content process. Recovery after
+  `webViewWebContentProcessDidTerminate` is not verified on a device.
+- This evidence does not qualify an Intel Mac, a signed or sandboxed app, a
+  launch at login, or a locked login Keychain.
 
 ## Remaining work
 
 | Issue              | Work                                                            |
 | ------------------ | --------------------------------------------------------------- |
-| gbyo/tilecast#1926 | `WKWebView` renderer and Runtime bridge (`RendererHost`)        |
 | gbyo/tilecast#1927 | Isolated Website and YouTube views                              |
 | gbyo/tilecast#1928 | Final-output capture for Studio previews                        |
 | gbyo/tilecast#1929 | Keychain policy, local state, and device facts review           |

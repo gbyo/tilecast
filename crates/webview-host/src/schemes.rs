@@ -178,11 +178,19 @@ pub fn frame_response_headers(size_bytes: u64) -> String {
 }
 
 pub fn frame_response_headers_for(size_bytes: u64, kind: player_types::frames::FrameKind) -> String {
-    format!(
-        "Content-Type: {}\r\nContent-Length: {size_bytes}\r\nContent-Security-Policy: {}\r\nX-Content-Type-Options: nosniff\r\nAccept-Ranges: none\r\nCache-Control: no-store\r\n",
-        player_types::frames::FRAME_MIME_TYPE,
-        kind.response_policy(),
-    )
+    frame_headers(size_bytes, kind).iter().map(|(name, value)| format!("{name}: {value}\r\n")).collect()
+}
+
+/// The frame response headers as name/value pairs, in their fixed order.
+pub fn frame_headers(size_bytes: u64, kind: player_types::frames::FrameKind) -> Vec<(&'static str, String)> {
+    vec![
+        ("Content-Type", player_types::frames::FRAME_MIME_TYPE.to_owned()),
+        ("Content-Length", size_bytes.to_string()),
+        ("Content-Security-Policy", kind.response_policy().to_owned()),
+        ("X-Content-Type-Options", "nosniff".to_owned()),
+        ("Accept-Ranges", "none".to_owned()),
+        ("Cache-Control", "no-store".to_owned()),
+    ]
 }
 
 /// Whether a resource-request initiator is the trusted Runtime origin.

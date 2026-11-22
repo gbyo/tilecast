@@ -32,7 +32,7 @@ use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_APP, WM_DISPLAYCH
 use windows::core::{BOOL, HSTRING, Interface as _, PCWSTR, PWSTR};
 
 use crate::media::RendererInstance;
-use crate::ui::{BOOTSTRAP_JS, MAX_CONFORMANCE_MESSAGE_BYTES, UiCommand, UiError, UiEvent, UiHandle, UiServices};
+use crate::ui::{MAX_CONFORMANCE_MESSAGE_BYTES, UiCommand, UiError, UiEvent, UiHandle, UiServices};
 
 /// Conformance-only browser switches: media autoplays without a gesture
 /// (fixtures drive playback programmatically) and screenshots compare in
@@ -205,196 +205,32 @@ impl Host {
         crate::schemes::is_trusted_runtime_source(&pwstr_to_string(source))
     }
 
-    /// Answers one resource request synchronously. CAS opens run on the
-    /// thread-local runtime; reads are bounded file IO, never whole files.
+    /// Answers one resource request synchronously through the shared
+    /// policy (`webview_host::serve`). CAS opens run on the thread-local
+    /// runtime; the body streams as a bounded file range, never a whole
+    /// file in memory.
     fn answer_resource(
         &mut self,
         uri: &str,
         method: &str,
         range: Option<String>,
     ) -> (i32, &'static str, String, windows::Win32::System::Com::IStream) {
-        let text_response = |status: i32, reason: &'static str, mime: &str, body: Vec<u8>| {
-            let headers =
-                format!("Content-Type: {mime}\r\nContent-Length: {}\r\nCache-Control: no-store\r\n", body.len());
-            (status, reason, headers, crate::streams::MemStream::new(body))
+        let from_runtime = self.current_source_is_runtime();
+        let resources = crate::serve::Resources {
+            runtime: &self.services.runtime,
+            media: &self.services.media,
+            cas: &self.services.cas,
+            session: self.services.session,
         };
-        if method != "GET" && method != "HEAD" {
-            return text_response(405, "Method Not Allowed", "text/plain", b"method not allowed".to_vec());
-        }
-        let head_only = method == "HEAD";
-        match crate::schemes::parse_request_url(uri) {
-            Some(crate::schemes::SchemeRequest::Runtime(request)) => {
-                match self.services.runtime.read(&request.path) {
-                    Some(body) => {
-                        let mime = crate::runtime_files::mime_type(&request.path);
-                        let body = if head_only { Vec::new() } else { body };
-                        // Content-Length always names the full object, even
-                        // for HEAD, per the HTTP semantics video elements
-                        // and the Runtime rely on.
-                        let full = self.services.runtime.entry(&request.path).map(|entry| entry.bytes).unwrap_or(0);
-                        let headers = format!(
-                            "Content-Type: {mime}\r\nContent-Length: {full}\r\nAccept-Ranges: none\r\nCache-Control: no-store\r\n"
-                        );
-                        (200, "OK", headers, crate::streams::MemStream::new(body))
-                    }
-                    None => text_response(404, "Not Found", "text/plain", b"not found".to_vec()),
-                }
-            }
-            Some(crate::schemes::SchemeRequest::Media(request)) => {
-                if !self.current_source_is_runtime() {
-                    return text_response(404, "Not Found", "text/plain", b"not found".to_vec());
-                }
-                let grant = {
-                    let media = self.services.media.lock().unwrap_or_else(|poison| poison.into_inner());
-                    media.resolve(self.services.session, &request.capability, now_ms()).cloned()
-                };
-                // Unknown, expired, retired, and wrong-session capabilities
-                // all answer identically.
-                serve_grant(&self.services.cas, &self.runtime, grant, range, head_only)
-            }
-            Some(crate::schemes::SchemeRequest::MediaVariant(request)) => {
-                if !self.current_source_is_runtime() {
-                    return text_response(404, "Not Found", "text/plain", b"not found".to_vec());
-                }
-                let grant = {
-                    let media = self.services.media.lock().unwrap_or_else(|poison| poison.into_inner());
-                    media.resolve_variant(self.services.session, request.asset_id, request.variant_id, now_ms())
-                };
-                serve_grant(&self.services.cas, &self.runtime, grant, range, head_only)
-            }
-            Some(crate::schemes::SchemeRequest::Widget(request)) => {
-                if !self.current_source_is_runtime() {
-                    return text_response(404, "Not Found", "text/plain", b"not found".to_vec());
-                }
-                let grant = {
-                    let media = self.services.media.lock().unwrap_or_else(|poison| poison.into_inner());
-                    media.resolve_frame(self.services.session, &request.capability, now_ms()).cloned()
-                };
-                // Media capabilities presented here resolve to nothing:
-                // grant usage is pinned at mint time.
-                serve_frame(&self.services.cas, &self.runtime, grant, range, head_only)
-            }
-            None => text_response(404, "Not Found", "text/plain", b"not found".to_vec()),
-        }
-    }
-}
-/// Serves one resolved media grant: capability and variant loads share
-/// everything past authorization. Every failure answers an identical 404.
-fn serve_grant(
-    cas: &player_cas::ContentStore,
-    runtime: &tokio::runtime::Runtime,
-    grant: Option<crate::media::MediaGrant>,
-    range: Option<String>,
-    head_only: bool,
-) -> (i32, &'static str, String, windows::Win32::System::Com::IStream) {
-    use crate::streams::MemStream;
-    let empty = || MemStream::new(Vec::new());
-    let missing = || {
-        (
-            404,
-            "Not Found",
-            "Content-Type: text/plain\r\nContent-Length: 9\r\nCache-Control: no-store\r\n".to_string(),
-            MemStream::new(b"not found".to_vec()),
-        )
-    };
-    let Some(grant) = grant else {
-        return missing();
-    };
-    // The UI thread answers resource requests synchronously. Verified
-    // objects only cost a metadata lookup plus an open; first-touch
-    // re-hashes happen at most once per object per boot.
-    let opened = cas.clone();
-    let Ok(Some((file, record))) = runtime.block_on(opened.open_verified(&grant.sha256)) else {
-        return missing();
-    };
-    if record.size_bytes != grant.size_bytes {
-        return missing();
-    }
-    match crate::ranges::parse_range(range.as_deref(), grant.size_bytes) {
-        crate::ranges::RangeOutcome::Entire => {
-            let stream = crate::streams::FileRangeStream::new(file, 0, grant.size_bytes);
-            // Font faces load in CORS mode; only the Runtime document may read
-            // media cross-origin. Images and video stay no-cors.
-            let headers = format!(
-                "Content-Type: {}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: {}\r\n",
-                grant.mime_type,
-                grant.size_bytes,
-                crate::schemes::RUNTIME_ORIGIN
-            );
-            if head_only { (200, "OK", headers, empty()) } else { (200, "OK", headers, stream) }
-        }
-        crate::ranges::RangeOutcome::Partial(interval) => {
-            let stream = crate::streams::FileRangeStream::new(file, interval.start, interval.len());
-            let headers = format!(
-                "Content-Type: {}\r\nContent-Length: {}\r\nContent-Range: {}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: {}\r\n",
-                grant.mime_type,
-                interval.len(),
-                interval.content_range(grant.size_bytes),
-                crate::schemes::RUNTIME_ORIGIN
-            );
-            if head_only {
-                (206, "Partial Content", headers, empty())
-            } else {
-                (206, "Partial Content", headers, stream)
-            }
-        }
-        crate::ranges::RangeOutcome::Unsatisfiable => {
-            let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
-            (416, "Range Not Satisfiable", headers, empty())
-        }
-    }
-}
-
-/// Serves one resolved frame grant: whole documents only, confined by the
-/// shared frame sandbox policy. Mirrors `serve_grant`'s verified open and
-/// size check; every failure answers an identical 404, and any Range
-/// answers 416 because a partial frame can never execute.
-fn serve_frame(
-    cas: &player_cas::ContentStore,
-    runtime: &tokio::runtime::Runtime,
-    grant: Option<crate::media::MediaGrant>,
-    range: Option<String>,
-    head_only: bool,
-) -> (i32, &'static str, String, windows::Win32::System::Com::IStream) {
-    use crate::streams::MemStream;
-    let empty = || MemStream::new(Vec::new());
-    let missing = || {
-        (
-            404,
-            "Not Found",
-            "Content-Type: text/plain\r\nContent-Length: 9\r\nCache-Control: no-store\r\n".to_string(),
-            MemStream::new(b"not found".to_vec()),
-        )
-    };
-    let Some(grant) = grant else {
-        return missing();
-    };
-    debug_assert!(matches!(
-        grant.kind,
-        crate::media::MediaGrantKind::Frame | crate::media::MediaGrantKind::PluginFrame
-    ));
-    if range.is_some() {
-        let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
-        return (416, "Range Not Satisfiable", headers, empty());
-    }
-    let opened = cas.clone();
-    let Ok(Some((file, record))) = runtime.block_on(opened.open_verified(&grant.sha256)) else {
-        return missing();
-    };
-    if record.size_bytes != grant.size_bytes {
-        return missing();
-    }
-    let kind = if grant.kind == crate::media::MediaGrantKind::PluginFrame {
-        player_types::frames::FrameKind::ExternalPlugin
-    } else {
-        player_types::frames::FrameKind::Widget
-    };
-    let headers = crate::schemes::frame_response_headers_for(grant.size_bytes, kind);
-    if head_only {
-        (200, "OK", headers, empty())
-    } else {
-        let stream = crate::streams::FileRangeStream::new(file, 0, grant.size_bytes);
-        (200, "OK", headers, stream)
+        let request = crate::serve::Request { url: uri, method, range: range.as_deref(), from_runtime };
+        let response = self.runtime.block_on(crate::serve::answer(resources, request, now_ms()));
+        let headers = response.header_block();
+        let stream = match response.body {
+            crate::serve::Body::Empty => crate::streams::MemStream::new(Vec::new()),
+            crate::serve::Body::Bytes(bytes) => crate::streams::MemStream::new(bytes),
+            crate::serve::Body::File { file, offset, len } => crate::streams::FileRangeStream::new(file, offset, len),
+        };
+        (i32::from(response.status), response.reason, headers, stream)
     }
 }
 
@@ -492,15 +328,9 @@ fn run_ui_thread(
     };
     let bootstrap = match services.conformance.as_ref() {
         Some(conformance) => conformance.bootstrap.clone(),
-        None => BOOTSTRAP_JS
-            .replace(
-                "__TILECAST_HOST_INFO__",
-                &serde_json::to_string(&services.info).unwrap_or_else(|_| "{}".to_string()),
-            )
-            .replace(
-                "__TILECAST_HOST_CAPABILITIES__",
-                &serde_json::to_string(&services.capabilities).unwrap_or_else(|_| "{}".to_string()),
-            ),
+        None => {
+            crate::ui::bootstrap_script(crate::ui::BridgeTransport::WebView2, &services.info, &services.capabilities)
+        }
     };
 
     let cell: SharedHost = Rc::new(RefCell::new(None));

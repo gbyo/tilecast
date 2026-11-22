@@ -2,9 +2,9 @@
 //!
 //! `run` (also what no subcommand means) starts the player: pairing, the
 //! server link, verified content preparation, commands, Activity, and
-//! telemetry through Player Core. The WKWebView renderer is not in this
-//! build yet (gbyo/tilecast#1926), so the player runs renderer-less and
-//! pairing stays on stdout. `status` inspects the local state.
+//! telemetry through Player Core, presented by the WKWebView renderer on
+//! the main thread. `run --headless` runs renderer-less with pairing on
+//! stdout. `status` inspects the local state.
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -238,15 +238,32 @@ async fn reset_pairing(cli: &Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::main(flavor = "multi_thread")]
-async fn main() -> anyhow::Result<()> {
+fn runtime() -> anyhow::Result<tokio::runtime::Runtime> {
+    Ok(tokio::runtime::Builder::new_multi_thread().enable_all().build()?)
+}
+
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    match &cli.command {
-        None => run(&cli, None, false).await,
-        Some(Command::Run { pair, headless }) => run(&cli, pair.clone(), *headless).await,
-        Some(Command::Status) => status(&cli).await,
-        Some(Command::ResetPairing) => reset_pairing(&cli).await,
+    let (pair, headless) = match &cli.command {
+        None => (None, false),
+        Some(Command::Run { pair, headless }) => (pair.clone(), *headless),
+        Some(Command::Status) => return runtime()?.block_on(status(&cli)),
+        Some(Command::ResetPairing) => return runtime()?.block_on(reset_pairing(&cli)),
+    };
+    if headless {
+        return runtime()?.block_on(run(&cli, pair, true));
     }
+    // The renderer needs the main thread and its AppKit run loop; the
+    // Player runs beside it.
+    let runtime = runtime()?;
+    let status = tilecast_macos::app::run_presenting(move || match runtime.block_on(run(&cli, pair, false)) {
+        Ok(()) => 0,
+        Err(error) => {
+            eprintln!("Error: {error:#}");
+            1
+        }
+    });
+    std::process::exit(status);
 }
 
 #[cfg(test)]
