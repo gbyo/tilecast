@@ -164,8 +164,8 @@ func (f *takeoverFixture) activateWithPriority(t *testing.T, targets plugin.Scre
 	result, afterCommit, err := f.service.ActivateInTx(context.Background(), tx, plugin.TakeoverRequest{
 		Name: "Drill", Description: "Drill", PlaylistID: playlist, Targets: targets,
 		PriorityClass: priority,
-		ActivatedBy: f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
-		AuditAction: "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
+		ActivatedBy:   f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
+		AuditAction:   "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -303,8 +303,8 @@ func TestConcurrentActivationsSerializePriority(t *testing.T) {
 		return plugin.TakeoverRequest{
 			Name: "Drill", Description: "Drill", PlaylistID: f.playlist, Targets: targets,
 			PriorityClass: plugin.TakeoverClassRoutine,
-			ActivatedBy: f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
-			AuditAction: "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
+			ActivatedBy:   f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
+			AuditAction:   "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
 		}
 	}
 	txOlder, err := f.pool.Begin(ctx)
