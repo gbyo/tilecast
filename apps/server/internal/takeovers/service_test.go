@@ -150,7 +150,7 @@ func newReadyPlaylist(t *testing.T, ctx context.Context, pool *pgxpool.Pool, org
 }
 
 func (f *takeoverFixture) activate(t *testing.T, targets plugin.ScreenTargets, playlist uuid.UUID, activatedAt, expiresAt time.Time) (plugin.TakeoverResult, plugin.AfterCommit) {
-	return f.activateWithPriority(t, targets, playlist, plugin.TakeoverPriorityRoutine, activatedAt, expiresAt)
+	return f.activateWithPriority(t, targets, playlist, plugin.TakeoverClassRoutine, activatedAt, expiresAt)
 }
 
 func (f *takeoverFixture) activateWithPriority(t *testing.T, targets plugin.ScreenTargets, playlist uuid.UUID, priority plugin.TakeoverPriorityClass, activatedAt, expiresAt time.Time) (plugin.TakeoverResult, plugin.AfterCommit) {
@@ -301,7 +301,7 @@ func TestConcurrentActivationsSerializePriority(t *testing.T) {
 	request := func(activatedAt, expiresAt time.Time) plugin.TakeoverRequest {
 		return plugin.TakeoverRequest{
 			Name: "Drill", Description: "Drill", PlaylistID: f.playlist, Targets: targets,
-			PriorityClass: plugin.TakeoverPriorityRoutine,
+			PriorityClass: plugin.TakeoverClassRoutine,
 			ActivatedBy: f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
 			AuditAction: "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
 		}
@@ -428,13 +428,13 @@ func TestEmergencyTakeoverSurvivesRoutineOverlap(t *testing.T) {
 	base := time.Now().UTC().Add(-2 * time.Minute)
 	emergency, afterEmergency := f.activateWithPriority(t,
 		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA, f.screenB}},
-		f.playlist, plugin.TakeoverPriorityEmergency, base, base.Add(2*time.Hour))
+		f.playlist, plugin.TakeoverClassEmergency, base, base.Add(2*time.Hour))
 	afterEmergency()
 	beforeA := f.manifestVersion(t, f.screenA)
 	callsBefore := len(f.notifier.calls)
 	routine, afterRoutine := f.activateWithPriority(t,
 		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
-		f.playlist, plugin.TakeoverPriorityRoutine, base.Add(time.Minute), base.Add(time.Hour))
+		f.playlist, plugin.TakeoverClassRoutine, base.Add(time.Minute), base.Add(time.Hour))
 	afterRoutine()
 
 	var emergencyStatus, emergencyA, emergencyB, routineA, emergencyClass, routineClass string
@@ -483,13 +483,13 @@ func TestPriorityOrderAndResume(t *testing.T) {
 	ctx := context.Background()
 	base := time.Now().UTC().Add(-5 * time.Minute)
 	targets := plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}}
-	routine, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityRoutine, base, base.Add(3*time.Hour))
+	routine, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverClassRoutine, base, base.Add(3*time.Hour))
 	cb()
-	priority, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityPriority, base.Add(time.Minute), base.Add(3*time.Hour))
+	priority, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverClassPriority, base.Add(time.Minute), base.Add(3*time.Hour))
 	cb()
-	emergency, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityEmergency, base.Add(2*time.Minute), base.Add(3*time.Hour))
+	emergency, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverClassEmergency, base.Add(2*time.Minute), base.Add(3*time.Hour))
 	cb()
-	urgent, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityUrgent, base.Add(3*time.Minute), base.Add(3*time.Hour))
+	urgent, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverClassUrgent, base.Add(3*time.Minute), base.Add(3*time.Hour))
 	cb()
 
 	assertWinner := func(want uuid.UUID) {
@@ -535,9 +535,9 @@ func TestExpireDueResumesSuspendedTakeover(t *testing.T) {
 	ctx := context.Background()
 	base := time.Now().UTC().Add(-2 * time.Minute)
 	targets := plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}}
-	routine, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityRoutine, base, base.Add(2*time.Hour))
+	routine, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverClassRoutine, base, base.Add(2*time.Hour))
 	cb()
-	emergency, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityEmergency, base.Add(time.Minute), base.Add(time.Hour))
+	emergency, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverClassEmergency, base.Add(time.Minute), base.Add(time.Hour))
 	cb()
 	before := f.manifestVersion(t, f.screenA)
 	if _, err := f.pool.Exec(ctx, `UPDATE takeovers SET created_at=$2,expires_at=$3 WHERE id=$1`, emergency.ID, base, time.Now().UTC().Add(-time.Second)); err != nil {
