@@ -301,8 +301,8 @@ func (d *Dispatcher) takeoverActivate(ctx context.Context, call Call) (any, *Den
 	result, afterCommit, err := d.deps.Shared.Takeovers.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
 		Name: name, Description: description, PlaylistID: input.PlaylistID,
 		PriorityClass: plugin.TakeoverClassRoutine,
-		Targets:     plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
-		ActivatedBy: d.actorID(call), ActivatedAt: now, ExpiresAt: input.ExpiresAt,
+		Targets:       plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
+		ActivatedBy:   d.actorID(call), ActivatedAt: now, ExpiresAt: input.ExpiresAt,
 		AuditMetadata: packageMetadata(call),
 	})
 	if errors.Is(err, takeovers.ErrNoEligibleScreens) {
