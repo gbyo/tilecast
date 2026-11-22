@@ -351,10 +351,86 @@ func (s *Service) CancelInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor
 	return s.afterCommit(id, versions), nil
 }
 
-// ExpireDue retires expired takeovers and re-arbitrates each affected screen.
-// It intentionally lives in the Takeover service rather than the maintenance
-// loop so expiration and explicit cancellation have identical resume behavior.
-func (s *Service) ExpireDue(ctx context.Context) error {
+func (s *Service) expiredIDsInTx(ctx context.Context, tx pgx.Tx, now time.Time, screenID *uuid.UUID) ([]uuid.UUID, error) {
+	query := `SELECT DISTINCT t.id FROM takeovers t
+		WHERE t.status='active' AND t.expires_at<=$1`
+	args := []any{now.UTC()}
+	if screenID != nil {
+		query = `SELECT DISTINCT t.id FROM takeovers t
+			JOIN takeover_screen_states st ON st.takeover_id=t.id
+			WHERE t.status='active' AND t.expires_at<=$1 AND st.screen_id=$2
+			AND st.state NOT IN ('restored','cancelled','expired')`
+		args = append(args, *screenID)
+	}
+	query += ` ORDER BY t.id`
+	rows, err := tx.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Service) expireIDsInTx(ctx context.Context, tx pgx.Tx, ids []uuid.UUID, now time.Time) (map[uuid.UUID]int64, error) {
+	versions := map[uuid.UUID]int64{}
+	if len(ids) == 0 {
+		return versions, nil
+	}
+	rows, err := tx.Query(ctx, `SELECT DISTINCT screen_id FROM takeover_screen_states
+		WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired')
+		ORDER BY screen_id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	screens := []uuid.UUID{}
+	for rows.Next() {
+		var screen uuid.UUID
+		if err = rows.Scan(&screen); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		screens = append(screens, screen)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE takeovers SET status='expired',updated_at=$2 WHERE id=ANY($1) AND status='active'`, ids, now.UTC()); err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states SET state='expired',restored_at=$2,last_updated_at=$2
+		WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired')`, ids, now.UTC()); err != nil {
+		return nil, err
+	}
+	for _, screen := range screens {
+		winner, reconcileErr := s.reconcileScreenInTx(ctx, tx, screen, now)
+		if reconcileErr != nil {
+			return nil, reconcileErr
+		}
+		version, bumpErr := s.bumpScreenInTx(ctx, tx, screen, "takeover.expired", now)
+		if bumpErr != nil {
+			return nil, bumpErr
+		}
+		versions[screen] = version
+		if winner != uuid.Nil {
+			if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states SET manifest_version=$3,last_updated_at=$4 WHERE takeover_id=$1 AND screen_id=$2`,
+				winner, screen, version, now.UTC()); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return versions, nil
+}
+
+func (s *Service) expireDue(ctx context.Context, screenID *uuid.UUID) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -364,72 +440,32 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 		return err
 	}
 	now := time.Now().UTC()
-	rows, err := tx.Query(ctx, `SELECT id FROM takeovers WHERE status='active' AND expires_at<=$1 ORDER BY expires_at,id`, now)
+	ids, err := s.expiredIDsInTx(ctx, tx, now, screenID)
 	if err != nil {
 		return err
 	}
-	ids := []uuid.UUID{}
-	for rows.Next() {
-		var id uuid.UUID
-		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return err
-	}
-	if len(ids) == 0 {
-		return tx.Commit(ctx)
-	}
-	rows, err = tx.Query(ctx, `SELECT DISTINCT screen_id FROM takeover_screen_states WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired') ORDER BY screen_id`, ids)
+	versions, err := s.expireIDsInTx(ctx, tx, ids, now)
 	if err != nil {
 		return err
-	}
-	screens := []uuid.UUID{}
-	for rows.Next() {
-		var screen uuid.UUID
-		if err = rows.Scan(&screen); err != nil {
-			rows.Close()
-			return err
-		}
-		screens = append(screens, screen)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return err
-	}
-	if _, err = tx.Exec(ctx, `UPDATE takeovers SET status='expired',updated_at=$2 WHERE id=ANY($1) AND status='active'`, ids, now); err != nil {
-		return err
-	}
-	if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states SET state='expired',restored_at=$2,last_updated_at=$2 WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired')`, ids, now); err != nil {
-		return err
-	}
-	versions := map[uuid.UUID]int64{}
-	for _, screen := range screens {
-		winner, reconcileErr := s.reconcileScreenInTx(ctx, tx, screen, now)
-		if reconcileErr != nil {
-			return reconcileErr
-		}
-		version, bumpErr := s.bumpScreenInTx(ctx, tx, screen, "takeover.expired", now)
-		if bumpErr != nil {
-			return bumpErr
-		}
-		versions[screen] = version
-		if winner != uuid.Nil {
-			if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states SET manifest_version=$3,last_updated_at=$4 WHERE takeover_id=$1 AND screen_id=$2`,
-				winner, screen, version, now); err != nil {
-				return err
-			}
-		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
 	s.afterCommit(uuid.Nil, versions)()
 	return nil
+}
+
+// ExpireDue retires every overdue takeover. The maintenance loop calls it as a
+// backstop for screens that have not requested a manifest recently.
+func (s *Service) ExpireDue(ctx context.Context) error {
+	return s.expireDue(ctx, nil)
+}
+
+// ReconcileExpiredForScreen is the manifest-read boundary. If this screen
+// observes an overdue takeover, the whole takeover is expired across all of
+// its screens in one transaction and every affected screen is re-arbitrated.
+func (s *Service) ReconcileExpiredForScreen(ctx context.Context, screenID uuid.UUID) error {
+	return s.expireDue(ctx, &screenID)
 }
 
 func (s *Service) RefreshInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, reason string) (plugin.AfterCommit, error) {
