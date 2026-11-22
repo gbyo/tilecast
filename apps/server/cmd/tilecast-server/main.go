@@ -146,6 +146,7 @@ func serve() {
 	playlistService.SetPresentationOverrides(presentationService)
 	backupGuard := backup.NewGuard()
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
+	playlistService.SetTakeoverReconciler(takeoverService)
 	managedPresentationService := managedpresentations.NewService(db)
 	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithScreens(deviceService), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
 	// The marketplace joins cached catalog listings into the plugin
