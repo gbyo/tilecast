@@ -131,4 +131,19 @@ describe("LivePreviewPanel", () => {
     });
     expect(screen.queryByText("Image unavailable")).not.toBeInTheDocument();
   });
+
+  it("shows portrait still previews at their captured aspect ratio", async () => {
+    const { client } = renderPanel();
+    const image = await screen.findByAltText(
+      "Current Tilecast output for Lobby",
+    );
+    client.setQueryData(["screen-preview", "screen-1"], {
+      ...preview,
+      width: 360,
+      height: 640,
+    });
+    await waitFor(() =>
+      expect(image.parentElement?.style.aspectRatio).toBe("360 / 640"),
+    );
+  });
 });

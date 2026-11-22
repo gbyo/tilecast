@@ -17,7 +17,7 @@ const (
 	MaxFrameBytes = 100 * 1024
 	// MaxJPEGWidth and MaxJPEGHeight bound every MJPEG profile.
 	MaxJPEGWidth  = 960
-	MaxJPEGHeight = 540
+	MaxJPEGHeight = 960
 	frameHeader   = 33
 	// MaxSocketMessageBytes is the largest Player WebSocket message: one
 	// TCLS version 2 packet, which is larger than any TCLS version 1 frame.
