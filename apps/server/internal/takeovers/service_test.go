@@ -437,6 +437,9 @@ func TestEmergencyTakeoverSurvivesRoutineOverlap(t *testing.T) {
 		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
 		f.playlist, plugin.TakeoverClassRoutine, base.Add(time.Minute), base.Add(time.Hour))
 	afterRoutine()
+	if routine.AffectedCount != 0 || len(routine.ScreenIDs) != 0 {
+		t.Fatalf("suppressed routine affected=%d screens=%v, want none", routine.AffectedCount, routine.ScreenIDs)
+	}
 
 	var emergencyStatus, emergencyA, emergencyB, routineA, emergencyClass, routineClass string
 	if err := f.pool.QueryRow(ctx, `SELECT status,priority_class FROM takeovers WHERE id=$1`, emergency.ID).Scan(&emergencyStatus, &emergencyClass); err != nil {
