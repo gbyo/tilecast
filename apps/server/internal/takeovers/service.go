@@ -81,7 +81,7 @@ const takeoverLifecycleLockSQL = `SELECT pg_advisory_xact_lock(hashtextextended(
 
 func normalizePriorityClass(value plugin.TakeoverPriorityClass) (plugin.TakeoverPriorityClass, error) {
 	if value == "" {
-		value = plugin.TakeoverPriorityRoutine
+		value = plugin.TakeoverClassRoutine
 	}
 	if !value.Valid() {
 		return "", fmt.Errorf("invalid takeover priority class %q", value)
