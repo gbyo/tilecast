@@ -107,6 +107,7 @@ func newTakeoverFixture(t *testing.T) *takeoverFixture {
 	f.notifier = &recordingNotifier{}
 	f.playlists = playlists.NewService(pool, nil)
 	f.service = NewService(pool, f.playlists, f.notifier, 24*time.Hour)
+	f.playlists.SetTakeoverReconciler(f.service)
 	return f
 }
 
