@@ -384,8 +384,8 @@ func (s *Service) activate(ctx context.Context, tx pgx.Tx, rule Rule, event, hea
 	result, afterCommit, err := s.host.Takeovers.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
 		Name: name, Description: bounded(detail, 2000), PlaylistID: *rule.PlaylistID,
 		PriorityClass: plugin.TakeoverClassEmergency,
-		Targets:     plugin.ScreenTargets{ScreenIDs: rule.ScreenIDs, GroupIDs: rule.GroupIDs},
-		ActivatedAt: now, ExpiresAt: expires, AuditAction: "takeover.activated_by_nws",
+		Targets:       plugin.ScreenTargets{ScreenIDs: rule.ScreenIDs, GroupIDs: rule.GroupIDs},
+		ActivatedAt:   now, ExpiresAt: expires, AuditAction: "takeover.activated_by_nws",
 		AuditMetadata: map[string]any{"ruleId": rule.ID.String(), "event": event},
 	})
 	if err != nil {
