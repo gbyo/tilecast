@@ -959,6 +959,10 @@ export type PowerAssistResults = {
   lastTestedAt?: string;
 };
 
+/** Orders Takeovers that share a screen, strongest first. */
+export type TakeoverClass =
+  "life_safety" | "emergency" | "operator" | "automation";
+
 export type Takeover = {
   id: string;
   name: string;
@@ -966,6 +970,7 @@ export type Takeover = {
   playlistId: string;
   playlistName: string;
   status: string;
+  class: TakeoverClass;
   activatedAt?: string;
   expiresAt: string;
   cancelledAt?: string;
@@ -974,6 +979,8 @@ export type Takeover = {
   activeCount: number;
   preparingCount: number;
   failedCount: number;
+  /** Screens where a stronger, or a newer equal, Takeover is shown. */
+  suspendedCount: number;
 };
 
 export type PresentationOverride = {

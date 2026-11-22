@@ -43,6 +43,7 @@ import type {
   SystemIdentity,
   SystemStatus,
   Takeover,
+  TakeoverClass,
   UpdateDeployment,
   UpdateDeploymentDetail,
   UpdateDeploymentMode,
@@ -274,6 +275,7 @@ export function listTakeovers(): Promise<{
 
 export function activateTakeover(
   input: {
+    class: "operator" | "emergency";
     name: string;
     description: string;
     playlistId: string;
@@ -286,7 +288,9 @@ export function activateTakeover(
 ): Promise<{
   id: string;
   status: string;
+  class: TakeoverClass;
   affectedCount: number;
+  suspendedCount: number;
   expiresAt: string;
 }> {
   return apiPost("/api/v1/takeovers", { body: input, csrfToken });

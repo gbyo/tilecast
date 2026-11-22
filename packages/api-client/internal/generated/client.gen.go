@@ -5154,6 +5154,30 @@ func (e TakeoverCancellationStatus) Valid() bool {
 	}
 }
 
+// Defines values for TakeoverClass.
+const (
+	TakeoverClassAutomation TakeoverClass = "automation"
+	TakeoverClassEmergency  TakeoverClass = "emergency"
+	TakeoverClassLifeSafety TakeoverClass = "life_safety"
+	TakeoverClassOperator   TakeoverClass = "operator"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverClass enum.
+func (e TakeoverClass) Valid() bool {
+	switch e {
+	case TakeoverClassAutomation:
+		return true
+	case TakeoverClassEmergency:
+		return true
+	case TakeoverClassLifeSafety:
+		return true
+	case TakeoverClassOperator:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TakeoverDetailStatus.
 const (
 	TakeoverDetailStatusActive    TakeoverDetailStatus = "active"
@@ -6426,6 +6450,24 @@ func (e RunSystemMaintenanceParamsAction) Valid() bool {
 	case RunSystemMaintenanceParamsActionRetentionCleanup:
 		return true
 	case RunSystemMaintenanceParamsActionValidateMedia:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateTakeoverJSONBodyClass.
+const (
+	CreateTakeoverJSONBodyClassEmergency CreateTakeoverJSONBodyClass = "emergency"
+	CreateTakeoverJSONBodyClassOperator  CreateTakeoverJSONBodyClass = "operator"
+)
+
+// Valid indicates whether the value is a known member of the CreateTakeoverJSONBodyClass enum.
+func (e CreateTakeoverJSONBodyClass) Valid() bool {
+	switch e {
+	case CreateTakeoverJSONBodyClassEmergency:
+		return true
+	case CreateTakeoverJSONBodyClassOperator:
 		return true
 	default:
 		return false
@@ -12187,22 +12229,26 @@ type TOTPEnrollment struct {
 	Secret          string `json:"secret"`
 }
 
-// Takeover Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read.
+// Takeover Compact takeover row returned by the takeover list, with live per-state screen counts. Playing, preparing, and failed counts include only screens where this Takeover is shown; a screen where a stronger, or a newer equal, Takeover is shown counts as suspended. The per-screen breakdown requires the detail read.
 type Takeover struct {
-	ActivatedAt        *time.Time         `json:"activatedAt,omitempty"`
-	ActiveCount        int                `json:"activeCount"`
-	AffectedCount      int                `json:"affectedCount"`
-	CancellationReason *string            `json:"cancellationReason,omitempty"`
-	CancelledAt        *time.Time         `json:"cancelledAt,omitempty"`
-	Description        string             `json:"description"`
-	ExpiresAt          time.Time          `json:"expiresAt"`
-	FailedCount        int                `json:"failedCount"`
-	Id                 openapi_types.UUID `json:"id"`
-	Name               string             `json:"name"`
-	PlaylistId         openapi_types.UUID `json:"playlistId"`
-	PlaylistName       string             `json:"playlistName"`
-	PreparingCount     int                `json:"preparingCount"`
-	Status             TakeoverStatus     `json:"status"`
+	ActivatedAt        *time.Time `json:"activatedAt,omitempty"`
+	ActiveCount        int        `json:"activeCount"`
+	AffectedCount      int        `json:"affectedCount"`
+	CancellationReason *string    `json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time `json:"cancelledAt,omitempty"`
+
+	// Class Orders Takeovers that share a screen, strongest first. The strongest class is shown; a weaker Takeover waits on that screen until the stronger one ends.
+	Class          TakeoverClass      `json:"class"`
+	Description    string             `json:"description"`
+	ExpiresAt      time.Time          `json:"expiresAt"`
+	FailedCount    int                `json:"failedCount"`
+	Id             openapi_types.UUID `json:"id"`
+	Name           string             `json:"name"`
+	PlaylistId     openapi_types.UUID `json:"playlistId"`
+	PlaylistName   string             `json:"playlistName"`
+	PreparingCount int                `json:"preparingCount"`
+	Status         TakeoverStatus     `json:"status"`
+	SuspendedCount int                `json:"suspendedCount"`
 }
 
 // TakeoverStatus defines model for Takeover.Status.
@@ -12210,10 +12256,16 @@ type TakeoverStatus string
 
 // TakeoverActivation defines model for TakeoverActivation.
 type TakeoverActivation struct {
-	AffectedCount int                      `json:"affectedCount"`
-	ExpiresAt     time.Time                `json:"expiresAt"`
-	Id            openapi_types.UUID       `json:"id"`
-	Status        TakeoverActivationStatus `json:"status"`
+	AffectedCount int `json:"affectedCount"`
+
+	// Class Orders Takeovers that share a screen, strongest first. The strongest class is shown; a weaker Takeover waits on that screen until the stronger one ends.
+	Class     TakeoverClass            `json:"class"`
+	ExpiresAt time.Time                `json:"expiresAt"`
+	Id        openapi_types.UUID       `json:"id"`
+	Status    TakeoverActivationStatus `json:"status"`
+
+	// SuspendedCount Target screens where a stronger, or a newer equal, Takeover is shown.
+	SuspendedCount int `json:"suspendedCount"`
 }
 
 // TakeoverActivationStatus defines model for TakeoverActivation.Status.
@@ -12228,19 +12280,25 @@ type TakeoverCancellation struct {
 // TakeoverCancellationStatus defines model for TakeoverCancellation.Status.
 type TakeoverCancellationStatus string
 
+// TakeoverClass Orders Takeovers that share a screen, strongest first. The strongest class is shown; a weaker Takeover waits on that screen until the stronger one ends.
+type TakeoverClass string
+
 // TakeoverDetail Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
 type TakeoverDetail struct {
-	ActivatedAt        *time.Time            `json:"activatedAt,omitempty"`
-	CancellationReason *string               `json:"cancellationReason,omitempty"`
-	CancelledAt        *time.Time            `json:"cancelledAt,omitempty"`
-	Description        string                `json:"description"`
-	ExpiresAt          time.Time             `json:"expiresAt"`
-	Id                 openapi_types.UUID    `json:"id"`
-	Name               string                `json:"name"`
-	PlaylistId         openapi_types.UUID    `json:"playlistId"`
-	PlaylistName       string                `json:"playlistName"`
-	Screens            []TakeoverScreenState `json:"screens"`
-	Status             TakeoverDetailStatus  `json:"status"`
+	ActivatedAt        *time.Time `json:"activatedAt,omitempty"`
+	CancellationReason *string    `json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time `json:"cancelledAt,omitempty"`
+
+	// Class Orders Takeovers that share a screen, strongest first. The strongest class is shown; a weaker Takeover waits on that screen until the stronger one ends.
+	Class        TakeoverClass         `json:"class"`
+	Description  string                `json:"description"`
+	ExpiresAt    time.Time             `json:"expiresAt"`
+	Id           openapi_types.UUID    `json:"id"`
+	Name         string                `json:"name"`
+	PlaylistId   openapi_types.UUID    `json:"playlistId"`
+	PlaylistName string                `json:"playlistName"`
+	Screens      []TakeoverScreenState `json:"screens"`
+	Status       TakeoverDetailStatus  `json:"status"`
 }
 
 // TakeoverDetailStatus defines model for TakeoverDetail.Status.
@@ -12264,6 +12322,17 @@ type TakeoverScreenState struct {
 	ScreenId        openapi_types.UUID `json:"screenId"`
 	ScreenName      string             `json:"screenName"`
 	State           string             `json:"state"`
+
+	// Suspended True while this Takeover is active on the screen but another Takeover is shown there.
+	Suspended bool `json:"suspended"`
+
+	// SuspendedBy The Takeover shown on the screen while this one is suspended.
+	SuspendedBy *struct {
+		// Class Orders Takeovers that share a screen, strongest first. The strongest class is shown; a weaker Takeover waits on that screen until the stronger one ends.
+		Class TakeoverClass      `json:"class"`
+		Id    openapi_types.UUID `json:"id"`
+		Name  string             `json:"name"`
+	} `json:"suspendedBy,omitempty"`
 }
 
 // TelemetryCondition defines model for TelemetryCondition.
@@ -14586,10 +14655,12 @@ type RunSystemMaintenanceParamsAction string
 
 // CreateTakeoverJSONBody defines parameters for CreateTakeover.
 type CreateTakeoverJSONBody struct {
-	Description *string               `json:"description,omitempty"`
-	ExpiresAt   time.Time             `json:"expiresAt"`
-	GroupIds    *[]openapi_types.UUID `json:"groupIds,omitempty"`
-	Name        string                `json:"name"`
+	// Class Takeover class. life_safety and automation are not available from Studio.
+	Class       *CreateTakeoverJSONBodyClass `json:"class,omitempty"`
+	Description *string                      `json:"description,omitempty"`
+	ExpiresAt   time.Time                    `json:"expiresAt"`
+	GroupIds    *[]openapi_types.UUID        `json:"groupIds,omitempty"`
+	Name        string                       `json:"name"`
 
 	// Password Current account password, only when the organization requires reauthentication for takeovers.
 	Password   *string               `json:"password,omitempty"`
@@ -14602,6 +14673,9 @@ type CreateTakeoverParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
+
+// CreateTakeoverJSONBodyClass defines parameters for CreateTakeover.
+type CreateTakeoverJSONBodyClass string
 
 // CancelTakeoverJSONBody defines parameters for CancelTakeover.
 type CancelTakeoverJSONBody struct {
@@ -19292,7 +19366,7 @@ type ClientInterface interface {
 
 	// CreateTakeoverWithBody Activate a Takeover
 	//
-	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -19301,7 +19375,7 @@ type ClientInterface interface {
 
 	// CreateTakeover Activate a Takeover
 	//
-	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -19317,7 +19391,7 @@ type ClientInterface interface {
 
 	// CancelTakeoverWithBody Cancel an active Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -19326,7 +19400,7 @@ type ClientInterface interface {
 
 	// CancelTakeover Cancel an active Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -28127,7 +28201,7 @@ func (c *Client) ListTakeovers(ctx context.Context, reqEditors ...RequestEditorF
 
 // CreateTakeoverWithBody Activate a Takeover
 //
-// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 //
 // Takes any type of body and a specified content type.
 //
@@ -28146,7 +28220,7 @@ func (c *Client) CreateTakeoverWithBody(ctx context.Context, params *CreateTakeo
 
 // CreateTakeover Activate a Takeover
 //
-// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -28182,7 +28256,7 @@ func (c *Client) GetTakeover(ctx context.Context, id openapi_types.UUID, reqEdit
 
 // CancelTakeoverWithBody Cancel an active Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 //
 // Takes any type of body and a specified content type.
 //
@@ -28201,7 +28275,7 @@ func (c *Client) CancelTakeoverWithBody(ctx context.Context, id openapi_types.UU
 
 // CancelTakeover Cancel an active Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -53496,7 +53570,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateTakeoverWithBodyWithResponse Activate a Takeover
 	//
-	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -53505,7 +53579,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateTakeoverWithResponse Activate a Takeover
 	//
-	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -53523,7 +53597,7 @@ type ClientWithResponsesInterface interface {
 
 	// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -53532,7 +53606,7 @@ type ClientWithResponsesInterface interface {
 
 	// CancelTakeoverWithResponse Cancel an active Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -79627,7 +79701,7 @@ func (c *ClientWithResponses) ListTakeoversWithResponse(ctx context.Context, req
 
 // CreateTakeoverWithBodyWithResponse Activate a Takeover
 //
-// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -79642,7 +79716,7 @@ func (c *ClientWithResponses) CreateTakeoverWithBodyWithResponse(ctx context.Con
 
 // CreateTakeoverWithResponse Activate a Takeover
 //
-// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -79672,7 +79746,7 @@ func (c *ClientWithResponses) GetTakeoverWithResponse(ctx context.Context, id op
 
 // CancelTakeoverWithBodyWithResponse Cancel an active Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -79687,7 +79761,7 @@ func (c *ClientWithResponses) CancelTakeoverWithBodyWithResponse(ctx context.Con
 
 // CancelTakeoverWithResponse Cancel an active Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -92097,6 +92171,9 @@ func ParseCancelTakeoverResponse(rsp *http.Response) (*CancelTakeoverResponse, e
 		break // No content-type
 
 	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
 		break // No content-type
 
 	}

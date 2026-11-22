@@ -29,7 +29,20 @@ delivered through the Player plugin channel described in
 [plugins.md](plugins.md), alongside the Countdown Bar, and takes the bar slot
 from any countdown while the alert is live.
 
-Takeover is an explicit, temporary fullscreen override. It is not a priority-1000 schedule. Resolution is active Takeover, normal schedule, direct fallback, then no content. Activation requires a ready non-empty playlist, at least one screen or group target, and an expiration no more than `TILECAST_MAX_TAKEOVER_DURATION_HOURS` (24 by default). Overlapping screens move to the newly activated Takeover; unaffected screens remain on the older Takeover. The server serializes activations with a transaction-scoped advisory lock, so two concurrent activations cannot both stay active on one screen.
+Takeover is an explicit, temporary fullscreen override. It is not a priority-1000 schedule. Resolution is active Takeover, normal schedule, direct fallback, then no content. Activation requires a ready non-empty playlist, at least one screen or group target, and an expiration no more than `TILECAST_MAX_TAKEOVER_DURATION_HOURS` (24 by default). An activation never cancels another Takeover.
+
+## Takeover priority
+
+Each Takeover has a class: `life_safety`, `emergency`, `operator`, or `automation`, from strongest to weakest. [ADR: Takeover priority classes](adr/takeover-priority.md) records the decision.
+
+- On each screen, the Server shows one active Takeover: the strongest class, then the latest activation, then the highest ID. `internal/takeovers/precedence` holds this rule. Manifest generation, the screen list, the activation path, and the Takeover API use it.
+- Another active Takeover on that screen is suspended there. It stays shown on its other screens. When the shown Takeover ends, the next one is shown. Cancellation and expiry revise the manifest of each screen that they touch.
+- Suspension is derived from the rule. The Server does not store it, because Players write `takeover_screen_states.state` for the Takeover that they show.
+- Studio starts `operator` Takeovers by default and `emergency` Takeovers after a confirmation. Ending an `emergency` or `life_safety` Takeover needs a reason (`takeover_reason_required`).
+- Emergency Alerts starts `emergency` Takeovers. A plugin requests `automation` unless it implements `plugin.TakeoverClassCeiling`. Packages request `automation` only. No caller can request `life_safety` until a life-safety integration with Owner enablement exists.
+- The Player manifest carries one `takeover` object, the shown one. The class is not in the manifest. Players do not change.
+
+The server serializes activations with a transaction-scoped advisory lock, so the suspended screens that an activation reports are computed against every committed Takeover.
 
 The server stores per-screen preparation and activation state and increments only affected manifests. Manifest v4 carries the Takeover ID, playlist ID, activation instant, and expiration instant. Its released JSON field remains `emergency` for wire compatibility; current server and player models expose it as Takeover. The player verifies Download-policy assets before atomic activation. Working playback remains visible if preparation fails. A received Takeover continues offline until its half-open expiration `[activatedAt, expiresAt)`; then the player evaluates the current normal schedule instead of resuming stale content. An offline player that never received the Takeover cannot display it, and a badly incorrect device clock can affect offline expiration.
 

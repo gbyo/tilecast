@@ -2,6 +2,7 @@ package takeovers
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"testing"
@@ -151,13 +152,18 @@ func newReadyPlaylist(t *testing.T, ctx context.Context, pool *pgxpool.Pool, org
 
 func (f *takeoverFixture) activate(t *testing.T, targets plugin.ScreenTargets, playlist uuid.UUID, activatedAt, expiresAt time.Time) (plugin.TakeoverResult, plugin.AfterCommit) {
 	t.Helper()
+	return f.activateClass(t, plugin.TakeoverOperator, targets, playlist, activatedAt, expiresAt)
+}
+
+func (f *takeoverFixture) activateClass(t *testing.T, class plugin.TakeoverClass, targets plugin.ScreenTargets, playlist uuid.UUID, activatedAt, expiresAt time.Time) (plugin.TakeoverResult, plugin.AfterCommit) {
+	t.Helper()
 	tx, err := f.pool.Begin(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer tx.Rollback(context.Background()) //nolint:errcheck
 	result, afterCommit, err := f.service.ActivateInTx(context.Background(), tx, plugin.TakeoverRequest{
-		Name: "Drill", Description: "Drill", PlaylistID: playlist, Targets: targets,
+		Class: class, Name: "Drill", Description: "Drill", PlaylistID: playlist, Targets: targets,
 		ActivatedBy: f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
 		AuditAction: "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
 	})
@@ -168,6 +174,45 @@ func (f *takeoverFixture) activate(t *testing.T, targets plugin.ScreenTargets, p
 		t.Fatal(err)
 	}
 	return result, afterCommit
+}
+
+// shown is the Takeover the screen's manifest carries at the given time.
+func (f *takeoverFixture) shown(t *testing.T, screenID uuid.UUID, at time.Time) uuid.UUID {
+	t.Helper()
+	takeover, err := f.playlists.ActiveTakeoverAt(context.Background(), screenID, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if takeover == nil {
+		return uuid.Nil
+	}
+	return takeover.ID
+}
+
+func (f *takeoverFixture) status(t *testing.T, id uuid.UUID) string {
+	t.Helper()
+	var status string
+	if err := f.pool.QueryRow(context.Background(), `SELECT status FROM takeovers WHERE id=$1`, id).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	return status
+}
+
+func (f *takeoverFixture) cancel(t *testing.T, id uuid.UUID) {
+	t.Helper()
+	tx, err := f.pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background()) //nolint:errcheck
+	afterCommit, err := f.service.CancelInTx(context.Background(), tx, id, f.userID, "Done")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	afterCommit()
 }
 
 func (f *takeoverFixture) manifestVersion(t *testing.T, screenID uuid.UUID) int64 {
@@ -248,61 +293,135 @@ func TestActivateExpandsTargets(t *testing.T) {
 	}
 }
 
-// A second activation for the same screens replaces the first: the old
-// takeover is cancelled with its reason recorded and its states restored.
-func TestActivateReplacesActiveTakeover(t *testing.T) {
+// A second activation of the same class never cancels the first. The newer
+// one is shown on the shared screen; the older one keeps its other screens
+// and is shown again on the shared screen when the newer one ends.
+func TestNewerEqualTakeoverWaitsOutTheOlderOne(t *testing.T) {
 	f := newTakeoverFixture(t)
-	ctx := context.Background()
 	now := time.Now().UTC()
 	first, afterFirst := f.activate(t,
-		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA, f.screenB}},
 		f.playlist, now, now.Add(time.Hour))
 	afterFirst()
+	beforeB := f.manifestVersion(t, f.screenB)
 	second, afterSecond := f.activate(t,
 		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
 		f.playlist, now.Add(time.Minute), now.Add(2*time.Hour))
 	afterSecond()
-	var status, reason string
-	if err := f.pool.QueryRow(ctx, `SELECT status,cancellation_reason FROM takeovers WHERE id=$1`, first.ID).Scan(&status, &reason); err != nil {
-		t.Fatal(err)
+	at := now.Add(2 * time.Minute)
+	if f.status(t, first.ID) != "active" || f.status(t, second.ID) != "active" {
+		t.Fatalf("statuses first=%q second=%q, want both active", f.status(t, first.ID), f.status(t, second.ID))
 	}
-	if status != "cancelled" || reason != "Replaced by another Takeover" {
-		t.Fatalf("replaced takeover status=%q reason=%q", status, reason)
+	if shown := f.shown(t, f.screenA, at); shown != second.ID {
+		t.Fatalf("screen A shows %s, want the newer Takeover", shown)
 	}
-	var restored int
-	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM takeover_screen_states WHERE takeover_id=$1 AND state='restored'`, first.ID).Scan(&restored); err != nil {
-		t.Fatal(err)
+	if shown := f.shown(t, f.screenB, at); shown != first.ID {
+		t.Fatalf("screen B shows %s, want the older Takeover", shown)
 	}
-	var active int
-	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM takeovers WHERE id=$1 AND status='active'`, second.ID).Scan(&active); err != nil {
-		t.Fatal(err)
+	if len(second.SuspendedScreenIDs) != 0 {
+		t.Fatalf("newer equal Takeover suspended on %v", second.SuspendedScreenIDs)
 	}
-	if restored != 1 || active != 1 {
-		t.Fatalf("replacement states restored=%d second active=%d", restored, active)
+	// Screen B is untouched by the activation on screen A.
+	if after := f.manifestVersion(t, f.screenB); after != beforeB {
+		t.Fatalf("screen B manifest %d->%d, want unchanged", beforeB, after)
+	}
+	f.cancel(t, second.ID)
+	if shown := f.shown(t, f.screenA, at); shown != first.ID {
+		t.Fatalf("screen A shows %s after the newer one ended, want the older Takeover", shown)
 	}
 }
 
-// Overlapping activations in concurrent transactions are serialized: the later
-// one waits for the earlier commit, then replaces it, so only one takeover
-// stays active on the screen even when the older one expires later.
-func TestConcurrentActivationsReplaceEachOther(t *testing.T) {
+// A weaker Takeover on a screen with a stronger one waits there. It is shown
+// once the stronger one ends, and it never cancels the stronger one.
+func TestWeakerTakeoverWaitsForStrongerOne(t *testing.T) {
+	f := newTakeoverFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	emergency, afterEmergency := f.activateClass(t, plugin.TakeoverEmergency,
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA, f.screenB}},
+		f.playlist, now, now.Add(time.Hour))
+	afterEmergency()
+	operator, afterOperator := f.activateClass(t, plugin.TakeoverOperator,
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
+		f.playlist, now.Add(time.Minute), now.Add(2*time.Hour))
+	afterOperator()
+	at := now.Add(2 * time.Minute)
+	if f.status(t, emergency.ID) != "active" {
+		t.Fatalf("emergency status=%q, want active", f.status(t, emergency.ID))
+	}
+	for _, screen := range []uuid.UUID{f.screenA, f.screenB} {
+		if shown := f.shown(t, screen, at); shown != emergency.ID {
+			t.Fatalf("screen %s shows %s, want the emergency Takeover", screen, shown)
+		}
+	}
+	if len(operator.SuspendedScreenIDs) != 1 || operator.SuspendedScreenIDs[0] != f.screenA {
+		t.Fatalf("operator suspended on %v, want screen A", operator.SuspendedScreenIDs)
+	}
+	var class string
+	var suspendedCount float64
+	if err := f.pool.QueryRow(ctx, `SELECT metadata->>'class',(metadata->>'suspendedScreenCount')::float FROM audit_logs WHERE resource_id=$1 AND action='takeover.activated'`, operator.ID.String()).Scan(&class, &suspendedCount); err != nil {
+		t.Fatal(err)
+	}
+	if class != "operator" || suspendedCount != 1 {
+		t.Fatalf("audit class=%q suspended=%v, want operator and 1", class, suspendedCount)
+	}
+	f.cancel(t, emergency.ID)
+	if shown := f.shown(t, f.screenA, at); shown != operator.ID {
+		t.Fatalf("screen A shows %s after the emergency ended, want the operator Takeover", shown)
+	}
+	if shown := f.shown(t, f.screenB, at); shown != uuid.Nil {
+		t.Fatalf("screen B shows %s after the emergency ended, want normal playback", shown)
+	}
+}
+
+// A stronger Takeover outranks an earlier weaker one at once, and the weaker
+// one comes back when the stronger one expires.
+func TestStrongerTakeoverOutranksAndExpires(t *testing.T) {
+	f := newTakeoverFixture(t)
+	now := time.Now().UTC()
+	automation, afterAutomation := f.activateClass(t, plugin.TakeoverAutomation,
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
+		f.playlist, now, now.Add(2*time.Hour))
+	afterAutomation()
+	emergency, afterEmergency := f.activateClass(t, plugin.TakeoverEmergency,
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
+		f.playlist, now.Add(time.Minute), now.Add(30*time.Minute))
+	afterEmergency()
+	if len(emergency.SuspendedScreenIDs) != 0 {
+		t.Fatalf("emergency suspended on %v", emergency.SuspendedScreenIDs)
+	}
+	if shown := f.shown(t, f.screenA, now.Add(2*time.Minute)); shown != emergency.ID {
+		t.Fatalf("screen A shows %s, want the emergency Takeover", shown)
+	}
+	if f.status(t, automation.ID) != "active" {
+		t.Fatalf("automation status=%q, want active", f.status(t, automation.ID))
+	}
+	if shown := f.shown(t, f.screenA, now.Add(31*time.Minute)); shown != automation.ID {
+		t.Fatalf("screen A shows %s after the emergency expired, want the automation Takeover", shown)
+	}
+}
+
+// Activations in concurrent transactions are serialized, so the second one
+// computes its suspended screens against the committed first one. Neither
+// cancels the other.
+func TestConcurrentActivationsAreSerialized(t *testing.T) {
 	f := newTakeoverFixture(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
 	targets := plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}}
-	request := func(activatedAt, expiresAt time.Time) plugin.TakeoverRequest {
+	request := func(class plugin.TakeoverClass, activatedAt, expiresAt time.Time) plugin.TakeoverRequest {
 		return plugin.TakeoverRequest{
-			Name: "Drill", Description: "Drill", PlaylistID: f.playlist, Targets: targets,
+			Class: class, Name: "Drill", Description: "Drill", PlaylistID: f.playlist, Targets: targets,
 			ActivatedBy: f.userID, ActivatedAt: activatedAt, ExpiresAt: expiresAt,
 			AuditAction: "takeover.activated", AuditMetadata: map[string]any{"source": "test"},
 		}
 	}
-	txOlder, err := f.pool.Begin(ctx)
+	txStronger, err := f.pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer txOlder.Rollback(ctx) //nolint:errcheck
-	older, _, err := f.service.ActivateInTx(ctx, txOlder, request(now, now.Add(3*time.Hour)))
+	defer txStronger.Rollback(ctx) //nolint:errcheck
+	stronger, _, err := f.service.ActivateInTx(ctx, txStronger, request(plugin.TakeoverEmergency, now, now.Add(3*time.Hour)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +437,7 @@ func TestConcurrentActivationsReplaceEachOther(t *testing.T) {
 			return
 		}
 		defer tx.Rollback(ctx) //nolint:errcheck
-		result, _, err := f.service.ActivateInTx(ctx, tx, request(now.Add(time.Minute), now.Add(time.Hour)))
+		result, _, err := f.service.ActivateInTx(ctx, tx, request(plugin.TakeoverOperator, now.Add(time.Minute), now.Add(time.Hour)))
 		if err == nil {
 			err = tx.Commit(ctx)
 		}
@@ -329,70 +448,46 @@ func TestConcurrentActivationsReplaceEachOther(t *testing.T) {
 		t.Fatalf("second activation finished before the first committed: %+v", got)
 	case <-time.After(300 * time.Millisecond):
 	}
-	if err = txOlder.Commit(ctx); err != nil {
+	if err = txStronger.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
 	got := <-done
 	if got.err != nil {
 		t.Fatal(got.err)
 	}
-	var olderStatus, newerStatus string
-	if err = f.pool.QueryRow(ctx, `SELECT status FROM takeovers WHERE id=$1`, older.ID).Scan(&olderStatus); err != nil {
-		t.Fatal(err)
+	if f.status(t, stronger.ID) != "active" || f.status(t, got.result.ID) != "active" {
+		t.Fatalf("statuses stronger=%q weaker=%q, want both active", f.status(t, stronger.ID), f.status(t, got.result.ID))
 	}
-	if err = f.pool.QueryRow(ctx, `SELECT status FROM takeovers WHERE id=$1`, got.result.ID).Scan(&newerStatus); err != nil {
-		t.Fatal(err)
-	}
-	if olderStatus != "cancelled" || newerStatus != "active" {
-		t.Fatalf("older=%q newer=%q, want cancelled and active", olderStatus, newerStatus)
+	if len(got.result.SuspendedScreenIDs) != 1 {
+		t.Fatalf("weaker suspended on %v, want screen A", got.result.SuspendedScreenIDs)
 	}
 }
 
-// A replacement retires the old takeover's states on screens outside the new
-// activation too: those screens return to normal playback, their manifests
-// are revised, and their players are notified.
-func TestActivateRetiresReplacedTakeoverOutsideNewScreens(t *testing.T) {
-	f := newTakeoverFixture(t)
-	ctx := context.Background()
-	now := time.Now().UTC()
-	first, afterFirst := f.activate(t,
-		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA, f.screenB}},
-		f.playlist, now, now.Add(time.Hour))
-	afterFirst()
-	beforeB := f.manifestVersion(t, f.screenB)
-	second, afterSecond := f.activate(t,
-		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
-		f.playlist, now.Add(time.Minute), now.Add(2*time.Hour))
-	afterSecond()
-	if second.AffectedCount != 1 || len(second.ScreenIDs) != 1 || second.ScreenIDs[0] != f.screenA {
-		t.Fatalf("affected=%d screens=%v, want only screen A", second.AffectedCount, second.ScreenIDs)
-	}
-	var state, reason string
-	if err := f.pool.QueryRow(ctx, `SELECT state FROM takeover_screen_states WHERE takeover_id=$1 AND screen_id=$2`, first.ID, f.screenB).Scan(&state); err != nil {
-		t.Fatal(err)
-	}
-	if state != "restored" {
-		t.Fatalf("outside screen state=%q, want restored", state)
-	}
-	if err := f.pool.QueryRow(ctx, `SELECT change_reason FROM screen_manifest_state WHERE screen_id=$1`, f.screenB).Scan(&reason); err != nil {
-		t.Fatal(err)
-	}
-	if reason != "takeover.replaced" {
-		t.Fatalf("outside screen change reason=%q, want takeover.replaced", reason)
-	}
-	if after := f.manifestVersion(t, f.screenB); after <= beforeB {
-		t.Fatalf("screen B manifest %d->%d", beforeB, after)
-	}
-	notifiedB := false
-	for _, call := range f.notifier.calls {
-		if call.screen == f.screenB {
-			if kind, _ := call.message["type"].(string); kind == "manifest.changed" {
-				notifiedB = true
-			}
+// The suspended screens an activation reports and the Takeover each
+// manifest carries come from one rule, so they agree for every class pair.
+func TestActivationAndManifestAgree(t *testing.T) {
+	for _, existing := range plugin.TakeoverClasses {
+		for _, incoming := range plugin.TakeoverClasses {
+			t.Run(string(existing)+"_then_"+string(incoming), func(t *testing.T) {
+				f := newTakeoverFixture(t)
+				now := time.Now().UTC()
+				first, done := f.activateClass(t, existing, plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}}, f.playlist, now, now.Add(time.Hour))
+				done()
+				second, done := f.activateClass(t, incoming, plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}}, f.playlist, now.Add(time.Second), now.Add(time.Hour))
+				done()
+				want := second.ID
+				if existing.StrongerThan(incoming) {
+					want = first.ID
+				}
+				shown := f.shown(t, f.screenA, now.Add(2*time.Second))
+				if shown != want {
+					t.Fatalf("screen shows %s, want %s", shown, want)
+				}
+				if suspended := len(second.SuspendedScreenIDs) == 1; suspended != (shown != second.ID) {
+					t.Fatalf("activation reports suspended=%v but the manifest shows %s", suspended, shown)
+				}
+			})
 		}
-	}
-	if !notifiedB {
-		t.Fatal("screen B was not notified of its manifest change")
 	}
 }
 
@@ -469,7 +564,7 @@ func TestActivateValidation(t *testing.T) {
 		}
 		defer tx.Rollback(ctx) //nolint:errcheck
 		_, _, err = f.service.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
-			Name: "Drill", PlaylistID: playlist, Targets: targets,
+			Class: plugin.TakeoverOperator, Name: "Drill", PlaylistID: playlist, Targets: targets,
 			ActivatedBy: f.userID, ActivatedAt: now, ExpiresAt: expires,
 		})
 		return err
@@ -491,5 +586,19 @@ func TestActivateValidation(t *testing.T) {
 	}
 	if err := activate(plugin.ScreenTargets{ScreenIDs: []uuid.UUID{uuid.New()}}, f.playlist, now.Add(time.Hour)); err != ErrNoEligibleScreens {
 		t.Fatalf("unresolvable targets err=%v, want ErrNoEligibleScreens", err)
+	}
+	for _, class := range []plugin.TakeoverClass{"", "critical"} {
+		tx, err := f.pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = f.service.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
+			Class: class, Name: "Drill", PlaylistID: f.playlist, Targets: targets,
+			ActivatedBy: f.userID, ActivatedAt: now, ExpiresAt: now.Add(time.Hour),
+		})
+		tx.Rollback(ctx) //nolint:errcheck
+		if !errors.Is(err, plugin.ErrInvalid) {
+			t.Fatalf("class %q err=%v, want ErrInvalid", class, err)
+		}
 	}
 }

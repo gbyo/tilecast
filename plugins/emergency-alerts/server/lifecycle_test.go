@@ -150,10 +150,77 @@ func TestAlertTakeoverLifecycle(t *testing.T) {
 	}
 }
 
-// Clearing still marks the alert when its takeover is already gone: another
-// Takeover may have replaced it, and the canonical cancellation reports
+// An operator Takeover during a live alert no longer cancels the alert's
+// emergency Takeover. On the shared screen the alert stays shown and the
+// operator Takeover waits; on the alert's other screens nothing changes. When
+// the alert clears, the operator Takeover is shown.
+func TestOperatorTakeoverDoesNotHideAlert(t *testing.T) {
+	h, svc := hostedPlugin(t)
+	fake := newFakeNWS(t)
+	redirectNWS(t, fake)
+	h.Install()
+	lobby := h.Screen("Lobby")
+	gym := h.Screen("Gym")
+	seedMonitor(t, h, true, []string{"OH"}, nil)
+	playlistID := seedReadyPlaylist(t, h, "Alert playlist")
+	rule, err := svc.SaveRule(h.Ctx, uuid.Nil, fullscreenRuleInput(playlistID, lobby, gym), h.OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake.alerts.Store(alertFeature("alert-1", "Tornado Warning", "Take shelter now", time.Now().UTC().Add(2*time.Hour)))
+	if err = svc.Poll(h.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	var alertTakeover uuid.UUID
+	if err = h.Pool.QueryRow(h.Ctx, `SELECT takeover_id FROM alert_activations WHERE alert_id='alert-1' AND rule_id=$1 AND cleared_at IS NULL`,
+		rule.ID).Scan(&alertTakeover); err != nil {
+		t.Fatal(err)
+	}
+	if class := queryString(t, h, `SELECT class FROM takeovers WHERE id=$1`, alertTakeover); class != "emergency" {
+		t.Fatalf("NWS takeover class=%q, want emergency", class)
+	}
+
+	operator := h.OperatorTakeover("operator", playlistID, lobby)
+	if status := queryString(t, h, `SELECT status FROM takeovers WHERE id=$1`, alertTakeover); status != "active" {
+		t.Fatalf("NWS takeover status=%q after an operator Takeover, want active", status)
+	}
+	if shown := h.ShownTakeover(lobby); shown != alertTakeover {
+		t.Fatalf("lobby shows %s, want the NWS takeover %s", shown, alertTakeover)
+	}
+	if shown := h.ShownTakeover(gym); shown != alertTakeover {
+		t.Fatalf("gym shows %s, want the NWS takeover %s", shown, alertTakeover)
+	}
+	// Another poll while the alert is active keeps the one NWS takeover.
+	if err = svc.Poll(h.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	if count := queryInt(t, h, `SELECT count(*) FROM takeovers WHERE class='emergency' AND status='active'`); count != 1 {
+		t.Fatalf("active emergency takeovers=%d, want 1", count)
+	}
+
+	fake.alerts.Store([]byte(`{"features":[]}`))
+	if err = svc.Poll(h.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	if shown := h.ShownTakeover(lobby); shown != operator {
+		t.Fatalf("lobby shows %s after the alert cleared, want the operator Takeover %s", shown, operator)
+	}
+	if shown := h.ShownTakeover(gym); shown != uuid.Nil {
+		t.Fatalf("gym shows %s after the alert cleared, want normal playback", shown)
+	}
+}
+
+// The plugin may raise emergency Takeovers and nothing stronger.
+func TestMaximumTakeoverClass(t *testing.T) {
+	if got := server.NewService().MaximumTakeoverClass(); got != "emergency" {
+		t.Fatalf("MaximumTakeoverClass=%q, want emergency", got)
+	}
+}
+
+// Clearing still marks the alert when its takeover is already gone: an
+// operator may have cancelled it, and the canonical cancellation reports
 // that as inactive rather than failing the whole poll.
-func TestClearMissingToleratesReplacedTakeover(t *testing.T) {
+func TestClearMissingToleratesCancelledTakeover(t *testing.T) {
 	h, svc := hostedPlugin(t)
 	fake := newFakeNWS(t)
 	redirectNWS(t, fake)
@@ -174,16 +241,17 @@ func TestClearMissingToleratesReplacedTakeover(t *testing.T) {
 		rule.ID).Scan(&takeoverID); err != nil {
 		t.Fatal(err)
 	}
-	// A replacement retires the NWS takeover out from under the activation.
+	// An operator cancellation retires the NWS takeover out from under the
+	// activation.
 	if _, err = h.Pool.Exec(h.Ctx, `UPDATE takeovers SET status='cancelled',cancelled_at=now() WHERE id=$1`, takeoverID); err != nil {
 		t.Fatal(err)
 	}
 	fake.alerts.Store([]byte(`{"features":[]}`))
 	if err = svc.Poll(h.Ctx); err != nil {
-		t.Fatalf("clearing past a replaced takeover failed: %v", err)
+		t.Fatalf("clearing past a cancelled takeover failed: %v", err)
 	}
 	if cleared := queryInt(t, h, `SELECT count(*) FROM alert_activations WHERE alert_id='alert-1' AND rule_id=$1 AND cleared_at IS NOT NULL`,
 		rule.ID); cleared != 1 {
-		t.Fatal("activation past a replaced takeover was not marked cleared")
+		t.Fatal("activation past a cancelled takeover was not marked cleared")
 	}
 }

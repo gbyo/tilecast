@@ -43,7 +43,7 @@ Tilecast reads the locations from the NWS. If the location list cannot load, che
 
 </Steps>
 
-Only enabled rules and enabled monitoring act on alerts. Tilecast ends the response when the alert is no longer active or the maximum duration is reached. Fullscreen playback then returns to the schedule or fallback that applies at that time; a ticker is removed while normal playback continues.
+Only enabled rules and enabled monitoring act on alerts. A fullscreen alert is an Emergency Takeover, so a routine Takeover that someone starts in Studio waits behind it instead of hiding the warning. Tilecast ends the response when the alert is no longer active or the maximum duration is reached. Fullscreen playback then returns to the schedule or fallback that applies at that time; a ticker is removed while normal playback continues.
 
 ## Check a rule's result
 

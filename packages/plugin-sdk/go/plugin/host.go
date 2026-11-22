@@ -149,7 +149,59 @@ type Targets interface {
 	AppliesToScreen(ctx context.Context, screenID uuid.UUID, targets ScreenTargets) (bool, error)
 }
 
+// TakeoverClass orders Takeovers that share a screen. On each screen the
+// strongest class is shown; a weaker Takeover waits there until the stronger
+// one ends. An activation never cancels another Takeover.
+type TakeoverClass string
+
+// The classes, strongest first.
+const (
+	// TakeoverLifeSafety is for lockdown, shelter, evacuation, and fire
+	// instructions. No plugin may request it yet: it needs an
+	// Owner-enabled life-safety integration, which does not exist.
+	TakeoverLifeSafety TakeoverClass = "life_safety"
+	// TakeoverEmergency is for severe weather and other public warnings.
+	TakeoverEmergency TakeoverClass = "emergency"
+	// TakeoverOperator is a Takeover an operator starts in Studio.
+	TakeoverOperator TakeoverClass = "operator"
+	// TakeoverAutomation is a routine Takeover a plugin, package, or rule
+	// starts. It is the class a plugin request gets when it names none.
+	TakeoverAutomation TakeoverClass = "automation"
+)
+
+// TakeoverClasses lists every class, strongest first.
+var TakeoverClasses = []TakeoverClass{TakeoverLifeSafety, TakeoverEmergency, TakeoverOperator, TakeoverAutomation}
+
+// Rank is the class position, 0 for the strongest. An unknown class answers
+// false.
+func (c TakeoverClass) Rank() (int, bool) {
+	for index, class := range TakeoverClasses {
+		if class == c {
+			return index, true
+		}
+	}
+	return 0, false
+}
+
+// Valid reports whether c is a known class.
+func (c TakeoverClass) Valid() bool {
+	_, ok := c.Rank()
+	return ok
+}
+
+// StrongerThan reports whether c outranks other. Unknown classes outrank
+// nothing.
+func (c TakeoverClass) StrongerThan(other TakeoverClass) bool {
+	left, okLeft := c.Rank()
+	right, okRight := other.Rank()
+	return okLeft && okRight && left < right
+}
+
 type TakeoverRequest struct {
+	// Class orders this Takeover against others on the same screen. A plugin
+	// that leaves it empty gets TakeoverAutomation; a request above the
+	// plugin's TakeoverClassCeiling is refused with ErrInvalid.
+	Class         TakeoverClass
 	Name          string
 	Description   string
 	PlaylistID    uuid.UUID
@@ -165,12 +217,15 @@ type TakeoverResult struct {
 	ID            uuid.UUID
 	AffectedCount int
 	ScreenIDs     []uuid.UUID
+	// SuspendedScreenIDs are the target screens where a stronger, or a
+	// newer equal, Takeover is shown. The new Takeover waits there.
+	SuspendedScreenIDs []uuid.UUID
 }
 
 // ErrTakeoverInactive is returned by Takeovers.CancelInTx when the takeover
 // is already inactive. Reconcilers tolerate it: a poll clearing an alert
-// whose takeover another Takeover already replaced still has to mark the
-// alert cleared, and the desired end state already holds.
+// whose takeover an operator already cancelled still has to mark the alert
+// cleared, and the desired end state already holds.
 var ErrTakeoverInactive = errors.New("takeover is no longer active")
 
 type Takeovers interface {

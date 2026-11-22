@@ -298,8 +298,11 @@ func (d *Dispatcher) takeoverActivate(ctx context.Context, call Call) (any, *Den
 		return nil, nil, unavailable(err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	// Packages start routine Takeovers only, so they cannot outrank an
+	// operator or an emergency message.
 	result, afterCommit, err := d.deps.Shared.Takeovers.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
-		Name: name, Description: description, PlaylistID: input.PlaylistID,
+		Class: plugin.TakeoverAutomation,
+		Name:  name, Description: description, PlaylistID: input.PlaylistID,
 		Targets:     plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
 		ActivatedBy: d.actorID(call), ActivatedAt: now, ExpiresAt: input.ExpiresAt,
 		AuditMetadata: packageMetadata(call),

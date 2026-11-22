@@ -55,8 +55,11 @@ Manage services mutate through canonical domain services.
 one playlist per package: `ensure` creates or updates the set,
 `update-data` refreshes the payload, `get` reads the IDs. The guest
 never names another package's rows. `takeovers.manage@1` activates and
-cancels emergency takeovers under canonical takeover validation; it
-refuses paths a package cannot confirm, such as re-authentication.
+cancels takeovers under canonical takeover validation; it
+refuses paths a package cannot confirm, such as re-authentication. A
+package Takeover has the `automation` class, so an operator or an
+emergency Takeover on the same screen is shown before it. See
+[ADR: Takeover priority classes](adr/takeover-priority.md).
 `players.display-control@1` exposes one method per Player Capability
 operation (`display.power`, `display.input`, `display.volume`,
 `display.mute`, `display.brightness`). A call carries the target

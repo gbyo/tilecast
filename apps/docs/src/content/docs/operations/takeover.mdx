@@ -18,17 +18,28 @@ You need the **Owner** or **Administrator** role and a ready, non-empty playlist
 <Steps>
 
 1. In Studio, open **Screens** > **Fleet**, select **More screen actions** (the **•••** button beside **Pair screen**), and then select **Takeover**.
-2. Enter a **Takeover name** and select the **Playlist**.
-3. Choose an **Expires in** time.
+2. Choose a **Priority**. **Routine** suits announcements and events. **Emergency** is for urgent safety warnings: it shows over routine Takeovers, and ending it early needs a reason.
+3. Enter a **Takeover name**, select the **Playlist**, and choose an **Expires in** time.
 4. Select **Target screens** or **Target Display Groups**. Selecting **All screens** targets the whole fleet.
-5. Review the selected targets. Studio flags selected screens that are not online. Starting a new Takeover replaces any existing Takeover that overlaps the same screens.
-6. For selected screens or groups, select **Activate takeover** and review the confirmation. For **All screens**, hold **Hold to activate takeover** for three seconds. If the installation requires it, enter your current password and select **Confirm takeover**.
-7. To stop it early, open the active Takeover banner and select **End takeover**. Add a cancellation reason if useful.
+5. Review the selected targets. Studio flags selected screens that are not online, and warns you if a stronger Takeover is already active.
+6. For selected screens or groups, select **Activate takeover** and review the confirmation. For **All screens**, hold **Hold to activate takeover** for three seconds; an Emergency Takeover still asks you to confirm. If the installation requires it, enter your current password and select **Confirm takeover**.
+7. To stop it early, open the active Takeover banner and select **End takeover**. A reason is optional for a routine Takeover and required for an emergency one.
 
 </Steps>
 
 When a Takeover ends or expires, Tilecast selects the schedule or fallback content that applies then. It does not restore a saved snapshot of what played before the Takeover.
 
+## When Takeovers overlap
+
+Starting a Takeover never ends another one. When two are active on the same screen, that screen shows one of them:
+
+- An **Emergency** Takeover, such as a severe weather alert from [Emergency Alerts](../emergency-alerts/), shows over a **Routine** one. Automatic Takeovers that plugins start rank below both.
+- Between two Takeovers with the same priority, the newer one shows.
+
+The other Takeover waits on that screen and starts there when the one in front ends. It keeps playing on its other screens. The active Takeover banner counts the screens where a Takeover is waiting.
+
 :::caution
-Check the selected screens before activation. A Takeover immediately replaces normal playback on every online target, and a new overlapping Takeover replaces the existing one.
+Check the selected screens before activation. A Takeover immediately replaces normal playback on every online target where nothing stronger is showing.
 :::
+
+For the exact precedence rule, see the [Takeover priority decision record](https://github.com/gbyo/tilecast/blob/main/docs/adr/takeover-priority.md).

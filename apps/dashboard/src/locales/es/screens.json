@@ -912,7 +912,10 @@
       "failed_many": "{{count}} de con errores",
       "targeted_one": "{{count}} afectada",
       "targeted_other": "{{count}} afectadas",
-      "targeted_many": "{{count}} de afectadas"
+      "targeted_many": "{{count}} de afectadas",
+      "suspended_one": "{{count}} en espera",
+      "suspended_many": "{{count}} de en espera",
+      "suspended_other": "{{count}} en espera"
     },
     "end": "Terminar la toma de control",
     "endTitle": "¿Terminar la toma de control de {{name}}?",
@@ -923,7 +926,7 @@
     "activeBadge_one": "Activa: {{count}}",
     "activeBadge_many": "Activas: {{count}}",
     "activeBadge_other": "Activas: {{count}}",
-    "dialogBody": "Reemplaza temporalmente los horarios y el contenido alternativo en las pantallas seleccionadas. Las tomas de control existentes que se superpongan se reemplazan.",
+    "dialogBody": "Reemplaza temporalmente los horarios y el contenido alternativo en las pantallas seleccionadas. En cada pantalla se muestra la toma de control más fuerte; una más débil espera hasta que termine.",
     "nameLabel": "Nombre de la toma de control",
     "playlistLabel": "Lista de reproducción",
     "playlistPlaceholder": "Selecciona una lista",
@@ -966,7 +969,27 @@
     "passwordTitle": "Confirma tu contraseña",
     "passwordBody": "Esta instalación requiere tu contraseña actual antes de iniciar una toma de control.",
     "currentPassword": "Contraseña actual",
-    "confirmAction": "Confirmar la toma de control"
+    "confirmAction": "Confirmar la toma de control",
+    "class": {
+      "life_safety": "Seguridad vital",
+      "emergency": "Emergencia",
+      "operator": "Rutinaria",
+      "automation": "Automática"
+    },
+    "classLabel": "Prioridad",
+    "classOperatorHint": "Para anuncios y eventos. Espera detrás de una toma de control de emergencia activa.",
+    "classEmergencyHint": "Para avisos urgentes de seguridad. Se muestra sobre las tomas rutinarias y terminarla antes de tiempo requiere un motivo.",
+    "strongerActiveTitle_one": "Hay {{count}} toma de control más fuerte activa",
+    "strongerActiveTitle_many": "Hay {{count}} de tomas de control más fuertes activas",
+    "strongerActiveTitle_other": "Hay {{count}} tomas de control más fuertes activas",
+    "strongerActiveBody": "En las pantallas que cubre, esta toma de control espera y empieza cuando termine la más fuerte.",
+    "startedSuspended_one": "Toma iniciada. Espera en {{count}} pantalla detrás de una toma más fuerte.",
+    "startedSuspended_many": "Toma iniciada. Espera en {{count}} de pantallas detrás de una toma más fuerte.",
+    "startedSuspended_other": "Toma iniciada. Espera en {{count}} pantallas detrás de una toma más fuerte.",
+    "confirmBodyEmergency": "Esta toma de control de emergencia se muestra sobre las tomas rutinarias en las pantallas y grupos seleccionados. Solo un final explícito con motivo la detiene antes de que caduque.",
+    "endBodyEmergency": "Esta es una toma de control de emergencia. Se reanudará la reproducción programada o alternativa. El registro de cancelación requiere un motivo.",
+    "reasonLabelRequired": "Motivo de cancelación (obligatorio)",
+    "endError": "No se pudo terminar la toma de control"
   },
   "detail": {
     "loading": "Cargando pantalla…",
