@@ -263,6 +263,7 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	}
 
 	versions := map[uuid.UUID]int64{}
+	changedScreens := []uuid.UUID{}
 	for _, screen := range screens {
 		version, changed, reconcileErr := s.reconcileWinnerChangeInTx(ctx, tx, screen, before[screen], request.ActivatedAt, "takeover.activated")
 		if reconcileErr != nil {
@@ -270,6 +271,7 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 		}
 		if changed {
 			versions[screen] = version
+			changedScreens = append(changedScreens, screen)
 		}
 	}
 
@@ -287,7 +289,7 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,$3,'takeover',$4,$5)`, uuid.New(), actor, action, id.String(), metadata); err != nil {
 		return plugin.TakeoverResult{}, nil, err
 	}
-	return plugin.TakeoverResult{ID: id, AffectedCount: len(screens), ScreenIDs: screens}, s.afterCommit(id, versions), nil
+	return plugin.TakeoverResult{ID: id, AffectedCount: len(changedScreens), ScreenIDs: changedScreens}, s.afterCommit(id, versions), nil
 }
 
 func (s *Service) CancelInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actorID uuid.UUID, reason string) (plugin.AfterCommit, error) {
