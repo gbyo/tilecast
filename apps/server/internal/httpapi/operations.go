@@ -18,6 +18,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers/precedence"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -48,6 +49,9 @@ var commandTypes = map[string]bool{
 }
 
 type takeoverInput struct {
+	// Class is operator (the default) or emergency. life_safety needs an
+	// integration, and automation belongs to plugins and packages.
+	Class       string      `json:"class"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	PlaylistID  uuid.UUID   `json:"playlistId"`
@@ -63,18 +67,37 @@ type commandInput struct {
 	IdempotencyKey *uuid.UUID      `json:"idempotencyKey"`
 }
 
+// takeoverScreenStatesSQL lists the screen states of Takeover e at the time
+// in parameter at. A state is suspended when the Takeover is active and not
+// retired on that screen, but the precedence rule shows another Takeover
+// there (effective_id). The time is the server clock, the same clock that
+// stamps activated_at, so a new Takeover is never suspended by clock skew.
+func takeoverScreenStatesSQL(at string) string {
+	return `SELECT es.*, eff.id AS effective_id,
+	(e.status='active' AND es.state NOT IN ('restored','cancelled','expired') AND eff.id IS DISTINCT FROM e.id) AS suspended
+	FROM takeover_screen_states es
+	LEFT JOIN LATERAL (SELECT ` + precedence.EffectiveIDSQL("es.screen_id", at+"::timestamptz") + ` AS id) eff ON TRUE
+	WHERE es.takeover_id=e.id`
+}
+
 func (s *server) listTakeovers(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	rows, err := s.db.Query(r.Context(), `SELECT e.id,e.name,e.description,e.playlist_id,p.name,e.status,e.activated_at,e.expires_at,e.cancelled_at,e.cancellation_reason,
-		(SELECT count(*) FROM takeover_screen_states es WHERE es.takeover_id=e.id),
-		(SELECT count(*) FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.state='active'),
-		(SELECT count(*) FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.state IN ('pending','notified','preparing','ready')),
-		(SELECT count(*) FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.state='failed')
-		FROM takeovers e JOIN playlists p ON p.id=e.playlist_id ORDER BY e.created_at DESC LIMIT 100`)
+	// A screen where a stronger, or a newer equal, Takeover is shown counts
+	// as suspended, not as playing, preparing, or failed.
+	rows, err := s.db.Query(r.Context(), `SELECT e.id,e.name,e.description,e.playlist_id,p.name,e.status,e.class,e.activated_at,e.expires_at,e.cancelled_at,e.cancellation_reason,
+		counts.affected,counts.active,counts.preparing,counts.failed,counts.suspended
+		FROM takeovers e JOIN playlists p ON p.id=e.playlist_id
+		CROSS JOIN LATERAL (SELECT count(*) AS affected,
+			count(*) FILTER (WHERE NOT x.suspended AND x.state='active') AS active,
+			count(*) FILTER (WHERE NOT x.suspended AND x.state IN ('pending','notified','preparing','ready')) AS preparing,
+			count(*) FILTER (WHERE NOT x.suspended AND x.state='failed') AS failed,
+			count(*) FILTER (WHERE x.suspended) AS suspended
+			FROM (`+takeoverScreenStatesSQL("$1")+`) x) counts
+		ORDER BY e.created_at DESC LIMIT 100`, time.Now().UTC())
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -84,16 +107,16 @@ func (s *server) listTakeovers(w http.ResponseWriter, r *http.Request) {
 	ids := []uuid.UUID{}
 	for rows.Next() {
 		var id, playlist uuid.UUID
-		var name, description, playlistName, status, reason string
+		var name, description, playlistName, status, class, reason string
 		var activated, cancelled *time.Time
 		var expires time.Time
-		var affected, active, preparing, failed int
-		if err = rows.Scan(&id, &name, &description, &playlist, &playlistName, &status, &activated, &expires, &cancelled, &reason, &affected, &active, &preparing, &failed); err != nil {
+		var affected, active, preparing, failed, suspended int
+		if err = rows.Scan(&id, &name, &description, &playlist, &playlistName, &status, &class, &activated, &expires, &cancelled, &reason, &affected, &active, &preparing, &failed, &suspended); err != nil {
 			s.internalError(w, r, err)
 			return
 		}
 		ids = append(ids, id)
-		items = append(items, map[string]any{"id": id, "name": name, "description": description, "playlistId": playlist, "playlistName": playlistName, "status": status, "activatedAt": activated, "expiresAt": expires, "cancelledAt": cancelled, "cancellationReason": reason, "affectedCount": affected, "activeCount": active, "preparingCount": preparing, "failedCount": failed})
+		items = append(items, map[string]any{"id": id, "name": name, "description": description, "playlistId": playlist, "playlistName": playlistName, "status": status, "class": class, "activatedAt": activated, "expiresAt": expires, "cancelledAt": cancelled, "cancellationReason": reason, "affectedCount": affected, "activeCount": active, "preparingCount": preparing, "failedCount": failed, "suspendedCount": suspended})
 	}
 	if err := rows.Err(); err != nil {
 		s.internalError(w, r, err)
@@ -122,7 +145,12 @@ func (s *server) getTakeover(w http.ResponseWriter, r *http.Request) {
 	}
 	var item map[string]any
 	_ = item
-	rows, err := s.db.Query(r.Context(), `SELECT es.screen_id,sc.name,es.manifest_version,es.state,es.last_updated_at,es.failure_code,es.safe_failure_message,es.prepared_at,es.activated_at,es.restored_at FROM takeover_screen_states es JOIN screens sc ON sc.id=es.screen_id WHERE es.takeover_id=$1 ORDER BY sc.name,sc.id`, id)
+	rows, err := s.db.Query(r.Context(), `SELECT x.screen_id,sc.name,x.manifest_version,x.state,x.last_updated_at,x.failure_code,x.safe_failure_message,x.prepared_at,x.activated_at,x.restored_at,
+		x.suspended,sb.id,sb.name,sb.class
+		FROM takeovers e CROSS JOIN LATERAL (`+takeoverScreenStatesSQL("$2")+`) x
+		JOIN screens sc ON sc.id=x.screen_id
+		LEFT JOIN takeovers sb ON x.suspended AND sb.id=x.effective_id
+		WHERE e.id=$1 ORDER BY sc.name,sc.id`, id, time.Now().UTC())
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -136,22 +164,29 @@ func (s *server) getTakeover(w http.ResponseWriter, r *http.Request) {
 		var updated time.Time
 		var code, message *string
 		var prepared, activated, restored *time.Time
-		if rows.Scan(&screen, &name, &version, &state, &updated, &code, &message, &prepared, &activated, &restored) == nil {
-			states = append(states, map[string]any{"screenId": screen, "screenName": name, "manifestVersion": version, "state": state, "lastUpdatedAt": updated, "failureCode": code, "failureMessage": message, "preparedAt": prepared, "activatedAt": activated, "restoredAt": restored})
+		var suspended bool
+		var byID *uuid.UUID
+		var byName, byClass *string
+		if rows.Scan(&screen, &name, &version, &state, &updated, &code, &message, &prepared, &activated, &restored, &suspended, &byID, &byName, &byClass) == nil {
+			var suspendedBy any
+			if byID != nil && byName != nil && byClass != nil {
+				suspendedBy = map[string]any{"id": *byID, "name": *byName, "class": *byClass}
+			}
+			states = append(states, map[string]any{"screenId": screen, "screenName": name, "manifestVersion": version, "state": state, "lastUpdatedAt": updated, "failureCode": code, "failureMessage": message, "preparedAt": prepared, "activatedAt": activated, "restoredAt": restored, "suspended": suspended, "suspendedBy": suspendedBy})
 		}
 	}
-	var name, description, status, playlistName, reason string
+	var name, description, status, class, playlistName, reason string
 	var playlist uuid.UUID
 	var activated, cancelled *time.Time
 	var expires time.Time
-	if err = s.db.QueryRow(r.Context(), `SELECT e.name,e.description,e.status,e.playlist_id,p.name,e.activated_at,e.expires_at,e.cancelled_at,e.cancellation_reason FROM takeovers e JOIN playlists p ON p.id=e.playlist_id WHERE e.id=$1`, id).Scan(&name, &description, &status, &playlist, &playlistName, &activated, &expires, &cancelled, &reason); errors.Is(err, pgx.ErrNoRows) {
+	if err = s.db.QueryRow(r.Context(), `SELECT e.name,e.description,e.status,e.class,e.playlist_id,p.name,e.activated_at,e.expires_at,e.cancelled_at,e.cancellation_reason FROM takeovers e JOIN playlists p ON p.id=e.playlist_id WHERE e.id=$1`, id).Scan(&name, &description, &status, &class, &playlist, &playlistName, &activated, &expires, &cancelled, &reason); errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, 404, "takeover_not_found", "Takeover was not found.")
 		return
 	} else if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"data": map[string]any{"id": id, "name": name, "description": description, "status": status, "playlistId": playlist, "playlistName": playlistName, "activatedAt": activated, "expiresAt": expires, "cancelledAt": cancelled, "cancellationReason": reason, "screens": states}})
+	writeJSON(w, 200, map[string]any{"data": map[string]any{"id": id, "name": name, "description": description, "status": status, "class": class, "playlistId": playlist, "playlistName": playlistName, "activatedAt": activated, "expiresAt": expires, "cancelledAt": cancelled, "cancellationReason": reason, "screens": states}})
 }
 
 func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +208,15 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 			writeError(w, 401, "reauthentication_required", "Confirm your current password before activating a takeover.")
 			return
 		}
+	}
+	class := plugin.TakeoverOperator
+	switch input.Class {
+	case "", string(plugin.TakeoverOperator):
+	case string(plugin.TakeoverEmergency):
+		class = plugin.TakeoverEmergency
+	default:
+		writeError(w, 422, "takeover_class_invalid", "A Studio Takeover is an operator or an emergency Takeover.")
+		return
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	input.Description = strings.TrimSpace(input.Description)
@@ -226,7 +270,8 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	result, afterCommit, err := s.takeovers.ActivateInTx(r.Context(), tx, plugin.TakeoverRequest{
-		Name: input.Name, Description: input.Description, PlaylistID: input.PlaylistID,
+		Class: class,
+		Name:  input.Name, Description: input.Description, PlaylistID: input.PlaylistID,
 		Targets:     plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
 		ActivatedBy: user.ID, ActivatedAt: now, ExpiresAt: input.ExpiresAt,
 	})
@@ -244,7 +289,7 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 	}
 	s.stopAirplayForScreens(r.Context(), result.ScreenIDs, user.ID, "emergency_takeover")
 	afterCommit()
-	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"id": result.ID, "status": "active", "affectedCount": result.AffectedCount, "expiresAt": input.ExpiresAt}})
+	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"id": result.ID, "status": "active", "class": class, "affectedCount": result.AffectedCount, "suspendedCount": len(result.SuspendedScreenIDs), "expiresAt": input.ExpiresAt}})
 }
 
 func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
@@ -263,6 +308,17 @@ func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_failed", "Cancellation reason is too long.")
 		return
 	}
+	body.Reason = strings.TrimSpace(body.Reason)
+	var class plugin.TakeoverClass
+	if err := s.db.QueryRow(r.Context(), `SELECT class FROM takeovers WHERE id=$1`, id).Scan(&class); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.internalError(w, r, err)
+		return
+	}
+	// Ending a public warning is a deliberate act with a recorded reason.
+	if (class == plugin.TakeoverEmergency || class == plugin.TakeoverLifeSafety) && body.Reason == "" {
+		writeError(w, 422, "takeover_reason_required", "Give a reason to end an emergency Takeover.")
+		return
+	}
 	tx, err := s.db.Begin(r.Context())
 	if err != nil {
 		s.internalError(w, r, err)
@@ -275,7 +331,7 @@ func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	afterCommit, err := s.takeovers.CancelInTx(r.Context(), tx, id, user.ID, strings.TrimSpace(body.Reason))
+	afterCommit, err := s.takeovers.CancelInTx(r.Context(), tx, id, user.ID, body.Reason)
 	if errors.Is(err, takeovers.ErrInactive) {
 		writeError(w, 409, "takeover_expired", "Takeover is no longer active.")
 		return

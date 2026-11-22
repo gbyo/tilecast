@@ -4831,7 +4831,7 @@ export interface paths {
     put?: never;
     /**
      * Activate a Takeover
-     * @description Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+     * @description Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401. An activation never cancels another Takeover. On each screen the strongest class is shown, then the latest activation; a weaker Takeover waits there.
      */
     post: operations["createTakeover"];
     delete?: never;
@@ -4871,7 +4871,7 @@ export interface paths {
     put?: never;
     /**
      * Cancel an active Takeover
-     * @description Requires an authenticated dashboard user.
+     * @description Requires an authenticated dashboard user. Ending an emergency or life_safety Takeover needs a non-empty reason.
      */
     post: operations["cancelTakeover"];
     delete?: never;
@@ -7733,7 +7733,7 @@ export interface components {
         [key: string]: unknown;
       };
     };
-    /** @description Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read. */
+    /** @description Compact takeover row returned by the takeover list, with live per-state screen counts. Playing, preparing, and failed counts include only screens where this Takeover is shown; a screen where a stronger, or a newer equal, Takeover is shown counts as suspended. The per-screen breakdown requires the detail read. */
     Takeover: {
       /** Format: uuid */
       id: string;
@@ -7744,6 +7744,7 @@ export interface components {
       playlistName: string;
       /** @enum {string} */
       status: "active" | "expired" | "cancelled";
+      class: components["schemas"]["TakeoverClass"];
       /** Format: date-time */
       activatedAt?: string | null;
       /** Format: date-time */
@@ -7755,7 +7756,13 @@ export interface components {
       activeCount: number;
       preparingCount: number;
       failedCount: number;
+      suspendedCount: number;
     };
+    /**
+     * @description Orders Takeovers that share a screen, strongest first. The strongest class is shown; a weaker Takeover waits on that screen until the stronger one ends.
+     * @enum {string}
+     */
+    TakeoverClass: "life_safety" | "emergency" | "operator" | "automation";
     TakeoverList: {
       items: components["schemas"]["Takeover"][];
       total: number;
@@ -7777,6 +7784,15 @@ export interface components {
       activatedAt?: string | null;
       /** Format: date-time */
       restoredAt?: string | null;
+      /** @description True while this Takeover is active on the screen but another Takeover is shown there. */
+      suspended: boolean;
+      /** @description The Takeover shown on the screen while this one is suspended. */
+      suspendedBy?: null | {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        class: components["schemas"]["TakeoverClass"];
+      };
     };
     /** @description Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts. */
     TakeoverDetail: {
@@ -7786,6 +7802,7 @@ export interface components {
       description: string;
       /** @enum {string} */
       status: "active" | "expired" | "cancelled";
+      class: components["schemas"]["TakeoverClass"];
       /** Format: uuid */
       playlistId: string;
       playlistName: string;
@@ -7803,7 +7820,10 @@ export interface components {
       id: string;
       /** @enum {string} */
       status: "active";
+      class: components["schemas"]["TakeoverClass"];
       affectedCount: number;
+      /** @description Target screens where a stronger, or a newer equal, Takeover is shown. */
+      suspendedCount: number;
       /** Format: date-time */
       expiresAt: string;
     };
@@ -26239,6 +26259,12 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /**
+           * @description Takeover class. life_safety and automation are not available from Studio.
+           * @default operator
+           * @enum {string}
+           */
+          class?: "operator" | "emergency";
           name: string;
           description?: string;
           /** Format: uuid */
@@ -26271,7 +26297,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Invalid targets, playlist, or expiration */
+      /** @description Invalid class, targets, playlist, or expiration */
       422: {
         headers: {
           [name: string]: unknown;
@@ -26358,6 +26384,13 @@ export interface operations {
       };
       /** @description Takeover already ended */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description takeover_reason_required when an emergency or life_safety Takeover is ended without a reason, or the reason is too long. */
+      422: {
         headers: {
           [name: string]: unknown;
         };

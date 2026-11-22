@@ -10,13 +10,18 @@ import (
 )
 
 var (
-	_ plugin.Initializer       = (*Service)(nil)
-	_ plugin.StatusReporter    = (*Service)(nil)
-	_ plugin.RemovalGuard      = (*Service)(nil)
-	_ plugin.RouteProvider     = (*Service)(nil)
-	_ plugin.ManifestProjector = (*Service)(nil)
-	_ plugin.WorkerProvider    = (*Service)(nil)
+	_ plugin.Initializer          = (*Service)(nil)
+	_ plugin.StatusReporter       = (*Service)(nil)
+	_ plugin.RemovalGuard         = (*Service)(nil)
+	_ plugin.RouteProvider        = (*Service)(nil)
+	_ plugin.ManifestProjector    = (*Service)(nil)
+	_ plugin.WorkerProvider       = (*Service)(nil)
+	_ plugin.TakeoverClassCeiling = (*Service)(nil)
 )
+
+// MaximumTakeoverClass lets NWS alert Takeovers use the emergency class, so
+// an operator or a routine plugin Takeover cannot hide a live warning.
+func (s *Service) MaximumTakeoverClass() plugin.TakeoverClass { return plugin.TakeoverEmergency }
 
 func (s *Service) Status(ctx context.Context) (plugin.Status, error) {
 	var status plugin.Status

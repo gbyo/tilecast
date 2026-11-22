@@ -382,7 +382,8 @@ func (s *Service) activate(ctx context.Context, tx pgx.Tx, rule Rule, event, hea
 		detail = description
 	}
 	result, afterCommit, err := s.host.Takeovers.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
-		Name: name, Description: bounded(detail, 2000), PlaylistID: *rule.PlaylistID,
+		Class: plugin.TakeoverEmergency,
+		Name:  name, Description: bounded(detail, 2000), PlaylistID: *rule.PlaylistID,
 		Targets:     plugin.ScreenTargets{ScreenIDs: rule.ScreenIDs, GroupIDs: rule.GroupIDs},
 		ActivatedAt: now, ExpiresAt: expires, AuditAction: "takeover.activated_by_nws",
 		AuditMetadata: map[string]any{"ruleId": rule.ID.String(), "event": event},
@@ -447,7 +448,7 @@ func (s *Service) cancelTakeover(ctx context.Context, takeoverID uuid.UUID, _ ti
 	defer tx.Rollback(ctx)
 	afterCommit, err := s.host.Takeovers.CancelInTx(ctx, tx, takeoverID, uuid.Nil, "NWS alert is no longer active")
 	if errors.Is(err, plugin.ErrTakeoverInactive) {
-		// Another Takeover already replaced this one. The alert still has to
+		// An operator already cancelled this Takeover. The alert still has to
 		// be marked cleared below; the takeover end state already holds.
 		return nil
 	}

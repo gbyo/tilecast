@@ -2,12 +2,16 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
@@ -363,6 +367,103 @@ func TestNewFeatureQueries(t *testing.T) {
 		}
 		if status != "active" {
 			t.Fatalf("list read changed takeover status to %q, want active for canonical reconciler", status)
+		}
+	})
+
+	t.Run("takeover list and detail report class and suspension", func(t *testing.T) {
+		emergencyID, operatorID := uuid.New(), uuid.New()
+		for _, row := range []struct {
+			id      uuid.UUID
+			class   string
+			started string
+			state   string
+		}{
+			{emergencyID, "emergency", "10 minutes", "active"},
+			{operatorID, "operator", "5 minutes", "pending"},
+		} {
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO takeovers(id,organization_id,name,playlist_id,status,class,activated_by,activated_at,expires_at)
+				VALUES($1,$2,$3,$4,'active',$3,$5,now()-$6::interval,now()+interval '1 hour')`,
+				row.id, org, row.class, playlist.ID, owner.User.ID, row.started); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := pool.Exec(ctx, `INSERT INTO takeover_screen_states(takeover_id,screen_id,manifest_version,state) VALUES($1,$2,1,$3)`,
+				row.id, screenA, row.state); err != nil {
+				t.Fatal(err)
+			}
+		}
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(), `DELETE FROM takeovers WHERE id=ANY($1)`, []uuid.UUID{emergencyID, operatorID})
+		})
+		api := &server{db: pool, devices: deviceService, authz: authz.New(pool)}
+		withID := func(request *http.Request, id uuid.UUID) *http.Request {
+			route := chi.NewRouteContext()
+			route.URLParams.Add("id", id.String())
+			return requestWithTestPrincipal(request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, route)), owner)
+		}
+
+		recorder := httptest.NewRecorder()
+		api.listTakeovers(recorder, requestWithTestPrincipal(httptest.NewRequest("GET", "/api/v1/takeovers", nil), owner))
+		var list struct {
+			Data struct {
+				Items []struct {
+					ID             uuid.UUID `json:"id"`
+					Class          string    `json:"class"`
+					ActiveCount    int       `json:"activeCount"`
+					PreparingCount int       `json:"preparingCount"`
+					SuspendedCount int       `json:"suspendedCount"`
+				} `json:"items"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &list); err != nil || recorder.Code != 200 {
+			t.Fatalf("list status=%d err=%v body=%s", recorder.Code, err, recorder.Body.String())
+		}
+		found := 0
+		for _, item := range list.Data.Items {
+			switch item.ID {
+			case emergencyID:
+				found++
+				if item.Class != "emergency" || item.ActiveCount != 1 || item.SuspendedCount != 0 {
+					t.Fatalf("emergency row %+v, want active on its screen", item)
+				}
+			case operatorID:
+				found++
+				if item.Class != "operator" || item.PreparingCount != 0 || item.SuspendedCount != 1 {
+					t.Fatalf("operator row %+v, want suspended under the emergency", item)
+				}
+			}
+		}
+		if found != 2 {
+			t.Fatalf("list missing rows: %s", recorder.Body.String())
+		}
+
+		recorder = httptest.NewRecorder()
+		api.getTakeover(recorder, withID(httptest.NewRequest("GET", "/api/v1/takeovers/"+operatorID.String(), nil), operatorID))
+		var detail struct {
+			Data struct {
+				Class   string `json:"class"`
+				Screens []struct {
+					Suspended   bool `json:"suspended"`
+					SuspendedBy *struct {
+						ID    uuid.UUID `json:"id"`
+						Class string    `json:"class"`
+					} `json:"suspendedBy"`
+				} `json:"screens"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil || recorder.Code != 200 {
+			t.Fatalf("detail status=%d err=%v body=%s", recorder.Code, err, recorder.Body.String())
+		}
+		if detail.Data.Class != "operator" || len(detail.Data.Screens) != 1 || !detail.Data.Screens[0].Suspended ||
+			detail.Data.Screens[0].SuspendedBy == nil || detail.Data.Screens[0].SuspendedBy.ID != emergencyID || detail.Data.Screens[0].SuspendedBy.Class != "emergency" {
+			t.Fatalf("operator detail does not name the suspending emergency: %s", recorder.Body.String())
+		}
+
+		// Ending an emergency Takeover needs a reason.
+		recorder = httptest.NewRecorder()
+		api.cancelTakeover(recorder, withID(httptest.NewRequest("POST", "/api/v1/takeovers/"+emergencyID.String()+"/cancel", strings.NewReader(`{"reason":"  "}`)), emergencyID))
+		if recorder.Code != 422 || !strings.Contains(recorder.Body.String(), "takeover_reason_required") {
+			t.Fatalf("cancel without reason status=%d body=%s, want 422 takeover_reason_required", recorder.Code, recorder.Body.String())
 		}
 	})
 

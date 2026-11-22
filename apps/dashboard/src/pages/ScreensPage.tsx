@@ -57,6 +57,7 @@ import type {
   ReliabilityStatus,
   Screen,
   ScreenStatus,
+  TakeoverClass,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import type { ApprovalForm } from "../pairing/pairingFlow";
@@ -143,6 +144,7 @@ import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Button, buttonVariants } from "../components/ui/button";
 import { ButtonGroup } from "../components/ui/button-group";
 import {
@@ -657,6 +659,19 @@ const useTakeovers = (enabled = true) =>
     enabled,
   });
 
+/* Mirrors the Server's precedence rule: on a screen the strongest class is
+   shown, and a weaker Takeover waits until it ends. */
+const takeoverClassRank: Record<TakeoverClass, number> = {
+  life_safety: 0,
+  emergency: 1,
+  operator: 2,
+  automation: 3,
+};
+
+/* Ending a public warning is deliberate, so the Server needs a reason. */
+const takeoverNeedsReason = (takeoverClass: TakeoverClass) =>
+  takeoverClassRank[takeoverClass] <= takeoverClassRank.emergency;
+
 function useActiveTakeoverCount(enabled: boolean) {
   const takeovers = useTakeovers(enabled);
   return (takeovers.data?.items ?? []).filter(
@@ -668,7 +683,7 @@ function useActiveTakeoverCount(enabled: boolean) {
    point of view, so it stays a quiet header action until one is actually running.
    While a takeover is active the banner below becomes the loudest thing on the
    page, which is the only time the danger treatment is truthful. */
-function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
+export function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
@@ -677,6 +692,7 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
   const [canceling, setCanceling] = useState<{
     id: string;
     name: string;
+    takeoverClass: TakeoverClass;
   } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const cancel = useMutation({
@@ -692,6 +708,9 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
   const active = (takeovers.data?.items ?? []).filter(
     (item) => item.status === "active",
   );
+  const reasonRequired = canceling
+    ? takeoverNeedsReason(canceling.takeoverClass)
+    : false;
   if (active.length === 0) return null;
   return (
     <>
@@ -707,8 +726,11 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               aria-hidden="true"
             />
             <div className="min-w-0 flex-1 space-y-1">
-              <AlertTitle>
+              <AlertTitle className="flex flex-wrap items-center gap-2">
                 {t("takeover.activeBanner", { name: item.name })}
+                <Badge variant="outline">
+                  {t(`takeover.class.${item.class}`)}
+                </Badge>
               </AlertTitle>
               <AlertDescription>
                 {t("takeover.bannerBody", {
@@ -730,6 +752,13 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                 <li>
                   {t("takeover.stats.failed", { count: item.failedCount })}
                 </li>
+                {item.suspendedCount > 0 && (
+                  <li>
+                    {t("takeover.stats.suspended", {
+                      count: item.suspendedCount,
+                    })}
+                  </li>
+                )}
                 <li>
                   {t("takeover.stats.targeted", { count: item.affectedCount })}
                 </li>
@@ -742,7 +771,12 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
                 type="button"
                 onClick={() => {
                   setCancelReason("");
-                  setCanceling({ id: item.id, name: item.name });
+                  cancel.reset();
+                  setCanceling({
+                    id: item.id,
+                    name: item.name,
+                    takeoverClass: item.class,
+                  });
                 }}
               >
                 {t("takeover.end")}
@@ -774,22 +808,38 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               <DialogTitle>
                 {t("takeover.endTitle", { name: canceling?.name ?? "" })}
               </DialogTitle>
-              <DialogDescription>{t("takeover.endBody")}</DialogDescription>
+              <DialogDescription>
+                {reasonRequired
+                  ? t("takeover.endBodyEmergency")
+                  : t("takeover.endBody")}
+              </DialogDescription>
             </DialogHeader>
             <Field className="gap-2">
               <FieldLabel
                 htmlFor="takeover-cancel-reason"
                 className="text-sm font-medium"
               >
-                {t("takeover.reasonLabel")}
+                {reasonRequired
+                  ? t("takeover.reasonLabelRequired")
+                  : t("takeover.reasonLabel")}
               </FieldLabel>
               <Input
                 id="takeover-cancel-reason"
                 value={cancelReason}
                 maxLength={500}
+                required={reasonRequired}
                 onChange={(event) => setCancelReason(event.target.value)}
               />
             </Field>
+            {cancel.error && (
+              <Alert variant="destructive">
+                <CircleAlert aria-hidden="true" />
+                <AlertTitle>{t("takeover.endError")}</AlertTitle>
+                <AlertDescription>
+                  {apiErrorMessage(cancel.error)}
+                </AlertDescription>
+              </Alert>
+            )}
             <DialogFooter>
               <Button
                 variant="outline"
@@ -801,7 +851,11 @@ function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
               <Button
                 variant="destructive"
                 type="submit"
-                disabled={!canceling || cancel.isPending}
+                disabled={
+                  !canceling ||
+                  cancel.isPending ||
+                  (reasonRequired && !cancelReason.trim())
+                }
               >
                 {cancel.isPending ? t("takeover.ending") : t("takeover.end")}
               </Button>
@@ -909,7 +963,7 @@ const takeoverExpiryOptions = [
 
 /* Takeover is reached from the page's overflow menu, so its dialogs are
    controlled by the page instead of owning a trigger button. */
-function TakeoverDialogs({
+export function TakeoverDialogs({
   screens,
   open,
   onOpenChange: setOpen,
@@ -929,6 +983,17 @@ function TakeoverDialogs({
   const [screenIds, setScreenIds] = useState<string[]>([]);
   const [groupIds, setGroupIds] = useState<string[]>([]);
   const [minutes, setMinutes] = useState(60);
+  const [takeoverClass, setTakeoverClass] = useState<"operator" | "emergency">(
+    "operator",
+  );
+  const takeovers = useTakeovers(open);
+  /* The Server shows the strongest class on each screen. Warn before an
+     activation that would wait behind a stronger active Takeover. */
+  const strongerActive = (takeovers.data?.items ?? []).filter(
+    (item) =>
+      item.status === "active" &&
+      takeoverClassRank[item.class] < takeoverClassRank[takeoverClass],
+  ).length;
   const playlists = useQuery({
     queryKey: ["playlists", "takeover"],
     queryFn: () => api.playlists(),
@@ -947,6 +1012,7 @@ function TakeoverDialogs({
     mutationFn: (password: string) =>
       api.activateTakeover(
         {
+          class: takeoverClass,
           name,
           description: "",
           playlistId,
@@ -957,8 +1023,17 @@ function TakeoverDialogs({
         },
         auth.status?.csrfToken ?? "",
       ),
-    onSuccess: async () => {
-      toast.add({ title: t("takeover.started"), type: "success" });
+    onSuccess: async (result) => {
+      toast.add(
+        result.suspendedCount > 0
+          ? {
+              title: t("takeover.startedSuspended", {
+                count: result.suspendedCount,
+              }),
+              type: "warning",
+            }
+          : { title: t("takeover.started"), type: "success" },
+      );
       setOpen(false);
       setPasswordOpen(false);
       setConfirmationOpen(false);
@@ -967,6 +1042,7 @@ function TakeoverDialogs({
       setPlaylistId("");
       setScreenIds([]);
       setGroupIds([]);
+      setTakeoverClass("operator");
       await queryClient.invalidateQueries({ queryKey: ["takeovers"] });
     },
   });
@@ -995,8 +1071,11 @@ function TakeoverDialogs({
   };
   const beginActivation = (heldForAllScreens: boolean) => {
     // A completed three-second hold already confirms a fleet-wide takeover.
-    if (heldForAllScreens) continueActivation();
-    else setConfirmationOpen(true);
+    // An emergency Takeover is always confirmed, because only an explicit
+    // cancellation with a reason ends it early.
+    if (heldForAllScreens && takeoverClass !== "emergency") {
+      continueActivation();
+    } else setConfirmationOpen(true);
   };
   return (
     <>
@@ -1021,6 +1100,60 @@ function TakeoverDialogs({
                 maxLength={180}
               />
             </Field>
+            <fieldset className="grid gap-3">
+              <legend className="text-sm font-medium">
+                {t("takeover.classLabel")}
+              </legend>
+              <RadioGroup
+                value={takeoverClass}
+                onValueChange={(value) =>
+                  setTakeoverClass(
+                    value === "emergency" ? "emergency" : "operator",
+                  )
+                }
+                className="grid gap-3"
+              >
+                <Field orientation="horizontal" className="items-start gap-3">
+                  <RadioGroupItem
+                    value="operator"
+                    id="takeover-class-operator"
+                  />
+                  <div className="grid gap-1">
+                    <FieldLabel htmlFor="takeover-class-operator">
+                      {t("takeover.class.operator")}
+                    </FieldLabel>
+                    <p className="text-sm text-muted-foreground">
+                      {t("takeover.classOperatorHint")}
+                    </p>
+                  </div>
+                </Field>
+                <Field orientation="horizontal" className="items-start gap-3">
+                  <RadioGroupItem
+                    value="emergency"
+                    id="takeover-class-emergency"
+                  />
+                  <div className="grid gap-1">
+                    <FieldLabel htmlFor="takeover-class-emergency">
+                      {t("takeover.class.emergency")}
+                    </FieldLabel>
+                    <p className="text-sm text-muted-foreground">
+                      {t("takeover.classEmergencyHint")}
+                    </p>
+                  </div>
+                </Field>
+              </RadioGroup>
+            </fieldset>
+            {strongerActive > 0 && (
+              <Alert>
+                <TriangleAlert aria-hidden="true" />
+                <AlertTitle>
+                  {t("takeover.strongerActiveTitle", { count: strongerActive })}
+                </AlertTitle>
+                <AlertDescription>
+                  {t("takeover.strongerActiveBody")}
+                </AlertDescription>
+              </Alert>
+            )}
             <Field className="gap-2">
               <FieldLabel
                 htmlFor="takeover-playlist"
@@ -1228,7 +1361,9 @@ function TakeoverDialogs({
           <AlertDialogHeader>
             <AlertDialogTitle>{t("takeover.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("takeover.confirmBody")}
+              {takeoverClass === "emergency"
+                ? t("takeover.confirmBodyEmergency")
+                : t("takeover.confirmBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

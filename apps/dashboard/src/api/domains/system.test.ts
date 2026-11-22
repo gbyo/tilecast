@@ -22,6 +22,7 @@ function wireTakeover(): Parameters<typeof normalizeTakeover>[0] {
     playlistId: "22222222-2222-4222-8222-222222222222",
     playlistName: "Lobby loop",
     status: "active",
+    class: "emergency",
     activatedAt: "2026-09-28T19:00:00.000Z",
     expiresAt: "2026-09-28T23:00:00.000Z",
     cancelledAt: null,
@@ -30,6 +31,7 @@ function wireTakeover(): Parameters<typeof normalizeTakeover>[0] {
     activeCount: 2,
     preparingCount: 1,
     failedCount: 0,
+    suspendedCount: 1,
   };
 }
 
@@ -49,6 +51,8 @@ describe("normalizeTakeover", () => {
     expect(normalized.activatedAt).toBe("2026-09-28T19:00:00.000Z");
     expect(normalized.affectedCount).toBe(3);
     expect(normalized.activeCount).toBe(2);
+    expect(normalized.class).toBe("emergency");
+    expect(normalized.suspendedCount).toBe(1);
   });
 });
 

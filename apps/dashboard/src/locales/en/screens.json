@@ -893,7 +893,9 @@
       "failed_one": "{{count}} failed",
       "failed_other": "{{count}} failed",
       "targeted_one": "{{count}} targeted",
-      "targeted_other": "{{count}} targeted"
+      "targeted_other": "{{count}} targeted",
+      "suspended_one": "{{count}} waiting",
+      "suspended_other": "{{count}} waiting"
     },
     "end": "End takeover",
     "endTitle": "End takeover for {{name}}?",
@@ -903,7 +905,7 @@
     "ending": "Ending…",
     "activeBadge_one": "{{count}} active",
     "activeBadge_other": "{{count}} active",
-    "dialogBody": "Temporarily override schedules and fallback content on the selected screens. Existing overlapping takeovers are replaced.",
+    "dialogBody": "Temporarily override schedules and fallback content on the selected screens. On each screen the strongest Takeover is shown; a weaker one waits until it ends.",
     "nameLabel": "Takeover name",
     "playlistLabel": "Playlist",
     "playlistPlaceholder": "Select playlist",
@@ -941,7 +943,25 @@
     "passwordTitle": "Confirm your password",
     "passwordBody": "This installation requires your current password before a takeover can start.",
     "currentPassword": "Current password",
-    "confirmAction": "Confirm takeover"
+    "confirmAction": "Confirm takeover",
+    "class": {
+      "life_safety": "Life safety",
+      "emergency": "Emergency",
+      "operator": "Routine",
+      "automation": "Automatic"
+    },
+    "classLabel": "Priority",
+    "classOperatorHint": "For announcements and events. It waits behind an active emergency Takeover.",
+    "classEmergencyHint": "For urgent safety warnings. It is shown over routine Takeovers, and ending it early needs a reason.",
+    "strongerActiveTitle_one": "{{count}} stronger Takeover is active",
+    "strongerActiveTitle_other": "{{count}} stronger Takeovers are active",
+    "strongerActiveBody": "On screens it covers, this Takeover waits and starts when the stronger one ends.",
+    "startedSuspended_one": "Takeover started. It waits on {{count}} screen behind a stronger Takeover.",
+    "startedSuspended_other": "Takeover started. It waits on {{count}} screens behind a stronger Takeover.",
+    "confirmBodyEmergency": "This emergency Takeover is shown over routine Takeovers on the selected screens and groups. Only an explicit end with a reason stops it before it expires.",
+    "endBodyEmergency": "This is an emergency Takeover. Scheduled or fallback playback will resume. A reason is required for the cancellation record.",
+    "reasonLabelRequired": "Cancellation reason (required)",
+    "endError": "Takeover could not be ended"
   },
   "detail": {
     "loading": "Loading screen…",

@@ -802,5 +802,17 @@
     "file": "00135_widget_font_references.sql",
     "owner": "core",
     "sha256": "9e129d4141b87eb69b6fd4b076ea006559ce87dc0641d43a572e02800172a234"
+  },
+  {
+    "version": 136,
+    "file": "00136_takeover_classes.sql",
+    "owner": "core",
+    "sha256": "d2bae5bb04f2541190534c9e863c5c129059fe26d4439e9fd09a11aa6ba78e68"
+  },
+  {
+    "version": 137,
+    "file": "00137_nws_takeover_class.sql",
+    "owner": "emergency_alerts",
+    "sha256": "fb4d2d356f3dca8c02b3dc6a2c2349a237cdbefaa800bdfd905e8643a422d806"
   }
 ]

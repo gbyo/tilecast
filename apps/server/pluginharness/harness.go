@@ -45,9 +45,11 @@ type Harness struct {
 	OrgID   uuid.UUID
 	OwnerID uuid.UUID
 
-	t       *testing.T
-	id      string
-	service *plugins.Service
+	t         *testing.T
+	id        string
+	service   *plugins.Service
+	takeovers *takeovers.Service
+	playlists *playlists.Service
 }
 
 // Option adjusts how a Harness is built.
@@ -132,12 +134,14 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 		t.Fatal(err)
 	}
 	mediaService := media.NewService(pool, storage, media.Config{})
+	h.playlists = playlistService
+	h.takeovers = takeovers.NewService(pool, playlistService, nil, 24*time.Hour)
 	jobsAllowed := true
 	if chosen.backgroundJobs != nil {
 		jobsAllowed = *chosen.backgroundJobs
 	}
 	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p),
-		plugins.WithTakeovers(takeovers.NewService(pool, playlistService, nil, 24*time.Hour)),
+		plugins.WithTakeovers(h.takeovers),
 		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
 		plugins.WithBackgroundJobsAllowed(func() bool { return jobsAllowed }),
 		plugins.WithDataSourceInvalidator(playlistService),
@@ -145,6 +149,45 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 		plugins.WithPublicURL("https://tilecast.example"))
 	h.Host, _ = h.service.Host(h.id)
 	return h
+}
+
+// OperatorTakeover starts a Takeover the way an operator does in Studio, on
+// the core service with the given class, for one hour. A plugin test uses it
+// to prove how the plugin's own Takeovers rank against an operator's.
+func (h *Harness) OperatorTakeover(class plugin.TakeoverClass, playlistID uuid.UUID, screens ...uuid.UUID) uuid.UUID {
+	h.t.Helper()
+	tx, err := h.Pool.Begin(h.Ctx)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer tx.Rollback(h.Ctx) //nolint:errcheck
+	now := time.Now().UTC()
+	result, _, err := h.takeovers.ActivateInTx(h.Ctx, tx, plugin.TakeoverRequest{
+		Class: class, Name: "Operator takeover", PlaylistID: playlistID,
+		Targets:     plugin.ScreenTargets{ScreenIDs: screens},
+		ActivatedBy: h.OwnerID, ActivatedAt: now, ExpiresAt: now.Add(time.Hour),
+	})
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if err = tx.Commit(h.Ctx); err != nil {
+		h.t.Fatal(err)
+	}
+	return result.ID
+}
+
+// ShownTakeover is the Takeover the screen's manifest carries now, or
+// uuid.Nil.
+func (h *Harness) ShownTakeover(screenID uuid.UUID) uuid.UUID {
+	h.t.Helper()
+	takeover, err := h.playlists.ActiveTakeoverAt(h.Ctx, screenID, time.Now().UTC())
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if takeover == nil {
+		return uuid.Nil
+	}
+	return takeover.ID
 }
 
 func (h *Harness) exec(query string, args ...any) {

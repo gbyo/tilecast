@@ -104,7 +104,7 @@ The catalog reports the plugin as active when monitoring is on — a monitor swi
 
 A rule answers a matching alert in one of two ways, chosen per rule as `responseMode`.
 
-`takeover` raises an ordinary Takeover through the existing bounded playback-override machinery, so Player behavior is exactly Takeover behavior. It shows either Tilecast's live fullscreen alert or a custom playlist, and normal playback is restored when the alert clears.
+`takeover` raises an ordinary Takeover with the `emergency` class through the existing bounded playback-override machinery, so Player behavior is exactly Takeover behavior. An operator or routine plugin Takeover on the same screen waits behind it and cannot cancel it ([ADR: Takeover priority classes](adr/takeover-priority.md)). It shows either Tilecast's live fullscreen alert or a custom playlist, and normal playback is restored when the alert clears.
 
 `ticker` leaves playback running and delivers the alert as a bar along the bottom of the screen, through the same manifest `plugins` channel and the same `overlay`/`push` geometry as Countdown Bar. It raises no Takeover, owns no managed Data Source, Widget, or playlist, and has nothing to restore: the bar is gone once the screens hold a manifest without it. `tickerDisplayMode`, `tickerHeightPx`, and `tickerSpeed` (`slow`, `medium`, or `fast`) give the bar its shape. A ticker always shows the live alert; asking for a ticker and a custom playlist together is rejected rather than resolved in one direction, because a playlist is fullscreen content by nature.
 

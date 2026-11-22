@@ -98,6 +98,14 @@ type WorkerProvider interface {
 	Workers() []Worker
 }
 
+// TakeoverClassCeiling raises the strongest Takeover class a plugin may
+// request through Host.Takeovers. A plugin that does not implement it may
+// request TakeoverAutomation only. The ceiling cannot be
+// TakeoverLifeSafety.
+type TakeoverClassCeiling interface {
+	MaximumTakeoverClass() TakeoverClass
+}
+
 // Worker is a background loop. Run returns when ctx is cancelled.
 type Worker struct {
 	Name string

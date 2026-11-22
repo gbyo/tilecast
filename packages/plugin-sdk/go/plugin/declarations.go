@@ -49,6 +49,15 @@ func CheckDeclarations(p Plugin) error {
 			}
 		}
 	}
+	if ceiling, ok := p.(TakeoverClassCeiling); ok {
+		class := ceiling.MaximumTakeoverClass()
+		if !class.Valid() {
+			return fail("declares an unknown maximum Takeover class %q", class)
+		}
+		if class == TakeoverLifeSafety {
+			return fail("declares the life_safety Takeover class, which needs an Owner-enabled life-safety integration that Tilecast does not provide yet")
+		}
+	}
 	if _, ok := p.(WorkerProvider); ok && !m.Capabilities.BackgroundWorkers {
 		return fail("runs background workers without declaring capabilities.backgroundWorkers")
 	}

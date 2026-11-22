@@ -246,17 +246,18 @@ The Go SDK is `packages/plugin-sdk/go/plugin`. The only required interface is
 `Plugin` with `Manifest()`. A plugin embeds `plugin.Bundle`, which gives
 `Manifest()` and `Migrations()`.
 
-| Contribution       | Interface            | Called by the host                            |
-| ------------------ | -------------------- | --------------------------------------------- |
-| Host services      | `Initializer`        | once, before any other contribution           |
-| Migrations         | `Migrator`           | at startup, with the core migrations          |
-| Catalog status     | `StatusReporter`     | for every catalog request                     |
-| Removal blockers   | `RemovalGuard`       | in the Remove transaction, after the row lock |
-| Dashboard routes   | `RouteProvider`      | when the router is built                      |
-| Manifest entries   | `ManifestProjector`  | per screen, only while installed              |
-| Background workers | `WorkerProvider`     | started after migrations, stopped at shutdown |
-| Data Source        | `DataSourceProvider` | at startup and from generic Data Source paths |
-| Demo data          | `DemoSeeder`         | when Demo Mode is seeded                      |
+| Contribution       | Interface              | Called by the host                            |
+| ------------------ | ---------------------- | --------------------------------------------- |
+| Host services      | `Initializer`          | once, before any other contribution           |
+| Migrations         | `Migrator`             | at startup, with the core migrations          |
+| Catalog status     | `StatusReporter`       | for every catalog request                     |
+| Removal blockers   | `RemovalGuard`         | in the Remove transaction, after the row lock |
+| Dashboard routes   | `RouteProvider`        | when the router is built                      |
+| Manifest entries   | `ManifestProjector`    | per screen, only while installed              |
+| Background workers | `WorkerProvider`       | started after migrations, stopped at shutdown |
+| Data Source        | `DataSourceProvider`   | at startup and from generic Data Source paths |
+| Demo data          | `DemoSeeder`           | when Demo Mode is seeded                      |
+| Takeover class     | `TakeoverClassCeiling` | when the plugin requests a Takeover           |
 
 A plugin implements only the interfaces it needs. Forms does not implement
 `ManifestProjector`. Countdown Bar does not implement `WorkerProvider`.
@@ -265,25 +266,25 @@ A plugin implements only the interfaces it needs. Forms does not implement
 
 `Init` receives `plugin.Host`. The host binds each service to the plugin:
 
-| Service                | Use                                                                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DB`                   | The PostgreSQL pool. A plugin queries only its own tables.                                                                     |
-| `Installation`         | `Installed`, `Require`, and `LockInTx` for the plugin.                                                                         |
-| `Audit`                | `RecordInTx` writes an audit event in the caller's transaction.                                                                |
-| `Manifests`            | `InvalidateResourceInTx`, `InvalidateAllInTx`, and `InvalidateScreensInTx` revise manifests through the core revision path.    |
-| `Targets`              | `ValidateInTx` plus `ValidateScreenTargetsInTx`, `ResolveScreensInTx`, and `AppliesToScreen` for mixed screen/group targeting. |
-| `Takeovers`            | The canonical Takeover service: `ActivateInTx`, `CancelInTx`, `RefreshInTx`, `ValidatePlaylist`, and `MaximumDuration`.        |
-| `ManagedPresentations` | `EnsureInTx`, `UpdateDataInTx`, and `PlaylistName` for system-managed Data Sources, Widgets, and Playlists.                    |
-| `BackgroundJobs`       | `Allowed` gates automatic workers; an explicit operator action never checks it.                                                |
-| `Instance`             | Read-only installation facts such as `PublicURL` for identifying upstream requests.                                            |
-| `Screens`              | `PairedPlatforms` counts screens by platform.                                                                                  |
-| `Organization`         | `ID` returns the installation's organization.                                                                                  |
-| `Clock`                | The server clock. Tests replace it.                                                                                            |
-| `Logger`               | A structured logger with the plugin identifier.                                                                                |
-| `DataSources`          | The plugin's own Data Source rows, bound to its contributed provider. See below.                                               |
-| `Users`                | Read-only user directory facts the plugin needs for attribution.                                                               |
-| `PluginAssets`         | The plugin's own private uploads, bound to its identity. See below.                                                            |
-| `Fonts`                | `UseInTx` and `ReleaseInTx` record which organization font library families an instance uses. See [Fonts](fonts.md#plugins).   |
+| Service                | Use                                                                                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DB`                   | The PostgreSQL pool. A plugin queries only its own tables.                                                                                                     |
+| `Installation`         | `Installed`, `Require`, and `LockInTx` for the plugin.                                                                                                         |
+| `Audit`                | `RecordInTx` writes an audit event in the caller's transaction.                                                                                                |
+| `Manifests`            | `InvalidateResourceInTx`, `InvalidateAllInTx`, and `InvalidateScreensInTx` revise manifests through the core revision path.                                    |
+| `Targets`              | `ValidateInTx` plus `ValidateScreenTargetsInTx`, `ResolveScreensInTx`, and `AppliesToScreen` for mixed screen/group targeting.                                 |
+| `Takeovers`            | The canonical Takeover service: `ActivateInTx`, `CancelInTx`, `RefreshInTx`, `ValidatePlaylist`, and `MaximumDuration`. See [Takeover class](#takeover-class). |
+| `ManagedPresentations` | `EnsureInTx`, `UpdateDataInTx`, and `PlaylistName` for system-managed Data Sources, Widgets, and Playlists.                                                    |
+| `BackgroundJobs`       | `Allowed` gates automatic workers; an explicit operator action never checks it.                                                                                |
+| `Instance`             | Read-only installation facts such as `PublicURL` for identifying upstream requests.                                                                            |
+| `Screens`              | `PairedPlatforms` counts screens by platform.                                                                                                                  |
+| `Organization`         | `ID` returns the installation's organization.                                                                                                                  |
+| `Clock`                | The server clock. Tests replace it.                                                                                                                            |
+| `Logger`               | A structured logger with the plugin identifier.                                                                                                                |
+| `DataSources`          | The plugin's own Data Source rows, bound to its contributed provider. See below.                                                                               |
+| `Users`                | Read-only user directory facts the plugin needs for attribution.                                                                                               |
+| `PluginAssets`         | The plugin's own private uploads, bound to its identity. See below.                                                                                            |
+| `Fonts`                | `UseInTx` and `ReleaseInTx` record which organization font library families an instance uses. See [Fonts](fonts.md#plugins).                                   |
 
 `Host` is a struct, not an interface. The core can add a service without a
 break in existing plugins. A plugin that needs a core fact that no service
@@ -292,6 +293,22 @@ gives must extend the SDK. It must not read core tables.
 `plugin.Target` and `plugin.ScreenTargetFilter` implement the targeting
 convention: an instances table with `target_scope` and a targets table with
 `(instance_id, target_type, target_id)`. The core owns the SQL of the filter.
+
+### Takeover class
+
+A `TakeoverRequest` has a `Class`. On each screen, the strongest class is
+shown, then the latest activation. An activation never cancels another
+Takeover. See [ADR: Takeover priority classes](adr/takeover-priority.md).
+
+- A request without a class gets `TakeoverAutomation`.
+- A plugin may request at most `TakeoverAutomation`, unless it implements
+  `TakeoverClassCeiling`. Emergency Alerts returns `TakeoverEmergency`.
+- The host refuses a request above the ceiling with `ErrInvalid`.
+- `plugin.CheckDeclarations` refuses a `TakeoverLifeSafety` ceiling. The
+  host also refuses a `TakeoverLifeSafety` request. A life-safety
+  integration with Owner enablement must exist first.
+- `TakeoverResult.SuspendedScreenIDs` lists the target screens where a
+  stronger, or a newer equal, Takeover is shown.
 
 ### Data Source providers
 

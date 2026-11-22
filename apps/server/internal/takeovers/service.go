@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers/precedence"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -81,6 +82,11 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if request.PlaylistID == uuid.Nil || !request.ExpiresAt.After(request.ActivatedAt) || request.ExpiresAt.Sub(request.ActivatedAt) > s.maximumDuration {
 		return plugin.TakeoverResult{}, nil, fmt.Errorf("invalid takeover presentation or duration")
 	}
+	// Callers name the class explicitly. The plugin host fills in the plugin
+	// default before it reaches here, so an empty class is a defect.
+	if !request.Class.Valid() {
+		return plugin.TakeoverResult{}, nil, fmt.Errorf("%w: unknown takeover class %q", plugin.ErrInvalid, request.Class)
+	}
 	var org uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT organization_id FROM playlists WHERE id=$1 AND organization_id=(SELECT id FROM organization_settings WHERE singleton) AND deleted_at IS NULL`, request.PlaylistID).Scan(&org); err != nil {
 		return plugin.TakeoverResult{}, nil, err
@@ -108,15 +114,15 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if len(screens) == 0 {
 		return plugin.TakeoverResult{}, nil, ErrNoEligibleScreens
 	}
-	// Serialize activations so a concurrent activation cannot miss this one's
-	// uncommitted rows when it looks for takeovers to replace. The lock is held
-	// to commit, and the replacement query below takes a fresh snapshot.
+	// Serialize activations, so the screens this activation reports as
+	// suspended are computed against every committed Takeover. The lock is
+	// held to commit.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('tilecast.takeover.activate',0))`); err != nil {
 		return plugin.TakeoverResult{}, nil, err
 	}
 	id := uuid.New()
 	actor := nullableUser(request.ActivatedBy)
-	_, err = tx.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,description,playlist_id,status,activated_by,activated_at,expires_at) VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8)`, id, org, request.Name, request.Description, request.PlaylistID, actor, request.ActivatedAt, request.ExpiresAt)
+	_, err = tx.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,description,playlist_id,status,activated_by,activated_at,expires_at,class) VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8,$9)`, id, org, request.Name, request.Description, request.PlaylistID, actor, request.ActivatedAt, request.ExpiresAt, string(request.Class))
 	if err != nil {
 		return plugin.TakeoverResult{}, nil, err
 	}
@@ -130,65 +136,11 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 			return plugin.TakeoverResult{}, nil, err
 		}
 	}
-	replacedRows, err := tx.Query(ctx, `SELECT DISTINCT st.takeover_id FROM takeover_screen_states st JOIN takeovers t ON t.id=st.takeover_id WHERE st.screen_id=ANY($1) AND t.status='active' AND st.state NOT IN ('restored','cancelled','expired')`, screens)
-	if err != nil {
-		return plugin.TakeoverResult{}, nil, err
-	}
-	replaced := []uuid.UUID{}
-	for replacedRows.Next() {
-		var old uuid.UUID
-		if err = replacedRows.Scan(&old); err != nil {
-			replacedRows.Close()
-			return plugin.TakeoverResult{}, nil, err
-		}
-		replaced = append(replaced, old)
-	}
-	replacedRows.Close()
-	if err = replacedRows.Err(); err != nil {
-		return plugin.TakeoverResult{}, nil, err
-	}
-	for _, old := range replaced {
-		if _, err = tx.Exec(ctx, `UPDATE takeovers SET status='cancelled',cancelled_at=$2,cancellation_reason='Replaced by another Takeover',updated_at=$2 WHERE id=$1 AND status='active'`, old, request.ActivatedAt); err != nil {
-			return plugin.TakeoverResult{}, nil, err
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id) VALUES($1,$2,'takeover.replaced','takeover',$3)`, uuid.New(), actor, old.String()); err != nil {
-			return plugin.TakeoverResult{}, nil, err
-		}
-	}
+	// An activation never cancels another Takeover. Each target screen shows
+	// whichever active Takeover the precedence rule selects; a weaker one
+	// waits there until the stronger one ends.
 	versions := map[uuid.UUID]int64{}
-	// Screens showing a replaced takeover but outside the new activation also
-	// return to normal playback: retire their states, revise their manifests,
-	// and include them in the notification map.
-	if len(replaced) > 0 {
-		outsideRows, err := tx.Query(ctx, `UPDATE takeover_screen_states SET state='restored',restored_at=$3,last_updated_at=$3 WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired') AND NOT (screen_id=ANY($2)) RETURNING screen_id`, replaced, screens, request.ActivatedAt)
-		if err != nil {
-			return plugin.TakeoverResult{}, nil, err
-		}
-		outside := []uuid.UUID{}
-		for outsideRows.Next() {
-			var screen uuid.UUID
-			if err = outsideRows.Scan(&screen); err != nil {
-				outsideRows.Close()
-				return plugin.TakeoverResult{}, nil, err
-			}
-			outside = append(outside, screen)
-		}
-		outsideRows.Close()
-		if err = outsideRows.Err(); err != nil {
-			return plugin.TakeoverResult{}, nil, err
-		}
-		for _, screen := range outside {
-			var version int64
-			if err = tx.QueryRow(ctx, `INSERT INTO screen_manifest_state(screen_id,manifest_version,change_reason,changed_at) VALUES($1,1,'takeover.replaced',$2) ON CONFLICT(screen_id) DO UPDATE SET previous_manifest_version=screen_manifest_state.manifest_version,manifest_version=screen_manifest_state.manifest_version+1,changed_at=$2,change_reason='takeover.replaced' RETURNING manifest_version`, screen, request.ActivatedAt).Scan(&version); err != nil {
-				return plugin.TakeoverResult{}, nil, err
-			}
-			versions[screen] = version
-		}
-	}
 	for _, screen := range screens {
-		if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states SET state='restored',restored_at=$2,last_updated_at=$2 WHERE screen_id=$1 AND takeover_id=ANY($3) AND state NOT IN ('restored','cancelled','expired')`, screen, request.ActivatedAt, replaced); err != nil {
-			return plugin.TakeoverResult{}, nil, err
-		}
 		var version int64
 		if err = tx.QueryRow(ctx, `INSERT INTO screen_manifest_state(screen_id,manifest_version,change_reason,changed_at) VALUES($1,1,'takeover.activated',$2) ON CONFLICT(screen_id) DO UPDATE SET previous_manifest_version=screen_manifest_state.manifest_version,manifest_version=screen_manifest_state.manifest_version+1,changed_at=$2,change_reason='takeover.activated' RETURNING manifest_version`, screen, request.ActivatedAt).Scan(&version); err != nil {
 			return plugin.TakeoverResult{}, nil, err
@@ -198,6 +150,10 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 			return plugin.TakeoverResult{}, nil, err
 		}
 	}
+	suspended, err := suspendedScreens(ctx, tx, id, screens, request.ActivatedAt)
+	if err != nil {
+		return plugin.TakeoverResult{}, nil, err
+	}
 	action := request.AuditAction
 	if action == "" {
 		action = "takeover.activated"
@@ -205,14 +161,28 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if !strings.HasPrefix(action, "takeover.") {
 		return plugin.TakeoverResult{}, nil, fmt.Errorf("invalid takeover audit action")
 	}
-	metadata := request.AuditMetadata
-	if metadata == nil {
-		metadata = map[string]any{}
+	metadata := make(map[string]any, len(request.AuditMetadata)+2)
+	for key, value := range request.AuditMetadata {
+		metadata[key] = value
 	}
+	metadata["class"] = string(request.Class)
+	metadata["suspendedScreenCount"] = len(suspended)
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,$3,'takeover',$4,$5)`, uuid.New(), actor, action, id.String(), metadata); err != nil {
 		return plugin.TakeoverResult{}, nil, err
 	}
-	return plugin.TakeoverResult{ID: id, AffectedCount: len(screens), ScreenIDs: screens}, s.afterCommit(id, versions), nil
+	return plugin.TakeoverResult{ID: id, AffectedCount: len(screens), ScreenIDs: screens, SuspendedScreenIDs: suspended}, s.afterCommit(id, versions), nil
+}
+
+// suspendedScreens answers the screens where Takeover id is not the one the
+// precedence rule shows at the given time: a stronger, or a newer equal,
+// Takeover is active there.
+func suspendedScreens(ctx context.Context, tx pgx.Tx, id uuid.UUID, screens []uuid.UUID, at time.Time) ([]uuid.UUID, error) {
+	rows, err := tx.Query(ctx, `SELECT s.id FROM unnest($1::uuid[]) AS s(id)
+		WHERE `+precedence.EffectiveIDSQL("s.id", "$3")+` IS DISTINCT FROM $2 ORDER BY s.id`, screens, id, at)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
 }
 
 func (s *Service) CancelInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actorID uuid.UUID, reason string) (plugin.AfterCommit, error) {

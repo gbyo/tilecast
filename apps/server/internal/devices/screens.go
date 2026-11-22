@@ -10,13 +10,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers/precedence"
 )
 
 // host(), not ::text: last_known_ip is an inet, and casting an inet to text
 // appends the netmask, so the fleet list rendered "192.0.2.10/32" and the Fire
 // TV panel built an unusable "adb connect 192.0.2.10/32:5555". host() keeps the
 // bare address and still yields NULL when no heartbeat has reported one.
-const screenSelect = `
+// screenSelect is a var because it embeds the shared Takeover precedence
+// fragments.
+var screenSelect = `
 SELECT s.id,s.name,s.description,COALESCE(l.name,''),s.location_id,s.room_name,s.room_number,
        s.map_latitude,s.map_longitude,
        l.address_line_1,l.address_line_2,l.city,l.state,l.postal_code,l.country,l.latitude,l.longitude,l.created_at,l.updated_at,
@@ -37,16 +40,8 @@ LEFT JOIN screen_groups sg ON sg.id=gm.screen_group_id
 LEFT JOIN screen_playlist_assignments sa ON sa.screen_id=s.id
 LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=sg.id
 LEFT JOIN LATERAL (
-       SELECT e.playlist_id
-       FROM takeovers e
-       JOIN takeover_screen_states es ON es.takeover_id=e.id
-       WHERE es.screen_id=s.id
-         AND e.status='active'
-         AND e.activated_at IS NOT NULL
-         AND e.activated_at<=now()
-         AND e.expires_at>now()
-         AND es.state NOT IN ('restored','cancelled','expired')
-       ORDER BY e.activated_at DESC,e.id DESC
+       SELECT e.playlist_id ` + precedence.CandidatesSQL("e", "es", "s.id", "now()") + `
+       ORDER BY ` + precedence.OrderSQL("e") + `
        LIMIT 1
 ) active_takeover ON TRUE
 LEFT JOIN playlists tp ON tp.id=active_takeover.playlist_id

@@ -145,10 +145,12 @@ func (s *Service) hostFor(id string) plugin.Host {
 	// refuses every provider-scoped call, so it cannot accidentally operate
 	// on another plugin's rows.
 	provider := ""
+	var takeovers plugin.Takeovers
 	if hosted, ok := s.hostedPlugin(id); ok {
 		if contributor, ok := hosted.plugin.(plugin.DataSourceProvider); ok {
 			provider = contributor.ProviderID()
 		}
+		takeovers = takeoversFor(s.takeovers, hosted.plugin)
 	}
 	return plugin.Host{
 		DB:                   s.db,
@@ -157,7 +159,7 @@ func (s *Service) hostFor(id string) plugin.Host {
 		Audit:                auditService{},
 		Manifests:            manifestService{service: s, id: id},
 		Targets:              targetService{db: s.db},
-		Takeovers:            s.takeovers,
+		Takeovers:            takeovers,
 		ManagedPresentations: s.managedPresentations,
 		BackgroundJobs:       s.backgroundJobs,
 		Instance:             publicInstance{url: s.publicURL, version: s.publicVersion},

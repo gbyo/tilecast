@@ -8691,7 +8691,9 @@ paths:
         Requires an authenticated dashboard user. Activating a takeover
         is immediate and disruptive; when the organization requires
         reauthentication, the current account password travels in the
-        body and a wrong one answers 401.
+        body and a wrong one answers 401. An activation never cancels
+        another Takeover. On each screen the strongest class is shown,
+        then the latest activation; a weaker Takeover waits there.
       operationId: createTakeover
       summary: Activate a Takeover
       security: [{ sessionCookie: [] }, { userBearer: [] }]
@@ -8704,6 +8706,13 @@ paths:
               type: object
               required: [name, playlistId, expiresAt]
               properties:
+                class:
+                  type: string
+                  enum: [operator, emergency]
+                  default: operator
+                  description: >-
+                    Takeover class. life_safety and automation are not
+                    available from Studio.
                 name: { type: string, minLength: 1, maxLength: 180 }
                 description: { type: string, maxLength: 2000 }
                 playlistId: { type: string, format: uuid }
@@ -8730,7 +8739,8 @@ paths:
                 properties:
                   data: { $ref: "#/components/schemas/TakeoverActivation" }
         "401": { description: Dashboard authentication required }
-        "422": { description: "Invalid targets, playlist, or expiration" }
+        "422":
+          { description: "Invalid class, targets, playlist, or expiration" }
   /api/v1/takeovers/{id}:
     get:
       description: >-
@@ -8760,7 +8770,8 @@ paths:
   /api/v1/takeovers/{id}/cancel:
     post:
       description: >-
-        Requires an authenticated dashboard user.
+        Requires an authenticated dashboard user. Ending an emergency or
+        life_safety Takeover needs a non-empty reason.
       operationId: cancelTakeover
       summary: Cancel an active Takeover
       security: [{ sessionCookie: [] }, { userBearer: [] }]
@@ -8792,6 +8803,10 @@ paths:
                   data: { $ref: "#/components/schemas/TakeoverCancellation" }
         "401": { description: Dashboard authentication required }
         "409": { description: Takeover already ended }
+        "422":
+          description: >-
+            takeover_reason_required when an emergency or life_safety
+            Takeover is ended without a reason, or the reason is too long.
   /api/v1/presentation-networks:
     get:
       operationId: listPresentationNetworks
@@ -12212,8 +12227,10 @@ components:
       additionalProperties: false
       description: >-
         Compact takeover row returned by the takeover list, with live
-        per-state screen counts. The per-screen breakdown requires the
-        detail read.
+        per-state screen counts. Playing, preparing, and failed counts
+        include only screens where this Takeover is shown; a screen where
+        a stronger, or a newer equal, Takeover is shown counts as
+        suspended. The per-screen breakdown requires the detail read.
       required:
         [
           id,
@@ -12222,11 +12239,13 @@ components:
           playlistId,
           playlistName,
           status,
+          class,
           expiresAt,
           affectedCount,
           activeCount,
           preparingCount,
           failedCount,
+          suspendedCount,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -12235,6 +12254,7 @@ components:
         playlistId: { type: string, format: uuid }
         playlistName: { type: string }
         status: { type: string, enum: [active, expired, cancelled] }
+        class: { $ref: "#/components/schemas/TakeoverClass" }
         activatedAt: { type: [string, "null"], format: date-time }
         expiresAt: { type: string, format: date-time }
         cancelledAt: { type: [string, "null"], format: date-time }
@@ -12243,6 +12263,14 @@ components:
         activeCount: { type: integer, minimum: 0 }
         preparingCount: { type: integer, minimum: 0 }
         failedCount: { type: integer, minimum: 0 }
+        suspendedCount: { type: integer, minimum: 0 }
+    TakeoverClass:
+      type: string
+      enum: [life_safety, emergency, operator, automation]
+      description: >-
+        Orders Takeovers that share a screen, strongest first. The
+        strongest class is shown; a weaker Takeover waits on that screen
+        until the stronger one ends.
     TakeoverList:
       type: object
       additionalProperties: false
@@ -12255,7 +12283,8 @@ components:
     TakeoverScreenState:
       type: object
       additionalProperties: false
-      required: [screenId, screenName, manifestVersion, state, lastUpdatedAt]
+      required:
+        [screenId, screenName, manifestVersion, state, lastUpdatedAt, suspended]
       properties:
         screenId: { type: string, format: uuid }
         screenName: { type: string }
@@ -12267,6 +12296,22 @@ components:
         preparedAt: { type: [string, "null"], format: date-time }
         activatedAt: { type: [string, "null"], format: date-time }
         restoredAt: { type: [string, "null"], format: date-time }
+        suspended:
+          type: boolean
+          description: >-
+            True while this Takeover is active on the screen but another
+            Takeover is shown there.
+        suspendedBy:
+          description: The Takeover shown on the screen while this one is suspended.
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [id, name, class]
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                class: { $ref: "#/components/schemas/TakeoverClass" }
     TakeoverDetail:
       type: object
       additionalProperties: false
@@ -12279,6 +12324,7 @@ components:
           name,
           description,
           status,
+          class,
           playlistId,
           playlistName,
           expiresAt,
@@ -12289,6 +12335,7 @@ components:
         name: { type: string }
         description: { type: string }
         status: { type: string, enum: [active, expired, cancelled] }
+        class: { $ref: "#/components/schemas/TakeoverClass" }
         playlistId: { type: string, format: uuid }
         playlistName: { type: string }
         activatedAt: { type: [string, "null"], format: date-time }
@@ -12301,11 +12348,16 @@ components:
     TakeoverActivation:
       type: object
       additionalProperties: false
-      required: [id, status, affectedCount, expiresAt]
+      required: [id, status, class, affectedCount, suspendedCount, expiresAt]
       properties:
         id: { type: string, format: uuid }
         status: { type: string, enum: [active] }
+        class: { $ref: "#/components/schemas/TakeoverClass" }
         affectedCount: { type: integer, minimum: 0 }
+        suspendedCount:
+          type: integer
+          minimum: 0
+          description: Target screens where a stronger, or a newer equal, Takeover is shown.
         expiresAt: { type: string, format: date-time }
     TakeoverCancellation:
       type: object
