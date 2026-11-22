@@ -90,12 +90,14 @@ WORKDIR /src
 COPY apps/server/go.mod apps/server/go.sum apps/server/
 COPY plugins/go.mod plugins/go.sum plugins/
 COPY packages/plugin-sdk/go/go.mod packages/plugin-sdk/go/go.sum packages/plugin-sdk/go/
+COPY packages/config-schema/go/go.mod packages/config-schema/go/go.sum packages/config-schema/go/
 COPY packages/package-sdk/go/go.mod packages/package-sdk/go/
 COPY widgets/go.mod widgets/
 COPY data-sources/go.mod data-sources/
 RUN --mount=type=cache,id=tilecast-go-mod,target=/go/pkg/mod \
     cd apps/server && go mod download
 COPY packages/plugin-sdk/go packages/plugin-sdk/go
+COPY packages/config-schema/go packages/config-schema/go
 COPY packages/package-sdk/go packages/package-sdk/go
 COPY plugins plugins
 COPY widgets widgets
@@ -112,7 +114,7 @@ FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata ffmpeg && addgroup -S tilecast && adduser -S -G tilecast tilecast
 WORKDIR /app
 COPY --from=server /out/tilecast-server /usr/local/bin/tilecast-server
-RUN mkdir -p /data/media/originals /data/media/variants /data/media/thumbnails /data/media/uploads /data/media/trash /data/updates && chown -R tilecast:tilecast /data
+RUN mkdir -p /data/media/originals /data/media/variants /data/media/thumbnails /data/media/uploads /data/media/trash /data/updates /data/secrets && chmod 0700 /data/secrets && chown -R tilecast:tilecast /data
 USER tilecast
 EXPOSE 8080
 VOLUME ["/data"]

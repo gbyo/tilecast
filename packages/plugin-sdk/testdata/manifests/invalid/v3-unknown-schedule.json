@@ -1,0 +1,157 @@
+{
+  "apiVersion": 3,
+  "id": "room_sign",
+  "definitionVersion": 1,
+  "name": "Room Sign",
+  "description": "Show room bookings.",
+  "category": "Display",
+  "icon": "calendar",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "sign",
+    "plural": "signs"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/room-sign"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/room-sign"
+  },
+  "services": [
+    "secrets.read@1",
+    "organization.read@1"
+  ],
+  "settings": {
+    "organization": [
+      {
+        "key": "apiToken",
+        "label": "API token",
+        "control": "secret",
+        "maxLength": 512
+      },
+      {
+        "key": "refreshMinutes",
+        "label": "Refresh",
+        "control": "integer",
+        "default": 5,
+        "minimum": 1,
+        "maximum": 60
+      }
+    ],
+    "screen": [
+      {
+        "key": "room",
+        "label": "Room",
+        "control": "text",
+        "maxLength": 80
+      }
+    ]
+  },
+  "instances": [
+    {
+      "kind": "sign",
+      "noun": {
+        "singular": "room sign",
+        "plural": "room signs"
+      },
+      "path": "signs",
+      "operations": {
+        "singular": "RoomSign",
+        "plural": "RoomSigns"
+      },
+      "targeting": "screens",
+      "schedule": "monthly",
+      "priority": {
+        "minimum": -10,
+        "maximum": 10,
+        "default": 0
+      },
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "control": "text",
+          "required": true,
+          "maxLength": 80
+        },
+        {
+          "key": "days",
+          "label": "Days",
+          "control": "weekdays"
+        },
+        {
+          "key": "opensAt",
+          "label": "Opens",
+          "control": "time",
+          "default": "08:00"
+        },
+        {
+          "key": "font",
+          "label": "Font",
+          "control": "font"
+        },
+        {
+          "key": "contact",
+          "label": "Contact",
+          "control": "text",
+          "personal": {
+            "retentionDays": 30
+          }
+        }
+      ]
+    },
+    {
+      "kind": "calendar",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "calendars",
+      "operations": {
+        "singular": "RoomCalendar",
+        "plural": "RoomCalendars"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    }
+  ],
+  "player": {
+    "state": [
+      {
+        "type": "room_sign",
+        "version": 1
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": [
+          "player.surface@1"
+        ]
+      },
+      "surfaces": [
+        {
+          "id": "sign",
+          "slots": [
+            "corner.top-right"
+          ],
+          "tier": "ambient"
+        }
+      ]
+    }
+  }
+}

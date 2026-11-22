@@ -1,0 +1,91 @@
+{
+  "apiVersion": 2,
+  "id": "minimal_v2",
+  "definitionVersion": 1,
+  "name": "Sample",
+  "description": "A Plugin API v2 fixture.",
+  "category": "Display",
+  "icon": "puzzle",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "instances": [
+    {
+      "kind": "sign",
+      "noun": {
+        "singular": "room sign",
+        "plural": "room signs"
+      },
+      "path": "signs",
+      "operations": {
+        "singular": "RoomSign",
+        "plural": "RoomSigns"
+      },
+      "targeting": "screens",
+      "schedule": "weekly",
+      "priority": {
+        "minimum": -10,
+        "maximum": 10,
+        "default": 0
+      },
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "control": "text",
+          "required": true,
+          "maxLength": 80
+        },
+        {
+          "key": "days",
+          "label": "Days",
+          "control": "weekdays"
+        },
+        {
+          "key": "opensAt",
+          "label": "Opens",
+          "control": "time",
+          "default": "08:00"
+        },
+        {
+          "key": "font",
+          "label": "Font",
+          "control": "font"
+        },
+        {
+          "key": "contact",
+          "label": "Contact",
+          "control": "text",
+          "personal": {
+            "retentionDays": 30
+          }
+        }
+      ]
+    },
+    {
+      "kind": "calendar",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "calendars",
+      "operations": {
+        "singular": "RoomCalendar",
+        "plural": "RoomCalendars"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    }
+  ]
+}

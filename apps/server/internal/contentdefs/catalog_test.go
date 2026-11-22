@@ -74,7 +74,7 @@ func TestMediaVariantConfigurationKeyCannotShadowAnAuthoredField(t *testing.T) {
 		{Key: "logoAssetId", Control: "media_asset"},
 		{Key: "logoVariantId", Control: "text"},
 	}
-	if err := validateSchemaFields(fields); err == nil {
+	if err := validateSchema(ConfigurationSchema{Fields: fields}); err == nil {
 		t.Fatal("a media variant alias shadowing an authored field was accepted")
 	}
 }

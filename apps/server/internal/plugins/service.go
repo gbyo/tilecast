@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	bundled "github.com/tilecast/tilecast/plugins"
@@ -58,7 +59,24 @@ type Service struct {
 	// read from. It defaults to the embedded catalog; tests inject a
 	// synthetic one through SetContentDefinitions.
 	content contentdefs.Catalogs
+
+	// Plugin Manifest API 3: the secret store, the service registry caller
+	// for bundled plugins, and the live host invocations.
+	secrets       *pluginsecrets.Store
+	serviceCaller BundledServiceCaller
+	invocations   invocationSet
 }
+
+// WithSecrets wires the plugin secret store.
+func WithSecrets(store *pluginsecrets.Store) Option {
+	return func(s *Service) { s.secrets = store }
+}
+
+// Settings scopes stored in plugin_settings.
+const (
+	scopeOrganization = "organization"
+	scopeScreen       = "screen"
+)
 
 // SetContentDefinitions injects the effective content catalog generic
 // lifecycle decisions (removal blockers, manifest invalidation) derive

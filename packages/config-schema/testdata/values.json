@@ -1,0 +1,153 @@
+[
+  {
+    "name": "defaults, trimming, integers, and weekdays",
+    "fields": [
+      { "key": "message", "label": "Message", "control": "text", "required": true, "maxLength": 20 },
+      { "key": "scale", "label": "Scale", "control": "integer", "default": 100, "minimum": 25, "maximum": 500 },
+      { "key": "days", "label": "Days", "control": "weekdays" },
+      { "key": "at", "label": "At", "control": "time" },
+      { "key": "color", "label": "Color", "control": "color" }
+    ],
+    "input": { "message": "  Lunch  ", "days": [5, 1, 3], "at": "12:55", "color": "#AABBCC" },
+    "valid": true,
+    "output": { "message": "Lunch", "scale": 100, "days": [1, 3, 5], "at": "12:55", "color": "#aabbcc" }
+  },
+  {
+    "name": "datetime becomes UTC",
+    "fields": [{ "key": "when", "label": "When", "control": "datetime" }],
+    "input": { "when": "2026-12-01T09:30:00-06:00" },
+    "valid": true,
+    "output": { "when": "2026-12-01T15:30:00Z" }
+  },
+  {
+    "name": "unknown key",
+    "fields": [{ "key": "a", "label": "A", "control": "text" }],
+    "input": { "b": "x" },
+    "valid": false
+  },
+  {
+    "name": "required missing",
+    "fields": [{ "key": "a", "label": "A", "control": "text", "required": true }],
+    "input": {},
+    "valid": false
+  },
+  {
+    "name": "integer with fraction",
+    "fields": [{ "key": "a", "label": "A", "control": "integer" }],
+    "input": { "a": 1.5 },
+    "valid": false
+  },
+  {
+    "name": "number outside range",
+    "fields": [{ "key": "a", "label": "A", "control": "number", "minimum": 0, "maximum": 1 }],
+    "input": { "a": 2 },
+    "valid": false
+  },
+  {
+    "name": "select outside options",
+    "fields": [{ "key": "a", "label": "A", "control": "select", "options": [{ "value": "x", "label": "X" }] }],
+    "input": { "a": "y" },
+    "valid": false
+  },
+  {
+    "name": "time malformed",
+    "fields": [{ "key": "a", "label": "A", "control": "time" }],
+    "input": { "a": "25:00" },
+    "valid": false
+  },
+  {
+    "name": "weekdays repeat",
+    "fields": [{ "key": "a", "label": "A", "control": "weekdays" }],
+    "input": { "a": [1, 1] },
+    "valid": false
+  },
+  {
+    "name": "weekdays out of range",
+    "fields": [{ "key": "a", "label": "A", "control": "weekdays" }],
+    "input": { "a": [7] },
+    "valid": false
+  },
+  {
+    "name": "required weekdays empty",
+    "fields": [{ "key": "a", "label": "A", "control": "weekdays", "required": true }],
+    "input": { "a": [] },
+    "valid": false
+  },
+  {
+    "name": "url scheme",
+    "fields": [{ "key": "a", "label": "A", "control": "url" }],
+    "input": { "a": "ftp://example.com" },
+    "valid": false
+  },
+  {
+    "name": "color shape",
+    "fields": [{ "key": "a", "label": "A", "control": "color" }],
+    "input": { "a": "red" },
+    "valid": false
+  },
+  {
+    "name": "empty optional color",
+    "fields": [{ "key": "a", "label": "A", "control": "color" }],
+    "input": { "a": "" },
+    "valid": true,
+    "output": { "a": "" }
+  },
+  {
+    "name": "font must be an identifier",
+    "fields": [{ "key": "a", "label": "A", "control": "font" }],
+    "input": { "a": "Inter" },
+    "valid": false
+  },
+  {
+    "name": "font identifier is lowercased",
+    "fields": [{ "key": "a", "label": "A", "control": "font" }],
+    "input": { "a": "0A8F2B5E-7C1D-4E3F-9A6B-1C2D3E4F5A6B" },
+    "valid": true,
+    "output": { "a": "0a8f2b5e-7c1d-4e3f-9a6b-1c2d3e4f5a6b" }
+  },
+  {
+    "name": "secret values never travel in configuration",
+    "fields": [{ "key": "token", "label": "Token", "control": "secret" }],
+    "input": { "token": "abc" },
+    "valid": false
+  },
+  {
+    "name": "secret absent is accepted",
+    "fields": [
+      { "key": "token", "label": "Token", "control": "secret", "required": true },
+      { "key": "a", "label": "A", "control": "boolean", "default": false }
+    ],
+    "input": {},
+    "valid": true,
+    "output": { "a": false }
+  },
+  {
+    "name": "repeating group nested",
+    "fields": [
+      {
+        "key": "rows",
+        "label": "Rows",
+        "control": "repeating_group",
+        "maximumItems": 2,
+        "itemFields": [{ "key": "name", "label": "Name", "control": "text", "required": true }]
+      }
+    ],
+    "input": { "rows": [{ "name": " A " }, { "name": "B" }] },
+    "valid": true,
+    "output": { "rows": [{ "name": "A" }, { "name": "B" }] }
+  },
+  {
+    "name": "repeating group over its bound",
+    "fields": [
+      {
+        "key": "rows",
+        "label": "Rows",
+        "control": "repeating_group",
+        "maximumItems": 1,
+        "itemFields": [{ "key": "name", "label": "Name", "control": "text" }]
+      }
+    ],
+    "input": { "rows": [{ "name": "A" }, { "name": "B" }] },
+    "valid": false
+  }
+]

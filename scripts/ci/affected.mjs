@@ -300,7 +300,7 @@ const rules = [
     ["plugins", "widgets", "sources", "runtime"],
   ],
   [
-    /^packages\/plugin-sdk\//,
+    /^packages\/(plugin-sdk|config-schema)\//,
     [
       "plugins",
       "server",

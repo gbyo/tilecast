@@ -1,0 +1,25 @@
+{
+  "name": "@tilecast/config-schema",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The Tilecast configuration schema shared by Widget definitions and Plugin Manifest API 3: field types, controls, authoring hints, the plugin-only markers, and the Go validator (go/).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testdata/schemas.json": "./testdata/schemas.json",
+    "./testdata/values.json": "./testdata/values.json"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

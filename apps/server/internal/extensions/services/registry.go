@@ -1,6 +1,7 @@
-// Package services is the source of truth for external Tilecast service
-// capabilities: the versioned operations a Package API v3 guest may call
-// through tilecast.call_v1. The registry owns stable IDs, versions,
+// Package services is the one Server service vocabulary: the versioned
+// operations a Package API v3 guest calls through tilecast.call_v1, and that
+// a bundled Plugin Manifest API 3 plugin calls through the generated Go
+// client in the plugin SDK (services_registry_gen.go). The registry owns stable IDs, versions,
 // English display metadata, risk categories, allowed invocation
 // contexts, and operation membership. Manifest validation checks grant
 // shape; installation and review check grants against this registry; the
@@ -19,10 +20,11 @@ import (
 // ErrUnknownService answers a service grant the registry does not know.
 var ErrUnknownService = errors.New("unknown service capability")
 
-// Invocation contexts for external service operations. Studio UI calls
-// carry the authenticated operator; background jobs run as the system
-// and never impersonate a Studio user. System names future
-// server-triggered invocations; no producer uses it yet.
+// Invocation contexts for service operations. Studio calls carry the
+// authenticated operator; background jobs run as the system and never
+// impersonate a Studio user. System calls are server-triggered work with no
+// operator: a bundled plugin's Player projection in this release, and
+// events, webhooks, and Player reports in later releases.
 const (
 	ContextStudio     = "studio"
 	ContextBackground = "background"
@@ -50,8 +52,16 @@ type Operation struct {
 	Contexts          []string
 }
 
+// Callers of a capability. A package calls through tilecast.call_v1 and
+// holds an install-time grant; a bundled API 3 plugin calls through the
+// generated Go client and declares the service in its manifest.
+const (
+	CallerPackage = "package"
+	CallerBundled = "bundled"
+)
+
 // Capability is one grantable Tilecast service: its identity, display
-// metadata, allowed contexts, and member operations.
+// metadata, allowed contexts, callers, and member operations.
 type Capability struct {
 	ID          string
 	Version     int
@@ -59,8 +69,26 @@ type Capability struct {
 	Description string
 	Category    string
 	Contexts    []string
-	Operations  []Operation
+	// Callers lists who may call the capability. Empty means packages only,
+	// the meaning every capability had before bundled callers existed.
+	Callers    []string
+	Operations []Operation
 }
+
+// AllowsCaller reports whether a caller kind may call the capability.
+func (c Capability) AllowsCaller(caller string) bool {
+	if len(c.Callers) == 0 {
+		return caller == CallerPackage
+	}
+	for _, allowed := range c.Callers {
+		if allowed == caller {
+			return true
+		}
+	}
+	return false
+}
+
+var bothCallers = []string{CallerPackage, CallerBundled}
 
 // Detail is the registry-resolved display metadata Studio renders for one
 // requested grant. The review payload carries it so Studio never decodes
@@ -84,7 +112,7 @@ type OperationDetail struct {
 
 var capabilities = []Capability{
 	{
-		ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Category: CategoryRead, Contexts: []string{ContextStudio, ContextBackground},
+		ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Category: CategoryRead, Contexts: []string{ContextStudio, ContextBackground}, Callers: bothCallers,
 		Operations: []Operation{
 			{Name: "targets.resolve@2/resolve", CapabilityID: "targets.resolve", CapabilityVersion: 2, Title: "Resolve targets", Description: "Validate explicit all or a nonempty screen, group, and location selection.", Contexts: []string{ContextStudio, ContextBackground}},
 			{Name: "targets.resolve@2/options", CapabilityID: "targets.resolve", CapabilityVersion: 2, Title: "List target options", Description: "List bounded target names and identifiers within the operator's scope.", Contexts: []string{ContextStudio}},
@@ -102,6 +130,7 @@ var capabilities = []Capability{
 	{
 		ID:          "organization.read",
 		Version:     1,
+		Callers:     bothCallers,
 		Name:        "Organization details",
 		Description: "Read the organization's name and identifier.",
 		Category:    CategoryRead,
@@ -113,6 +142,7 @@ var capabilities = []Capability{
 	{
 		ID:          "instance.read",
 		Version:     1,
+		Callers:     bothCallers,
 		Name:        "Installation details",
 		Description: "Read installation facts such as the public address and release version.",
 		Category:    CategoryRead,
@@ -124,6 +154,7 @@ var capabilities = []Capability{
 	{
 		ID:          "screens.read",
 		Version:     1,
+		Callers:     bothCallers,
 		Name:        "Screen directory",
 		Description: "List screens and read non-secret screen facts and reported player capabilities.",
 		Category:    CategoryRead,
@@ -136,6 +167,7 @@ var capabilities = []Capability{
 	{
 		ID:          "targets.resolve",
 		Version:     1,
+		Callers:     bothCallers,
 		Name:        "Resolve display targets",
 		Description: "Validate screen and group selections and resolve them to screens.",
 		Category:    CategoryRead,
@@ -192,6 +224,7 @@ var capabilities = []Capability{
 	{
 		ID:          "users.read-basic",
 		Version:     1,
+		Callers:     bothCallers,
 		Name:        "User directory",
 		Description: "Read basic user directory facts for attribution and workflows.",
 		Category:    CategoryDirectory,
@@ -229,6 +262,35 @@ var capabilities = []Capability{
 			{Name: "players.display-control@1/display.volume", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display volume", Description: "Set the attached display volume from 0 to 100.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
 			{Name: "players.display-control@1/display.mute", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display mute", Description: "Mute or unmute the attached display.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
 			{Name: "players.display-control@1/display.brightness", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display brightness", Description: "Set the attached display brightness from 0 to 100.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+		},
+	},
+	{
+		// Bundled only in this release: a package has no host-owned settings
+		// until Plugin Model V3 gives packages instance parity.
+		ID:          "settings.read",
+		Version:     1,
+		Name:        "Plugin settings",
+		Description: "Read this plugin's own non-secret settings for the organization or one screen.",
+		Category:    CategoryRead,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "settings.read@1/get", CapabilityID: "settings.read", CapabilityVersion: 1, Title: "Read settings", Description: "Read this plugin's non-secret settings and whether each secret is set.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
+		},
+	},
+	{
+		// A secret value never reaches Studio. Plugin code reads one in a
+		// route (studio), background, or system context; Studio itself only
+		// writes secrets and reads whether each is set.
+		ID:          "secrets.read",
+		Version:     1,
+		Name:        "Plugin secrets",
+		Description: "Read one of this plugin's own secrets.",
+		Category:    CategoryRead,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "secrets.read@1/get", CapabilityID: "secrets.read", CapabilityVersion: 1, Title: "Read secret", Description: "Read one of this plugin's secrets. An unset or unreadable secret answers secret_unavailable.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
 		},
 	},
 }
@@ -294,7 +356,7 @@ func Granted(grants []packagemanifest.ServiceGrant, operation Operation) bool {
 // bounds, and uniqueness already validated in the manifest.
 func ValidateGrants(grants []packagemanifest.ServiceGrant) error {
 	for _, grant := range grants {
-		if _, ok := Find(grant.ID, grant.Version); !ok {
+		if capability, ok := Find(grant.ID, grant.Version); !ok || !capability.AllowsCaller(CallerPackage) {
 			return fmt.Errorf("%w: %s@%d", ErrUnknownService, grant.ID, grant.Version)
 		}
 	}
@@ -308,7 +370,7 @@ func Details(grants []packagemanifest.ServiceGrant) ([]Detail, error) {
 	details := make([]Detail, 0, len(grants))
 	for _, grant := range grants {
 		capability, ok := Find(grant.ID, grant.Version)
-		if !ok {
+		if !ok || !capability.AllowsCaller(CallerPackage) {
 			return nil, fmt.Errorf("%w: %s@%d", ErrUnknownService, grant.ID, grant.Version)
 		}
 		detail := Detail{

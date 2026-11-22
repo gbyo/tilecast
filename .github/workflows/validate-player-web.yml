@@ -39,6 +39,7 @@ jobs:
             apps/server/go.sum
             plugins/go.sum
             packages/plugin-sdk/go/go.sum
+            packages/config-schema/go/go.sum
       # Browser Player bundles the production Player Runtime, whose build
       # dependencies are declared by that package. A Studio-only install does
       # not provide them, so this lane installs the whole workspace itself.

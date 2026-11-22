@@ -1,0 +1,229 @@
+[
+  {
+    "name": "widget text and select",
+    "profile": "widget",
+    "valid": true,
+    "fields": [
+      { "key": "title", "label": "Title", "control": "text", "maxLength": 80 },
+      {
+        "key": "style",
+        "label": "Style",
+        "control": "select",
+        "default": "light",
+        "options": [
+          { "value": "light", "label": "Light" },
+          { "value": "dark", "label": "Dark" }
+        ],
+        "ui": { "section": "appearance", "styleCard": true }
+      }
+    ]
+  },
+  {
+    "name": "widget time and weekdays",
+    "profile": "widget",
+    "valid": true,
+    "fields": [
+      { "key": "at", "label": "At", "control": "time", "default": "08:30" },
+      { "key": "days", "label": "Days", "control": "weekdays", "default": [1, 2, 3, 4, 5] }
+    ]
+  },
+  {
+    "name": "widget refuses secret",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "token", "label": "Token", "control": "secret" }]
+  },
+  {
+    "name": "widget refuses connection",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "service", "label": "Service", "control": "connection" }]
+  },
+  {
+    "name": "widget refuses personal",
+    "profile": "widget",
+    "valid": false,
+    "fields": [
+      { "key": "visitor", "label": "Visitor", "control": "text", "personal": { "retentionDays": 30 } }
+    ]
+  },
+  {
+    "name": "plugin secret and personal",
+    "profile": "plugin",
+    "valid": true,
+    "fields": [
+      { "key": "token", "label": "Token", "control": "secret", "required": true, "maxLength": 512 },
+      { "key": "service", "label": "Service", "control": "connection" },
+      { "key": "visitor", "label": "Visitor", "control": "text", "personal": { "retentionDays": 30 } }
+    ]
+  },
+  {
+    "name": "plugin personal retention too long",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [
+      { "key": "visitor", "label": "Visitor", "control": "text", "personal": { "retentionDays": 3651 } }
+    ]
+  },
+  {
+    "name": "plugin personal retention missing",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "visitor", "label": "Visitor", "control": "text", "personal": {} }]
+  },
+  {
+    "name": "plugin secret default",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "token", "label": "Token", "control": "secret", "default": "abc" }]
+  },
+  {
+    "name": "plugin secret too large",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "token", "label": "Token", "control": "secret", "maxLength": 4097 }]
+  },
+  {
+    "name": "plugin secret in repeating group",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [
+      {
+        "key": "rows",
+        "label": "Rows",
+        "control": "repeating_group",
+        "maximumItems": 4,
+        "itemFields": [{ "key": "token", "label": "Token", "control": "secret" }]
+      }
+    ]
+  },
+  {
+    "name": "duplicate key",
+    "profile": "widget",
+    "valid": false,
+    "fields": [
+      { "key": "a", "label": "A", "control": "text" },
+      { "key": "a", "label": "A again", "control": "text" }
+    ]
+  },
+  {
+    "name": "unknown control",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "a", "label": "A", "control": "rich_text" }]
+  },
+  {
+    "name": "select without options",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "a", "label": "A", "control": "select" }]
+  },
+  {
+    "name": "select default outside options",
+    "profile": "widget",
+    "valid": false,
+    "fields": [
+      { "key": "a", "label": "A", "control": "select", "default": "c", "options": [{ "value": "b", "label": "B" }] }
+    ]
+  },
+  {
+    "name": "minimum above maximum",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "a", "label": "A", "control": "integer", "minimum": 10, "maximum": 1 }]
+  },
+  {
+    "name": "required empty default",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "a", "label": "A", "control": "text", "required": true, "default": " " }]
+  },
+  {
+    "name": "string list without bound",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "a", "label": "A", "control": "string_list" }]
+  },
+  {
+    "name": "repeating group without items",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "a", "label": "A", "control": "repeating_group", "maximumItems": 3 }]
+  },
+  {
+    "name": "media derived key conflict",
+    "profile": "widget",
+    "valid": false,
+    "fields": [
+      { "key": "logoAssetId", "label": "Logo", "control": "media_asset" },
+      { "key": "logoVariantId", "label": "Variant", "control": "text" }
+    ]
+  },
+  {
+    "name": "too many fonts",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [
+      { "key": "f1", "label": "F1", "control": "font" },
+      { "key": "f2", "label": "F2", "control": "font" },
+      { "key": "f3", "label": "F3", "control": "font" },
+      { "key": "f4", "label": "F4", "control": "font" },
+      { "key": "f5", "label": "F5", "control": "font" }
+    ]
+  },
+  {
+    "name": "font with default",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "f", "label": "F", "control": "font", "default": "Inter" }]
+  },
+  {
+    "name": "font in repeating group",
+    "profile": "widget",
+    "valid": false,
+    "fields": [
+      {
+        "key": "rows",
+        "label": "Rows",
+        "control": "repeating_group",
+        "maximumItems": 3,
+        "itemFields": [{ "key": "f", "label": "F", "control": "font" }]
+      }
+    ]
+  },
+  {
+    "name": "data source field names unknown source",
+    "profile": "widget",
+    "valid": false,
+    "fields": [{ "key": "column", "label": "Column", "control": "data_source_field", "dataSourceKey": "source" }]
+  },
+  {
+    "name": "nested field names root source",
+    "profile": "widget",
+    "valid": true,
+    "fields": [
+      { "key": "source", "label": "Source", "control": "data_source" },
+      {
+        "key": "rows",
+        "label": "Rows",
+        "control": "repeating_group",
+        "maximumItems": 5,
+        "itemFields": [
+          { "key": "column", "label": "Column", "control": "data_source_field", "dataSourceKey": "source" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "time default malformed",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "at", "label": "At", "control": "time", "default": "8:30pm" }]
+  },
+  {
+    "name": "weekdays default repeats a day",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "days", "label": "Days", "control": "weekdays", "default": [1, 1] }]
+  }
+]

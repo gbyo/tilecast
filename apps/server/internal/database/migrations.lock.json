@@ -814,5 +814,17 @@
     "file": "00137_nws_takeover_class.sql",
     "owner": "emergency_alerts",
     "sha256": "fb4d2d356f3dca8c02b3dc6a2c2349a237cdbefaa800bdfd905e8643a422d806"
+  },
+  {
+    "version": 138,
+    "file": "00138_plugin_settings_instances_secrets.sql",
+    "owner": "core",
+    "sha256": "d8a299bd4b14f1a022f9c110f4790222adfca10d27b45c6c2e1f17b03d79acb0"
+  },
+  {
+    "version": 139,
+    "file": "00139_countdown_bar_generic_instances.sql",
+    "owner": "countdown_bar",
+    "sha256": "d8a299bd4b14f1a022f9c110f4790222adfca10d27b45c6c2e1f17b03d79acb0"
   }
 ]

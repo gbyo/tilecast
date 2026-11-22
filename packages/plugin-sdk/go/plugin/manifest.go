@@ -12,11 +12,12 @@ import (
 // APIVersion is the newest Tilecast Plugin API this SDK implements. A
 // manifest whose apiVersion this release does not support is rejected at
 // build time by pluginctl and at startup by the host.
-const APIVersion = 2
+const APIVersion = 3
 
 // SupportedAPIVersions lists the Plugin API versions this release can load.
-// Version 1 is frozen and remains fully supported beside version 2.
-var SupportedAPIVersions = []int{1, 2}
+// Version 1 is frozen; versions 1, 2, and Plugin Manifest API 3 are all
+// fully supported.
+var SupportedAPIVersions = []int{1, 2, 3}
 
 // Manifest is a parsed tilecast.plugin.json. It mirrors the Zod schema in
 // packages/plugin-sdk/src/manifest.ts; the shared fixtures in
@@ -42,9 +43,16 @@ type Manifest struct {
 	Studio            *StudioEntry  `json:"studio,omitempty"`
 	// Runtime is the Plugin API v1 surface-only Player declaration.
 	Runtime *RuntimeEntry `json:"runtime,omitempty"`
-	// Player is the Plugin API v2 Player contribution.
+	// Player is the Plugin API v2 and API 3 Player contribution.
 	Player *PlayerEntry `json:"player,omitempty"`
 	Docs   *DocsEntry   `json:"docs,omitempty"`
+	// Services are the Server services (name@version) the plugin's typed
+	// client calls. Plugin Manifest API 3 only.
+	Services []string `json:"services,omitempty"`
+	// Settings are host-owned plugin settings. Plugin Manifest API 3 only.
+	Settings *Settings `json:"settings,omitempty"`
+	// Instances are host-owned instance kinds. Plugin Manifest API 3 only.
+	Instances []InstanceKind `json:"instances,omitempty"`
 }
 
 type InstanceNoun struct {
@@ -80,8 +88,10 @@ type APIEntry struct {
 }
 
 type StudioEntry struct {
-	Route      string `json:"route"`
-	Entrypoint string `json:"entrypoint"`
+	Route string `json:"route"`
+	// Entrypoint is the plugin's Studio module. A Plugin Manifest API 3
+	// plugin may omit it when the host's generated pages are all it needs.
+	Entrypoint string `json:"entrypoint,omitempty"`
 	// AdditionalRoutes are absolute Studio routes outside /plugins/<id> the
 	// plugin owns, such as a portal or inbox.
 	AdditionalRoutes []string `json:"additionalRoutes,omitempty"`
@@ -358,7 +368,15 @@ func (m Manifest) Validate() error {
 			return fail("%v", err)
 		}
 	}
-	if m.APIVersion == 2 {
+	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0) {
+		return fail("services, settings, and instances are Plugin Manifest API 3 members")
+	}
+	switch m.APIVersion {
+	case 3:
+		if err := m.validateV3(); err != nil {
+			return fail("%v", err)
+		}
+	case 2:
 		if m.Capabilities.PlayerManifest {
 			return fail("capabilities.playerManifest is a Plugin API 1 member; declare player.state instead")
 		}
@@ -368,8 +386,10 @@ func (m Manifest) Validate() error {
 		if err := m.Player.validate(); err != nil {
 			return fail("%v", err)
 		}
-	} else if m.Player != nil {
-		return fail("player is a Plugin API 2 member")
+	default:
+		if m.Player != nil {
+			return fail("player is a Plugin API 2 member")
+		}
 	}
 	for _, host := range m.Capabilities.Network {
 		if len(host) > 253 || !hostnamePattern.MatchString(host) {
@@ -418,8 +438,10 @@ func (m Manifest) Validate() error {
 		if !routePattern.MatchString(m.Studio.Route) || strings.Contains(m.Studio.Route, "//") {
 			return fail("invalid studio route %q", m.Studio.Route)
 		}
-		if err := conventional("studio.entrypoint", m.Studio.Entrypoint, StudioEntrypoint); err != nil {
-			return err
+		if m.Studio.Entrypoint != "" || m.APIVersion < 3 {
+			if err := conventional("studio.entrypoint", m.Studio.Entrypoint, StudioEntrypoint); err != nil {
+				return err
+			}
 		}
 		for _, route := range m.Studio.AdditionalRoutes {
 			if !routePattern.MatchString(route) || strings.Contains(route, "//") {

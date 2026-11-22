@@ -4,6 +4,7 @@ use (
 	./apps/cli
 	./packages/api-client
 	./apps/server
+	./packages/config-schema/go
 	./packages/plugin-sdk/go
 	./packages/package-sdk/go
 	./plugins

@@ -65,7 +65,14 @@ export async function check(repo: Repo): Promise<Problem[]> {
       const expected = `/plugins/${plugin.dir}`;
       if (manifest.studio.route !== expected)
         add(`studio.route must be ${expected}`);
-      requireFile(plugin, manifest.studio.entrypoint, "studio.entrypoint", add);
+      // A Plugin Manifest API 3 plugin may rely on the host's generated pages.
+      if (manifest.studio.entrypoint !== undefined)
+        requireFile(
+          plugin,
+          manifest.studio.entrypoint,
+          "studio.entrypoint",
+          add,
+        );
       for (const route of manifest.studio.additionalRoutes ?? []) {
         if (route === "/plugins" || route.startsWith("/plugins/")) {
           add(`studio additional route ${route} must not live below /plugins`);
@@ -116,11 +123,13 @@ export async function check(repo: Repo): Promise<Problem[]> {
         );
       }
     }
-    if (manifest.apiVersion === 2) checkPlayerContribution(plugin, add);
+    if (manifest.apiVersion >= 2) checkPlayerContribution(plugin, add);
 
     if (manifest.api) {
       if (!manifest.server) add("api routes need a server entry point");
-      if (!manifest.api.openapi)
+      // Plugin Manifest API 3 settings and instance routes are generated from
+      // the manifest, so a fragment describes only the plugin's own routes.
+      if (!manifest.api.openapi && manifest.apiVersion < 3)
         add("a plugin with api.basePaths must describe them in api.openapi");
       for (const base of manifest.api.basePaths) {
         for (const other of bases) {
@@ -419,7 +428,7 @@ function requireFile(
  */
 function checkPlayerContribution(plugin: DiscoveredPlugin, add: Add) {
   const { manifest } = plugin;
-  if (manifest.apiVersion !== 2) return;
+  if (manifest.apiVersion === 1) return;
   const player = manifest.player;
   if (player?.runtime) {
     requireFile(

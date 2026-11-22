@@ -59,7 +59,7 @@ export function nativeCrates(repo: Repo): NativeCrate[] {
 }
 
 function pluginCrates(plugin: DiscoveredPlugin): NativeCrate[] {
-  if (plugin.manifest.apiVersion !== 2) return [];
+  if (plugin.manifest.apiVersion === 1) return [];
   const ids = (plugin.manifest.player?.native ?? [])
     .map((native) => native.id)
     .sort();
