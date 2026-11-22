@@ -228,8 +228,8 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 	result, afterCommit, err := s.takeovers.ActivateInTx(r.Context(), tx, plugin.TakeoverRequest{
 		Name: input.Name, Description: input.Description, PlaylistID: input.PlaylistID,
 		PriorityClass: plugin.TakeoverClassRoutine,
-		Targets:     plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
-		ActivatedBy: user.ID, ActivatedAt: now, ExpiresAt: input.ExpiresAt,
+		Targets:       plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
+		ActivatedBy:   user.ID, ActivatedAt: now, ExpiresAt: input.ExpiresAt,
 	})
 	if errors.Is(err, takeovers.ErrNoEligibleScreens) {
 		writeError(w, 422, "takeover_target_required", "No eligible screens matched the targets.")
