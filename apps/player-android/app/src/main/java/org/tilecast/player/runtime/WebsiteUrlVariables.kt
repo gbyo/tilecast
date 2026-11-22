@@ -1,7 +1,7 @@
 package org.tilecast.player.runtime
 
+import java.math.BigDecimal
 import java.net.URL
-import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -19,6 +19,7 @@ import org.tilecast.player.network.ManifestDataSource
  */
 internal object WebsiteUrlVariables {
     private val token = Regex("""\{([a-zA-Z][a-zA-Z0-9_.:-]*)\}""")
+    private val nameBraces = Regex("""[{}]|%7[bBdD]""")
     private val field = Regex("""([a-zA-Z_][a-zA-Z0-9_-]*)(?::([0-9]{1,3}))?""")
     private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val timeFormat = DateTimeFormatter.ofPattern("HH:mm:ss")
@@ -50,7 +51,11 @@ internal object WebsiteUrlVariables {
         val source = sources.firstOrNull { it.id == dataSourceId }
         val rows = source?.let(::records) ?: emptyList()
         val obj = source?.let(::objectValues) ?: emptyMap()
-        fun valueFor(key: String): String? = when (key) {
+        // The shared resolver applies a Data Source's date selection before it
+        // picks records. Android has no selector, so a selecting source fails
+        // closed instead of resolving different records than other Players.
+        val selects = source?.let(::selectsByDate) ?: false
+        fun valueFor(key: String): String? = if (key.startsWith("data.") && selects) null else when (key) {
             "screen.id" -> screenId
             "date" -> date
             "time" -> time
@@ -85,17 +90,15 @@ internal object WebsiteUrlVariables {
         val parts = query.split('&').map { part ->
             val name = part.substringBefore('=')
             val raw = part.substringAfter('=', "")
-            val decodedName = runCatching { URLDecoder.decode(name, "UTF-8") }.getOrNull()
-                ?: return null
-            if ('{' in decodedName || '}' in decodedName) return null
+            // Match the shared resolver: braces in a name, literal or
+            // percent-encoded, are refused; a stray '%' is not an error.
+            if (nameBraces.containsMatchIn(name)) return null
             if ('{' !in raw && '}' !in raw) return@map part
             val literals = raw.replace(token, "")
             if ('{' in literals || '}' in literals) return null
             var invalid = false
             val replaced = token.replace(raw) { result ->
-                valueFor(result.groupValues[1])?.let {
-                    URLEncoder.encode(it, StandardCharsets.UTF_8.name())
-                } ?: run {
+                valueFor(result.groupValues[1])?.let(::encodeComponent) ?: run {
                     invalid = true
                     ""
                 }
@@ -108,28 +111,53 @@ internal object WebsiteUrlVariables {
         return answer.takeIf { it.length <= 2048 }
     }
 
+    // Mirrors docValueToRaw in the shared resolver so each host emits the same text.
     private fun scalar(value: DocumentValue): String = when (value.kind) {
         "text" -> value.text.orEmpty()
-        "number" -> value.number?.toString().orEmpty()
+        "number", "percent", "currency" -> (value.number?.let(::plainNumber) ?: value.integer?.toString()).orEmpty()
         "integer" -> value.integer?.toString().orEmpty()
         "boolean" -> value.boolean?.toString().orEmpty()
         "date" -> value.date.orEmpty()
         "datetime" -> value.datetime.orEmpty()
+        "duration" -> value.durationSeconds?.toString().orEmpty()
         "url" -> value.url.orEmpty()
+        "asset" -> value.assetId.orEmpty()
         else -> value.text.orEmpty()
     }
 
+    /** JavaScript's `String(number)`: no trailing ".0" and no exponent for ordinary values. */
+    private fun plainNumber(value: Double): String =
+        if (!value.isFinite()) value.toString()
+        else BigDecimal(value.toString()).stripTrailingZeros().toPlainString()
+
+    /** `encodeURIComponent`: percent-encode everything but letters, digits and -_.!~*'() */
+    private fun encodeComponent(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8.name())
+            .replace("+", "%20").replace("%21", "!").replace("%27", "'")
+            .replace("%28", "(").replace("%29", ")").replace("%7E", "~")
+
+    private fun selectsByDate(source: ManifestDataSource): Boolean {
+        val datasets = source.dataDocument?.datasets.orEmpty()
+        if (datasets.any { it.dateSelection != null }) return true
+        val selection = (source.configuration["data"] as? JsonObject)
+            ?.get("dateSelection") as? JsonObject
+        return (selection?.get("enabled") as? JsonPrimitive)?.content == "true"
+    }
+
     private fun records(source: ManifestDataSource): List<Map<String, String>> {
-        val document = source.dataDocument?.datasets?.firstOrNull { it.kind == "records" }
+        val datasets = source.dataDocument?.datasets.orEmpty()
+        val document = datasets.firstOrNull { it.kind == "records" }
+            ?: datasets.firstOrNull { it.records.isNotEmpty() }
         if (document != null) {
             if (document.cache.unavailable) return emptyList()
-            return document.records.take(100).map { record ->
+            return document.records.map { record ->
                 record.values.mapValues { scalar(it.value) }
             }
         }
         // Schema 12 manual/typed data sources have records in configuration.
+        if ((source.configuration["unavailable"] as? JsonPrimitive)?.content == "true") return emptyList()
         val raw = source.configuration["records"] as? JsonArray ?: return emptyList()
-        return raw.take(100).mapNotNull { record ->
+        return raw.mapNotNull { record ->
             val values = (record as? JsonObject)?.get("values") as? JsonObject
                 ?: return@mapNotNull null
             values.mapValues { (_, v) -> (v as? JsonPrimitive)?.content.orEmpty() }

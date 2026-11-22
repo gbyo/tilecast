@@ -90,4 +90,58 @@ class WebsiteUrlVariablesTest {
         assertEquals("{time}", param(result, "literal"))
         assertEquals("{\"room\":101}:screen-1", param(result, "payload"))
     }
+
+    @Test fun encodingMatchesEncodeUriComponent() {
+        val spaced = ManifestDataSource(
+            id = "s", name = "S", provider = "manual",
+            configuration = buildJsonObject {
+                putJsonArray("records") {
+                    addJsonObject { putJsonObject("values") { put("room", "Room 3 (A)!~'*") } }
+                }
+            },
+        )
+        val raw = requireNotNull(
+            WebsiteUrlVariables.resolve("https://example.org/?r={data.room}", "id", dataSourceId = "s", sources = listOf(spaced)),
+        )
+        assertEquals("https://example.org/?r=Room%203%20(A)!~'*", raw)
+    }
+
+    @Test fun allRecordsAreAvailableBeyondOneHundred() {
+        val big = ManifestDataSource(
+            id = "big", name = "Big", provider = "manual",
+            configuration = buildJsonObject {
+                putJsonArray("records") {
+                    repeat(150) { n -> addJsonObject { putJsonObject("values") { put("n", "r$n") } } }
+                }
+            },
+        )
+        val result = WebsiteUrlVariables.resolve(
+            "https://example.org/?x={data.n:120}", "id", dataSourceId = "big", sources = listOf(big),
+        )
+        assertEquals("https://example.org/?x=r120", result)
+    }
+
+    @Test fun malformedPercentInAStaticNameIsNotAnError() {
+        val result = WebsiteUrlVariables.resolve("https://example.org/?100%=x&s={screen.id}", "id")
+        assertEquals("https://example.org/?100%=x&s=id", result)
+        assertNull(WebsiteUrlVariables.resolve("https://example.org/?%7Bdate%7D={date}", "id"))
+    }
+
+    @Test fun aSourceWithDateSelectionFailsClosedForDataValues() {
+        val selecting = ManifestDataSource(
+            id = "sel", name = "Sel", provider = "manual",
+            configuration = buildJsonObject {
+                putJsonObject("data") {
+                    putJsonObject("dateSelection") { put("enabled", true) }
+                }
+            },
+        )
+        assertNull(
+            WebsiteUrlVariables.resolve("https://example.org/?x={data.room}", "id", dataSourceId = "sel", sources = listOf(selecting)),
+        )
+        assertEquals(
+            "https://example.org/?s=id",
+            WebsiteUrlVariables.resolve("https://example.org/?s={screen.id}", "id", dataSourceId = "sel", sources = listOf(selecting)),
+        )
+    }
 }
