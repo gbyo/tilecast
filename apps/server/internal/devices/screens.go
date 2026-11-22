@@ -46,7 +46,8 @@ LEFT JOIN LATERAL (
          AND e.activated_at<=now()
          AND e.expires_at>now()
          AND es.state NOT IN ('restored','cancelled','expired')
-       ORDER BY e.activated_at DESC,e.id DESC
+       ORDER BY CASE e.priority_class WHEN 'emergency' THEN 4 WHEN 'urgent' THEN 3 WHEN 'priority' THEN 2 ELSE 1 END DESC,
+                e.activated_at DESC,e.id DESC
        LIMIT 1
 ) active_takeover ON TRUE
 LEFT JOIN playlists tp ON tp.id=active_takeover.playlist_id
@@ -325,7 +326,7 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	if _, err := tx.Exec(ctx, `UPDATE player_commands SET state='cancelled',completed_at=COALESCE(completed_at,now()),safe_result_code=COALESCE(safe_result_code,'screen_archived'),safe_result_message=COALESCE(safe_result_message,'The screen pairing was revoked.'),updated_at=now() WHERE screen_id=$1 AND state IN ('pending','delivered','acknowledged','running')`, id); err != nil {
 		return fmt.Errorf("cancel archived screen commands: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE takeover_screen_states SET state='cancelled',last_updated_at=now() WHERE screen_id=$1 AND state IN ('pending','notified','preparing','ready','active','offline')`, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE takeover_screen_states SET state='cancelled',last_updated_at=now() WHERE screen_id=$1 AND state IN ('pending','notified','preparing','ready','active','failed','offline','suspended')`, id); err != nil {
 		return fmt.Errorf("cancel archived screen takeover state: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE screen_update_states SET state='cancelled',completed_at=COALESCE(completed_at,now()),updated_at=now() WHERE screen_id=$1 AND state NOT IN ('succeeded','failed','cancelled','incompatible','already_current')`, id); err != nil {
