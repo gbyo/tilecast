@@ -540,7 +540,7 @@ func TestExpireDueResumesSuspendedTakeover(t *testing.T) {
 	emergency, cb := f.activateWithPriority(t, targets, f.playlist, plugin.TakeoverPriorityEmergency, base.Add(time.Minute), base.Add(time.Hour))
 	cb()
 	before := f.manifestVersion(t, f.screenA)
-	if _, err := f.pool.Exec(ctx, `UPDATE takeovers SET expires_at=$2 WHERE id=$1`, emergency.ID, time.Now().UTC().Add(-time.Second)); err != nil {
+	if _, err := f.pool.Exec(ctx, `UPDATE takeovers SET created_at=$2,expires_at=$3 WHERE id=$1`, emergency.ID, base, time.Now().UTC().Add(-time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.service.ExpireDue(ctx); err != nil {
