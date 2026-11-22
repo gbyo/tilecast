@@ -102,12 +102,47 @@ export function checkBoundaries(repo: Repo): Problem[] {
   return problems;
 }
 
+/**
+ * Ways to open a network connection without the host. A Plugin Manifest
+ * API 3 plugin reaches the network through host connections (a later Plugin
+ * Model V3 phase), never with its own client. A bundled plugin is trusted
+ * first-party code, so this check finds mistakes; it is not a sandbox and
+ * does not contain malicious Go code.
+ */
+const DIRECT_NETWORK =
+  /\b(?:http\.(?:Client|Transport|DefaultClient|DefaultTransport|Get|Head|Post|PostForm|NewRequest|NewRequestWithContext)\b|net\.(?:Dial|DialTimeout|DialTCP|DialUDP|Listen|ListenTCP|ListenUDP|Lookup\w+|Resolver|Dialer)\b|tls\.(?:Dial|DialWithDialer|Client)\b)/;
+
+const GO_STRINGS_AND_COMMENTS =
+  /("(?:\\.|[^"\\\n])*"|`[^`]*`|'(?:\\.|[^'\\])*')|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+
+function checkNoDirectNetwork(
+  repo: Repo,
+  plugin: DiscoveredPlugin,
+  file: string,
+  text: string,
+): Problem[] {
+  if (plugin.manifest.apiVersion !== 3 || file.endsWith("_test.go")) return [];
+  const code = text.replace(GO_STRINGS_AND_COMMENTS, (_match, quoted) =>
+    quoted ? '""' : " ",
+  );
+  const found = DIRECT_NETWORK.exec(code);
+  if (!found) return [];
+  return [
+    {
+      plugin: plugin.manifest.id,
+      file: relative(repo.root, file),
+      message: `uses ${found[0]}; a Plugin Manifest API 3 plugin does not open its own network connections (host connections arrive in a later Plugin Model V3 phase)`,
+    },
+  ];
+}
+
 function checkGo(
   repo: Repo,
   plugin: DiscoveredPlugin,
   file: string,
 ): Problem[] {
   const text = readFileSync(file, "utf8");
+  const network = checkNoDirectNetwork(repo, plugin, file, text);
   const imports: string[] = [];
   for (const block of text.matchAll(/^import\s*\(([\s\S]*?)^\)/gm)) {
     for (const line of block[1]!.matchAll(/"([^"]+)"/g)) imports.push(line[1]!);
@@ -115,19 +150,24 @@ function checkGo(
   for (const single of text.matchAll(/^import\s+(?:[\w.]+\s+)?"([^"]+)"/gm))
     imports.push(single[1]!);
   const own = `${GO_MODULE_ROOT}plugins/${plugin.dir}`;
-  return imports
-    .filter((path) => path.startsWith(GO_MODULE_ROOT))
-    .filter((path) => path !== own && !path.startsWith(`${own}/`))
-    .filter(
-      (path) =>
-        !GO_ALLOWED_TILECAST.some((allowed) => path.startsWith(allowed)),
-    )
-    .filter((path) => !(file.endsWith("_test.go") && path === GO_TEST_HARNESS))
-    .map((path) => ({
-      plugin: plugin.manifest.id,
-      file: relative(repo.root, file),
-      message: `imports ${path}; plugins may import only the plugin SDK and their own packages (tests may also import apps/server/pluginharness)`,
-    }));
+  return [
+    ...network,
+    ...imports
+      .filter((path) => path.startsWith(GO_MODULE_ROOT))
+      .filter((path) => path !== own && !path.startsWith(`${own}/`))
+      .filter(
+        (path) =>
+          !GO_ALLOWED_TILECAST.some((allowed) => path.startsWith(allowed)),
+      )
+      .filter(
+        (path) => !(file.endsWith("_test.go") && path === GO_TEST_HARNESS),
+      )
+      .map((path) => ({
+        plugin: plugin.manifest.id,
+        file: relative(repo.root, file),
+        message: `imports ${path}; plugins may import only the plugin SDK and their own packages (tests may also import apps/server/pluginharness)`,
+      })),
+  ];
 }
 
 const COMMENTS_OUTSIDE_STRINGS =

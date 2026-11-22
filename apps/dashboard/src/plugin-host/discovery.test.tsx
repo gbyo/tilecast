@@ -364,6 +364,7 @@ describe("plugin secondary navigation", () => {
     name: id,
     route,
     additionalRoutes,
+    manifest: { apiVersion: 1 } as DiscoveredStudioPlugin["manifest"],
     definition: { id, secondaryNavigation },
   });
 

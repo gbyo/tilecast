@@ -44,6 +44,9 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { weekdayShortLabel } from "@/plugins/shared";
+import { scheduleWeekdays } from "@/schedules/scheduleBuilderModel";
 import { localDateTimeToRfc3339, rfc3339ToLocalDateTime } from "@/lib/dateTime";
 import { useOrganizationRegionalProfile } from "@/settings/regionalProfile";
 import { timezoneLabel, timezoneOptions } from "@/settings/settingValues";
@@ -76,6 +79,8 @@ export function WidgetInspectorField(props: InspectorFieldProps) {
       return <WidgetRepeatingField {...props} />;
     case "boolean":
       return <BooleanField {...props} />;
+    case "weekdays":
+      return <WeekdaysField {...props} />;
     case "select":
       return authoringUiOf(field).styleCard ? (
         <ChoiceField {...props} />
@@ -85,6 +90,55 @@ export function WidgetInspectorField(props: InspectorFieldProps) {
     default:
       return <StandardField {...props} />;
   }
+}
+
+/** Days of the week as toggles. Sunday is 0; the week shows Monday first. */
+function WeekdaysField({
+  field,
+  path,
+  value,
+  onChange,
+  readOnly,
+  errorFor,
+}: InspectorFieldProps) {
+  const { t } = useTranslation("plugins");
+  const error = errorFor(path);
+  const id = fieldDomId(path);
+  const selected = Array.isArray(value) ? (value as number[]) : [];
+  return (
+    <Field data-invalid={error ? true : undefined}>
+      <FieldTitle id={`${id}-label`}>{field.label}</FieldTitle>
+      {field.description && (
+        <FieldDescription id={`${id}-description`}>
+          {field.description}
+        </FieldDescription>
+      )}
+      <ToggleGroup
+        multiple
+        variant="outline"
+        size="sm"
+        spacing={1}
+        className="flex-wrap"
+        aria-labelledby={`${id}-label`}
+        disabled={readOnly}
+        value={selected.map(String)}
+        onValueChange={(values) =>
+          onChange(values.map(Number).sort((a, b) => a - b))
+        }
+      >
+        {scheduleWeekdays.map((day) => (
+          <ToggleGroupItem
+            key={day.value}
+            value={String(day.value)}
+            className="min-w-10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm aria-pressed:hover:bg-primary/90"
+          >
+            {weekdayShortLabel(day.value, t)}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+    </Field>
+  );
 }
 
 function BooleanField({
@@ -283,6 +337,16 @@ function StandardControl({
           onChange={onChange}
         />
       );
+    case "time":
+      return (
+        <Input
+          {...common}
+          type="time"
+          value={fieldText(value)}
+          className="w-36"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      );
     case "datetime":
       return (
         <DateTimeInput
@@ -358,40 +422,54 @@ function NumberControl({
   onChange: (value: unknown) => void;
   common: CommonControlProps;
 }) {
-  const numeric = typeof value === "number" ? value : undefined;
+  // A value stored in seconds that a person enters in whole minutes. The
+  // stored value and the schema bounds stay in seconds.
+  const factor = authoringUiOf(field).inputUnit === "minutes" ? 60 : 1;
+  const stored = typeof value === "number" ? value : undefined;
+  const numeric = stored === undefined ? undefined : stored / factor;
+  const minimum =
+    field.minimum === undefined ? undefined : Math.ceil(field.minimum / factor);
+  const maximum =
+    field.maximum === undefined
+      ? undefined
+      : Math.floor(field.maximum / factor);
   const input = (
     <Input
       {...common}
       type="number"
       inputMode={field.control === "integer" ? "numeric" : "decimal"}
-      min={field.minimum}
-      max={field.maximum}
+      min={minimum}
+      max={maximum}
       step={field.control === "integer" ? 1 : "any"}
       value={numeric ?? ""}
       className={authoringUiOf(field).slider ? "w-24" : undefined}
       onChange={(event) =>
         onChange(
-          event.target.value === "" ? undefined : Number(event.target.value),
+          event.target.value === ""
+            ? undefined
+            : Number(event.target.value) * factor,
         )
       }
     />
   );
   const sliding =
     authoringUiOf(field).slider &&
-    field.minimum !== undefined &&
-    field.maximum !== undefined;
+    minimum !== undefined &&
+    maximum !== undefined;
   if (!sliding) return input;
   return (
     <div className="flex items-center gap-3">
       <Slider
-        min={field.minimum}
-        max={field.maximum}
+        min={minimum}
+        max={maximum}
         step={field.control === "integer" ? 1 : 0.1}
-        value={[numeric ?? field.minimum!]}
+        value={[numeric ?? minimum!]}
         disabled={common.disabled}
         // The slider and the input edit one value under one label.
         aria-labelledby={`${common.id}-label`}
-        onValueChange={(next) => onChange(Array.isArray(next) ? next[0] : next)}
+        onValueChange={(next) =>
+          onChange((Array.isArray(next) ? next[0]! : next) * factor)
+        }
         className="flex-1"
       />
       {input}

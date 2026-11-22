@@ -30,8 +30,12 @@ export interface ScaffoldOptions {
   maintainer: string;
   /** Dashboard API routes and an OpenAPI fragment. */
   api: boolean;
-  /** Plugin API version; new plugins use 2. */
-  pluginApi?: 1 | 2;
+  /**
+   * Plugin API version. New plugins use 2, or 3 for host-owned settings and
+   * instances: the host then generates the plugin's routes, OpenAPI
+   * operations, automation mapping, and Studio pages from the manifest.
+   */
+  pluginApi?: 1 | 2 | 3;
   /** Studio pages. Default true. */
   studio?: boolean;
   /**
@@ -90,8 +94,8 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
   const pluginApi = options.pluginApi ?? 2;
   const studio = options.studio ?? true;
   const player = options.player;
-  if (player && pluginApi !== 2)
-    throw new Error("a Player contribution needs Plugin API 2");
+  if (player && pluginApi === 1)
+    throw new Error("a Player contribution needs Plugin API 2 or 3");
   const surfaces = player?.surfaces ?? [];
   const playerManifest = player
     ? {
@@ -124,15 +128,48 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
     uses: [],
     capabilities: {},
     server: { entrypoint: conventionalEntrypoints.server },
-    ...(options.api
+    ...(pluginApi === 3
       ? {
-          api: {
-            basePaths: [`/plugins/${dir}`],
-            openapi: "./api/openapi.yaml",
-          },
+          // The host mounts the generated routes below this path and the
+          // generated pages at the Studio route; neither needs a file here.
+          api: { basePaths: [`/plugins/${dir}`] },
+          studio: { route: `/plugins/${dir}` },
+          services: [],
+          instances: [
+            {
+              kind: "item",
+              noun: { singular: "item", plural: "items" },
+              path: "items",
+              operations: {
+                singular: `${title(id).replaceAll(" ", "")}Item`,
+                plural: `${title(id).replaceAll(" ", "")}Items`,
+              },
+              targeting: player ? "screens" : "none",
+              schedule: "none",
+              fields: [
+                {
+                  key: "title",
+                  label: "Title",
+                  control: "text",
+                  required: true,
+                  maxLength: 120,
+                },
+              ],
+            },
+          ],
         }
       : {}),
-    ...(studio
+    ...(pluginApi === 3
+      ? {}
+      : options.api
+        ? {
+            api: {
+              basePaths: [`/plugins/${dir}`],
+              openapi: "./api/openapi.yaml",
+            },
+          }
+        : {}),
+    ...(studio && pluginApi !== 3
       ? {
           studio: {
             route: `/plugins/${dir}`,
@@ -151,8 +188,59 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
 
   files.set(
     "plugin.go",
+    pluginApi === 3
+      ? `// Package ${pkg} is the ${name} plugin on Plugin Manifest API 3. The host
+// stores, authorizes, audits, and serves its instances and generates its
+// routes and Studio pages from the manifest; this package judges what an
+// instance means${player ? " and turns one into Player state" : ""}.
+package ${pkg}
+
+import (
+	"context"
+	_ "embed"
+
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+)
+
+//go:embed tilecast.plugin.json
+var manifest []byte
+
+// Plugin is the ${name} server contribution.
+type Plugin struct {
+	plugin.Bundle
+}
+
+var (
+	_ plugin.InstanceValidator = (*Plugin)(nil)${
     player
-      ? `// Package ${pkg} is the ${name} plugin.
+      ? `
+	_ plugin.InstanceProjector = (*Plugin)(nil)`
+      : ""
+  }
+)
+
+func New() plugin.Plugin {
+	return &Plugin{Bundle: plugin.NewBundle(manifest, nil)}
+}
+
+// ValidateInstance applies the rules a field schema cannot state. The host
+// has already checked every field against the manifest.
+func (p *Plugin) ValidateInstance(context.Context, plugin.HostedInstance) error {
+	return nil
+}${
+          player
+            ? `
+
+// ProjectInstance maps one eligible instance to Player state. The host has
+// chosen the instance for the screen and sets the state's ID.
+func (p *Plugin) ProjectInstance(_ context.Context, instance plugin.HostedInstance, _ plugin.ProjectionTarget) (plugin.InstanceProjection, error) {
+	return plugin.InstanceProjection{State: &plugin.PlayerState{Type: ${JSON.stringify(id)}, Version: 1, State: instance.Configuration}}, nil
+}`
+            : ""
+        }
+`
+      : player
+        ? `// Package ${pkg} is the ${name} plugin.
 package ${pkg}
 
 import (
@@ -188,7 +276,7 @@ func (p *Plugin) ProjectPlayerState(context.Context, uuid.UUID) ([]plugin.Player
 	return []plugin.PlayerState{}, nil
 }
 `
-      : `// Package ${pkg} is the ${name} plugin.
+        : `// Package ${pkg} is the ${name} plugin.
 package ${pkg}
 
 import (
@@ -235,7 +323,7 @@ func TestConformance(t *testing.T) {
 `,
   );
 
-  if (studio) {
+  if (studio && pluginApi !== 3) {
     files.set(
       "studio/index.tsx",
       `import { Puzzle } from "lucide-react";
@@ -269,7 +357,7 @@ contract instead of restating it.
 `,
   );
 
-  if (options.api) {
+  if (options.api && pluginApi !== 3) {
     files.set(
       "api/openapi.yaml",
       `openapi: 3.1.0

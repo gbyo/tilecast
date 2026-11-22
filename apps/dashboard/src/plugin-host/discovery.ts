@@ -15,6 +15,8 @@ export interface DiscoveredStudioPlugin {
   route: string;
   /** The manifest's studio.additionalRoutes, for example ["/forms"]. */
   additionalRoutes: string[];
+  /** The manifest, for host-generated pages of a Plugin Manifest API 3 plugin. */
+  manifest: PluginManifestInput;
   definition: StudioPluginDefinition;
 }
 
@@ -43,6 +45,7 @@ export function discoverStudioPlugins(
     ]),
   );
   const out: DiscoveredStudioPlugin[] = [];
+  const withModule = new Set<string>();
   for (const [path, module] of Object.entries(modules)) {
     const dir = directoryOf(path);
     const manifest = byDir.get(dir);
@@ -57,13 +60,29 @@ export function discoverStudioPlugins(
         `plugins/${dir}/studio/index.tsx must export defineStudioPlugin({ id: "${manifest.id}" })`,
       );
     }
+    withModule.add(dir);
     out.push({
       id: manifest.id,
       dir,
       name: manifest.name,
       route: manifest.studio.route,
       additionalRoutes: manifest.studio.additionalRoutes ?? [],
+      manifest,
       definition,
+    });
+  }
+  // A Plugin Manifest API 3 plugin whose pages are all host-generated needs
+  // no Studio module at all.
+  for (const [dir, manifest] of byDir) {
+    if (withModule.has(dir) || manifest.apiVersion !== 3 || !manifest.studio) continue;
+    out.push({
+      id: manifest.id,
+      dir,
+      name: manifest.name,
+      route: manifest.studio.route,
+      additionalRoutes: manifest.studio.additionalRoutes ?? [],
+      manifest,
+      definition: { id: manifest.id },
     });
   }
   return out.sort((left, right) => left.id.localeCompare(right.id));

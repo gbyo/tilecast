@@ -1,33 +1,6 @@
 import { Clock3 } from "lucide-react";
 import { defineStudioPlugin } from "@tilecast/studio";
-import { countdownApi, countdownBarQueryKey } from "./api";
-import {
-  CountdownBarEditorPage,
-  CountdownBarsPage,
-  PLUGIN_ID,
-} from "./CountdownBarsPage";
 
-export default defineStudioPlugin({
-  id: PLUGIN_ID,
-  icon: Clock3,
-  routes: [
-    { index: true, element: <CountdownBarsPage /> },
-    {
-      path: "new",
-      element: <CountdownBarEditorPage />,
-      handle: {
-        breadcrumb: "New instance",
-        breadcrumbKey: "breadcrumbs.newInstance",
-      },
-    },
-    {
-      path: ":id",
-      element: <CountdownBarEditorPage />,
-      handle: {
-        breadcrumb: "Instance",
-        breadcrumbKey: "breadcrumbs.instance",
-        resource: { queryKey: countdownBarQueryKey, load: countdownApi.get },
-      },
-    },
-  ],
-});
+// The host generates this plugin's list, editor, and settings pages from its
+// manifest. This module only gives the plugin its icon.
+export default defineStudioPlugin({ id: "countdown_bar", icon: Clock3 });

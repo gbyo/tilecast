@@ -37,6 +37,11 @@
     "font_unsupported": "The file is not a supported font. Upload a TTF or OTF file.",
     "font_invalid": "That selection is not available for this font family.",
     "font_catalog_disabled": "The Google Fonts catalog is turned off on this server. Upload font files instead.",
-    "font_catalog_unavailable": "Tilecast could not reach the Google Fonts catalog. Check the server's internet access, or upload font files instead."
+    "font_catalog_unavailable": "Tilecast could not reach the Google Fonts catalog. Check the server's internet access, or upload font files instead.",
+    "plugin_instance_revision_conflict": "Someone else saved a newer version. Reload it, then make your change again.",
+    "plugin_settings_revision_conflict": "Someone else saved newer settings. Reload them, then make your change again.",
+    "expected_revision_required": "Send expectedRevision with the revision you read, so a newer change is never overwritten.",
+    "secrets_unavailable": "Plugin secrets are unavailable on this server.",
+    "restore_unreadable_secrets": "Some plugin secrets in this backup need keys this server does not have."
   }
 }

@@ -200,7 +200,11 @@ function inputSchema(kind: InstanceKind, update: boolean) {
     required.push("expectedRevision");
   }
   for (const field of fields)
-    if (field.required && field.default === undefined && field.control !== "secret")
+    if (
+      field.required &&
+      field.default === undefined &&
+      field.control !== "secret"
+    )
       required.push(field.key);
   return { type: "object", additionalProperties: false, required, properties };
 }
@@ -381,7 +385,7 @@ export function generatedFragment(
     paths[`${collection}/{id}`] = {
       get: {
         operationId: `get${singular}`,
-        description: `Get a ${noun.singular}.`,
+        description: `Get one ${noun.singular} with its current revision, to send back as expectedRevision when updating it.`,
         parameters: [core("parameters/ResourceID")],
         responses: {
           "200": {
@@ -394,7 +398,10 @@ export function generatedFragment(
       put: {
         operationId: `update${singular}`,
         description: `Replace a ${noun.singular} when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.`,
-        parameters: [core("parameters/ResourceID"), core("parameters/CSRFToken")],
+        parameters: [
+          core("parameters/ResourceID"),
+          core("parameters/CSRFToken"),
+        ],
         requestBody: {
           required: true,
           content: {
@@ -418,7 +425,10 @@ export function generatedFragment(
       delete: {
         operationId: `delete${singular}`,
         description: `Delete a ${noun.singular} and remove it from its screens.`,
-        parameters: [core("parameters/ResourceID"), core("parameters/CSRFToken")],
+        parameters: [
+          core("parameters/ResourceID"),
+          core("parameters/CSRFToken"),
+        ],
         responses: {
           "204": { description: `${noun.singular} deleted` },
           "403": { description: "Capability or screen access missing" },
@@ -506,21 +516,21 @@ export function effectiveFragment(
   plugin: DiscoveredPlugin,
 ): { text: string; file: string; dir: string } | null {
   const declared = plugin.manifest.api?.openapi;
-  const own =
+  const ownText =
     declared && existsSync(join(plugin.path, declared))
-      ? (YAML.parse(readFileSync(join(plugin.path, declared), "utf8")) as Record<
-          string,
-          unknown
-        >)
+      ? readFileSync(join(plugin.path, declared), "utf8")
       : null;
+  const own = parseOwn(ownText);
   const generated = generatedFragment(plugin.manifest);
-  if (!own && !generated) return null;
+  if (ownText === null && !generated) return null;
   const file = declared
     ? join("plugins", plugin.dir, declared)
     : join("plugins", plugin.dir, "tilecast.plugin.json");
   const dir = join(plugin.path, "api");
-  if (!generated) {
-    return { text: readFileSync(join(plugin.path, declared!), "utf8"), file, dir };
+  // Without generated operations, or when the plugin's own file does not
+  // parse, its raw text goes on so the existing checks report it.
+  if (!generated || (ownText !== null && !own)) {
+    return { text: ownText ?? "", file, dir };
   }
   const merged: Record<string, unknown> = own ?? {
     openapi: "3.1.0",
@@ -547,15 +557,16 @@ export function effectiveAutomation(
   plugin: DiscoveredPlugin,
 ): { text: string; file: string } | null {
   const ownPath = join(plugin.path, AUTOMATION_FILENAME);
-  const own = existsSync(ownPath)
-    ? (YAML.parse(readFileSync(ownPath, "utf8")) as Record<string, unknown>)
-    : null;
+  const ownText = existsSync(ownPath) ? readFileSync(ownPath, "utf8") : null;
+  const own = parseOwn(ownText);
   const generated = generatedAutomation(plugin.manifest);
-  if (!own && generated.length === 0) return null;
-  const file = own
-    ? join("plugins", plugin.dir, AUTOMATION_FILENAME)
-    : join("plugins", plugin.dir, "tilecast.plugin.json");
-  if (generated.length === 0) return { text: readFileSync(ownPath, "utf8"), file };
+  if (ownText === null && generated.length === 0) return null;
+  const file =
+    ownText !== null
+      ? join("plugins", plugin.dir, AUTOMATION_FILENAME)
+      : join("plugins", plugin.dir, "tilecast.plugin.json");
+  if (generated.length === 0 || (ownText !== null && !own))
+    return { text: ownText ?? "", file };
   const document = own ?? { apiVersion: 1, operations: [], exclusions: [] };
   document["operations"] = [
     ...((document["operations"] as unknown[]) ?? []),
@@ -563,4 +574,17 @@ export function effectiveAutomation(
   ];
   document["exclusions"] = document["exclusions"] ?? [];
   return { text: YAML.stringify(document, { lineWidth: 0 }), file };
+}
+
+/** A plugin's own YAML file as an object, or null when absent or unparsable. */
+function parseOwn(text: string | null): Record<string, unknown> | null {
+  if (text === null) return null;
+  try {
+    const parsed: unknown = YAML.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
 }

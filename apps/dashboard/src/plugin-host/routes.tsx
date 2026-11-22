@@ -2,6 +2,7 @@ import { Outlet, type RouteObject } from "react-router";
 import { PluginRouteGate } from "../plugins/PluginRouteGate";
 import { studioPlugins } from "./discovery";
 import { pluginNamespace } from "./translation";
+import { hostedRouteObjects } from "./hosted/routes";
 
 /**
  * A plugin names a breadcrumb translation by a key in its own namespace. The
@@ -213,11 +214,15 @@ export function assertStudioRouteCollisions(routes: RouteObject[]): void {
  */
 export function pluginRouteObjects(plugins = studioPlugins()): RouteObject[] {
   return plugins
-    .filter(
-      (plugin) =>
-        plugin.definition.routes && plugin.definition.routes.length > 0,
-    )
-    .map((plugin) => {
+    .map((plugin) => ({
+      plugin,
+      routes: [
+        ...hostedRouteObjects(plugin),
+        ...(plugin.definition.routes ?? []),
+      ],
+    }))
+    .filter(({ routes }) => routes.length > 0)
+    .map(({ plugin, routes }) => {
       const expected = `/plugins/${plugin.dir}`;
       if (plugin.route !== expected) {
         throw new Error(
@@ -232,7 +237,7 @@ export function pluginRouteObjects(plugins = studioPlugins()): RouteObject[] {
             <Outlet />
           </PluginRouteGate>
         ),
-        children: qualifyBreadcrumbs(plugin.definition.routes!, plugin.id),
+        children: qualifyBreadcrumbs(routes, plugin.id),
       };
     });
 }

@@ -2106,7 +2106,14 @@ export type ContentDefinitionField = {
     | "media_asset"
     | "repeating_group"
     | "string_list"
-    | "font";
+    | "font"
+    | "time"
+    | "weekdays"
+    // Plugin Manifest API 3 only; a Widget schema never carries them.
+    | "secret"
+    | "connection";
+  /** Plugin Manifest API 3 only: the field holds personal data. */
+  personal?: { retentionDays: number };
   required?: boolean;
   default?: unknown;
   minimum?: number;
@@ -2139,6 +2146,8 @@ export type ContentDefinitionField = {
     semanticRole?: string;
     legacyKeys?: string[];
     typeFallback?: boolean;
+    /** An integer stored in seconds that a person enters in whole minutes. */
+    inputUnit?: "minutes";
   };
   mediaTypes?: string[];
   maximumItems?: number;

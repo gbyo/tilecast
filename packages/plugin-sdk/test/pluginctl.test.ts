@@ -32,7 +32,7 @@ function makeRepo(): string {
   mkdirSync(join(dir, "docs/openapi"), { recursive: true });
   writeFileSync(
     join(dir, "docs/openapi/core.yaml"),
-    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      operationId: health\n      description: The server process is running.\n      responses:\n        '200':\n          description: ok\n          content:\n            application/json:\n              schema:\n                type: object\n                additionalProperties: true\ncomponents:\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n      additionalProperties: true\n",
+    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      operationId: health\n      description: The server process is running.\n      responses:\n        '200':\n          description: ok\n          content:\n            application/json:\n              schema:\n                type: object\n                additionalProperties: true\ncomponents:\n  parameters:\n    CSRFToken:\n      name: X-CSRF-Token\n      in: header\n      required: false\n      schema:\n        type: string\n    ResourceID:\n      name: id\n      in: path\n      required: true\n      schema:\n        type: string\n        format: uuid\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n      additionalProperties: true\n",
   );
   writeFileSync(
     join(dir, "plugins/review-eligibility.json"),
@@ -755,6 +755,103 @@ operations:
     expect(found.map((problem) => problem.message).join("\n")).toContain(
       "migration version 3 is also used by",
     );
+  });
+
+  describe("Plugin Manifest API 3", () => {
+    const manifestOf = (dir: string) =>
+      JSON.parse(
+        readFileSync(
+          join(root, "plugins", dir, "tilecast.plugin.json"),
+          "utf8",
+        ),
+      ) as Record<string, any>;
+
+    it("scaffolds a plugin whose routes, API, and pages the host generates", async () => {
+      const created = scaffold(root, {
+        id: "room_sign",
+        category: "Display",
+        maintainer: "@gbyo",
+        api: false,
+        pluginApi: 3,
+        player: { required: ["player.clock@1"] },
+      });
+      // Nothing for the host to generate is written by hand.
+      expect(created.some((path) => path.includes("/studio/"))).toBe(false);
+      expect(created.some((path) => path.includes("/api/"))).toBe(false);
+      const manifest = manifestOf("room-sign");
+      expect(manifest.apiVersion).toBe(3);
+      expect(manifest.studio).toEqual({ route: "/plugins/room-sign" });
+      expect(manifest.instances[0]).toMatchObject({
+        kind: "item",
+        targeting: "screens",
+        operations: { singular: "RoomSignItem", plural: "RoomSignItems" },
+      });
+      await generateInto(root);
+      expect(await problems(root)).toEqual([]);
+      // The generated OpenAPI describes the five instance operations.
+      const openapi = readFileSync(join(root, "docs/openapi.yaml"), "utf8");
+      for (const id of [
+        "listRoomSignItems",
+        "createRoomSignItem",
+        "getRoomSignItem",
+        "updateRoomSignItem",
+        "deleteRoomSignItem",
+      ])
+        expect(openapi).toContain(`operationId: ${id}`);
+      // The host maps them into operator automation without a file.
+      const automation = JSON.parse(
+        readFileSync(
+          join(root, "plugins/room-sign/automation.gen.json"),
+          "utf8",
+        ),
+      );
+      expect(automation.operations).toHaveLength(5);
+    });
+
+    it("refuses a plugin that opens its own network connection", async () => {
+      scaffold(root, {
+        id: "room_sign",
+        category: "Display",
+        maintainer: "@gbyo",
+        api: false,
+        pluginApi: 3,
+      });
+      await generateInto(root);
+      const source = join(root, "plugins/room-sign/plugin.go");
+      // Comments and strings that name a client are not uses of one.
+      writeFileSync(
+        source,
+        readFileSync(source, "utf8") +
+          '\n// A plugin never calls http.Get here.\nvar note = "net.Dial is not used"\n',
+      );
+      expect(await problems(root)).toEqual([]);
+      writeFileSync(
+        source,
+        readFileSync(source, "utf8") +
+          '\nfunc fetch() { _, _ = http.Get("https://example.com") }\n',
+      );
+      expect((await problems(root)).join("\n")).toContain(
+        "does not open its own network connections",
+      );
+    });
+
+    it("does not apply the network rule to Plugin API v2 plugins", async () => {
+      scaffold(root, {
+        id: "legacy_poller",
+        category: "Automation",
+        maintainer: "@gbyo",
+        api: false,
+        studio: false,
+      });
+      writeFileSync(
+        join(root, "plugins/legacy-poller/extra.go"),
+        'package legacypoller\n\nimport "net/http"\n\nfunc fetch() { _, _ = http.Get("https://example.com") }\n',
+      );
+      await generateInto(root);
+      expect((await problems(root)).join("\n")).not.toContain(
+        "own network connections",
+      );
+    });
   });
 
   describe("Plugin API v2", () => {
