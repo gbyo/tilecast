@@ -119,8 +119,9 @@ does not reimplement the feature.
 
 On this test, these are core features with separate records: the automation
 and preemption engine, life-safety mode, interactive and touch Players,
-multilingual content, advertising slots, federation, live video ingest, and
-audience measurement. Interactive and touch Players are deferred.
+multilingual content, device speech synthesis, advertising slots, federation,
+live video ingest, and audience measurement. Interactive and touch Players
+are deferred.
 
 ### 2. One declarative model, two security boundaries
 
@@ -286,11 +287,33 @@ secret. A later change can use the same mechanism.
 - The Server follows a redirect only to an approved origin of the same
   connection, and it checks the new address again.
 
+#### Plain HTTP on the local network
+
+Many local devices and local systems have no TLS. Examples are solar
+inverters, meter gateways, and library catalog servers. A connection can
+declare the scheme `http` with these rules:
+
+- The origin must be `operator`. A plugin cannot declare a fixed `http`
+  origin.
+- The connection must use the private network rule `allowed`. The Owner or
+  Administrator gives the private network consent and a second consent for
+  plain HTTP. Studio shows that the traffic is not encrypted.
+- Every resolved address must be a private address: IPv4 `10.0.0.0/8`,
+  `172.16.0.0/12`, `192.168.0.0/16`, or IPv6 `fc00::/7`. The Server refuses a
+  public address, a loopback address, and a link-local address. The link-local
+  rule also refuses cloud metadata addresses such as `169.254.169.254`.
+- A secret reference in an `http` request needs a third declaration,
+  `allowPlaintextSecret`, and its own consent in Studio. Without it, the host
+  refuses the request with `plaintext_secret_refused`.
+- The Server follows a redirect from `http` to an approved `https` origin. It
+  never follows a redirect from `https` to `http`.
+- OAuth connections, webhooks, and remote feed images never use `http`.
+
 #### `http.fetch@1`
 
 | Property         | Rule                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------- |
-| Scheme           | `https`.                                                                                          |
+| Scheme           | `https`. `http` only under the local network rules above.                                         |
 | Methods          | `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`.                                                  |
 | Request headers  | At most 32. The host refuses `Host`, `Cookie`, `Connection`, and other hop-by-hop headers.        |
 | Secret reference | A header value can name a secret setting with a format, for example `Bearer {secret}`.            |
@@ -307,8 +330,12 @@ reference. Phase 6 adds it.
 - Phase 6 adds `tcp` and `tls` origins for request and response protocols
   such as SIP2 and PJLink, with the same address rules.
 - UDP and multicast, such as SNMP traps, sACN, and paging, are not Server
-  protocols. They belong to native Player services on Edge.
-- Plain HTTP on a local network and MQTT are open questions.
+  protocols. They belong to native Player services on Edge. BACnet/IP is an
+  example.
+- A `tcp` origin follows the plain HTTP rules above: `operator` origin,
+  private addresses only, and the same consents. A `tls` origin follows the
+  address rules of `https`.
+- MQTT is an open question.
 
 #### OAuth 2.0
 
@@ -341,29 +368,63 @@ A webhook declares one inbound endpoint at
 
 #### Authentication
 
-| Mode        | Use                             | Rule                                                                                                                                                                                                                                                      |
-| ----------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `token`     | Fire panels, automation tools   | A webhook token in the `Authorization` header. A new table holds the public ID and the SHA-256 hash of the secret, in the shape of integration tokens. The prefix is `tch_`. Creating one needs `plugins.manage`. Integration tokens stay Owner-reserved. |
-| `signature` | SaaS providers                  | The host verifies an HMAC signature over the raw body with a `secret` setting. See below.                                                                                                                                                                 |
-| `public`    | Photo submissions, public forms | An Owner must enable it. Rate limits for each address and in total. Input must pass through a review state in the plugin.                                                                                                                                 |
+| Mode         | Use                             | Rule                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `token`      | Fire panels, automation tools   | A webhook token in the `Authorization` header. A new table holds the public ID and the SHA-256 hash of the secret, in the shape of integration tokens. The prefix is `tch_`. Creating one needs `plugins.manage`. Integration tokens stay Owner-reserved. |
+| `signature`  | SaaS providers                  | The host verifies an HMAC signature over the raw body with a `secret` setting. See below.                                                                                                                                                                 |
+| `fetch-back` | SaaS providers without HMAC     | The host keeps only an event ID from the request. The plugin reads the event from the provider through an authenticated connection. See below.                                                                                                            |
+| `public`     | Photo submissions, public forms | An Owner must enable it. Rate limits for each address and in total. Input must enter moderation (section 13a) before it can reach a screen.                                                                                                               |
 
 The `signature` mode has presets and one custom form:
 
 - `standard-webhooks`: headers `webhook-id`, `webhook-timestamp`, and
   `webhook-signature`; HMAC-SHA256 over `id.timestamp.body`; `v1,` and
   Base64; several signatures for key rotation.
-- `hmac-sha256`: the connection declares the signature header, an optional
-  timestamp header, an optional prefix, the encoding (`hex` or `base64`),
-  and the signed string (`body` or `timestamp.body`).
-- `verify` hook: for a provider that fits neither form, the plugin verifies
-  the raw body. The host gives the hook 1 second.
+- `hmac-sha256`: the connection declares these values:
+  - the signature header;
+  - the header format: `plain`, or `pairs` for comma-separated `key=value`
+    pairs in one header. With `pairs`, the connection names the timestamp key
+    and the signature key. The header can hold several signatures for key
+    rotation. Stripe uses this format;
+  - an optional timestamp header, for the format `plain`;
+  - an optional prefix, such as `sha256=`;
+  - the encoding, `hex` or `base64`;
+  - the signed string: `body`, `timestamp.body`, or `url.body`. With
+    `url.body`, the host signs the exact public endpoint address that Studio
+    shows, then the body. Square uses this form.
+- `verify` hook: for a provider that fits none of these forms, the plugin
+  verifies the raw body. The host gives the hook 1 second and no network
+  access.
 
 For every signature mode:
 
-- A timestamp older or newer than 5 minutes fails.
+- When the mode declares a timestamp, a timestamp older or newer than 5
+  minutes fails.
 - The comparison is constant time.
-- The host drops a repeated delivery ID within 24 hours. The connection names
-  the delivery ID: a header, or a JSON Pointer into the body.
+- The host drops a repeated delivery ID. The connection names the delivery
+  ID: a header, or a JSON Pointer into the body. A mode without a delivery ID
+  is refused at install.
+- The host keeps delivery IDs for 24 hours when the mode declares a
+  timestamp. Without a timestamp, it keeps them for 7 days. A captured request
+  without a timestamp can be replayed after that window. The plugin treats a
+  delivery as a reason to read the current state from the provider, not as
+  the state itself. Mandatory polling, below, makes this complete.
+
+The `fetch-back` mode serves providers that sign with certificates or that
+verify with an API call, such as PayPal. The `verify` hook cannot call a
+provider in 1 second without network access.
+
+- The connection declares a JSON Pointer to the event ID and a pattern. The
+  pattern is at most `^[A-Za-z0-9_.:-]{1,128}$`.
+- The host extracts the event ID, drops the rest of the request, and answers
+  `202`. A request without a valid event ID receives `400`.
+- The host delivers only the event ID to `handle_webhook`. The plugin reads
+  the event from the provider with `http.fetch@1` and an authenticated
+  connection of the same plugin.
+- The host applies a rate limit for each address and for each webhook. It
+  combines repeated event IDs within 24 hours into one delivery.
+- An attacker can only make the plugin read an event that the provider
+  authenticates and owns.
 
 #### Handshakes
 
@@ -515,6 +576,69 @@ before)`. The host calls it daily and records the result.
 - Backups keep personal data until the backup expires. The plugin
   documentation must say this.
 
+### 13a. Moderation
+
+Content Review and moderation review different things:
+
+- Content Review (`internal/approvals`) reviews an immutable submission of a
+  Playlist, a Layout, or a Campaign before publication. A change that a
+  plugin makes with `content.write@1` goes through Content Review when the
+  review policy requires it. The plugin does not build its own approval
+  workflow.
+- Moderation reviews untrusted input before a plugin uses it. Examples are a
+  `public` webhook request, participant input, a post from a social network,
+  and a message from a chat platform.
+
+The host owns moderation. A plugin does not keep its own review state.
+
+**Queues.** A plugin declares each moderation queue in its manifest with:
+
+- a title;
+- an item schema from `packages/config-schema`, with at most 16 fields;
+- a reviewer capability, which must be a plugin capability of the same
+  plugin. See the companion access record;
+- a retention period for pending items, at most 30 days;
+- the `personal` marker on each field that holds personal data;
+- a limit of pending items, 1,000 by default.
+
+**Items.**
+
+- `moderation.submit@1` adds one item. An item has a stable ID from the
+  plugin, the field values, an optional instance, an optional source label,
+  and at most 4 media references.
+- An item is at most 16 KiB without its media.
+- The host imports item media through the media pipeline into private plugin
+  storage. The media is not in the Media library. No Player receives it before
+  approval.
+- A repeated item ID changes nothing.
+- A full queue refuses a new item with `queue_full`.
+- The item states are `pending`, `approved`, `rejected`, `expired`, and
+  `withdrawn`. Only a `pending` item can change state. The plugin can
+  withdraw a pending item.
+
+**Decisions.**
+
+- Studio generates the queue page. A person with the reviewer capability
+  approves or rejects an item, with an optional note. One request can decide
+  at most 50 items.
+- The host calls the moderation hook in the reviewer's `studio` request,
+  with the reviewer as the actor and the time limit of `handle_ui_request`.
+  A bundled plugin implements `HandleModeration(ctx, plugin.Decision)
+error`. An installed plugin exports `handle_moderation`.
+- The hook can call `content.write@1` and `media.ingest@1` as the reviewer.
+- The host records the decision only when the hook succeeds. The hook must
+  give the same result when it receives the same item ID again.
+- The audit event records the reviewer, the queue, the item ID, and the
+  decision. It never records a `personal` field value.
+
+**Retention.**
+
+- A pending item expires at the end of the queue retention period.
+- The host deletes the field values and the media of a decided or expired
+  item after 7 days. It keeps the decision record without `personal` fields.
+- An approved item gives the plugin its data in the hook. The plugin copies
+  what it needs into its own state, a feed, or content.
+
 ### 14. Notifications and other provider slots
 
 A provider slot is a typed interface of a core feature. Core owns the
@@ -532,8 +656,8 @@ semantics. The plugin supplies one function.
 one named person, such as a visitor's host, is not a notification channel.
 It needs a separate decision before a plugin can send it.
 
-Plugins that need approval of content submit it through Content Review
-(`internal/approvals`). They do not build their own approval workflow.
+Content approval goes through Content Review, and review of untrusted input
+goes through moderation. See section 13a.
 
 ### 15. Player contribution
 
@@ -555,15 +679,49 @@ to the Server part of the same plugin. A native contribution can do the same.
 - A report is at most 2 KiB. A rate limit applies for each plugin and screen.
 - The delivery engine delivers it to `HandlePlayerReport`.
 
-**`player.audio.cue@1`.** The plugin plays one declared media item once, at
-a declared volume, for example a chime. The host refuses a cue while the
-screen is asleep. `player.audio-bed@1` follows the existing design.
+**`player.audio.cue@1`.** The plugin plays a sequence of 1 to 16 declared
+audio items once, at a declared volume. A chime is one item. "Now serving 42
+at counter 3" is a sequence of recorded phrase items and number items.
+
+- Each item is a plugin asset or the value of a `media_asset` setting.
+- A Player accepts a cue only when it holds every item of the sequence in
+  its cache. Otherwise it refuses the cue with `audio_item_missing`.
+- A Player plays the items one after the other and adds no gap.
+- One sequence plays at a time on a screen. The host holds at most 4 waiting
+  sequences for each plugin and screen. When the limit is full, the host drops
+  the oldest waiting sequence.
+- The host refuses a cue while the screen is asleep.
+- A plugin surface must show the same information as text while the cue
+  plays. Audio is never the only signal.
+- Device speech synthesis is not a plugin service. See section 1.
+
+`player.audio-bed@1` follows the existing design.
 
 **First native service.** `player.serial@1` on Edge reads and writes one
 serial device that an Owner assigns to the screen. Edge adds a udev rule, a
 group, and `DeviceAllow` entries for `ttyUSB` and `ttyACM`, with the same
 pattern as HDMI-CEC and I2C. The capability matrix records it. Hardware
 qualification is required.
+
+**Printing.** A plugin prints in one of three ways. Use the first one that
+works for the device:
+
+1. A kiosk page or a staff page opens the browser print dialog of its own
+   device. This method needs no host service.
+2. The Server part of the plugin sends raw printer data, such as ZPL or
+   ESC/POS, to a network printer through a `tcp` origin, usually port 9100.
+   The local network rules of section 7 apply.
+3. `player.printer@1` on Edge writes raw printer data to one USB printer
+   device (`/dev/usb/lp*`, kernel driver `usblp`) that an Owner assigns to the
+   screen. Edge adds a udev rule, a group, and a `DeviceAllow` entry, as for
+   `player.serial@1`. Some printers do not accept raw data through `usblp`.
+   The capability matrix lists each qualified model. No phase includes this
+   service. It is added with the first plugin that needs it.
+
+For the third method, a print job is plugin state with a job ID. A native
+contribution prints each
+job ID once and sends the result with `player.report@1`. A job with personal
+data, such as a visitor badge, is `sensitive` state.
 
 **Gateway pattern.** One Player owns a device, such as a scoreboard console.
 It sends decoded values with `player.report@1`. The Server part of the plugin
@@ -595,8 +753,17 @@ If a fast path is needed:
 - `media.ingest@1` adds a file to the Media library through the media
   pipeline, as the acting operator.
 - `content.write@1` creates and changes playlists, Widgets, and schedules
-  through the canonical domain services, in the `studio` context only, with
-  the operator's authorization.
+  through the canonical domain services, with the operator's authorization.
+  Content Review applies when the review policy requires it.
+- Both services run in the `studio` context only. A timer, a job, an event, a
+  webhook, and a Player report have no operator. They cannot call these
+  services.
+- A plugin that acts on outside input, such as a chat message that asks for a
+  publication, puts the input in moderation. The reviewer's decision runs in
+  the `studio` context, so the hook can write content as the reviewer.
+- A plugin that must stop showing something at a time uses an instance with a
+  `window` schedule or a feed publication with `validUntil`. It does not
+  change content from a timer.
 - Studio editor action slots let a plugin propose a change to the open
   draft. The operator accepts or rejects the proposal. A proposal never saves
   by itself.
@@ -604,7 +771,8 @@ If a fast path is needed:
 ### 17. Studio
 
 - The host generates the settings page, the instance pages, the connections
-  page, the webhook page, the personal-data page, and the status page.
+  page, the webhook page, the moderation queue pages, the personal-data page,
+  and the status page.
 - A bundled plugin can add React pages. An installed plugin can add a
   sandbox frame page.
 - Staff pages, kiosks, and participant pages follow the companion access
@@ -617,7 +785,7 @@ install review shows:
 
 - `validate_instance` and `project_state`
 - `handle_event`, `handle_webhook`, `verify_webhook`
-- `handle_player_report`, `handle_timer`
+- `handle_player_report`, `handle_timer`, `handle_moderation`
 - `run_job` and `handle_ui_request`, as today
 
 ### 19. Tooling
@@ -637,12 +805,12 @@ checks and the contracts describe the new members.
 | ----- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
 | 0     | Takeover priority classes. Terminology and the rename. One extension overview.                                                 | Emergency Alerts survives an operator Takeover           |
 | 1     | `config-schema`, settings, secrets, instances, personal-data declarations, the registry Go client                              | Countdown Bar on Plugin Manifest API 3, with line counts |
-| 2     | `http.fetch@1`, connections, OAuth, feeds with overrides and images, `storage.kv@1`, timers                                    | Room sign display; POS menu board                        |
-| 3     | Events, webhooks, the delivery engine, notification channels, `contenthealth` checks                                           | Planning Center sync; offline notifier                   |
-| 4     | Plugin capabilities, staff pages, kiosks                                                                                       | "Now serving" keypad; scorekeeper page                   |
-| 5     | `player.report@1`, `player.audio.cue@1`, `player.serial@1` on Edge, the fast-path measurement                                  | Scoreboard gateway; queue chime                          |
+| 2     | `http.fetch@1`, connections, local `http` origins, OAuth, feeds with overrides and images, `storage.kv@1`, timers              | Room sign display; POS menu board                        |
+| 3     | Events, `token`, `signature`, and `fetch-back` webhooks, the delivery engine, notification channels, `contenthealth` checks    | Planning Center sync; offline notifier                   |
+| 4     | Plugin capabilities, staff pages, kiosks, moderation, `public` webhooks                                                        | "Now serving" keypad; scorekeeper page                   |
+| 5     | `player.report@1`, `player.audio.cue@1` with sequences, `player.serial@1` on Edge, the fast-path measurement                   | Scoreboard gateway; spoken queue call                    |
 | 6     | Installed parity: every member for packages, `plugin-runtime.state@1` on instances, Player frame ABI 2 on services, blobs, TCP | One plugin shipped as a package; transit arrivals        |
-| 7     | Participant sessions; content and media services; editor action slots                                                          | Live poll; Slack publishing                              |
+| 7     | Participant sessions; content and media services; editor action slots                                                          | Live poll; Slack publishing through moderation           |
 
 Emergency Alerts and Forms move to Plugin Manifest API 3 after phase 3.
 Plugin API v1 is deleted after both move.
@@ -656,14 +824,21 @@ Plugin API v1 is deleted after both move.
   the bundled plugins move.
 - The Server gains tables for settings, instances, secrets, DEKs,
   connections, webhook tokens, the delivery queue, timers, feeds, overrides,
-  and capability definitions.
+  moderation items, and capability definitions.
 - The installation gains a KEK. An operator who loses the KEK and its export
   must enter each secret again.
 - Operator-approved private origins let the Server reach the local network.
   For installed plugins, the consent control, the address check, and the
   redirect rule contain this risk.
+- Local `http` and `tcp` origins send data without encryption on the local
+  network. A separate consent is necessary before a secret travels this way.
 - Public webhooks and participant sessions accept input from the internet.
-  Rate limits and review states contain abuse. They do not remove it.
+  Rate limits and moderation contain abuse. They do not remove it.
+- A `fetch-back` webhook accepts requests that it cannot authenticate. Each
+  request can cause one read from the provider, within the rate limit.
+- A provider that signs without a timestamp allows a replay after the 7-day
+  delivery ID window. The plugin reads current provider state, so a replay
+  does not change the result.
 - OAuth connections need an HTTPS public URL and an OAuth client that the
   operator registers.
 - `player.serial@1` widens the Edge device policy. It needs hardware
@@ -693,11 +868,24 @@ Plugin API v1 is deleted after both move.
   cryptography.
 - **Native Player code in installed plugins.** The Plugin Model V2 record
   rejects it.
+- **A review state in each plugin.** Each plugin would build its own queue,
+  retention, audit, and media quarantine for untrusted input.
+- **Content Review for untrusted input.** Content Review reviews immutable
+  submissions of Playlists, Layouts, and Campaigns. A social post or a poll
+  answer is not such a submission.
+- **`content.write@1` in a `background` or `system` context.** A timer or a
+  webhook has no operator. A write would have no accountable actor and no
+  content access decision.
+- **A verification preset for each provider.** The `pairs` header format,
+  the `url.body` signed string, the `verify` hook, and `fetch-back` cover the
+  known forms without code for each provider.
+- **Device speech synthesis as a plugin service.** It adds a Player
+  presentation mechanism and language behavior. Section 1 makes it core.
+- **Plain HTTP to any address.** It would expose public traffic and cloud
+  metadata addresses to plugins.
 
 ## Open questions
 
-- Does Tilecast need an Owner-approved plain-HTTP mode for local network
-  devices?
 - Does a connection need MQTT and other long-lived streams? An installed
   plugin then needs a host-held connection that delivers messages.
 - Which abuse controls must public webhooks and participant sessions have

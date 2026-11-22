@@ -143,6 +143,8 @@ test checks that Owner and Administrator hold each of them.
   a security boundary.
 - Screen access still applies. A plugin capability says what a person can
   do. The screen scope says where.
+- A moderation queue names its reviewer capability. The key must be a key of
+  the same plugin.
 
 ## Decision, part 2: plugin sessions
 
@@ -213,8 +215,11 @@ phone, for example a poll, trivia, or a speaker queue.
   delivers participant messages to the plugin asynchronously.
 - The host limits the number of participants for each instance. The default
   is 500. An Owner can change it.
-- Participant input that can reach a screen must pass through a review state
-  in the plugin first, as for public webhooks.
+- Free text and media from a participant must enter moderation before they
+  can reach a screen, as for public webhooks. See section 13a of Plugin
+  Model V3.
+- A choice from options that the plugin defined, such as a poll vote, can
+  reach a screen as an aggregate without moderation.
 - A participant has no name unless the plugin asks for one. A name is
   personal data and follows the personal-data rules of Plugin Manifest API 3.
 - Participation needs an address that phones can reach. On an installation
