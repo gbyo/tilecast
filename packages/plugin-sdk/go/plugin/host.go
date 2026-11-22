@@ -155,15 +155,15 @@ type Targets interface {
 type TakeoverPriorityClass string
 
 const (
-	TakeoverPriorityRoutine   TakeoverPriorityClass = "routine"
-	TakeoverPriorityPriority  TakeoverPriorityClass = "priority"
-	TakeoverPriorityUrgent    TakeoverPriorityClass = "urgent"
-	TakeoverPriorityEmergency TakeoverPriorityClass = "emergency"
+	TakeoverClassRoutine   TakeoverPriorityClass = "routine"
+	TakeoverClassPriority  TakeoverPriorityClass = "priority"
+	TakeoverClassUrgent    TakeoverPriorityClass = "urgent"
+	TakeoverClassEmergency TakeoverPriorityClass = "emergency"
 )
 
 func (c TakeoverPriorityClass) Valid() bool {
 	switch c {
-	case TakeoverPriorityRoutine, TakeoverPriorityPriority, TakeoverPriorityUrgent, TakeoverPriorityEmergency:
+	case TakeoverClassRoutine, TakeoverClassPriority, TakeoverClassUrgent, TakeoverClassEmergency:
 		return true
 	default:
 		return false
