@@ -220,6 +220,23 @@ install it, with how each one is checked and whether it needs a public HTTPS
 address. Removing the plugin deletes its tokens and any requests it hasn't
 handled yet.
 
+### Notification channels and content checks
+
+A plugin can provide a **notification channel** that delivers Tilecast's
+notifications somewhere else, or a **Content Health check** that looks at
+your playlists, Layouts, Widgets, or media and reports problems, such as text
+that's too small to read. Tilecast still decides everything: your
+notification settings choose what is sent and when, and a check's findings
+become ordinary content incidents in **Activity** that recover on their own
+when the problem is fixed. A check only sees one item at a time, when it
+changes.
+
+The plugin's **Status** page shows whether each channel is ready and how many
+items each check looked at. If a check fails, its earlier findings stay open
+until it works again; a broken check never makes a problem look solved.
+Removing the plugin closes the incidents its checks opened. The Store page
+lists both under **Services for Tilecast** before you install.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:

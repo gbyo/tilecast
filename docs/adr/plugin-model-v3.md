@@ -38,8 +38,13 @@ attempt with the session, because the Studio session cookie is
   Webhooks page. See [plugin webhooks](../plugin-webhooks.md). The
   `handle_webhook` and `verify_webhook` exports of an installed plugin stay
   in phase 6, and the `public` mode stays in phase 4.
-- Notification channels and Content Health providers (phase 3D) and the
-  phase 3 proof plugins (phase 3E) are not implemented.
+- Phase 3D is implemented for bundled plugins: the `notifications.channels`
+  and `contenthealth.checks` provider slots in the `providers` manifest
+  member. A channel is a sender of the existing notification outbox, and a
+  check receives one changed, read-only content model at a time. See
+  [plugin provider slots](../plugin-providers.md). Installed
+  `check_content` and installed notification providers stay in phase 6.
+- The phase 3 proof plugins (phase 3E) are not implemented.
 
 Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),

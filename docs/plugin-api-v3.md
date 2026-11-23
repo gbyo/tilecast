@@ -342,6 +342,16 @@ handshake itself, drops a repeated delivery ID, and answers the declared
 `HandleWebhook(ctx, plugin.Webhook) error`, and `VerifyWebhook` for a
 `verify` signature. See [Plugin webhooks](plugin-webhooks.md).
 
+## Provider slots
+
+A plugin fills core provider slots in `providers`. A notification channel
+(`providers.notifications.channels`) implements `DeliverNotification` and
+delivers notifications that notify already decided to send. A Content Health
+check (`providers.contentHealth.checks`) implements `CheckContent` and
+receives one changed, read-only content model of a declared kind at a time.
+Core owns recipients, policy, incidents, and recovery. See
+[Plugin provider slots](plugin-providers.md).
+
 ## Personal data
 
 A field of the plugin profile can carry `personal: { retentionDays }`, from 1 to
