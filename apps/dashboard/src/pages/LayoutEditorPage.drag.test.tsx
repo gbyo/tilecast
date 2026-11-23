@@ -71,12 +71,13 @@ function buildLayout(): Layout {
   };
 }
 
-function mockAuth() {
+function mockAuth(canPublish = false) {
   vi.spyOn(authModule, "useAuth").mockReturnValue({
     status: {
       authenticated: true,
       user: { id: "u1", name: "User", username: "user", role: "owner" },
       csrfToken: "tok",
+      capabilities: canPublish ? ["layout.edit", "layout.publish"] : [],
     },
     isLoading: false,
   } as unknown as ReturnType<typeof authModule.useAuth>);
@@ -379,6 +380,32 @@ describe("Layout editor chrome", () => {
     expect(screen.getByRole("menuitem", { name: /Save now/ })).toHaveAttribute(
       "data-disabled",
     );
+  });
+
+  it("keeps publishing visible on tablet layouts while secondary commands stay in the file menu", async () => {
+    mockAuth(true);
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+    const fileActions = screen.getByRole("button", {
+      name: "Layout file actions",
+    });
+    fireEvent.click(fileActions);
+    expect(await screen.findByText("Draft only")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Preview" })).toBeVisible();
+  });
+
+  it("shows the publication state separately from autosave on desktop", async () => {
+    mockAuth(true);
+    mockDesktop();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    expect(screen.getByText("Draft only")).toBeVisible();
+    expect(saveStatus()).toHaveTextContent("Saved");
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
   });
 
   it("reports autosave as status text rather than a disabled button", async () => {
