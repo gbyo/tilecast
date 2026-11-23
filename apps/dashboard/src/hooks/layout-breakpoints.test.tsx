@@ -75,7 +75,7 @@ describe("Studio layout breakpoints", () => {
     });
   });
 
-  it("pins browser navigation only when the viewport can spare its width", () => {
+  it("pins browser navigation only when space allows", () => {
     expect(layoutAt(1280)).toEqual({
       phone: false,
       compact: false,
