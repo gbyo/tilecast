@@ -136,12 +136,18 @@ func TestPluginEventsReachSubscribersAsynchronously(t *testing.T) {
 	// The publisher never names its own identity: an undeclared event, a
 	// wrong version, or a payload that does not match is refused.
 	for name, call := range map[string]func() eventplugins.PublishResult{
-		"undeclared":    func() eventplugins.PublishResult { return e.publish(t, "other@1", "s", map[string]any{"message": "x"}) },
-		"version":       func() eventplugins.PublishResult { return e.publish(t, "signal@2", "s", map[string]any{"message": "x"}) },
-		"unknown field": func() eventplugins.PublishResult { return e.publish(t, "signal@1", "s", map[string]any{"message": "x", "extra": 1}) },
-		"type":          func() eventplugins.PublishResult { return e.publish(t, "signal@1", "s", map[string]any{"message": 3}) },
-		"required":      func() eventplugins.PublishResult { return e.publish(t, "signal@1", "s", map[string]any{"count": 1}) },
-		"subject":       func() eventplugins.PublishResult { return e.publish(t, "signal@1", "a\nb", map[string]any{"message": "x"}) },
+		"undeclared": func() eventplugins.PublishResult { return e.publish(t, "other@1", "s", map[string]any{"message": "x"}) },
+		"version": func() eventplugins.PublishResult {
+			return e.publish(t, "signal@2", "s", map[string]any{"message": "x"})
+		},
+		"unknown field": func() eventplugins.PublishResult {
+			return e.publish(t, "signal@1", "s", map[string]any{"message": "x", "extra": 1})
+		},
+		"type":     func() eventplugins.PublishResult { return e.publish(t, "signal@1", "s", map[string]any{"message": 3}) },
+		"required": func() eventplugins.PublishResult { return e.publish(t, "signal@1", "s", map[string]any{"count": 1}) },
+		"subject": func() eventplugins.PublishResult {
+			return e.publish(t, "signal@1", "a\nb", map[string]any{"message": "x"})
+		},
 	} {
 		var failure *plugin.ServiceError
 		if result := call(); !errors.As(result.Err, &failure) {

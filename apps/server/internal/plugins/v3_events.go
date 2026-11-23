@@ -2,8 +2,6 @@ package plugins
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -96,14 +94,6 @@ func (s *Service) fanout(ctx context.Context, tx pgx.Tx, name, subject string, p
 		}
 	}
 	return occurrence, queued, nil
-}
-
-// eventFingerprint is the SHA-256 of the canonical JSON of a payload
-// schema. Titles and descriptions are not part of it.
-func eventFingerprint(fields []configschema.Field) string {
-	encoded, _ := json.Marshal(fields)
-	sum := sha256.Sum256(encoded)
-	return hex.EncodeToString(sum[:])
 }
 
 // checkEventSchema records the fingerprint of a published version the
