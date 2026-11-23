@@ -13,7 +13,7 @@ const compactQuery = "(max-width: 1023px)";
 const offcanvasQuery = "(max-width: 1279px)";
 const desktopQuery = "(min-width: 1024px)";
 const coarsePointerQuery = "(any-pointer: coarse)";
-const fineHoverQuery = "(hover: hover) and (pointer: fine)";
+const fineHoverQuery = "(any-hover: hover) and (any-pointer: fine)";
 
 afterEach(() => {
   cleanup();
@@ -92,7 +92,7 @@ describe("Studio input capabilities", () => {
     expect(renderHook(() => useFineHoverPointer()).result.current).toBe(false);
   });
 
-  it("allows touch and fine hover at the same time", () => {
+  it("preserves Apple Pencil hover while touch remains available", () => {
     stubQueries(coarsePointerQuery, fineHoverQuery);
     expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(true);
     expect(renderHook(() => useFineHoverPointer()).result.current).toBe(true);
