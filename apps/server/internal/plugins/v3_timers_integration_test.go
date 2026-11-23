@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/durable"
+	"github.com/tilecast/tilecast/apps/server/internal/plugindelivery"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugintest/samplestate"
 )
 
-// Durable timers: at-least-once delivery under a lease, generations that a
-// late callback cannot touch, and inert timers while a plugin is removed.
-// The clock is a stepped clock; no test waits on the wall clock for a
-// timer.
+// Durable timers on the plugin delivery queue: at-least-once delivery
+// under a lease, generations that a late callback cannot touch, parking
+// after the last attempt, and no queue for a removed plugin. The clock is a
+// stepped clock; no test waits on the wall clock for a timer.
 
 type timerEnvironment struct {
 	installationEnvironment
@@ -30,7 +30,7 @@ type timerEnvironment struct {
 func withTimers(t *testing.T, run func(timerEnvironment)) {
 	t.Helper()
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, err := env.pool.Exec(env.ctx, `TRUNCATE plugin_timers`); err != nil {
+		if _, err := env.pool.Exec(env.ctx, `TRUNCATE plugin_deliveries, plugin_delivery_status`); err != nil {
 			t.Fatal(err)
 		}
 		sample := samplestate.New()
@@ -61,7 +61,7 @@ func (e timerEnvironment) advance(d time.Duration) { e.clock.Set(e.clock.Now().A
 
 func (e timerEnvironment) run(t *testing.T, service *Service) int {
 	t.Helper()
-	ran, err := service.RunDueTimers(e.ctx)
+	ran, err := service.RunDeliveries(e.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,8 @@ func (e timerEnvironment) run(t *testing.T, service *Service) int {
 
 func (e timerEnvironment) pending(t *testing.T) []string {
 	t.Helper()
-	rows, err := e.pool.Query(e.ctx, `SELECT timer_key||':'||convert_from(payload,'UTF8') FROM plugin_timers WHERE plugin_id=$1 ORDER BY timer_key`, samplestate.ID)
+	rows, err := e.pool.Query(e.ctx, `SELECT source||':'||convert_from(payload,'UTF8') FROM plugin_deliveries
+		WHERE plugin_id=$1 AND kind='timer' AND state='pending' ORDER BY source`, samplestate.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,8 +169,8 @@ func TestTimerValidation(t *testing.T) {
 			t.Fatalf("a plugin without timers = %v", err)
 		}
 		// The pending timer limit counts other keys; replacing a key fits.
-		if _, err := e.pool.Exec(e.ctx, `INSERT INTO plugin_timers(id,plugin_id,timer_key,payload,definition_version,due_at)
-			SELECT gen_random_uuid(),$1,'bulk'||n,''::bytea,1,$2 FROM generate_series(2,1000) n`, samplestate.ID, now.Add(time.Hour)); err != nil {
+		if _, err := e.pool.Exec(e.ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,kind,source,subject,payload,due_at,next_attempt_at)
+			SELECT gen_random_uuid(),$1,1,'timer','bulk'||n,'timer:bulk'||n,''::bytea,$2,$2 FROM generate_series(2,1000) n`, samplestate.ID, now.Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 		if _, _, err := e.service.ScheduleTimer(e.ctx, samplestate.ID, "k", now, nil); err != nil {
@@ -189,29 +190,25 @@ func TestTimersSurviveRestartAndExpiredClaimsAreReclaimed(t *testing.T) {
 		if ran := e.run(t, e.restarted()); ran != 1 || len(e.sample.Deliveries()) != 1 {
 			t.Fatalf("after restart ran %d", ran)
 		}
-		// A process claims a timer and stops before it completes it.
+		// A process claims a timer, runs its side effect, and stops before
+		// it records the result.
 		e.sample.Reset()
 		id := e.schedule(t, "after", 0, "p")
-		claims, err := timerQueue.Claim(e.ctx, e.pool, e.clock.Now(), timerLease, timerBatch,
-			durable.Filter{Where: "plugin_id=$4", Args: []any{samplestate.ID}})
-		if err != nil || len(claims) != 1 || claims[0].ID != id {
-			t.Fatalf("claim = %+v %v", claims, err)
+		if _, err := e.pool.Exec(e.ctx, `UPDATE plugin_deliveries SET claim_token=gen_random_uuid(), claimed_until=$2, attempts=attempts+1 WHERE id=$1`,
+			id, e.clock.Now().Add(plugindelivery.Lease)); err != nil {
+			t.Fatal(err)
 		}
 		// While the lease holds, no other process claims it.
 		if ran := e.run(t, e.restarted()); ran != 0 {
 			t.Fatalf("a held lease was claimed: %d", ran)
 		}
-		e.advance(timerLease)
+		e.advance(plugindelivery.Lease)
 		if ran := e.run(t, e.restarted()); ran != 1 {
 			t.Fatalf("an expired lease was not reclaimed: %d", ran)
 		}
 		deliveries := e.sample.Deliveries()
-		if len(deliveries) != 1 || deliveries[0].Timer.Attempt != 2 {
+		if len(deliveries) != 1 || deliveries[0].Timer.Attempt != 2 || deliveries[0].Timer.ID != id.String() {
 			t.Fatalf("redelivery = %+v", deliveries)
-		}
-		// The stopped process's late completion changes nothing.
-		if done, err := timerQueue.Complete(e.ctx, e.pool, claims[0]); err != nil || done {
-			t.Fatalf("stale completion = %t %v", done, err)
 		}
 	})
 }
@@ -228,7 +225,7 @@ func TestTwoWorkersNeverClaimTheSameGeneration(t *testing.T) {
 			go func(worker *Service) {
 				defer wg.Done()
 				for {
-					ran, err := worker.RunDueTimers(e.ctx)
+					ran, err := worker.RunDeliveries(e.ctx)
 					if err != nil {
 						t.Error(err)
 						return
@@ -240,6 +237,10 @@ func TestTwoWorkersNeverClaimTheSameGeneration(t *testing.T) {
 			}(worker)
 		}
 		wg.Wait()
+		// Each worker stops when it finds nothing; one more pass drains
+		// anything a busy bound held back.
+		for e.run(t, e.service) > 0 {
+		}
 		seen := map[string]int{}
 		for _, delivery := range e.sample.Deliveries() {
 			seen[delivery.Timer.ID]++
@@ -251,20 +252,6 @@ func TestTwoWorkersNeverClaimTheSameGeneration(t *testing.T) {
 			if count != 1 {
 				t.Fatalf("timer %s delivered %d times", id, count)
 			}
-		}
-		// Two direct claims of one due row: one gets it.
-		e.schedule(t, "solo", 0, "")
-		var claimed [2][]durable.Claim
-		for i := range claimed {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				claimed[i], _ = timerQueue.Claim(e.ctx, e.pool, e.clock.Now(), timerLease, 10, durable.Filter{})
-			}(i)
-		}
-		wg.Wait()
-		if len(claimed[0])+len(claimed[1]) != 1 {
-			t.Fatalf("claims = %v", claimed)
 		}
 	})
 }
@@ -286,23 +273,23 @@ func TestTimerErrorsRetryWithBackoffWithoutSpinning(t *testing.T) {
 		var attempts int
 		var lastError string
 		var due time.Time
-		if err := e.pool.QueryRow(e.ctx, `SELECT attempts,last_error,due_at FROM plugin_timers WHERE timer_key='sync'`).Scan(&attempts, &lastError, &due); err != nil {
+		if err := e.pool.QueryRow(e.ctx, `SELECT attempts,last_error,next_attempt_at FROM plugin_deliveries WHERE source='sync'`).Scan(&attempts, &lastError, &due); err != nil {
 			t.Fatal(err)
 		}
-		if attempts != 1 || lastError != "handler_error" || !due.Equal(e.clock.Now().Add(timerRetryBase)) {
+		if attempts != 1 || lastError != "handler_error" || !due.Equal(e.clock.Now().Add(plugindelivery.RetryBase)) {
 			t.Fatalf("after a failure: attempts %d, error %s, due %v", attempts, lastError, due)
 		}
 		// No spinning: the same moment delivers nothing.
 		if ran := e.run(t, e.service); ran != 0 {
 			t.Fatalf("a failed timer ran again at once: %d", ran)
 		}
-		e.advance(timerRetryBase)
+		e.advance(plugindelivery.RetryBase)
 		e.run(t, e.service)
-		e.advance(timerRetryBase) // the second retry waits twice as long
+		e.advance(plugindelivery.RetryBase) // the second retry waits twice as long
 		if ran := e.run(t, e.service); ran != 0 {
 			t.Fatal("the backoff did not double")
 		}
-		e.advance(timerRetryBase)
+		e.advance(plugindelivery.RetryBase)
 		if ran := e.run(t, e.service); ran != 1 || len(e.pending(t)) != 0 {
 			t.Fatalf("third attempt = %d, pending %v", ran, e.pending(t))
 		}
@@ -313,17 +300,33 @@ func TestTimerErrorsRetryWithBackoffWithoutSpinning(t *testing.T) {
 		if fmt.Sprint(attemptsSeen) != "[1 2 3]" {
 			t.Fatalf("attempts = %v", attemptsSeen)
 		}
-		// A panic is a failure of the callback; the last attempt drops it.
+		// A panic is a failure of the callback; the eighth failure parks
+		// the timer, and it stays visible until an Owner acts on it.
 		e.sample.Handle = func(context.Context, *plugin.Services, plugin.Timer) error { panic("boom") }
-		e.schedule(t, "broken", 0, "")
-		for i := 0; i < timerMaxAttempts; i++ {
+		broken := e.schedule(t, "broken", 0, "")
+		for i := 0; i < plugindelivery.MaxAttempts; i++ {
 			if ran := e.run(t, e.service); ran != 1 {
 				t.Fatalf("attempt %d ran %d", i+1, ran)
 			}
-			e.advance(timerRetryMax)
+			e.advance(plugindelivery.RetryMax)
 		}
-		if len(e.pending(t)) != 0 {
-			t.Fatalf("a timer outlived its last attempt: %v", e.pending(t))
+		if e.run(t, e.service) != 0 || len(e.pending(t)) != 0 {
+			t.Fatalf("a timer ran after its last attempt: %v", e.pending(t))
+		}
+		status, err := e.service.Status(e.ctx, samplestate.ID)
+		if err != nil || status.Deliveries.ParkedCount != 1 || status.Deliveries.Parked[0].ID != broken ||
+			status.Deliveries.Parked[0].Kind != "timer" || status.Deliveries.Parked[0].Source != "broken" ||
+			status.Deliveries.Parked[0].LastError != "handler_panic" || status.Deliveries.LastFailure.Code != "handler_panic" {
+			t.Fatalf("status = %+v %v", status, err)
+		}
+		// Scheduling the key again replaces the parked generation.
+		e.sample.Handle = nil
+		e.schedule(t, "broken", 0, "again")
+		if e.run(t, e.service) != 1 {
+			t.Fatal("the new generation did not run")
+		}
+		if status, _ := e.service.Status(e.ctx, samplestate.ID); status.Deliveries.ParkedCount != 0 {
+			t.Fatalf("the parked generation stayed: %+v", status)
 		}
 	})
 }
@@ -361,7 +364,7 @@ func TestALateCallbackCannotDeleteItsReplacement(t *testing.T) {
 		}
 		var due time.Time
 		var attempts int
-		if err := e.pool.QueryRow(e.ctx, `SELECT due_at,attempts FROM plugin_timers WHERE timer_key='refresh'`).Scan(&due, &attempts); err != nil {
+		if err := e.pool.QueryRow(e.ctx, `SELECT next_attempt_at,attempts FROM plugin_deliveries WHERE source='refresh'`).Scan(&due, &attempts); err != nil {
 			t.Fatal(err)
 		}
 		if got := e.pending(t); len(got) != 1 || got[0] != "refresh:C" || attempts != 0 || !due.Equal(e.clock.Now().Add(2*time.Hour)) {
@@ -370,34 +373,49 @@ func TestALateCallbackCannotDeleteItsReplacement(t *testing.T) {
 	})
 }
 
-func TestTimersAreInertWhileRemovedAndBoundToTheirDefinition(t *testing.T) {
+func TestRemovalDeletesTimersAndTimersAreBoundToTheirDefinition(t *testing.T) {
 	withTimers(t, func(e timerEnvironment) {
-		e.schedule(t, "later", time.Minute, "kept")
+		e.schedule(t, "later", time.Minute, "removed")
 		if err := e.service.Remove(e.ctx, samplestate.ID, e.userID); err != nil {
+			t.Fatal(err)
+		}
+		if got := e.pending(t); len(got) != 0 {
+			t.Fatalf("removal kept the queue: %v", got)
+		}
+		// A plugin that is not installed cannot schedule a timer.
+		if _, _, err := e.service.ScheduleTimer(e.ctx, samplestate.ID, "k", e.clock.Now(), nil); !errors.Is(err, ErrPluginNotFound) {
+			t.Fatalf("schedule while removed = %v", err)
+		}
+		if _, _, err := e.service.Install(e.ctx, samplestate.ID, e.userID); err != nil {
 			t.Fatal(err)
 		}
 		e.advance(time.Hour)
 		if ran := e.run(t, e.service); ran != 0 || len(e.sample.Deliveries()) != 0 {
-			t.Fatalf("a removed plugin got a callback: %d", ran)
-		}
-		if got := e.pending(t); len(got) != 1 {
-			t.Fatalf("removal dropped the timer: %v", got)
-		}
-		// Reinstalled with the same definition: the overdue timer fires once.
-		if _, _, err := e.service.Install(e.ctx, samplestate.ID, e.userID); err != nil {
-			t.Fatal(err)
-		}
-		if ran := e.run(t, e.service); ran != 1 || e.run(t, e.service) != 0 {
-			t.Fatal("the reinstalled plugin did not get its timer once")
+			t.Fatalf("a removed plugin's timer fired after a reinstall: %d", ran)
 		}
 		// A timer of another definitionVersion never fires; the host drops it.
-		e.sample.Reset()
 		e.schedule(t, "old", 0, "")
-		if _, err := e.pool.Exec(e.ctx, `UPDATE plugin_timers SET definition_version=2 WHERE timer_key='old'`); err != nil {
+		if _, err := e.pool.Exec(e.ctx, `UPDATE plugin_deliveries SET definition_version=2 WHERE source='old'`); err != nil {
 			t.Fatal(err)
 		}
 		if ran := e.run(t, e.service); ran != 0 || len(e.sample.Deliveries()) != 0 || len(e.pending(t)) != 0 {
 			t.Fatalf("an old definition's timer fired or stayed: %d %v", ran, e.pending(t))
+		}
+	})
+}
+
+func TestTimersFarAheadAreNotExpired(t *testing.T) {
+	withTimers(t, func(e timerEnvironment) {
+		// A timer 30 days ahead outlives the 7-day pending retention: the
+		// retention counts from the due time.
+		e.schedule(t, "renew", 30*24*time.Hour, "")
+		e.advance(20 * 24 * time.Hour)
+		if swept, err := e.service.SweepDeliveries(e.ctx); err != nil || swept.Expired != 0 || len(e.pending(t)) != 1 {
+			t.Fatalf("sweep = %+v %v %v", swept, err, e.pending(t))
+		}
+		e.advance(10 * 24 * time.Hour)
+		if e.run(t, e.service) != 1 {
+			t.Fatal("the far timer did not fire")
 		}
 	})
 }

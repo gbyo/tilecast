@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tilecast/tilecast/apps/server/internal/plugindelivery"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
@@ -261,6 +263,9 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 		if tag.RowsAffected() == 0 {
 			return ErrPluginNotFound
 		}
+		if err = plugindelivery.RemovePlugin(ctx, tx, id); err != nil {
+			return err
+		}
 		if err = auditInstallation(ctx, tx, "plugin.removed", Definition{ID: id}, userID); err != nil {
 			return err
 		}
@@ -283,6 +288,10 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 		return &InUseError{PluginID: id, Name: definition.Name, Resources: resources}
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM plugin_installations WHERE plugin_id=$1`, id); err != nil {
+		return err
+	}
+	// Queued work of a removed plugin never runs: removal deletes it.
+	if err = plugindelivery.RemovePlugin(ctx, tx, id); err != nil {
 		return err
 	}
 	if err = auditInstallation(ctx, tx, "plugin.removed", definition, userID); err != nil {

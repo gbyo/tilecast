@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/outbound"
+	"github.com/tilecast/tilecast/apps/server/internal/plugindelivery"
 	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
@@ -71,6 +72,10 @@ type Service struct {
 	// WithOutbound supplied one.
 	outbound     *outbound.Engine
 	outboundOnce sync.Once
+	// deliveries is the plugin delivery engine (v3_deliveries.go).
+	deliveries      *plugindelivery.Engine
+	deliveriesOnce  sync.Once
+	deliveryOptions []plugindelivery.Option
 }
 
 // WithSecrets wires the plugin secret store.
