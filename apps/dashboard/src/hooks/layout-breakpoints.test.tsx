@@ -104,6 +104,24 @@ describe("Studio input capabilities", () => {
     expect(renderHook(() => useFineHoverPointer()).result.current).toBe(false);
   });
 
+  it("allows touch and fine-hover capabilities at the same time", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches:
+        query === "(any-pointer: coarse)" ||
+        query === "(hover: hover) and (pointer: fine)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+
+    expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(true);
+    expect(renderHook(() => useFineHoverPointer()).result.current).toBe(true);
+  });
+
   it("keeps fine hover separate from touch capability", () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: query === "(hover: hover) and (pointer: fine)",
