@@ -4,10 +4,7 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useCompactLayout } from "./use-compact-layout";
 import { useDesktopLayout } from "./use-desktop-layout";
-import {
-  useAnyCoarsePointer,
-  useFineHoverPointer,
-} from "./use-media-query";
+import { useAnyCoarsePointer, useFineHoverPointer } from "./use-media-query";
 import { useIsMobile } from "./use-mobile";
 import { usePhoneLayout } from "./use-phone-layout";
 
