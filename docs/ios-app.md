@@ -276,15 +276,14 @@ No page needs code for this. The trail comes from the route metadata that Studio
 
 ### Adaptive iPhone and iPad navigation
 
-The app uses one SwiftUI `TabView` with the `sidebarAdaptable` style instead of choosing a completely different shell from the device idiom or horizontal size class.
+The app uses one SwiftUI `TabView` with the `sidebarAdaptable` style. Studio's catalog is the hierarchy; Tilecast does not maintain a second list of iPad destinations.
 
-- The first destinations that Studio marks `primary` become tabs, up to four. Studio marks Overview, Fleet, and Media as `primary`.
-- The last tab is the app's own More tab.
-- The first tap on More shows a grouped list of every other destination, in Studio's groups, and the server controls: server switching, Add Server, Manage Servers, and Reload.
-- A destination in the list opens in the same Studio page, inside the More tab. More stays selected while a More destination is open.
-- A tap on More while More is selected shows the list again.
+- The first destinations that Studio marks `primary` become top-level tabs, up to four. Studio marks Overview, Fleet, and Media as `primary`.
+- On iPhone, the last tab is the app's compact More tab. It contains every other destination in Studio's groups plus server switching, Add Server, Manage Servers, Reload, and Sign Out. Opening one of those destinations keeps More selected.
+- On iPad, there is no app-owned More tab. Every non-primary destination becomes a real SwiftUI `Tab` inside a `TabSection` built from Studio's group. Those tabs use `.tabPlacement(.sidebarOnly)`, so they stay out of the content-first top tab bar but appear directly in the system sidebar.
 - iPhone uses the system bottom tab bar.
-- iPadOS defaults to the content-first tab-bar representation and can adapt it into the system sidebar as the person changes the representation, rotates the device, or resizes the window. Tilecast does not force the sidebar open just because the horizontal size class is regular.
+- iPadOS defaults to the content-first top tab bar and can adapt it into the system sidebar as the person changes the representation, rotates the device, or resizes the window. Tilecast does not force the sidebar open just because the horizontal size class is regular.
+- The native selection model keeps the actual Studio destination separately from iPhone's compact More slot. A secondary route therefore highlights its own sidebar row on iPad while mapping to More on iPhone, without changing the bridge contract.
 
 This follows Apple's current iPadOS guidance: keep functionality stable as space changes, expose more UI when room is available, and prefer a tab bar first when a permanent sidebar would unnecessarily reduce content space.
 
@@ -301,7 +300,7 @@ The one Studio web view is a sibling of the shell in `StudioShell`, and it is no
 - In the fallback layout, the web view is above the shell. `StudioOverlay` places it over the active slot.
 - On iPhone with native navigation, the web view is behind the adaptive tab container. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the floating bottom tab bar is drawn above the page.
 - On iPad with native navigation, the web view stays above the shell but is constrained to the selected tab's content slot. The system's top tab bar or adaptable sidebar remains outside that slot, so it stays visible and interactive without relying on UIKit sidebar internals.
-- The More tab shows either the More list or Studio, because the list is opaque.
+- On iPhone, the More tab shows either the More list or Studio, because the list is opaque. iPad secondary destinations each have their own system tab content slot.
 - `StudioShell` changes only `zIndex`, so the web view is not rebuilt and no second `WebView` exists.
 - `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom inset that the tab bar causes, and adds the inset to the frame. On iPhone, `StudioOverlay` applies the same inset with `safeAreaPadding(.bottom, _)`, so content scrolls under the bar and stops above it.
 
@@ -327,7 +326,7 @@ Studio also falls back by itself. If negotiation fails, times out, or reports no
 
 Do not edit these files. After you change the Studio mapping or update `lucide-react`, run `npm run ios:icons:generate`. `make generated-check` fails when the files are out of date. The Lucide ISC license ships in the app bundle in `Resources/Licenses/`.
 
-Tabs, the More list, the adaptable iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
+Tabs, the iPhone More list, the adaptable iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
 
 ### Plugins
 
@@ -335,7 +334,7 @@ Plugin pages are always Studio pages. A plugin page below `/plugins/` opens in t
 
 ### Adding a destination
 
-To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. On iPad and iPhone, it appears in More unless its metadata says `primary`; iPadOS can present those tabs in its adaptable sidebar. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
+To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. A `primary` destination can occupy one of the compact top-level tabs. Any other destination appears in iPhone More and directly in its Studio group in the iPad adaptable sidebar. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
 
 ## Native presentations
 
