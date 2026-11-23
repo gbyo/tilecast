@@ -245,13 +245,19 @@ public final class NativeNavigationModel {
     private func showInitialSelection() {
         if let id = activeDestinationID, catalog?.destination(withID: id) != nil {
             reconcile()
-        } else {
-            let destination = primaryDestinations.first ?? catalog?.destinations.first
-            let tab = destination.map { NavigationTab.destination($0.id) } ?? .more
-            selectedTab = primaryDestinations.contains(where: { $0.id == destination?.id }) ? tab : .more
+        } else if let destination = primaryDestinations.first ?? catalog?.destinations.first {
+            let tab = NavigationTab.destination(destination.id)
+            selectedTab = primaryDestinations.contains(where: { $0.id == destination.id })
+                ? tab
+                : .more
             settledTab = selectedTab
-            settledDestinationID = destination?.id
+            settledDestinationID = destination.id
             moreShowsList = false
+        } else {
+            selectedTab = .more
+            settledTab = .more
+            settledDestinationID = nil
+            moreShowsList = true
         }
     }
 }
