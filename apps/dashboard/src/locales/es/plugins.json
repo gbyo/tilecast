@@ -602,11 +602,16 @@
         "origin_required": "Necesita un origen",
         "private_network_consent_required": "Necesita permiso de red privada",
         "plain_http_consent_required": "Necesita permiso de HTTP sin cifrar",
-        "declaration_removed": "El complemento ya no la declara"
+        "declaration_removed": "El complemento ya no la declara",
+        "oauth_client_required": "Necesita un cliente OAuth",
+        "oauth_not_connected": "Sin conectar",
+        "oauth_reconnect_required": "Hay que volver a conectar"
       },
       "notices": {
         "consents_need_confirmation": "El complemento cambió lo que puede hacer esta conexión desde que se concedieron los permisos. Concédalos de nuevo para usarlos.",
-        "private_addresses_need_consent": "Las direcciones de la red privada se rechazan hasta que las permita."
+        "private_addresses_need_consent": "Las direcciones de la red privada se rechazan hasta que las permita.",
+        "oauth_refresh_failing": "El proveedor no pudo renovar el acceso hace poco. Las solicitudes usan el token actual hasta que caduque.",
+        "oauth_revocation_failed": "En la última desconexión no se pudo pedir al proveedor que revocara el acceso de Tilecast."
       },
       "consents": {
         "title": "Permisos de red",
@@ -647,7 +652,81 @@
         "plainHttp": "Puede usar HTTP sin cifrar en su red local después de que lo permita",
         "plaintextSecret": "Puede enviar un secreto por HTTP sin cifrar después de que lo permita",
         "response": "Acepta respuestas de hasta {{size}}",
-        "timeout": "Espera hasta {{seconds}} segundos una respuesta"
+        "timeout": "Espera hasta {{seconds}} segundos una respuesta",
+        "oauthAuthorization": "Le envía a {{endpoint}} para conceder el acceso",
+        "oauthToken": "Intercambia tokens con {{endpoint}}",
+        "oauthRevocation": "Pide a {{endpoint}} que revoque el acceso al desconectar",
+        "oauthScopes": "Solicita acceso: {{scopes}}"
+      },
+      "oauth": {
+        "title": "Cuenta del proveedor",
+        "description": "Tilecast inicia sesión en el proveedor con un cliente OAuth que usted registra. Tilecast guarda los tokens cifrados; ni el código del plugin ni las pantallas los reciben.",
+        "status": {
+          "not_connected": "Sin conectar",
+          "connected": "Conectado",
+          "reconnect_required": "Hay que volver a conectar"
+        },
+        "connectedAt": "Conectado el {{date}}",
+        "refreshedAt": "Acceso renovado el {{date}}",
+        "scopes": "Acceso solicitado",
+        "callbackUrl": "URI de redirección",
+        "callbackUrlHint": "Registre esta dirección exacta en el proveedor como URI de redirección autorizada.",
+        "copy": "Copiar URI de redirección",
+        "copied": "Se copió la URI de redirección.",
+        "copyFailed": "No se pudo copiar la URI de redirección.",
+        "clientId": "ID de cliente",
+        "clientIdHint": "Del cliente OAuth que registró en el proveedor.",
+        "clientSecret": "Secreto de cliente",
+        "clientSecretHint": "Tilecast lo guarda cifrado y no lo vuelve a mostrar.",
+        "saveClient": "Guardar cliente",
+        "clientSavedToast": "Se guardó el cliente OAuth.",
+        "changeClientTitle": "¿Cambiar el ID de cliente?",
+        "changeClientBody": "Tilecast elimina los tokens de esta conexión. Vuelva a conectar con el cliente nuevo.",
+        "changeClientConfirm": "Cambiar ID de cliente",
+        "connect": "Conectar",
+        "reconnect": "Volver a conectar",
+        "connecting": "Abriendo el proveedor…",
+        "completing": "Terminando la conexión…",
+        "disconnect": "Desconectar",
+        "disconnectTitle": "¿Desconectar {{name}}?",
+        "disconnectBody": "Tilecast pide al proveedor que revoque su acceso y elimina sus tokens. Las solicitudes por esta conexión se detienen hasta que vuelva a conectar.",
+        "disconnectedToast": "Se desconectó la conexión.",
+        "disconnectBeforeDelete": "Desconecte esta conexión antes de eliminarla, para que el proveedor pueda revocar el acceso de Tilecast.",
+        "unavailable": {
+          "public_url_https_required": "Para conectar, configure TILECAST_PUBLIC_URL con una dirección https. Los proveedores no envían una respuesta de autorización a una dirección sin cifrar.",
+          "client_id_required": "Primero escriba y guarde el ID de cliente.",
+          "client_secret_required": "Primero escriba y guarde el secreto de cliente."
+        },
+        "lastError": "La renovación del acceso falló el {{date}}.",
+        "refreshError": {
+          "invalid_grant": "El proveedor ya no acepta esta conexión. Vuelva a conectarla.",
+          "token_rejected": "El proveedor rechazó la solicitud. Revise el ID y el secreto de cliente.",
+          "token_endpoint_unavailable": "No se pudo contactar con el proveedor. Tilecast lo intentará más tarde.",
+          "invalid_token_response": "El proveedor envió una respuesta que Tilecast no puede usar.",
+          "client_secret_unavailable": "Falta el secreto de cliente o no se puede leer. Escríbalo de nuevo.",
+          "other": "Tilecast no pudo renovar el acceso."
+        },
+        "revocation": {
+          "confirmed": "El proveedor confirmó que revocó el acceso de Tilecast.",
+          "failed": "Tilecast eliminó sus tokens; no se pudo pedir al proveedor que revocara el acceso. Quite el acceso de Tilecast en su cuenta del proveedor.",
+          "not_declared": "Tilecast eliminó sus tokens. Este proveedor no tiene dirección de revocación; quite el acceso de Tilecast en su cuenta del proveedor si ya no lo usa."
+        },
+        "result": {
+          "connected": "La conexión está conectada al proveedor.",
+          "error": "El proveedor no conectó esta conexión.",
+          "reasons": {
+            "invalid_state": "El inicio de sesión caducó, ya se usó o lo inició otra persona. Seleccione Conectar de nuevo.",
+            "provider_denied": "El proveedor no concedió el acceso.",
+            "invalid_response": "La respuesta del proveedor estaba incompleta. Seleccione Conectar de nuevo.",
+            "connection_changed": "La conexión cambió durante el inicio de sesión. Seleccione Conectar de nuevo.",
+            "invalid_grant": "El proveedor rechazó el código de autorización. Revise la URI de redirección y seleccione Conectar de nuevo.",
+            "token_rejected": "El proveedor rechazó el cliente. Revise el ID y el secreto de cliente.",
+            "token_endpoint_unavailable": "No se pudo contactar con el proveedor. Inténtelo más tarde.",
+            "invalid_token_response": "El proveedor envió una respuesta que Tilecast no puede usar.",
+            "client_secret_unavailable": "Falta el secreto de cliente o no se puede leer. Escríbalo de nuevo.",
+            "unavailable": "Tilecast no pudo terminar la conexión. Inténtelo de nuevo."
+          }
+        }
       }
     }
   },

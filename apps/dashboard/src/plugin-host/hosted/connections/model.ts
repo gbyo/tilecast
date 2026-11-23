@@ -7,7 +7,12 @@ import {
   DEFAULT_MAX_RESPONSE_BYTES,
   DEFAULT_TIMEOUT_SECONDS,
 } from "@tilecast/plugin-sdk/connections";
-import type { ConsentWrite, PluginConnection } from "./api";
+import type {
+  ConnectionWrite,
+  ConsentWrite,
+  OAuthCallback,
+  PluginConnection,
+} from "./api";
 
 export type ConsentKey = "privateNetwork" | "plainHttp" | "plaintextSecret";
 
@@ -118,4 +123,66 @@ export function withValue(
   if (value === undefined) delete next[key];
   else next[key] = value;
   return next;
+}
+
+/**
+ * Reads the provider's answer from the fragment the callback route adds to
+ * this page (`#oauth=<form-encoded state, code, error>`). Anything else is
+ * not an answer.
+ */
+export function parseOAuthFragment(hash: string): OAuthCallback | null {
+  if (!hash.startsWith("#oauth=")) return null;
+  let values: URLSearchParams;
+  try {
+    values = new URLSearchParams(
+      decodeURIComponent(hash.slice("#oauth=".length)),
+    );
+  } catch {
+    return null;
+  }
+  const state = values.get("state");
+  if (!state) return null;
+  const callback: OAuthCallback = { state };
+  const code = values.get("code");
+  const error = values.get("error");
+  if (code) callback.code = code;
+  if (error) callback.error = error;
+  return callback;
+}
+
+export interface OAuthClientDraft {
+  clientId: string;
+  clientSecret: string;
+  clearClientSecret: boolean;
+}
+
+/**
+ * The update that saves an OAuth client. The secret is sent only when the
+ * operator typed one or asked to clear it.
+ */
+export function oauthClientWrite(
+  connection: PluginConnection,
+  draft: OAuthClientDraft,
+): ConnectionWrite {
+  const write: ConnectionWrite = {
+    name: connection.name,
+    clientId: draft.clientId.trim(),
+    expectedRevision: connection.revision,
+  };
+  if (draft.clearClientSecret) write.clearClientSecret = true;
+  else if (draft.clientSecret !== "") write.clientSecret = draft.clientSecret;
+  return write;
+}
+
+/** Whether saving the draft replaces the client of a connected record. */
+export function replacesConnectedClient(
+  connection: PluginConnection,
+  draft: OAuthClientDraft,
+): boolean {
+  const oauth = connection.oauth;
+  return (
+    oauth !== undefined &&
+    oauth.status !== "not_connected" &&
+    (oauth.clientId ?? "") !== draft.clientId.trim()
+  );
 }
