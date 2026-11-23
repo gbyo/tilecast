@@ -132,6 +132,11 @@ func (s *server) routes() chi.Router {
 		api.With(s.operationsRateLimit, s.requireIntegrationToken(integrations.ScopeActivityRead)).
 			Get("/integration/metrics", s.integrationMetrics)
 
+		// The OAuth provider's redirect of a plugin connection. It carries no
+		// credential and changes nothing; it returns the connection's fixed
+		// Studio page (see plugin_connections.go).
+		api.Get("/plugins/{pluginId}/connections/{connectionId}/callback", s.pluginConnectionOAuthCallback)
+
 		api.Group(func(dashboard chi.Router) {
 			// Every dashboard route is registered through the guarded
 			// router, which applies the route's declared object rule (see
@@ -191,6 +196,9 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Put("/plugins/{pluginId}/connections/{connectionId}", s.updatePluginConnection)
 			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Put("/plugins/{pluginId}/connections/{connectionId}/consents", s.setPluginConnectionConsents)
 			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Delete("/plugins/{pluginId}/connections/{connectionId}", s.deletePluginConnection)
+			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Post("/plugins/{pluginId}/connections/{connectionId}/oauth/start", s.startPluginConnectionOAuth)
+			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.operationsRateLimit, s.requireCSRF, s.requireSession, s.requireScope("admin")).Post("/plugins/{pluginId}/connections/{connectionId}/oauth/complete", s.completePluginConnectionOAuth)
+			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Post("/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect", s.disconnectPluginConnectionOAuth)
 			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugin-store", s.listPluginStore)
 			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugin-store/{packageId}", s.getPluginStoreEntry)
 			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugin-store/{packageId}/artwork/icon", s.getMarketplaceIcon)

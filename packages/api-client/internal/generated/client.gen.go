@@ -3783,48 +3783,6 @@ func (e PluginAutomationOperationRisk) Valid() bool {
 	}
 }
 
-// Defines values for PluginConnectionNotices.
-const (
-	ConsentsNeedConfirmation    PluginConnectionNotices = "consents_need_confirmation"
-	PrivateAddressesNeedConsent PluginConnectionNotices = "private_addresses_need_consent"
-)
-
-// Valid indicates whether the value is a known member of the PluginConnectionNotices enum.
-func (e PluginConnectionNotices) Valid() bool {
-	switch e {
-	case ConsentsNeedConfirmation:
-		return true
-	case PrivateAddressesNeedConsent:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PluginConnectionReasons.
-const (
-	DeclarationRemoved            PluginConnectionReasons = "declaration_removed"
-	OriginRequired                PluginConnectionReasons = "origin_required"
-	PlainHttpConsentRequired      PluginConnectionReasons = "plain_http_consent_required"
-	PrivateNetworkConsentRequired PluginConnectionReasons = "private_network_consent_required"
-)
-
-// Valid indicates whether the value is a known member of the PluginConnectionReasons enum.
-func (e PluginConnectionReasons) Valid() bool {
-	switch e {
-	case DeclarationRemoved:
-		return true
-	case OriginRequired:
-		return true
-	case PlainHttpConsentRequired:
-		return true
-	case PrivateNetworkConsentRequired:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PluginConnectionInUseErrorErrorCode.
 const (
 	PluginConnectionInUse PluginConnectionInUseErrorErrorCode = "plugin_connection_in_use"
@@ -3834,6 +3792,93 @@ const (
 func (e PluginConnectionInUseErrorErrorCode) Valid() bool {
 	switch e {
 	case PluginConnectionInUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionOAuthClientSecret.
+const (
+	NeedsValue  PluginConnectionOAuthClientSecret = "needs_value"
+	NotRequired PluginConnectionOAuthClientSecret = "not_required"
+	NotSet      PluginConnectionOAuthClientSecret = "not_set"
+	Set         PluginConnectionOAuthClientSecret = "set"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionOAuthClientSecret enum.
+func (e PluginConnectionOAuthClientSecret) Valid() bool {
+	switch e {
+	case NeedsValue:
+		return true
+	case NotRequired:
+		return true
+	case NotSet:
+		return true
+	case Set:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionOAuthConnectUnavailableReason.
+const (
+	ClientIdRequired       PluginConnectionOAuthConnectUnavailableReason = "client_id_required"
+	ClientSecretRequired   PluginConnectionOAuthConnectUnavailableReason = "client_secret_required"
+	PublicUrlHttpsRequired PluginConnectionOAuthConnectUnavailableReason = "public_url_https_required"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionOAuthConnectUnavailableReason enum.
+func (e PluginConnectionOAuthConnectUnavailableReason) Valid() bool {
+	switch e {
+	case ClientIdRequired:
+		return true
+	case ClientSecretRequired:
+		return true
+	case PublicUrlHttpsRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionOAuthRevocation.
+const (
+	PluginConnectionOAuthRevocationConfirmed   PluginConnectionOAuthRevocation = "confirmed"
+	PluginConnectionOAuthRevocationFailed      PluginConnectionOAuthRevocation = "failed"
+	PluginConnectionOAuthRevocationNotDeclared PluginConnectionOAuthRevocation = "not_declared"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionOAuthRevocation enum.
+func (e PluginConnectionOAuthRevocation) Valid() bool {
+	switch e {
+	case PluginConnectionOAuthRevocationConfirmed:
+		return true
+	case PluginConnectionOAuthRevocationFailed:
+		return true
+	case PluginConnectionOAuthRevocationNotDeclared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionOAuthStatus.
+const (
+	PluginConnectionOAuthStatusConnected         PluginConnectionOAuthStatus = "connected"
+	PluginConnectionOAuthStatusNotConnected      PluginConnectionOAuthStatus = "not_connected"
+	PluginConnectionOAuthStatusReconnectRequired PluginConnectionOAuthStatus = "reconnect_required"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionOAuthStatus enum.
+func (e PluginConnectionOAuthStatus) Valid() bool {
+	switch e {
+	case PluginConnectionOAuthStatusConnected:
+		return true
+	case PluginConnectionOAuthStatusNotConnected:
+		return true
+	case PluginConnectionOAuthStatusReconnectRequired:
 		return true
 	default:
 		return false
@@ -3858,15 +3903,21 @@ func (e PluginConnectionReferenceOwnerType) Valid() bool {
 	}
 }
 
-// Defines values for PluginConnectionReviewType.
+// Defines values for PluginConnectionReviewOauthTokenEndpointAuthMethod.
 const (
-	Http PluginConnectionReviewType = "http"
+	PluginConnectionReviewOauthTokenEndpointAuthMethodClientSecretBasic PluginConnectionReviewOauthTokenEndpointAuthMethod = "client_secret_basic"
+	PluginConnectionReviewOauthTokenEndpointAuthMethodClientSecretPost  PluginConnectionReviewOauthTokenEndpointAuthMethod = "client_secret_post"
+	PluginConnectionReviewOauthTokenEndpointAuthMethodNone              PluginConnectionReviewOauthTokenEndpointAuthMethod = "none"
 )
 
-// Valid indicates whether the value is a known member of the PluginConnectionReviewType enum.
-func (e PluginConnectionReviewType) Valid() bool {
+// Valid indicates whether the value is a known member of the PluginConnectionReviewOauthTokenEndpointAuthMethod enum.
+func (e PluginConnectionReviewOauthTokenEndpointAuthMethod) Valid() bool {
 	switch e {
-	case Http:
+	case PluginConnectionReviewOauthTokenEndpointAuthMethodClientSecretBasic:
+		return true
+	case PluginConnectionReviewOauthTokenEndpointAuthMethodClientSecretPost:
+		return true
+	case PluginConnectionReviewOauthTokenEndpointAuthMethodNone:
 		return true
 	default:
 		return false
@@ -10904,18 +10955,23 @@ type PluginConnection struct {
 	CreatedAt time.Time `json:"createdAt"`
 
 	// Definition The connection declaration of the plugin manifest.
-	Definition string                    `json:"definition"`
-	Id         openapi_types.UUID        `json:"id"`
-	Name       string                    `json:"name"`
-	Notices    []PluginConnectionNotices `json:"notices"`
+	Definition string             `json:"definition"`
+	Id         openapi_types.UUID `json:"id"`
+	Name       string             `json:"name"`
+	Notices    []string           `json:"notices"`
+
+	// Oauth The OAuth 2.0 state of an oauth2 connection. It never holds a token or the client secret.
+	Oauth *PluginConnectionOAuth `json:"oauth,omitempty"`
 
 	// Origin The configured origin of an operator connection.
 	Origin *string `json:"origin,omitempty"`
 
 	// Origins The approved origins now.
-	Origins    []string                    `json:"origins"`
-	Plugin     string                      `json:"plugin"`
-	Reasons    []PluginConnectionReasons   `json:"reasons"`
+	Origins []string `json:"origins"`
+	Plugin  string   `json:"plugin"`
+
+	// Reasons Reasons grow with new connection types; a client shows an unknown reason as not ready.
+	Reasons    []string                    `json:"reasons"`
 	References []PluginConnectionReference `json:"references"`
 	Revision   int                         `json:"revision"`
 
@@ -10923,12 +10979,6 @@ type PluginConnection struct {
 	Status    string    `json:"status"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
-
-// PluginConnectionNotices defines model for PluginConnection.Notices.
-type PluginConnectionNotices string
-
-// PluginConnectionReasons defines model for PluginConnection.Reasons.
-type PluginConnectionReasons string
 
 // PluginConnectionConsent defines model for PluginConnectionConsent.
 type PluginConnectionConsent struct {
@@ -10951,8 +11001,15 @@ type PluginConnectionConsentsWrite struct {
 
 // PluginConnectionCreate defines model for PluginConnectionCreate.
 type PluginConnectionCreate struct {
-	Definition string `json:"definition"`
-	Name       string `json:"name"`
+	ClearClientSecret *bool `json:"clearClientSecret,omitempty"`
+
+	// ClientId The OAuth client ID of an oauth2 connection. Refused otherwise.
+	ClientId *string `json:"clientId,omitempty"`
+
+	// ClientSecret The OAuth client secret. Write-only.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+	Definition   string  `json:"definition"`
+	Name         string  `json:"name"`
 
 	// Origin Required for an operator connection; refused otherwise.
 	Origin *string `json:"origin,omitempty"`
@@ -10972,6 +11029,58 @@ type PluginConnectionInUseError struct {
 // PluginConnectionInUseErrorErrorCode defines model for PluginConnectionInUseError.Error.Code.
 type PluginConnectionInUseErrorErrorCode string
 
+// PluginConnectionOAuth The OAuth 2.0 state of an oauth2 connection. It never holds a token or the client secret.
+type PluginConnectionOAuth struct {
+	AccessExpiresAt       *time.Time `json:"accessExpiresAt,omitempty"`
+	AuthorizationEndpoint string     `json:"authorizationEndpoint"`
+
+	// CallbackUrl The exact redirect URI to register with the provider. Absent without an https TILECAST_PUBLIC_URL.
+	CallbackUrl *string `json:"callbackUrl,omitempty"`
+	ClientId    *string `json:"clientId,omitempty"`
+
+	// ClientSecret The state of the write-only client secret.
+	ClientSecret PluginConnectionOAuthClientSecret `json:"clientSecret"`
+
+	// ClientSecretRequired The declaration authenticates the client with a secret.
+	ClientSecretRequired     bool                                           `json:"clientSecretRequired"`
+	ConnectAvailable         bool                                           `json:"connectAvailable"`
+	ConnectUnavailableReason *PluginConnectionOAuthConnectUnavailableReason `json:"connectUnavailableReason,omitempty"`
+	ConnectedAt              *time.Time                                     `json:"connectedAt,omitempty"`
+	ConnectedBy              *openapi_types.UUID                            `json:"connectedBy,omitempty"`
+	DisconnectedAt           *time.Time                                     `json:"disconnectedAt,omitempty"`
+
+	// LastError The stable code of the last failed refresh, such as invalid_grant, token_rejected, or token_endpoint_unavailable.
+	LastError   *string    `json:"lastError,omitempty"`
+	LastErrorAt *time.Time `json:"lastErrorAt,omitempty"`
+	RefreshedAt *time.Time `json:"refreshedAt,omitempty"`
+
+	// Revocation What the last disconnect learned from the provider. Tilecast deletes its tokens in every case.
+	Revocation *PluginConnectionOAuthRevocation `json:"revocation,omitempty"`
+	Scopes     []string                         `json:"scopes"`
+	Status     PluginConnectionOAuthStatus      `json:"status"`
+}
+
+// PluginConnectionOAuthClientSecret The state of the write-only client secret.
+type PluginConnectionOAuthClientSecret string
+
+// PluginConnectionOAuthConnectUnavailableReason defines model for PluginConnectionOAuth.ConnectUnavailableReason.
+type PluginConnectionOAuthConnectUnavailableReason string
+
+// PluginConnectionOAuthRevocation What the last disconnect learned from the provider. Tilecast deletes its tokens in every case.
+type PluginConnectionOAuthRevocation string
+
+// PluginConnectionOAuthStatus defines model for PluginConnectionOAuth.Status.
+type PluginConnectionOAuthStatus string
+
+// PluginConnectionOAuthCallback defines model for PluginConnectionOAuthCallback.
+type PluginConnectionOAuthCallback struct {
+	Code *string `json:"code,omitempty"`
+
+	// Error The provider's error code. Never the provider's description.
+	Error *string `json:"error,omitempty"`
+	State string  `json:"state"`
+}
+
 // PluginConnectionReference defines model for PluginConnectionReference.
 type PluginConnectionReference struct {
 	FieldKey  string                             `json:"fieldKey"`
@@ -10989,6 +11098,15 @@ type PluginConnectionReview struct {
 	Id               string  `json:"id"`
 	MaxResponseBytes int     `json:"maxResponseBytes"`
 
+	// Oauth The provider side of an oauth2 connection.
+	Oauth *struct {
+		AuthorizationEndpoint   string                                             `json:"authorizationEndpoint"`
+		RevocationEndpoint      *string                                            `json:"revocationEndpoint,omitempty"`
+		Scopes                  []string                                           `json:"scopes"`
+		TokenEndpoint           string                                             `json:"tokenEndpoint"`
+		TokenEndpointAuthMethod PluginConnectionReviewOauthTokenEndpointAuthMethod `json:"tokenEndpointAuthMethod"`
+	} `json:"oauth,omitempty"`
+
 	// OperatorOrigin An Owner or Administrator enters the one origin.
 	OperatorOrigin bool `json:"operatorOrigin"`
 
@@ -11002,17 +11120,25 @@ type PluginConnectionReview struct {
 	PlaintextSecret bool `json:"plaintextSecret"`
 
 	// PrivateNetwork Private addresses are possible after a separate consent.
-	PrivateNetwork bool                       `json:"privateNetwork"`
-	TimeoutSeconds int                        `json:"timeoutSeconds"`
-	Title          string                     `json:"title"`
-	Type           PluginConnectionReviewType `json:"type"`
+	PrivateNetwork bool   `json:"privateNetwork"`
+	TimeoutSeconds int    `json:"timeoutSeconds"`
+	Title          string `json:"title"`
+	Type           string `json:"type"`
 }
 
-// PluginConnectionReviewType defines model for PluginConnectionReview.Type.
-type PluginConnectionReviewType string
+// PluginConnectionReviewOauthTokenEndpointAuthMethod defines model for PluginConnectionReview.Oauth.TokenEndpointAuthMethod.
+type PluginConnectionReviewOauthTokenEndpointAuthMethod string
 
 // PluginConnectionUpdate defines model for PluginConnectionUpdate.
 type PluginConnectionUpdate struct {
+	ClearClientSecret *bool `json:"clearClientSecret,omitempty"`
+
+	// ClientId An oauth2 connection's client ID. An empty string removes it. A new client ID deletes the tokens and an attempt in progress.
+	ClientId *string `json:"clientId,omitempty"`
+
+	// ClientSecret Replaces the write-only client secret. The tokens stay.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+
 	// Definition Optional. A record's declaration never changes.
 	Definition       *string `json:"definition,omitempty"`
 	ExpectedRevision int     `json:"expectedRevision"`
@@ -14668,8 +14794,33 @@ type UpdatePluginConnectionParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// PluginConnectionOAuthCallbackParams defines parameters for PluginConnectionOAuthCallback.
+type PluginConnectionOAuthCallbackParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // SetPluginConnectionConsentsParams defines parameters for SetPluginConnectionConsents.
 type SetPluginConnectionConsentsParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CompletePluginConnectionOAuthParams defines parameters for CompletePluginConnectionOAuth.
+type CompletePluginConnectionOAuthParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DisconnectPluginConnectionOAuthParams defines parameters for DisconnectPluginConnectionOAuth.
+type DisconnectPluginConnectionOAuthParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// StartPluginConnectionOAuthParams defines parameters for StartPluginConnectionOAuth.
+type StartPluginConnectionOAuthParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
@@ -15558,6 +15709,9 @@ type UpdatePluginConnectionJSONRequestBody = PluginConnectionUpdate
 
 // SetPluginConnectionConsentsJSONRequestBody defines body for SetPluginConnectionConsents for application/json ContentType.
 type SetPluginConnectionConsentsJSONRequestBody = PluginConnectionConsentsWrite
+
+// CompletePluginConnectionOAuthJSONRequestBody defines body for CompletePluginConnectionOAuth for application/json ContentType.
+type CompletePluginConnectionOAuthJSONRequestBody = PluginConnectionOAuthCallback
 
 // CreatePresentationNetworkJSONRequestBody defines body for CreatePresentationNetwork for application/json ContentType.
 type CreatePresentationNetworkJSONRequestBody = PresentationNetworkCreateInput
@@ -18883,7 +19037,7 @@ type ClientInterface interface {
 
 	// DeletePluginConnection performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
 	//
-	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. A connected oauth2 connection must be disconnected first.
 	DeletePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPluginConnection performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId} (the `GetPluginConnection` operationId) request.
@@ -18903,6 +19057,11 @@ type ClientInterface interface {
 	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
 	UpdatePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PluginConnectionOAuthCallback performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId}/callback (the `PluginConnectionOAuthCallback` operationId) request.
+	//
+	// The redirect URI an operator registers with the OAuth provider. It is a browser navigation from the provider and carries no Tilecast credential: the Studio session cookie is SameSite=Strict and does not arrive on a cross-site navigation. The route changes nothing. It redirects to the fixed Studio page of the connection and puts state, code, and a provider error code in the URL fragment, where Studio completes the attempt. No parameter chooses the destination. The response has Referrer-Policy no-referrer and Cache-Control no-store.
+	PluginConnectionOAuthCallback(ctx context.Context, pluginId PluginID, connectionId string, params *PluginConnectionOAuthCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetPluginConnectionConsentsWithBody performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -18914,6 +19073,28 @@ type ClientInterface interface {
 	//
 	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
 	SetPluginConnectionConsents(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompletePluginConnectionOAuthWithBody performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+	CompletePluginConnectionOAuthWithBody(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompletePluginConnectionOAuth performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+	CompletePluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, body CompletePluginConnectionOAuthJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DisconnectPluginConnectionOAuth performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect (the `DisconnectPluginConnectionOAuth` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Asks the provider to revoke the grant (RFC 7009) when the declaration has a revocation endpoint, then deletes the local tokens in every case. oauth.revocation records confirmed, failed, or not_declared.
+	DisconnectPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DisconnectPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartPluginConnectionOAuth performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/start (the `StartPluginConnectionOAuth` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
+	StartPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InstallPlugin performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -26249,7 +26430,7 @@ func (c *Client) CreatePluginConnection(ctx context.Context, pluginId PluginID, 
 
 // DeletePluginConnection performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
 //
-// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. A connected oauth2 connection must be disconnected first.
 func (c *Client) DeletePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeletePluginConnectionRequest(c.Server, pluginId, connectionId, params)
 	if err != nil {
@@ -26309,6 +26490,21 @@ func (c *Client) UpdatePluginConnection(ctx context.Context, pluginId PluginID, 
 	return c.Client.Do(req)
 }
 
+// PluginConnectionOAuthCallback performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId}/callback (the `PluginConnectionOAuthCallback` operationId) request.
+//
+// The redirect URI an operator registers with the OAuth provider. It is a browser navigation from the provider and carries no Tilecast credential: the Studio session cookie is SameSite=Strict and does not arrive on a cross-site navigation. The route changes nothing. It redirects to the fixed Studio page of the connection and puts state, code, and a provider error code in the URL fragment, where Studio completes the attempt. No parameter chooses the destination. The response has Referrer-Policy no-referrer and Cache-Control no-store.
+func (c *Client) PluginConnectionOAuthCallback(ctx context.Context, pluginId PluginID, connectionId string, params *PluginConnectionOAuthCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPluginConnectionOAuthCallbackRequest(c.Server, pluginId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SetPluginConnectionConsentsWithBody performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -26331,6 +26527,68 @@ func (c *Client) SetPluginConnectionConsentsWithBody(ctx context.Context, plugin
 // Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
 func (c *Client) SetPluginConnectionConsents(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetPluginConnectionConsentsRequest(c.Server, pluginId, connectionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompletePluginConnectionOAuthWithBody performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+func (c *Client) CompletePluginConnectionOAuthWithBody(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompletePluginConnectionOAuthRequestWithBody(c.Server, pluginId, connectionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompletePluginConnectionOAuth performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+func (c *Client) CompletePluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, body CompletePluginConnectionOAuthJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompletePluginConnectionOAuthRequest(c.Server, pluginId, connectionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DisconnectPluginConnectionOAuth performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect (the `DisconnectPluginConnectionOAuth` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Asks the provider to revoke the grant (RFC 7009) when the declaration has a revocation endpoint, then deletes the local tokens in every case. oauth.revocation records confirmed, failed, or not_declared.
+func (c *Client) DisconnectPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DisconnectPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisconnectPluginConnectionOAuthRequest(c.Server, pluginId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartPluginConnectionOAuth performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/start (the `StartPluginConnectionOAuth` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
+func (c *Client) StartPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartPluginConnectionOAuthRequest(c.Server, pluginId, connectionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -44052,6 +44310,98 @@ func NewUpdatePluginConnectionRequestWithBody(server string, pluginId PluginID, 
 	return req, nil
 }
 
+// NewPluginConnectionOAuthCallbackRequest constructs an http.Request for the PluginConnectionOAuthCallback method
+func NewPluginConnectionOAuthCallbackRequest(server string, pluginId PluginID, connectionId string, params *PluginConnectionOAuthCallbackParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s/callback", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Error != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "error", *params.Error, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewSetPluginConnectionConsentsRequest calls the generic SetPluginConnectionConsents builder with application/json body
 func NewSetPluginConnectionConsentsRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -44102,6 +44452,187 @@ func NewSetPluginConnectionConsentsRequestWithBody(server string, pluginId Plugi
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCompletePluginConnectionOAuthRequest calls the generic CompletePluginConnectionOAuth builder with application/json body
+func NewCompletePluginConnectionOAuthRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, body CompletePluginConnectionOAuthJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCompletePluginConnectionOAuthRequestWithBody(server, pluginId, connectionId, params, "application/json", bodyReader)
+}
+
+// NewCompletePluginConnectionOAuthRequestWithBody constructs an http.Request for the CompletePluginConnectionOAuth method, with any body, and a specified content type
+func NewCompletePluginConnectionOAuthRequestWithBody(server string, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s/oauth/complete", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDisconnectPluginConnectionOAuthRequest constructs an http.Request for the DisconnectPluginConnectionOAuth method
+func NewDisconnectPluginConnectionOAuthRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *DisconnectPluginConnectionOAuthParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s/oauth/disconnect", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewStartPluginConnectionOAuthRequest constructs an http.Request for the StartPluginConnectionOAuth method
+func NewStartPluginConnectionOAuthRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s/oauth/start", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -53519,7 +54050,7 @@ type ClientWithResponsesInterface interface {
 
 	// DeletePluginConnectionWithResponse performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
 	//
-	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. A connected oauth2 connection must be disconnected first.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	DeletePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*DeletePluginConnectionResponse, error)
@@ -53545,6 +54076,13 @@ type ClientWithResponsesInterface interface {
 	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
 	UpdatePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePluginConnectionResponse, error)
 
+	// PluginConnectionOAuthCallbackWithResponse performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId}/callback (the `PluginConnectionOAuthCallback` operationId) request.
+	//
+	// The redirect URI an operator registers with the OAuth provider. It is a browser navigation from the provider and carries no Tilecast credential: the Studio session cookie is SameSite=Strict and does not arrive on a cross-site navigation. The route changes nothing. It redirects to the fixed Studio page of the connection and puts state, code, and a provider error code in the URL fragment, where Studio completes the attempt. No parameter chooses the destination. The response has Referrer-Policy no-referrer and Cache-Control no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PluginConnectionOAuthCallbackWithResponse(ctx context.Context, pluginId PluginID, connectionId string, params *PluginConnectionOAuthCallbackParams, reqEditors ...RequestEditorFn) (*PluginConnectionOAuthCallbackResponse, error)
+
 	// SetPluginConnectionConsentsWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -53558,6 +54096,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
 	SetPluginConnectionConsentsWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPluginConnectionConsentsResponse, error)
+
+	// CompletePluginConnectionOAuthWithBodyWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CompletePluginConnectionOAuthWithBodyWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompletePluginConnectionOAuthResponse, error)
+
+	// CompletePluginConnectionOAuthWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+	CompletePluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, body CompletePluginConnectionOAuthJSONRequestBody, reqEditors ...RequestEditorFn) (*CompletePluginConnectionOAuthResponse, error)
+
+	// DisconnectPluginConnectionOAuthWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect (the `DisconnectPluginConnectionOAuth` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Asks the provider to revoke the grant (RFC 7009) when the declaration has a revocation endpoint, then deletes the local tokens in every case. oauth.revocation records confirmed, failed, or not_declared.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DisconnectPluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DisconnectPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*DisconnectPluginConnectionOAuthResponse, error)
+
+	// StartPluginConnectionOAuthWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/start (the `StartPluginConnectionOAuth` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	StartPluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*StartPluginConnectionOAuthResponse, error)
 
 	// InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -67544,6 +68110,47 @@ func (r UpdatePluginConnectionResponse) ContentType() string {
 	return ""
 }
 
+// PluginConnectionOAuthCallbackResponse303Headers the declared response headers of an HTTP 303 response for PluginConnectionOAuthCallback
+type PluginConnectionOAuthCallbackResponse303Headers struct {
+	Location *string
+}
+
+type PluginConnectionOAuthCallbackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// Headers303 the parsed response headers for an HTTP 303 response
+	Headers303 *PluginConnectionOAuthCallbackResponse303Headers
+}
+
+// GetBody returns the raw response body bytes
+func (r PluginConnectionOAuthCallbackResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PluginConnectionOAuthCallbackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PluginConnectionOAuthCallbackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PluginConnectionOAuthCallbackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SetPluginConnectionConsentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -67583,6 +68190,145 @@ func (r SetPluginConnectionConsentsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetPluginConnectionConsentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CompletePluginConnectionOAuthResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginConnection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CompletePluginConnectionOAuthResponse) GetJSON200() *struct {
+	Data PluginConnection `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r CompletePluginConnectionOAuthResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CompletePluginConnectionOAuthResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompletePluginConnectionOAuthResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CompletePluginConnectionOAuthResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DisconnectPluginConnectionOAuthResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginConnection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DisconnectPluginConnectionOAuthResponse) GetJSON200() *struct {
+	Data PluginConnection `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r DisconnectPluginConnectionOAuthResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DisconnectPluginConnectionOAuthResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DisconnectPluginConnectionOAuthResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DisconnectPluginConnectionOAuthResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartPluginConnectionOAuthResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			AuthorizationUrl string `json:"authorizationUrl"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StartPluginConnectionOAuthResponse) GetJSON200() *struct {
+	Data struct {
+		AuthorizationUrl string `json:"authorizationUrl"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r StartPluginConnectionOAuthResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartPluginConnectionOAuthResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartPluginConnectionOAuthResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartPluginConnectionOAuthResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -79221,7 +79967,7 @@ func (c *ClientWithResponses) CreatePluginConnectionWithResponse(ctx context.Con
 
 // DeletePluginConnectionWithResponse performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
 //
-// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. A connected oauth2 connection must be disconnected first.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) DeletePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*DeletePluginConnectionResponse, error) {
@@ -79271,6 +80017,19 @@ func (c *ClientWithResponses) UpdatePluginConnectionWithResponse(ctx context.Con
 	return ParseUpdatePluginConnectionResponse(rsp)
 }
 
+// PluginConnectionOAuthCallbackWithResponse performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId}/callback (the `PluginConnectionOAuthCallback` operationId) request.
+//
+// The redirect URI an operator registers with the OAuth provider. It is a browser navigation from the provider and carries no Tilecast credential: the Studio session cookie is SameSite=Strict and does not arrive on a cross-site navigation. The route changes nothing. It redirects to the fixed Studio page of the connection and puts state, code, and a provider error code in the URL fragment, where Studio completes the attempt. No parameter chooses the destination. The response has Referrer-Policy no-referrer and Cache-Control no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PluginConnectionOAuthCallbackWithResponse(ctx context.Context, pluginId PluginID, connectionId string, params *PluginConnectionOAuthCallbackParams, reqEditors ...RequestEditorFn) (*PluginConnectionOAuthCallbackResponse, error) {
+	rsp, err := c.PluginConnectionOAuthCallback(ctx, pluginId, connectionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePluginConnectionOAuthCallbackResponse(rsp)
+}
+
 // SetPluginConnectionConsentsWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -79295,6 +80054,58 @@ func (c *ClientWithResponses) SetPluginConnectionConsentsWithResponse(ctx contex
 		return nil, err
 	}
 	return ParseSetPluginConnectionConsentsResponse(rsp)
+}
+
+// CompletePluginConnectionOAuthWithBodyWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CompletePluginConnectionOAuthWithBodyWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompletePluginConnectionOAuthResponse, error) {
+	rsp, err := c.CompletePluginConnectionOAuthWithBody(ctx, pluginId, connectionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompletePluginConnectionOAuthResponse(rsp)
+}
+
+// CompletePluginConnectionOAuthWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete (the `CompletePluginConnectionOAuth` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token.
+func (c *ClientWithResponses) CompletePluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *CompletePluginConnectionOAuthParams, body CompletePluginConnectionOAuthJSONRequestBody, reqEditors ...RequestEditorFn) (*CompletePluginConnectionOAuthResponse, error) {
+	rsp, err := c.CompletePluginConnectionOAuth(ctx, pluginId, connectionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompletePluginConnectionOAuthResponse(rsp)
+}
+
+// DisconnectPluginConnectionOAuthWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect (the `DisconnectPluginConnectionOAuth` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Asks the provider to revoke the grant (RFC 7009) when the declaration has a revocation endpoint, then deletes the local tokens in every case. oauth.revocation records confirmed, failed, or not_declared.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DisconnectPluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DisconnectPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*DisconnectPluginConnectionOAuthResponse, error) {
+	rsp, err := c.DisconnectPluginConnectionOAuth(ctx, pluginId, connectionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisconnectPluginConnectionOAuthResponse(rsp)
+}
+
+// StartPluginConnectionOAuthWithResponse performs a POST /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/start (the `StartPluginConnectionOAuth` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) StartPluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*StartPluginConnectionOAuthResponse, error) {
+	rsp, err := c.StartPluginConnectionOAuth(ctx, pluginId, connectionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartPluginConnectionOAuthResponse(rsp)
 }
 
 // InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
@@ -90444,6 +91255,35 @@ func ParseUpdatePluginConnectionResponse(rsp *http.Response) (*UpdatePluginConne
 	return response, nil
 }
 
+// ParsePluginConnectionOAuthCallbackResponse parses an HTTP response from a PluginConnectionOAuthCallbackWithResponse call
+func ParsePluginConnectionOAuthCallbackResponse(rsp *http.Response) (*PluginConnectionOAuthCallbackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PluginConnectionOAuthCallbackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 303:
+		var headers PluginConnectionOAuthCallbackResponse303Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers303 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseSetPluginConnectionConsentsResponse parses an HTTP response from a SetPluginConnectionConsentsWithResponse call
 func ParseSetPluginConnectionConsentsResponse(rsp *http.Response) (*SetPluginConnectionConsentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -90479,7 +91319,141 @@ func ParseSetPluginConnectionConsentsResponse(rsp *http.Response) (*SetPluginCon
 	case rsp.StatusCode == 409:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParseCompletePluginConnectionOAuthResponse parses an HTTP response from a CompletePluginConnectionOAuthWithResponse call
+func ParseCompletePluginConnectionOAuthResponse(rsp *http.Response) (*CompletePluginConnectionOAuthResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompletePluginConnectionOAuthResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginConnection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseDisconnectPluginConnectionOAuthResponse parses an HTTP response from a DisconnectPluginConnectionOAuthWithResponse call
+func ParseDisconnectPluginConnectionOAuthResponse(rsp *http.Response) (*DisconnectPluginConnectionOAuthResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DisconnectPluginConnectionOAuthResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginConnection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	case rsp.StatusCode == 428:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseStartPluginConnectionOAuthResponse parses an HTTP response from a StartPluginConnectionOAuthWithResponse call
+func ParseStartPluginConnectionOAuthResponse(rsp *http.Response) (*StartPluginConnectionOAuthResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartPluginConnectionOAuthResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				AuthorizationUrl string `json:"authorizationUrl"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
 		break // No content-type
 
 	}

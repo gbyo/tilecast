@@ -17,6 +17,28 @@ export const DEFAULT_TIMEOUT_SECONDS = 10;
 export const MAX_TIMEOUT_SECONDS = 60;
 export const MAX_ORIGIN_LENGTH = 300;
 export const OPERATOR_ORIGIN = "operator";
+export const MAX_OAUTH_SCOPES = 16;
+export const MAX_OAUTH_SCOPE_LENGTH = 256;
+export const MAX_OAUTH_PARAMETERS = 8;
+export const MAX_OAUTH_PARAMETER_VALUE = 256;
+export const MAX_OAUTH_ENDPOINT_LENGTH = 2048;
+
+/** Authorization request parameters the host sets itself. */
+export const RESERVED_OAUTH_PARAMETERS = [
+  "response_type",
+  "client_id",
+  "client_secret",
+  "redirect_uri",
+  "scope",
+  "state",
+  "code",
+  "code_challenge",
+  "code_challenge_method",
+  "code_verifier",
+  "grant_type",
+  "refresh_token",
+  "nonce",
+] as const;
 
 const labelPattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
@@ -202,6 +224,25 @@ export interface ConnectionDeclarationInput {
   privateNetwork?: string;
   plainHttp?: string;
   allowPlaintextSecret?: boolean;
+  oauth?: {
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    revocationEndpoint?: string;
+    scopes: readonly string[];
+    authorizationParameters?: Readonly<Record<string, string>>;
+  };
+}
+
+/** An OAuth endpoint: an https URL without a query, fragment, or user. */
+export function oauthEndpointProblem(raw: string): string | null {
+  if (raw.length > MAX_OAUTH_ENDPOINT_LENGTH) return "is too long";
+  if (raw.includes("#") || raw.includes("?") || raw.includes("@"))
+    return "must be an https URL without a query, a fragment, or a user name";
+  const match = /^https:\/\/([^/]*)(\/.*)?$/.exec(raw);
+  if (!match) return "must be an https URL";
+  const origin = parseOrigin(`https://${match[1] ?? ""}`);
+  if (!origin) return "must be an https URL";
+  return null;
 }
 
 /** Cross-member rules of one declaration a JSON Schema cannot state. */
@@ -235,5 +276,40 @@ export function connectionProblems(
     );
   if (connection.allowPlaintextSecret && !plain)
     problems.push(`${where} allows a plaintext secret without plainHttp "allowed"`);
+  if (connection.type === "oauth2") {
+    if (!connection.oauth) problems.push(`${where} has type "oauth2" and needs oauth`);
+    if (operator || privateNetwork || plain || connection.allowPlaintextSecret)
+      problems.push(
+        `${where} is an OAuth connection; it needs fixed https origins and refuses the private network and plain HTTP`,
+      );
+  } else if (connection.oauth) {
+    problems.push(`${where} declares oauth; only type "oauth2" takes it`);
+  }
+  const oauth = connection.oauth;
+  if (oauth) {
+    for (const [name, value] of [
+      ["authorizationEndpoint", oauth.authorizationEndpoint],
+      ["tokenEndpoint", oauth.tokenEndpoint],
+      ["revocationEndpoint", oauth.revocationEndpoint],
+    ] as const) {
+      if (value === undefined) continue;
+      const problem = oauthEndpointProblem(value);
+      if (problem) problems.push(`${where} oauth ${name} ${problem}`);
+    }
+    if (new Set(oauth.scopes).size !== oauth.scopes.length)
+      problems.push(`${where} oauth has an empty, long, or repeated scope`);
+    for (const scope of oauth.scopes)
+      if (!/^[\x21\x23-\x5b\x5d-\x7e]+$/.test(scope))
+        problems.push(`${where} oauth scope "${scope}" holds a character a scope cannot hold`);
+    for (const [key, value] of Object.entries(oauth.authorizationParameters ?? {})) {
+      if (
+        !/^[a-z][a-z0-9_]{0,39}$/.test(key) ||
+        (RESERVED_OAUTH_PARAMETERS as readonly string[]).includes(key)
+      )
+        problems.push(`${where} oauth authorization parameter "${key}" is invalid or set by the host`);
+      if (!/^[\x20-\x7e]+$/.test(value))
+        problems.push(`${where} oauth authorization parameter "${key}" holds a control or non-ASCII character`);
+    }
+  }
   return problems;
 }

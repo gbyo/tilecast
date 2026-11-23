@@ -29,6 +29,11 @@ import {
 import serverServices from "../server-services.json" with { type: "json" };
 import {
   connectionProblems,
+  MAX_OAUTH_ENDPOINT_LENGTH,
+  MAX_OAUTH_PARAMETER_VALUE,
+  MAX_OAUTH_PARAMETERS,
+  MAX_OAUTH_SCOPE_LENGTH,
+  MAX_OAUTH_SCOPES,
   MAX_CONNECTION_ORIGINS,
   MAX_CONNECTIONS,
   MAX_MAX_RESPONSE_BYTES,
@@ -591,8 +596,10 @@ const connectionDeclaration = z.strictObject({
   title: text(80),
   description: text(280).optional(),
   type: z
-    .enum(["http"])
-    .describe("http: requests through http.fetch@1."),
+    .enum(["http", "oauth2"])
+    .describe(
+      "http: requests through http.fetch@1. oauth2: the same, with a host-run OAuth 2.0 authorization code flow and PKCE.",
+    ),
   origins: z
     .union([
       z.literal(OPERATOR_ORIGIN),
@@ -632,6 +639,31 @@ const connectionDeclaration = z.strictObject({
     .max(MAX_TIMEOUT_SECONDS)
     .optional()
     .describe("Time bound of one request, redirects and body included. Default 10 seconds."),
+  oauth: z
+    .strictObject({
+      authorizationEndpoint: z.string().min(1).max(MAX_OAUTH_ENDPOINT_LENGTH),
+      tokenEndpoint: z.string().min(1).max(MAX_OAUTH_ENDPOINT_LENGTH),
+      revocationEndpoint: z.string().min(1).max(MAX_OAUTH_ENDPOINT_LENGTH).optional(),
+      scopes: z
+        .array(z.string().min(1).max(MAX_OAUTH_SCOPE_LENGTH))
+        .min(1)
+        .max(MAX_OAUTH_SCOPES),
+      tokenEndpointAuthMethod: z.enum(["client_secret_basic", "client_secret_post", "none"]),
+      tokenRequestFormat: z
+        .enum(["form", "json"])
+        .optional()
+        .describe("Token request body encoding. RFC 6749 uses form; some providers take JSON."),
+      authorizationParameters: z
+        .record(z.string(), z.string().min(1).max(MAX_OAUTH_PARAMETER_VALUE))
+        .optional()
+        .refine((value) => Object.keys(value ?? {}).length <= MAX_OAUTH_PARAMETERS, {
+          message: `at most ${MAX_OAUTH_PARAMETERS} authorization parameters`,
+        }),
+    })
+    .optional()
+    .describe(
+      "The provider side of an oauth2 connection. The host runs the flow; plugin code never receives a token.",
+    ),
 });
 
 const v3Members = {

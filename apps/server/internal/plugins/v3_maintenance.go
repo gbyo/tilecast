@@ -49,6 +49,9 @@ func (s *Service) maintain(ctx context.Context, retention bool) {
 	if _, err := s.AdvanceSchedules(ctx); err != nil && ctx.Err() == nil {
 		s.logger.Warn("plugin instance schedule pass failed", "error", err)
 	}
+	if _, err := s.ExpireOAuthAttempts(ctx); err != nil && ctx.Err() == nil {
+		s.logger.Warn("plugin oauth attempt sweep failed", "error", err)
+	}
 	if retention {
 		if _, err := s.PurgePersonalData(ctx); err != nil && ctx.Err() == nil {
 			s.logger.Warn("plugin personal data retention pass failed", "error", err)

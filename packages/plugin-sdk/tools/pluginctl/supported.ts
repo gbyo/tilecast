@@ -224,14 +224,22 @@ function checkResponses(
     return;
   }
   // The authenticated Player socket is the only HTTP upgrade operation in
-  // the contract. Every ordinary operation must still document a 2xx success.
+  // the contract, and the plugin connection OAuth callback is the only
+  // browser redirect: an OAuth provider sends the browser there, and it
+  // answers 303 to a fixed Studio page. Every ordinary operation must still
+  // document a 2xx success.
   const allowsProtocolUpgrade =
     method === "get" && path === "/api/v1/player/socket";
+  const allowsRedirect =
+    method === "get" &&
+    path === "/api/v1/plugins/{pluginId}/connections/{connectionId}/callback";
   const success = responses.items.find((pair) => {
     const code = scalar(pair.key);
     return (
       code !== null &&
-      (code.startsWith("2") || (allowsProtocolUpgrade && code === "101"))
+      (code.startsWith("2") ||
+        (allowsProtocolUpgrade && code === "101") ||
+        (allowsRedirect && code === "303"))
     );
   });
   if (success === undefined) {

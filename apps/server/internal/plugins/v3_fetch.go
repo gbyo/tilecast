@@ -89,8 +89,15 @@ const ErrCodeSecretUnavailable = "secret_unavailable"
 
 func fetchFailure(code string) *FetchFailure {
 	message := (&outbound.Failure{Code: code}).Message()
-	if code == ErrCodeSecretUnavailable {
+	switch code {
+	case ErrCodeSecretUnavailable:
 		message = "A secret this request names is not set or cannot be read. Enter it again."
+	case CodeOAuthNotConnected:
+		message = "The connection is not connected to its provider yet."
+	case CodeOAuthReconnectRequired:
+		message = "The provider no longer accepts this connection. An Owner or Administrator must connect it again."
+	case CodeOAuthRefreshFailed:
+		message = "The provider could not renew access right now. Try again later."
 	}
 	return &FetchFailure{Code: code, Message: message}
 }
@@ -187,6 +194,14 @@ func (s *Service) FetchThroughConnection(ctx context.Context, pluginID string, r
 	if refusal != nil {
 		s.logFetch(pluginID, request.Connection, originText(target), request.Method, 0, started, refusal.Code)
 		return ConnectionResponse{}, refusal
+	}
+	if connection.declaration.IsOAuth() {
+		bearer, refusal := s.bearerHeader(ctx, connection, request.Headers)
+		if refusal != nil {
+			s.logFetch(pluginID, request.Connection, originText(target), request.Method, 0, started, refusal.Code)
+			return ConnectionResponse{}, refusal
+		}
+		headers = append(headers, bearer)
 	}
 	response, err := s.outboundEngine().Do(ctx, connection.policy(), outbound.Request{Method: request.Method, URL: target, Headers: headers, Body: request.Body})
 	if err != nil {

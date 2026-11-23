@@ -7,7 +7,7 @@ func TestManifestIsValid(t *testing.T) {
 	if err := manifest.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if len(manifest.Connections) != 5 {
+	if len(manifest.Connections) != 8 {
 		t.Fatalf("connections = %d", len(manifest.Connections))
 	}
 }

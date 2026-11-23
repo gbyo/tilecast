@@ -43,11 +43,14 @@ const (
 	OwnerOrganization = "organization"
 	OwnerInstance     = "instance"
 	OwnerScreen       = "screen"
+	// OwnerConnection is a host connection record. It owns the OAuth client
+	// secret, the tokens, and the PKCE verifier of an attempt in progress.
+	OwnerConnection = "connection"
 )
 
 func (ref SecretRef) validate() error {
 	switch ref.OwnerType {
-	case OwnerOrganization, OwnerInstance, OwnerScreen:
+	case OwnerOrganization, OwnerInstance, OwnerScreen, OwnerConnection:
 	default:
 		return fmt.Errorf("unknown secret owner type %q", ref.OwnerType)
 	}

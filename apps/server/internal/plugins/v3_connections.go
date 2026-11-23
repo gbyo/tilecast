@@ -38,6 +38,11 @@ const (
 	ReasonDeclarationRemoved         = "declaration_removed"
 	ReasonConsentsNeedConfirmation   = "consents_need_confirmation"
 	ReasonPrivateAddressesNotAllowed = "private_addresses_need_consent"
+	ReasonOAuthClientRequired        = "oauth_client_required"
+	ReasonOAuthNotConnected          = "oauth_not_connected"
+	ReasonOAuthReconnectRequired     = "oauth_reconnect_required"
+	ReasonOAuthRefreshFailing        = "oauth_refresh_failing"
+	ReasonOAuthRevocationFailed      = "oauth_revocation_failed"
 )
 
 // ConsentState is one consent as the API returns it.
@@ -82,18 +87,26 @@ type ConnectionDocument struct {
 	Reasons    []string              `json:"reasons"`
 	Notices    []string              `json:"notices"`
 	References []ConnectionReference `json:"references"`
-	Revision   int64                 `json:"revision"`
-	CreatedAt  time.Time             `json:"createdAt"`
-	UpdatedAt  time.Time             `json:"updatedAt"`
+	// OAuth is present for an oauth2 connection. It never holds a token or
+	// the client secret.
+	OAuth     *OAuthState `json:"oauth,omitempty"`
+	Revision  int64       `json:"revision"`
+	CreatedAt time.Time   `json:"createdAt"`
+	UpdatedAt time.Time   `json:"updatedAt"`
 }
 
 // ConnectionWrite creates or updates a record. Consents are written only
-// through ConsentWrite, never by a general save.
+// through ConsentWrite, never by a general save. ClientID, ClientSecret,
+// and ClearClientSecret apply to an oauth2 connection; the client secret is
+// write-only.
 type ConnectionWrite struct {
-	Definition       string  `json:"definition"`
-	Name             *string `json:"name"`
-	Origin           *string `json:"origin"`
-	ExpectedRevision *int64  `json:"expectedRevision"`
+	Definition        string  `json:"definition"`
+	Name              *string `json:"name"`
+	Origin            *string `json:"origin"`
+	ClientID          *string `json:"clientId"`
+	ClientSecret      *string `json:"clientSecret"`
+	ClearClientSecret bool    `json:"clearClientSecret"`
+	ExpectedRevision  *int64  `json:"expectedRevision"`
 }
 
 // ConsentWrite sets the three consents explicitly. Each member is the
@@ -118,15 +131,36 @@ type connectionRow struct {
 	plaintextBy          *uuid.UUID
 	revision             int64
 	createdAt, updatedAt time.Time
+	oauth                oauthColumns
+}
+
+// oauthColumns are the OAuth state of an oauth2 connection row.
+type oauthColumns struct {
+	clientID        *string
+	status          *string
+	fingerprint     *string
+	accessExpiresAt *time.Time
+	connectedAt     *time.Time
+	connectedBy     *uuid.UUID
+	refreshedAt     *time.Time
+	lastError       *string
+	lastErrorAt     *time.Time
+	revocation      *string
+	disconnectedAt  *time.Time
 }
 
 const connectionColumns = `id,plugin_id,definition_id,name,origin,consent_fingerprint,private_network_consent_at,private_network_consent_by,
-	plain_http_consent_at,plain_http_consent_by,plaintext_secret_consent_at,plaintext_secret_consent_by,revision,created_at,updated_at`
+	plain_http_consent_at,plain_http_consent_by,plaintext_secret_consent_at,plaintext_secret_consent_by,revision,created_at,updated_at,
+	oauth_client_id,oauth_status,oauth_fingerprint,oauth_access_expires_at,oauth_connected_at,oauth_connected_by,oauth_refreshed_at,
+	oauth_last_error,oauth_last_error_at,oauth_revocation,oauth_disconnected_at`
 
 func scanConnection(row pgx.Row) (connectionRow, error) {
 	var out connectionRow
+	o := &out.oauth
 	err := row.Scan(&out.id, &out.pluginID, &out.definition, &out.name, &out.origin, &out.fingerprint, &out.privateAt, &out.privateBy,
-		&out.plainAt, &out.plainBy, &out.plaintextAt, &out.plaintextBy, &out.revision, &out.createdAt, &out.updatedAt)
+		&out.plainAt, &out.plainBy, &out.plaintextAt, &out.plaintextBy, &out.revision, &out.createdAt, &out.updatedAt,
+		&o.clientID, &o.status, &o.fingerprint, &o.accessExpiresAt, &o.connectedAt, &o.connectedBy, &o.refreshedAt,
+		&o.lastError, &o.lastErrorAt, &o.revocation, &o.disconnectedAt)
 	return out, err
 }
 
@@ -241,6 +275,27 @@ func (s *Service) documentFor(ctx context.Context, q queryer, hosted hostedPlugi
 			}
 		} else if declaration.AllowsPrivateNetwork() && !active.privateNetwork {
 			document.Notices = append(document.Notices, ReasonPrivateAddressesNotAllowed)
+		}
+		if declaration.IsOAuth() {
+			state, err := s.oauthState(ctx, q, row, declaration)
+			if err != nil {
+				return ConnectionDocument{}, err
+			}
+			document.OAuth = state
+			switch {
+			case state.Status == OAuthReconnectRequired:
+				document.Reasons = append(document.Reasons, ReasonOAuthReconnectRequired)
+			case state.Status != OAuthConnected && (state.ConnectBlocker == ConnectNeedsClientID || state.ConnectBlocker == ConnectNeedsClientSecret):
+				document.Reasons = append(document.Reasons, ReasonOAuthClientRequired)
+			case state.Status != OAuthConnected:
+				document.Reasons = append(document.Reasons, ReasonOAuthNotConnected)
+			}
+			if state.Status == OAuthConnected && state.LastError != nil {
+				document.Notices = append(document.Notices, ReasonOAuthRefreshFailing)
+			}
+			if state.Revocation != nil && *state.Revocation == "failed" {
+				document.Notices = append(document.Notices, ReasonOAuthRevocationFailed)
+			}
 		}
 		document.Status = ConnectionReady
 		if len(document.Reasons) > 0 {
@@ -385,11 +440,32 @@ func (s *Service) CreateConnection(ctx context.Context, pluginID string, userID 
 			return nil, &plugin.APIError{Status: http.StatusConflict, Code: "plugin_connection_limit",
 				Message: fmt.Sprintf("A plugin has at most %d connections. Delete one you no longer use.", MaxConnectionRecords)}
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO plugin_connections(id,organization_id,plugin_id,definition_id,name,origin,created_by,updated_by)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$7)`, id, organizationID, pluginID, declaration.ID, name, origin, nullableUser(userID)); err != nil {
+		var oauthStatus *string
+		if declaration.IsOAuth() {
+			value := OAuthNotConnected
+			oauthStatus = &value
+		} else if write.ClientID != nil || write.ClientSecret != nil || write.ClearClientSecret {
+			return nil, invalidConnection("Only an OAuth connection takes a client ID or a client secret.")
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO plugin_connections(id,organization_id,plugin_id,definition_id,name,origin,oauth_status,created_by,updated_by)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8)`, id, organizationID, pluginID, declaration.ID, name, origin, oauthStatus, nullableUser(userID)); err != nil {
 			return nil, err
 		}
-		return nil, s.auditConnection(ctx, tx, "plugin.connection.created", pluginID, id, name, userID, map[string]any{"definition": declaration.ID, "origin": origin})
+		metadata := map[string]any{"definition": declaration.ID, "origin": origin}
+		if declaration.IsOAuth() {
+			row, err := s.lockConnection(ctx, tx, pluginID, id)
+			if err != nil {
+				return nil, err
+			}
+			changes, err := s.writeOAuthClient(ctx, tx, row, declaration, write, userID)
+			if err != nil {
+				return nil, err
+			}
+			for key, value := range changes {
+				metadata[key] = value
+			}
+		}
+		return nil, s.auditConnection(ctx, tx, "plugin.connection.created", pluginID, id, name, userID, metadata)
 	}); err != nil {
 		return ConnectionDocument{}, err
 	}
@@ -444,6 +520,17 @@ func (s *Service) UpdateConnection(ctx context.Context, pluginID string, id, use
 			return nil, err
 		}
 		metadata := map[string]any{"definition": row.definition, "originChanged": originChanged}
+		if declaration.IsOAuth() {
+			changes, err := s.writeOAuthClient(ctx, tx, row, declaration, write, userID)
+			if err != nil {
+				return nil, err
+			}
+			for key, value := range changes {
+				metadata[key] = value
+			}
+		} else if write.ClientID != nil || write.ClientSecret != nil || write.ClearClientSecret {
+			return nil, invalidConnection("Only an OAuth connection takes a client ID or a client secret.")
+		}
 		if originChanged {
 			metadata["origin"] = origin
 			metadata["consentsCleared"] = row.privateAt != nil || row.plainAt != nil || row.plaintextAt != nil
@@ -547,8 +634,9 @@ func (s *Service) DeleteConnection(ctx context.Context, pluginID string, id, use
 				Message: "Settings or instances use this connection. Choose another connection there first.",
 				Details: map[string]any{"references": document.References}}
 		}
-		if err := s.beforeConnectionDelete(ctx, tx, row); err != nil {
-			return nil, err
+		if row.oauth.status != nil && *row.oauth.status == OAuthConnected {
+			return nil, &plugin.APIError{Status: http.StatusConflict, Code: "plugin_connection_connected",
+				Message: "Disconnect this connection first, so the provider can revoke Tilecast's access."}
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM plugin_connections WHERE id=$1`, id); err != nil {
 			return nil, err
@@ -557,10 +645,6 @@ func (s *Service) DeleteConnection(ctx context.Context, pluginID string, id, use
 	})
 	return err
 }
-
-// beforeConnectionDelete is where credential cleanup of a connection type
-// runs inside the delete transaction. Plain HTTP connections hold none.
-func (s *Service) beforeConnectionDelete(context.Context, pgx.Tx, connectionRow) error { return nil }
 
 func (s *Service) lockConnection(ctx context.Context, tx pgx.Tx, pluginID string, id uuid.UUID) (connectionRow, error) {
 	row, err := scanConnection(tx.QueryRow(ctx, `SELECT `+connectionColumns+` FROM plugin_connections WHERE id=$1 AND plugin_id=$2 FOR UPDATE`, id, pluginID))
@@ -576,6 +660,12 @@ func (s *Service) auditConnection(ctx context.Context, tx pgx.Tx, action, plugin
 	if userID != uuid.Nil {
 		actor := userID
 		event.Actor = &actor
+	}
+	if userID == uuid.Nil || audit.SurfaceFrom(ctx) == "" {
+		// A refresh during a plugin hook has no HTTP principal and no human
+		// actor: the server is the client.
+		event.Surface = audit.SurfaceSystem
+		event.ClientID = "tilecast-server"
 	}
 	return audit.RecordTx(ctx, tx, event)
 }
@@ -660,6 +750,19 @@ type ConnectionReview struct {
 	PlaintextSecret  bool `json:"plaintextSecret"`
 	MaxResponseBytes int  `json:"maxResponseBytes"`
 	TimeoutSeconds   int  `json:"timeoutSeconds"`
+	// OAuth is the provider side of an oauth2 connection.
+	OAuth *OAuthReview `json:"oauth,omitempty"`
+}
+
+// OAuthReview is what an install review shows of an OAuth declaration:
+// where Tilecast sends the operator and the tokens, and the access it asks
+// for.
+type OAuthReview struct {
+	AuthorizationEndpoint   string   `json:"authorizationEndpoint"`
+	TokenEndpoint           string   `json:"tokenEndpoint"`
+	RevocationEndpoint      string   `json:"revocationEndpoint,omitempty"`
+	Scopes                  []string `json:"scopes"`
+	TokenEndpointAuthMethod string   `json:"tokenEndpointAuthMethod"`
 }
 
 func connectionReviews(m plugin.Manifest) []ConnectionReview {
@@ -670,8 +773,17 @@ func connectionReviews(m plugin.Manifest) []ConnectionReview {
 			OperatorOrigin: connection.Origins.Operator, Origins: append([]string{}, connection.Origins.Fixed...),
 			PrivateNetwork: connection.AllowsPrivateNetwork(), PlainHTTP: connection.AllowsPlainHTTP(),
 			PlaintextSecret: connection.AllowPlaintextSecret, MaxResponseBytes: connection.ResponseLimit(),
-			TimeoutSeconds: connection.Timeout(),
+			TimeoutSeconds: connection.Timeout(), OAuth: oauthReview(connection),
 		})
 	}
 	return out
+}
+
+func oauthReview(connection plugin.Connection) *OAuthReview {
+	if !connection.IsOAuth() {
+		return nil
+	}
+	o := connection.OAuth
+	return &OAuthReview{AuthorizationEndpoint: o.AuthorizationEndpoint, TokenEndpoint: o.TokenEndpoint,
+		RevocationEndpoint: o.RevocationEndpoint, Scopes: append([]string{}, o.Scopes...), TokenEndpointAuthMethod: o.TokenEndpointAuthMethod}
 }

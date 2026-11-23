@@ -202,24 +202,26 @@ func (s *Store) WriteInTx(ctx context.Context, tx pgx.Tx, ref SecretRef, value s
 	if err != nil {
 		return err
 	}
-	instanceID, screenID := ownerColumns(ref)
-	_, err = tx.Exec(ctx, `INSERT INTO plugin_secrets(plugin_id,owner_type,owner_id,setting_key,instance_id,screen_id,dek_id,envelope,updated_by)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	instanceID, screenID, connectionID := ownerColumns(ref)
+	_, err = tx.Exec(ctx, `INSERT INTO plugin_secrets(plugin_id,owner_type,owner_id,setting_key,instance_id,screen_id,dek_id,envelope,updated_by,connection_id)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		ON CONFLICT (plugin_id,owner_type,owner_id,setting_key) DO UPDATE
 		SET dek_id=EXCLUDED.dek_id,envelope=EXCLUDED.envelope,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-		ref.PluginID, ref.OwnerType, ref.OwnerID, ref.Key, instanceID, screenID, dekID, envelope, userID)
+		ref.PluginID, ref.OwnerType, ref.OwnerID, ref.Key, instanceID, screenID, dekID, envelope, userID, connectionID)
 	return err
 }
 
-func ownerColumns(ref SecretRef) (instanceID, screenID *uuid.UUID) {
+func ownerColumns(ref SecretRef) (instanceID, screenID, connectionID *uuid.UUID) {
 	id := ref.OwnerID
 	switch ref.OwnerType {
 	case OwnerInstance:
-		return &id, nil
+		return &id, nil, nil
 	case OwnerScreen:
-		return nil, &id
+		return nil, &id, nil
+	case OwnerConnection:
+		return nil, nil, &id
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 // DeleteInTx removes a secret. It reports whether one existed.

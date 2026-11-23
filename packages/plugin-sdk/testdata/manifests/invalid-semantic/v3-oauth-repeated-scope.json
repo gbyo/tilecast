@@ -1,0 +1,99 @@
+{
+  "apiVersion": 3,
+  "id": "calendar_sign",
+  "definitionVersion": 1,
+  "name": "Calendar Sign",
+  "description": "Show a room calendar.",
+  "category": "Display",
+  "icon": "calendar",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "sign",
+    "plural": "signs"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/calendar-sign"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/calendar-sign"
+  },
+  "services": [
+    "http.fetch@1"
+  ],
+  "connections": [
+    {
+      "id": "google",
+      "title": "Google Calendar",
+      "type": "oauth2",
+      "origins": [
+        "https://www.googleapis.com"
+      ],
+      "oauth": {
+        "authorizationEndpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenEndpoint": "https://oauth2.googleapis.com/token",
+        "revocationEndpoint": "https://oauth2.googleapis.com/revoke",
+        "scopes": [
+          "a",
+          "a"
+        ],
+        "tokenEndpointAuthMethod": "client_secret_post",
+        "authorizationParameters": {
+          "access_type": "offline",
+          "prompt": "consent"
+        }
+      }
+    },
+    {
+      "id": "square",
+      "title": "Square",
+      "type": "oauth2",
+      "origins": [
+        "https://connect.squareup.com"
+      ],
+      "oauth": {
+        "authorizationEndpoint": "https://connect.squareup.com/oauth2/authorize",
+        "tokenEndpoint": "https://connect.squareup.com/oauth2/token",
+        "scopes": [
+          "ITEMS_READ",
+          "MERCHANT_PROFILE_READ"
+        ],
+        "tokenEndpointAuthMethod": "client_secret_post",
+        "tokenRequestFormat": "json"
+      }
+    }
+  ],
+  "instances": [
+    {
+      "kind": "sign",
+      "noun": {
+        "singular": "sign",
+        "plural": "signs"
+      },
+      "path": "signs",
+      "operations": {
+        "singular": "CalendarSign",
+        "plural": "CalendarSigns"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "calendar",
+          "label": "Calendar",
+          "control": "connection",
+          "connections": [
+            "google"
+          ],
+          "required": true
+        }
+      ]
+    }
+  ]
+}

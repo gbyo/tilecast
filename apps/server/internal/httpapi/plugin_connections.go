@@ -133,3 +133,75 @@ func (s *server) deletePluginConnection(w http.ResponseWriter, r *http.Request) 
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// OAuth 2.0 connections. Start and disconnect are ordinary Studio
+// mutations. The callback is the provider's redirect: the session cookie is
+// SameSite=Strict and does not arrive on that cross-site navigation, so the
+// callback changes nothing and only returns the fixed Studio page of the
+// connection. That page completes the attempt with the session and the CSRF
+// token. The single-use state, bound to the plugin, the connection, and the
+// operator, protects the completion.
+
+func (s *server) startPluginConnectionOAuth(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.actingUser(w, r)
+	if !ok {
+		return
+	}
+	pluginID, id, ok := s.connectionTarget(w, r)
+	if !ok {
+		return
+	}
+	authorization, err := s.plugins.StartOAuth(r.Context(), pluginID, id, userID)
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"authorizationUrl": authorization}})
+}
+
+func (s *server) pluginConnectionOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	location := s.plugins.OAuthCallbackPage(chi.URLParam(r, "pluginId"), chi.URLParam(r, "connectionId"), r.URL.Query())
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
+	http.Redirect(w, r, location, http.StatusSeeOther)
+}
+
+func (s *server) completePluginConnectionOAuth(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.actingUser(w, r)
+	if !ok {
+		return
+	}
+	pluginID, id, ok := s.connectionTarget(w, r)
+	if !ok {
+		return
+	}
+	var callback plugins.OAuthCallback
+	if err := decodeJSONLimit(w, r, &callback, maxConnectionBodyBytes); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON for this operation.")
+		return
+	}
+	item, err := s.plugins.CompleteOAuth(r.Context(), pluginID, id, userID, callback)
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": item})
+}
+
+func (s *server) disconnectPluginConnectionOAuth(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.actingUser(w, r)
+	if !ok {
+		return
+	}
+	pluginID, id, ok := s.connectionTarget(w, r)
+	if !ok {
+		return
+	}
+	item, err := s.plugins.DisconnectOAuth(r.Context(), pluginID, id, userID)
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": item})
+}

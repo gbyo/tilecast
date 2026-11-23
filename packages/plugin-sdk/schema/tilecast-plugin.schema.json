@@ -1403,8 +1403,8 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["http"],
-                "description": "http: requests through http.fetch@1."
+                "enum": ["http", "oauth2"],
+                "description": "http: requests through http.fetch@1. oauth2: the same, with a host-run OAuth 2.0 authorization code flow and PKCE."
               },
               "origins": {
                 "anyOf": [
@@ -1447,6 +1447,66 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 60
+              },
+              "oauth": {
+                "description": "The provider side of an oauth2 connection. The host runs the flow; plugin code never receives a token.",
+                "type": "object",
+                "properties": {
+                  "authorizationEndpoint": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "tokenEndpoint": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "revocationEndpoint": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "scopes": {
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "tokenEndpointAuthMethod": {
+                    "type": "string",
+                    "enum": [
+                      "client_secret_basic",
+                      "client_secret_post",
+                      "none"
+                    ]
+                  },
+                  "tokenRequestFormat": {
+                    "description": "Token request body encoding. RFC 6749 uses form; some providers take JSON.",
+                    "type": "string",
+                    "enum": ["form", "json"]
+                  },
+                  "authorizationParameters": {
+                    "type": "object",
+                    "propertyNames": { "type": "string" },
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  }
+                },
+                "required": [
+                  "authorizationEndpoint",
+                  "tokenEndpoint",
+                  "scopes",
+                  "tokenEndpointAuthMethod"
+                ],
+                "additionalProperties": false
               }
             },
             "required": ["id", "title", "type", "origins"],
