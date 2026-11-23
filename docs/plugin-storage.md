@@ -20,12 +20,12 @@ an input with an unknown member.
 
 ### Operations
 
-| Operation                     | Input                         | Answer                          |
-| ----------------------------- | ----------------------------- | ------------------------------- |
-| `storage.kv@1/get`            | `key`                         | `value`, or `not_found`         |
-| `storage.kv@1/set`            | `key`, `value`                | `stored: true`                  |
-| `storage.kv@1/compareAndSet`  | `key`, `expected`, `value`    | `swapped: true` or `false`      |
-| `storage.kv@1/delete`         | `key`                         | `deleted: true` or `false`      |
+| Operation                    | Input                      | Answer                     |
+| ---------------------------- | -------------------------- | -------------------------- |
+| `storage.kv@1/get`           | `key`                      | `value`, or `not_found`    |
+| `storage.kv@1/set`           | `key`, `value`             | `stored: true`             |
+| `storage.kv@1/compareAndSet` | `key`, `expected`, `value` | `swapped: true` or `false` |
+| `storage.kv@1/delete`        | `key`                      | `deleted: true` or `false` |
 
 A value is bytes. JSON carries it in base64. An empty value is a value, and
 it is different from a missing key.
@@ -42,11 +42,11 @@ the provider no longer accepts.
 
 ### Bounds
 
-| Bound                        | Value     |
-| ---------------------------- | --------- |
-| Key                          | 1 to 128 bytes |
-| Value                        | at most 64 KiB |
-| Live values of one plugin    | at most 1 MiB  |
+| Bound                     | Value          |
+| ------------------------- | -------------- |
+| Key                       | 1 to 128 bytes |
+| Value                     | at most 64 KiB |
+| Live values of one plugin | at most 1 MiB  |
 
 These are the bounds of the package KV. One package,
 `apps/server/internal/extensions/kvstore`, holds the bounds, the validation,
@@ -75,17 +75,17 @@ has no purge action for bundled plugin data.
 
 ### Operations
 
-| Operation                    | Input                       | Answer               |
-| ---------------------------- | --------------------------- | -------------------- |
-| `timers.schedule@1/schedule` | `key`, `at`, `payload`      | `id`, `dueAt`        |
-| `timers.cancel@1/cancel`     | `key`                       | `cancelled`          |
+| Operation                    | Input                  | Answer        |
+| ---------------------------- | ---------------------- | ------------- |
+| `timers.schedule@1/schedule` | `key`, `at`, `payload` | `id`, `dueAt` |
+| `timers.cancel@1/cancel`     | `key`                  | `cancelled`   |
 
-| Bound                     | Value                                         |
-| ------------------------- | --------------------------------------------- |
-| Key                       | 1 to 128 bytes of UTF-8, no control characters |
-| Payload                   | at most 4 KiB of bytes                        |
-| Time                      | at most 400 days ahead; a past time is due now |
-| Pending timers of a plugin| at most 1,000                                 |
+| Bound                      | Value                                          |
+| -------------------------- | ---------------------------------------------- |
+| Key                        | 1 to 128 bytes of UTF-8, no control characters |
+| Payload                    | at most 4 KiB of bytes                         |
+| Time                       | at most 400 days ahead; a past time is due now |
+| Pending timers of a plugin | at most 1,000                                  |
 
 4 KiB holds an identifier, a cursor, or a short JSON document. A plugin that
 needs more keeps it in `storage.kv@1` and puts the key in the payload.
@@ -105,58 +105,61 @@ Delivery is at least once. A callback can run again for the same timer after
 a crash, a timeout, or an error. A handler must be idempotent: for example,
 it compares a cursor in `storage.kv@1` with `compareAndSet` before it acts.
 
+### Delivery
+
+A timer is one item of kind `timer` in the plugin delivery queue. The
+[plugin delivery](plugin-delivery.md) document is the contract for claims,
+leases, order, retries, parking, and retention. For timers:
+
+- The timer key is the source and the subject of the item. Each key is its
+  own subject, so different keys run in parallel up to the bound of the
+  plugin.
+- The pending retention of 7 days counts from the due time. A timer 300 days
+  ahead does not expire before it is due.
+- After 8 failed attempts the host parks the timer. The Status page of the
+  plugin shows it, and an Owner retries or discards it. Scheduling the key
+  again also replaces a parked timer.
+
 ### Generations
 
-A timer row is one generation with its own ID. Scheduling a key deletes the
-old row and inserts a new row with a new ID. Completion and retry name the row
-ID and the claim token, never the plugin and the key. A callback of generation
-A that finishes after the plugin scheduled generation B of the same key
-therefore cannot delete or move B.
+A timer is one generation with its own ID. Scheduling a key cancels the
+current generation and adds a new one with a new ID. Completion and retry
+name the item ID and the claim token, never the plugin and the key.
 
-### Claims and leases
+- A generation that waits is deleted.
+- A generation whose callback runs now becomes `cancelled`. It keeps the
+  subject of its key until its callback ends, so the new generation never
+  runs at the same time. Its result then changes nothing: success, failure,
+  and the end of its lease delete only the cancelled item. The host never
+  runs it again.
 
-`apps/server/internal/durable` is the claim and lease mechanism. Phase 3 can
-use it for other durable work.
-
-1. A worker claims due rows with `FOR UPDATE SKIP LOCKED`. A claim sets a
-   random claim token, a lease of 2 minutes, and adds one to `attempts`. Two
-   workers never claim the same row while a lease holds.
-2. The worker runs the callback outside the claiming transaction.
-3. Success deletes the row with the same ID and token.
-4. A failure sets the next due time with the same ID and token. The delay is
-   5 seconds after the first failure and doubles to at most 1 hour. After 10
-   attempts the host deletes the timer and logs it.
-5. A worker that stops leaves the claim. When the lease ends, another worker
-   claims the row again and the attempt number goes up. A late completion of
-   the old claim changes nothing.
-
-Failure codes on the row are `handler_error`, `handler_timeout`, and
-`handler_panic`. A callback never sees another plugin's timers.
-
-The Server maintenance loop runs due timers every 5 seconds. Tests call
-`RunDueTimers` with a stepped clock.
+A callback that has started can still complete its side effects. A plugin
+that must not act twice checks its own state, for example with
+`compareAndSet`.
 
 ### Removal and reinstall
 
-- A removed plugin gets no callbacks. Its timers stay and are inert.
-- After a reinstall, the timers fire at their times. A timer that became due
-  while the plugin was removed fires once, soon after the reinstall.
+- Removal deletes the timers of the plugin with the rest of its delivery
+  queue. A plugin that is not installed cannot schedule a timer.
 - Each timer records the manifest `definitionVersion` when it is scheduled. A
   timer fires only under the same definition version. The host deletes a
   timer of another definition version and logs it, so an old definition can
   never fire in a new one. A release that changes `definitionVersion` must
   schedule again the timers that it needs.
+- Migration `00144` moves the timers of installed plugins from
+  `plugin_timers` to `plugin_deliveries` with their IDs, keys, payloads, due
+  times, and attempts. It drops the timers of plugins that are not installed.
 
 ## Threat model
 
-| Threat                                                   | Control                                                                 |
-| -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| A plugin reads or writes another plugin's values         | The host binds the namespace; no input names one.                      |
-| Concurrent writers pass the quota together               | One advisory lock for each namespace before the quota sum.             |
-| A compare-and-set races another write                    | The comparison and the write are one transaction under the same lock.  |
-| A late callback deletes a newer timer                    | Completion names the generation ID and the claim token.                |
-| Two Server processes run one timer at the same time      | `FOR UPDATE SKIP LOCKED` and a lease.                                   |
-| A failing callback spins                                 | Bounded exponential backoff and at most 10 attempts.                   |
-| A removed plugin runs code                               | Timers of a plugin that is not installed are not claimed.              |
-| An old definition fires in a new one                     | Each timer carries its `definitionVersion`.                            |
-| A callback acts as an operator                           | The `system` context, with no actor.                                    |
+| Threat                                              | Control                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------------------------------ |
+| A plugin reads or writes another plugin's values    | The host binds the namespace; no input names one.                              |
+| Concurrent writers pass the quota together          | One advisory lock for each namespace before the quota sum.                     |
+| A compare-and-set races another write               | The comparison and the write are one transaction under the same lock.          |
+| A late callback deletes a newer timer               | Completion names the generation ID and the claim token.                        |
+| Two Server processes run one timer at the same time | A plugin advisory lock for each claim, one item for each subject, and a lease. |
+| A failing callback spins                            | Bounded exponential backoff; the eighth failure parks the timer.               |
+| A removed plugin runs code                          | Removal deletes the queue; claims need an installed plugin.                    |
+| An old definition fires in a new one                | Each timer carries its `definitionVersion`.                                    |
+| A callback acts as an operator                      | The `system` context, with no actor.                                           |
