@@ -141,7 +141,7 @@ function usePrefillTarget(screenId: string, groupId: string) {
   return { pending, target };
 }
 
-/** Resolve a contextual presentation before mounting the editable draft. */
+/** Load a contextual presentation before mounting the editable draft. */
 function usePrefillPresentation(playlistId: string, layoutId: string) {
   const playlist = useQuery({
     ...playlistQueries.detail(playlistId),
@@ -179,7 +179,7 @@ function usePrefillPresentation(playlistId: string, layoutId: string) {
 
 /**
  * A new schedule starts from the organization's timezone and, when opened
- * from a screen or Display Group, that one target. Both are settled before
+ * from a screen or Display Group, that one target. The starting values are settled before
  * the editor mounts, so applying them is never an edit and a later answer can
  * never overwrite what the author chose.
  */
