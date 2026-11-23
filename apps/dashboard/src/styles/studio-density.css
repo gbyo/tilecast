@@ -66,4 +66,15 @@ html[data-density="compact"]
   [data-slot="combobox-item"] {
     min-height: 2.75rem;
   }
+
+  /* Small binary controls keep their native visual size, but their invisible
+     hit slop reaches the same 44pt floor. Field labels remain clickable too. */
+  [data-slot="checkbox"]::after,
+  [data-slot="radio-group-item"]::after {
+    inset: -0.875rem;
+  }
+
+  [data-slot="switch"]::after {
+    inset-block: -0.8125rem;
+  }
 }
