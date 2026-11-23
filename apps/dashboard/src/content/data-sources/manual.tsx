@@ -1,3 +1,4 @@
+import { newUuid } from "../../lib/uuid";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +11,6 @@ import { Button } from "../../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
-import { newUuid } from "../../lib/uuid";
   Select,
   SelectContent,
   SelectItem,
