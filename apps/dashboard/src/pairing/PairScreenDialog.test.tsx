@@ -20,12 +20,21 @@ vi.mock("../auth/AuthProvider", () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  Object.defineProperty(window, "innerWidth", {
-    writable: true,
-    configurable: true,
-    value: 1024,
-  });
+  vi.unstubAllGlobals();
 });
+
+function stubWidth(width: number) {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(max-width: 639px)" ? width <= 639 : false,
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
 
 function renderDialog(path = "/screens/pair") {
   const queryClient = new QueryClient({
@@ -62,12 +71,20 @@ describe("PairScreenDialog", () => {
     ).toBeInTheDocument();
   });
 
-  it("hosts the same flow in a drawer on narrow screens", () => {
-    Object.defineProperty(window, "innerWidth", {
-      writable: true,
-      configurable: true,
-      value: 500,
-    });
+  it("keeps the dialog on iPad-mini-sized widths", () => {
+    stubWidth(744);
+    renderDialog();
+
+    expect(
+      document.querySelector('[data-slot="dialog-content"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="drawer-content"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hosts the same flow in a drawer on phone-sized screens", () => {
+    stubWidth(500);
     renderDialog();
 
     expect(

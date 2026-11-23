@@ -14,7 +14,7 @@ import {
   DrawerTitle,
 } from "../components/ui/drawer";
 import { canPairScreens } from "../data/screens";
-import { useIsMobile } from "../hooks/use-mobile";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { PairScreenFlow } from "./PairScreenFlow";
 
 /**
@@ -27,7 +27,7 @@ export function PairScreenDialog() {
   const { t } = useTranslation("screens");
   const auth = useAuth();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const phone = usePhoneLayout();
   const close = () => void navigate("/screens");
 
   const flow = (
@@ -40,7 +40,7 @@ export function PairScreenDialog() {
     />
   );
 
-  if (isMobile) {
+  if (phone) {
     return (
       <Drawer
         open

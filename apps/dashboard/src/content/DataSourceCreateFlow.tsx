@@ -35,7 +35,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
-import { useCompactLayout } from "../hooks/use-compact-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
   galleryDescriptionText,
@@ -344,7 +344,7 @@ export function ConnectDataFlow({
   onCreated: (id: string) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const definitions = useDataSourceDefinitions(providers, exclude);
   const definition = definitions.all.find(
     (candidate) => candidate.id === provider,
@@ -395,7 +395,7 @@ export function ConnectDataFlow({
   const onOpenChange = (open: boolean) => {
     if (!open) onClose();
   };
-  if (presentation === "panel" && compact)
+  if (presentation === "panel" && phone)
     return (
       <Drawer open onOpenChange={onOpenChange}>
         <DrawerContent
