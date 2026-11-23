@@ -86,7 +86,6 @@ describe("Studio layout breakpoints", () => {
   });
 });
 
-
 describe("Studio input capabilities", () => {
   it("treats touch as coarse without inventing hover", () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
