@@ -61,6 +61,10 @@ export function PlaylistEditorHeader({
   canSubmit,
   canPublish,
   publishPending,
+  savingDraft,
+  unsavedDetails,
+  unsavedDetailsLabel,
+  onResolveDetails,
   onPreview,
   onPublish,
   onOpenHistory,
@@ -75,6 +79,10 @@ export function PlaylistEditorHeader({
   canSubmit: boolean;
   canPublish: boolean;
   publishPending: boolean;
+  savingDraft: boolean;
+  unsavedDetails: boolean;
+  unsavedDetailsLabel: string;
+  onResolveDetails: () => void;
   onPreview: () => void;
   onPublish: () => void;
   onOpenHistory: () => void;
@@ -106,6 +114,19 @@ export function PlaylistEditorHeader({
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {savingDraft ? (
+          <span
+            role="status"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground"
+          >
+            <Spinner aria-hidden="true" />
+            {t("inspector.saving")}
+          </span>
+        ) : unsavedDetails ? (
+          <Button type="button" variant="secondary" onClick={onResolveDetails}>
+            {unsavedDetailsLabel}
+          </Button>
+        ) : null}
         <Button type="button" variant="outline" onClick={onPreview}>
           <ExternalLink aria-hidden="true" />
           {t("header.preview")}
@@ -113,7 +134,12 @@ export function PlaylistEditorHeader({
         {canSubmit && (
           <Button
             type="button"
-            disabled={state === "published" || publishPending}
+            disabled={
+              state === "published" ||
+              publishPending ||
+              savingDraft ||
+              unsavedDetails
+            }
             aria-busy={publishPending || undefined}
             onClick={onPublish}
           >
