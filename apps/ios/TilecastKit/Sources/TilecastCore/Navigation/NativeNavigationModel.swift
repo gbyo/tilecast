@@ -35,6 +35,10 @@ public final class NativeNavigationModel {
     /// after Studio acknowledges navigation, so a stale WebKit frame is never
     /// revealed under an optimistically selected tab.
     private var settledTab: NavigationTab = .more
+    /// The actual destination whose Studio frame is settled. Compact iPhone
+    /// navigation may map this destination into More, while iPad's
+    /// sidebarAdaptable navigation selects the destination directly.
+    private var settledDestinationID: String?
     /// In the More tab: true shows the destination list, false shows Studio.
     public private(set) var moreShowsList = true
 
@@ -75,6 +79,39 @@ public final class NativeNavigationModel {
         settledTab == .more && moreShowsList ? nil : settledTab
     }
 
+    /// The selection for iPad's sidebarAdaptable TabView. Unlike the compact
+    /// iPhone tab bar, every catalog destination has its own native tab in the
+    /// sidebar, including destinations that Studio marks for More on compact
+    /// layouts. A pending request is reflected optimistically.
+    public var adaptiveSelectedTab: NavigationTab {
+        if let pendingRequest, catalog?.destination(withID: pendingRequest) != nil {
+            return .destination(pendingRequest)
+        }
+        if let settledDestinationID, catalog?.destination(withID: settledDestinationID) != nil {
+            return .destination(settledDestinationID)
+        }
+        if let id = primaryDestinations.first?.id ?? catalog?.destinations.first?.id {
+            return .destination(id)
+        }
+        return .more
+    }
+
+    /// The iPad tab whose content slot may expose the confirmed Studio frame.
+    /// It never follows an optimistic selection before Studio acknowledges it.
+    public var adaptiveFrontendTab: NavigationTab? {
+        guard let settledDestinationID, catalog?.destination(withID: settledDestinationID) != nil else {
+            return nil
+        }
+        return .destination(settledDestinationID)
+    }
+
+    /// True while iPad's native selection has moved ahead of Studio's painted
+    /// destination.
+    public var isAdaptiveSelectionPending: Bool {
+        guard case .destination(let selectedID) = adaptiveSelectedTab else { return false }
+        return selectedID != settledDestinationID
+    }
+
     /// True only during the short interval between an optimistic primary-tab
     /// tap and Studio's navigation acknowledgement.
     public var isTabSelectionPending: Bool {
@@ -93,6 +130,8 @@ public final class NativeNavigationModel {
             return
         }
         if first {
+            showInitialSelection()
+        } else if let settledDestinationID, self.catalog?.destination(withID: settledDestinationID) == nil {
             showInitialSelection()
         } else if case .destination(let id) = selectedTab, !primaryDestinations.contains(where: { $0.id == id }) {
             reconcile()
@@ -121,6 +160,7 @@ public final class NativeNavigationModel {
         path = nil
         selectedTab = .more
         settledTab = .more
+        settledDestinationID = nil
         moreShowsList = true
         pendingRequest = nil
     }
@@ -143,6 +183,16 @@ public final class NativeNavigationModel {
             selectedTab = .destination(id)
             open(id)
         }
+    }
+
+    /// A direct destination selection from iPad's sidebarAdaptable TabView.
+    /// The system sidebar can select every destination, not only compact
+    /// primary tabs.
+    public func selectAdaptiveTab(_ tab: NavigationTab) {
+        guard case .destination(let id) = tab,
+              catalog?.destination(withID: id) != nil else { return }
+        moreShowsList = false
+        open(id)
     }
 
     /// The bridge could not deliver a request to Studio. Ignore a failure
@@ -176,10 +226,12 @@ public final class NativeNavigationModel {
             let tab = NavigationTab.destination(id)
             selectedTab = tab
             settledTab = tab
+            settledDestinationID = id
             moreShowsList = false
         } else if let id = activeDestinationID, catalog.destination(withID: id) != nil {
             selectedTab = .more
             settledTab = .more
+            settledDestinationID = id
             moreShowsList = false
         } else {
             // A location with no destination, such as My Account, stays in
@@ -194,9 +246,11 @@ public final class NativeNavigationModel {
         if let id = activeDestinationID, catalog?.destination(withID: id) != nil {
             reconcile()
         } else {
-            let tab = primaryDestinations.first.map { NavigationTab.destination($0.id) } ?? .more
-            selectedTab = tab
-            settledTab = tab
+            let destination = primaryDestinations.first ?? catalog?.destinations.first
+            let tab = destination.map { NavigationTab.destination($0.id) } ?? .more
+            selectedTab = primaryDestinations.contains(where: { $0.id == destination?.id }) ? tab : .more
+            settledTab = selectedTab
+            settledDestinationID = destination?.id
             moreShowsList = false
         }
     }
