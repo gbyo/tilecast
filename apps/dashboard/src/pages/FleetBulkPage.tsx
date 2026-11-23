@@ -263,11 +263,9 @@ function FleetBulkWorkspace({
 
   // A response belongs to the exact request sent for preview, not to the
   // editable controls as they happen to look when that response arrives.
-  const currentReview =
-    review &&
-    JSON.stringify(review.request) === JSON.stringify(buildRequest())
-      ? review
-      : undefined;
+  const requestMatches =
+    JSON.stringify(review?.request) === JSON.stringify(buildRequest());
+  const currentReview = requestMatches ? review : undefined;
 
   const build = useMutation({
     mutationFn: (request: BulkOperationRequest) =>
@@ -788,6 +786,7 @@ function PreviewSection({
   const stale =
     applyError instanceof ApiError &&
     applyError.code === "bulk_operation_stale";
+  const cannotApply = applying || reviewing || stale || !preview.changeCount;
   return (
     // The preview is the decision point on this page, so it is the one panel
     // that takes the accent outline. Colour is never the only signal: it also
@@ -922,9 +921,7 @@ function PreviewSection({
           </Button>
           <Button
             type="button"
-            disabled={
-              applying || reviewing || stale || preview.changeCount === 0
-            }
+            disabled={cannotApply}
             onClick={onApply}
           >
             {applying
