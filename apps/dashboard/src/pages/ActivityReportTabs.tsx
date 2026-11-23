@@ -73,6 +73,7 @@ import {
   SheetTitle,
 } from "../components/ui/sheet";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import {
   Collapsible,
   CollapsibleChevron,
@@ -596,7 +597,7 @@ function ProofDetailsDrawer({
   onClose: () => void;
 }) {
   const { t } = useTranslation("activity");
-  const desktop = useDesktopLayout();
+  const phone = usePhoneLayout();
   const technicalDetails = {
     recordId: record.id,
     manifestVersion: record.manifestVersion,
@@ -617,7 +618,7 @@ function ProofDetailsDrawer({
     return typeof value !== "boolean" || value;
   });
 
-  const header = desktop ? (
+  const header = !phone ? (
     <SheetHeader>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {t("proof.drawer.eyebrow")}
@@ -641,7 +642,7 @@ function ProofDetailsDrawer({
   const content = (
     <div
       className={
-        desktop
+        !phone
           ? "grid gap-6 px-4 pb-6"
           : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
       }
@@ -762,7 +763,7 @@ function ProofDetailsDrawer({
     if (!nextOpen) onClose();
   };
 
-  return desktop ? (
+  return !phone ? (
     <Sheet
       open={open}
       onOpenChange={handleOpenChange}

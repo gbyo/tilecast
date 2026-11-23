@@ -40,7 +40,7 @@ import {
 } from "../components/content/widgets/widgetLibraryModel";
 import { WidgetsToolbar } from "../components/content/widgets/WidgetsToolbar";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
-import { useCompactLayout } from "../hooks/use-compact-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { hasCapability } from "../auth/capabilities";
 import { DeleteWidgetDialog } from "../components/content/widget-editor/header/DeleteWidgetDialog";
 import { widgetUsageCount } from "../components/content/widget-editor/widgetUsage";
@@ -52,7 +52,7 @@ export function WidgetsPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = hasCapability(auth.status, "widget.edit");
   const canDelete = hasCapability(auth.status, "widget.delete");
@@ -149,10 +149,10 @@ export function WidgetsPage() {
                 className: "ml-auto",
               })}
               to="/widgets/new"
-              aria-label={compact ? createLabel : undefined}
+              aria-label={phone ? createLabel : undefined}
             >
               <Plus aria-hidden="true" />
-              {compact ? t("widgets.list.createShort") : createLabel}
+              {phone ? t("widgets.list.createShort") : createLabel}
             </Link>
           )}
         </div>

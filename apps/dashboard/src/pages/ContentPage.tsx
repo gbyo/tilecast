@@ -159,6 +159,7 @@ import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { hasCapability } from "../auth/capabilities";
 import {
   useMediaPermissions,
@@ -2898,8 +2899,8 @@ function MediaAssetDetails({
     onRequestClose,
     onChanged,
   });
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
+  const phone = usePhoneLayout();
+  const header = !phone ? (
     <SheetHeader>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {t("media.details.eyebrow")}
@@ -2921,7 +2922,7 @@ function MediaAssetDetails({
     if (!nextOpen) onRequestClose();
   };
 
-  return desktop ? (
+  return !phone ? (
     <Sheet
       open={open}
       onOpenChange={onOpenChange}

@@ -25,7 +25,7 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { defaultScheduleListParams, scheduleQueries } from "../data/schedules";
-import { useCompactLayout } from "../hooks/use-compact-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { hasCapability } from "../auth/capabilities";
 
 const canManage = (status?: AuthStatus) =>
@@ -70,7 +70,7 @@ export function SchedulesPage() {
 function ScheduleList() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const now = useNow();
   const manager = canManage(auth.status);
   const { requestDelete, deleting, dialog } = useScheduleDeletion();
@@ -105,10 +105,10 @@ function ScheduleList() {
                 className: "ml-auto",
               })}
               to="/schedules/new"
-              aria-label={compact ? createLabel : undefined}
+              aria-label={phone ? createLabel : undefined}
             >
               <Plus aria-hidden="true" />
-              {compact ? t("page.createShort") : createLabel}
+              {phone ? t("page.createShort") : createLabel}
             </Link>
           )}
         </div>
