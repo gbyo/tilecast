@@ -47,13 +47,10 @@ it("validates instance responses and exposes secret states without write fields"
 });
 
 it("generates a bounded, unique contract surface at the instance-kind limit", async () => {
-  const { default: sixteen } = await import(
-    "../testdata/manifests/valid/v3-sixteen-kinds.json"
-  );
+  const { default: sixteen } =
+    await import("../testdata/manifests/valid/v3-sixteen-kinds.json");
   const { MAX_INSTANCE_KINDS } = await import("../src/manifest");
-  const { generatedAutomation } = await import(
-    "../tools/pluginctl/hosted-api"
-  );
+  const { generatedAutomation } = await import("../tools/pluginctl/hosted-api");
   const parsed = parsePluginManifest(sixteen);
   if (parsed.apiVersion !== 3) throw new Error("expected API 3 manifest");
   expect(parsed.instances).toHaveLength(MAX_INSTANCE_KINDS);
