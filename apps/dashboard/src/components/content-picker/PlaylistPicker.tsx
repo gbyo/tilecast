@@ -114,6 +114,18 @@ export function PlaylistPicker({
       : t("picker.playlist.clearSearchPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
+  const [chosenChoice, setChosenChoice] = useState<PlaylistPickerChoice>();
+  const [wasOpen, setWasOpen] = useState(open);
+  // Starting another dialog session restores the caller's selection, not
+  // an abandoned search or selection from the previous session.
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) {
+      setSearch("");
+      setChosen(selectedId);
+      setChosenChoice(undefined);
+    }
+  }
   // Focus opens on the search field through the dialog, not `autoFocus`, so
   // closing returns focus to whatever opened the picker.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -150,7 +162,21 @@ export function PlaylistPicker({
   ];
   const idOf = (choice: PlaylistPickerChoice) =>
     choice.kind === "playlist" ? choice.playlist.id : choice.layout.id;
-  const selected = choices.find((choice) => idOf(choice) === chosen);
+  const isChosen = (choice: PlaylistPickerChoice) =>
+    idOf(choice) === chosen &&
+    (!chosenChoice || chosenChoice.kind === choice.kind);
+  const visibleSelection = choices.find(isChosen);
+  // A deliberate selection survives searches and pagination. Show it in the
+  // footer when it is outside the result set so confirmation is never blind.
+  const selected =
+    visibleSelection ??
+    (chosenChoice && kinds.includes(chosenChoice.kind)
+      ? chosenChoice
+      : undefined);
+  const select = (choice: PlaylistPickerChoice) => {
+    setChosen(idOf(choice));
+    setChosenChoice(choice);
+  };
 
   const loading =
     (canChoosePlaylists && playlists.isLoading) ||
@@ -185,16 +211,16 @@ export function PlaylistPicker({
           placeholder={searchCopy}
           clearLabel={clearSearchCopy}
         />
-        <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
+        <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
           {loading ? (
-            <div className="space-y-2" aria-label={loadingCopy}>
+            <div role="status" className="space-y-2" aria-label={loadingCopy}>
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
           ) : failed ? (
             <Alert variant="destructive">
               <AlertTitle>{loadErrorCopy}</AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-3">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
                 <span>{t("picker.playlist.retryRequest")}</span>
                 <Button
                   variant="outline"
@@ -216,22 +242,23 @@ export function PlaylistPicker({
             <ItemGroup className="gap-2">
               {choices.map((choice) => {
                 const id = idOf(choice);
+                const active = isChosen(choice);
                 const tagDriven =
                   choice.kind === "playlist" &&
                   choice.playlist.sourceType === "tag";
                 return (
                   <Item
                     key={`${choice.kind}-${id}`}
-                    variant={id === chosen ? "muted" : "outline"}
+                    variant={active ? "muted" : "outline"}
                     size="sm"
                     render={
                       <button
                         type="button"
                         className="w-full text-left hover:bg-muted"
-                        aria-pressed={id === chosen}
+                        aria-pressed={active}
                       />
                     }
-                    onClick={() => setChosen(id)}
+                    onClick={() => select(choice)}
                     onDoubleClick={() => onConfirm(choice)}
                   >
                     <ItemMedia
@@ -282,7 +309,7 @@ export function PlaylistPicker({
                             )}
                       </ItemDescription>
                     </ItemContent>
-                    {id === chosen && (
+                    {active && (
                       <ItemActions>
                         <Check
                           size={17}
@@ -313,6 +340,21 @@ export function PlaylistPicker({
             </Button>
           )}
         </div>
+        {selected && (loading || failed || !visibleSelection) && (
+          <Item size="sm" variant="muted" role="status">
+            <ItemMedia variant="icon">
+              <Check aria-hidden="true" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemDescription>{t("picker.playlist.selected")}</ItemDescription>
+              <ItemTitle className="line-clamp-none [overflow-wrap:anywhere]">
+                {selected.kind === "playlist"
+                  ? selected.playlist.name
+                  : selected.layout.name}
+              </ItemTitle>
+            </ItemContent>
+          </Item>
+        )}
         <DialogFooter className="border-t border-border pt-3">
           <Button variant="outline" onClick={onClose}>
             {t("common:actions.cancel")}
