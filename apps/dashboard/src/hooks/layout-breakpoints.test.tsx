@@ -4,29 +4,29 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useCompactLayout } from "./use-compact-layout";
 import { useDesktopLayout } from "./use-desktop-layout";
-import { useIsMobile } from "./use-mobile";
-import { usePhoneLayout } from "./use-phone-layout";
 import {
   useAnyCoarsePointer,
   useFineHoverPointer,
 } from "./use-media-query";
+import { useIsMobile } from "./use-mobile";
+import { usePhoneLayout } from "./use-phone-layout";
+
+const phoneQuery = "(max-width: 639px)";
+const compactQuery = "(max-width: 1023px)";
+const offcanvasQuery = "(max-width: 1279px)";
+const desktopQuery = "(min-width: 1024px)";
+const coarsePointerQuery = "(any-pointer: coarse)";
+const fineHoverQuery = "(hover: hover) and (pointer: fine)";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
-function widthMatches(query: string, width: number) {
-  if (query === "(max-width: 639px)") return width <= 639;
-  if (query === "(max-width: 1023px)") return width <= 1023;
-  if (query === "(max-width: 1279px)") return width <= 1279;
-  if (query === "(min-width: 1024px)") return width >= 1024;
-  return false;
-}
-
-function stubWidth(width: number) {
+function stubQueries(...matchedQueries: string[]) {
+  const matched = new Set(matchedQueries);
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: widthMatches(query, width),
+    matches: matched.has(query),
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -37,8 +37,7 @@ function stubWidth(width: number) {
   }));
 }
 
-function layoutAt(width: number) {
-  stubWidth(width);
+function layout() {
   return {
     phone: renderHook(() => usePhoneLayout()).result.current,
     compact: renderHook(() => useCompactLayout()).result.current,
@@ -48,8 +47,9 @@ function layoutAt(width: number) {
 }
 
 describe("Studio layout breakpoints", () => {
-  it("uses phone presentations and a narrow workspace at phone widths", () => {
-    expect(layoutAt(390)).toEqual({
+  it("uses phone presentation in a phone workspace", () => {
+    stubQueries(phoneQuery, compactQuery, offcanvasQuery);
+    expect(layout()).toEqual({
       phone: true,
       compact: true,
       offcanvasNavigation: true,
@@ -57,8 +57,9 @@ describe("Studio layout breakpoints", () => {
     });
   });
 
-  it("keeps iPad-mini widths narrow without using phone presentations", () => {
-    expect(layoutAt(744)).toEqual({
+  it("keeps iPad mini narrow without using phone presentation", () => {
+    stubQueries(compactQuery, offcanvasQuery);
+    expect(layout()).toEqual({
       phone: false,
       compact: true,
       offcanvasNavigation: true,
@@ -66,8 +67,9 @@ describe("Studio layout breakpoints", () => {
     });
   });
 
-  it("uses desktop page layouts without pinning navigation at 1024px", () => {
-    expect(layoutAt(1024)).toEqual({
+  it("uses desktop page layout before pinning navigation", () => {
+    stubQueries(desktopQuery, offcanvasQuery);
+    expect(layout()).toEqual({
       phone: false,
       compact: false,
       offcanvasNavigation: true,
@@ -75,8 +77,9 @@ describe("Studio layout breakpoints", () => {
     });
   });
 
-  it("pins browser navigation only when space allows", () => {
-    expect(layoutAt(1280)).toEqual({
+  it("pins navigation only when the viewport can spare it", () => {
+    stubQueries(desktopQuery);
+    expect(layout()).toEqual({
       phone: false,
       compact: false,
       offcanvasNavigation: false,
@@ -87,51 +90,19 @@ describe("Studio layout breakpoints", () => {
 
 describe("Studio input capabilities", () => {
   it("treats touch as coarse without inventing hover", () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: query === "(any-pointer: coarse)",
-      media: query,
-      onchange: null,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      dispatchEvent: () => false,
-    }));
-
+    stubQueries(coarsePointerQuery);
     expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(true);
     expect(renderHook(() => useFineHoverPointer()).result.current).toBe(false);
   });
 
-  it("allows touch and fine-hover capabilities at the same time", () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches:
-        query === "(any-pointer: coarse)" ||
-        query === "(hover: hover) and (pointer: fine)",
-      media: query,
-      onchange: null,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      dispatchEvent: () => false,
-    }));
-
+  it("allows touch and fine hover at the same time", () => {
+    stubQueries(coarsePointerQuery, fineHoverQuery);
     expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(true);
     expect(renderHook(() => useFineHoverPointer()).result.current).toBe(true);
   });
 
   it("keeps fine hover separate from touch capability", () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: query === "(hover: hover) and (pointer: fine)",
-      media: query,
-      onchange: null,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      dispatchEvent: () => false,
-    }));
-
+    stubQueries(fineHoverQuery);
     expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(false);
     expect(renderHook(() => useFineHoverPointer()).result.current).toBe(true);
   });
