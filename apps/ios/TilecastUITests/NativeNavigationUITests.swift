@@ -45,6 +45,10 @@ final class NativeNavigationUITests: XCTestCase {
 
     @MainActor
     func testTabsDriveTheOneStudioPage() throws {
+        try XCTSkipIf(
+            UIDevice.current.userInterfaceIdiom == .pad,
+            "iPad uses the full sidebarAdaptable destination hierarchy"
+        )
         launchWithFixtureServer()
         let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(tabBar.waitForExistence(timeout: 20), "native tabs replace the fallback chrome")
@@ -138,8 +142,34 @@ final class NativeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.collectionViews["native.sidebar"].exists, "Tilecast must not force a permanent sidebar on iPad")
         XCTAssertTrue(studioText("Overview page").waitForExistence(timeout: 10))
 
-        tabBar.buttons["More"].tap()
-        XCTAssertTrue(app.buttons["Layouts"].waitForExistence(timeout: 5), "secondary destinations stay reachable without consuming content width")
-        XCTAssertTrue(app.buttons["Manage Servers…"].exists)
+        XCTAssertFalse(tabBar.buttons["More"].exists, "iPad does not need the app-owned compact More tab")
+        XCTAssertFalse(tabBar.buttons["Layouts"].exists, "secondary destinations stay out of the top tab bar")
+
+        let sidebarToggle = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'sidebar'")
+        ).firstMatch
+        XCTAssertTrue(
+            sidebarToggle.waitForExistence(timeout: 5),
+            "sidebarAdaptable exposes the system sidebar control"
+        )
+        let document = documentLabel
+        sidebarToggle.tap()
+
+        let layouts = app.buttons["Layouts"]
+        XCTAssertTrue(
+            layouts.waitForExistence(timeout: 5),
+            "Studio's secondary destinations appear directly in the system sidebar"
+        )
+        XCTAssertTrue(
+            app.buttons["native.serverMenu"].exists,
+            "server controls live in the adaptable sidebar header"
+        )
+        layouts.tap()
+        XCTAssertTrue(studioText("Layouts page").waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            documentLabel,
+            document,
+            "sidebar selection keeps the same Studio page"
+        )
     }
 }
