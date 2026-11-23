@@ -23,11 +23,14 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { scheduleQueries } from "../data/schedules";
 import { screenQueries } from "../data/screens";
+import { playlistQueries } from "../data/playlists";
+import { layoutQueries } from "../data/layouts";
 import { apiErrorMessage } from "../i18n";
 import {
   draftFromSchedule,
   emptyDraft,
   type ScheduleDraft,
+  type PresentationChoice,
 } from "./scheduleEditorModel";
 import { EDITOR_VIEWPORT_HEIGHT } from "./scheduleEditorParts";
 import { ScheduleEditorWorkspace } from "./ScheduleEditorWorkspace";
@@ -138,9 +141,45 @@ function usePrefillTarget(screenId: string, groupId: string) {
   return { pending, target };
 }
 
+/** Load a contextual presentation before mounting the editable draft. */
+function usePrefillPresentation(playlistId: string, layoutId: string) {
+  const playlist = useQuery({
+    ...playlistQueries.detail(playlistId),
+    enabled: Boolean(playlistId),
+    retry: false,
+  });
+  const layout = useQuery({
+    ...layoutQueries.detail(layoutId),
+    enabled: Boolean(layoutId) && !playlistId,
+    retry: false,
+  });
+  let content: PresentationChoice | null = null;
+  if (playlistId && playlist.data) {
+    content = {
+      kind: "playlist",
+      id: playlist.data.id,
+      name: playlist.data.name,
+    };
+  } else if (!playlistId && layoutId && layout.data?.publishedRevision) {
+    content = {
+      kind: "layout",
+      id: layout.data.id,
+      name: layout.data.name,
+    };
+  }
+  const query = playlistId ? playlist : layout;
+  const requested = Boolean(playlistId || layoutId);
+  return {
+    content,
+    pending: requested && query.isPending,
+    error: requested && query.isError ? query.error : null,
+    retry: () => void query.refetch(),
+  };
+}
+
 /**
  * A new schedule starts from the organization's timezone and, when opened
- * from a screen or Display Group, that one target. Both are settled before
+ * from a screen or Display Group, that one target. The starting values are settled before
  * the editor mounts, so applying them is never an edit and a later answer can
  * never overwrite what the author chose.
  */
@@ -151,6 +190,10 @@ function NewSchedule() {
   const prefill = usePrefillTarget(
     params.get("screen") ?? "",
     params.get("group") ?? "",
+  );
+  const presentation = usePrefillPresentation(
+    params.get("playlist") ?? "",
+    params.get("layout") ?? "",
   );
   const defaults = useQuery(scheduleQueries.defaults());
   const [initial, setInitial] = useState<ScheduleDraft | null>(null);
@@ -168,10 +211,20 @@ function NewSchedule() {
         retry={() => void defaults.refetch()}
       />
     );
+  if (!initial && presentation.error)
+    return (
+      <EditorLoadFailed error={presentation.error} retry={presentation.retry} />
+    );
   const timezone = defaults.data?.defaultTimezone;
-  if (initial === null && timezone && !prefill.pending) {
+  if (
+    initial === null &&
+    timezone &&
+    !prefill.pending &&
+    !presentation.pending
+  ) {
     setInitial({
       ...emptyDraft(timezone),
+      content: presentation.content,
       targets: prefill.target ? [prefill.target] : [],
     });
   }

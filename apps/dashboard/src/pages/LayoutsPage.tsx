@@ -331,11 +331,14 @@ export function formatLayoutUpdatedAt(
 }
 
 export function LayoutsPage() {
-  const { t } = useTranslation(["layouts", "common"]);
+  const { t } = useTranslation(["layouts", "common", "schedules"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = hasCapability(auth.status, "layout.edit");
+  const canSchedule =
+    hasCapability(auth.status, "schedule.read") &&
+    hasCapability(auth.status, "schedule.edit");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -625,7 +628,21 @@ export function LayoutsPage() {
         onSelect: () => setPendingDelete(layout),
       });
     }
-    return [{ actions: primary }, { actions: danger }];
+    const scheduling: StudioAction[] =
+      canSchedule && layout.publishedRevision
+        ? [
+            {
+              id: "schedule",
+              label: t("schedules:page.create"),
+              icon: "schedules",
+              onSelect: () =>
+                void navigate(
+                  `/schedules/new?layout=${encodeURIComponent(layout.id)}`,
+                ),
+            },
+          ]
+        : [];
+    return [{ actions: primary }, { actions: scheduling }, { actions: danger }];
   };
 
   return (

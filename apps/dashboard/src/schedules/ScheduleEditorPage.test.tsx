@@ -369,6 +369,61 @@ describe("Creating a schedule", () => {
     ).toHaveTextContent("Normal · 0");
   });
 
+  it("preselects a playlist without loading either library or creating a schedule", async () => {
+    mockAuth();
+    const api = mockEditorApi();
+    renderEditor("/schedules/new?playlist=p1");
+    expect(
+      await screen.findByText("Morning Announcements"),
+    ).toBeInTheDocument();
+    expect(api.playlist).toHaveBeenCalledWith("p1");
+    expect(api.playlistPage).not.toHaveBeenCalled();
+    expect(api.layoutPage).not.toHaveBeenCalled();
+    expect(api.createSchedule).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("link", { name: "away" }));
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
+  });
+
+  it("does not mount a blank draft while contextual content loads", async () => {
+    mockAuth();
+    const api = mockEditorApi();
+    let finish!: (value: typeof playlistRow) => void;
+    api.playlist.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    renderEditor("/schedules/new?playlist=p1");
+    expect(
+      await screen.findByRole("status", { name: "Loading schedule" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    await act(async () => {
+      finish(playlistRow);
+      await Promise.resolve();
+    });
+    expect(
+      await screen.findByText("Morning Announcements"),
+    ).toBeInTheDocument();
+  });
+
+  it("retries an inaccessible contextual presentation without losing intent", async () => {
+    mockAuth();
+    const api = mockEditorApi();
+    api.playlist.mockRejectedValueOnce(
+      new ApiError("Server unavailable.", 503, "unavailable"),
+    );
+    renderEditor("/schedules/new?playlist=p1");
+    expect(
+      await screen.findByText("The schedule could not be loaded"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByText("Morning Announcements"),
+    ).toBeInTheDocument();
+  });
+
   it("preselects the screen it was opened from, without making an edit", async () => {
     mockAuth();
     const api = mockEditorApi();
