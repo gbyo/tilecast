@@ -493,6 +493,42 @@ describe("PlaylistEditor panes", () => {
     expect(screen.queryByRole("tab", { name: "History" })).toBeNull();
   });
 
+  it("waits for playback defaults to save before publishing the new revision", async () => {
+    mockDesktop();
+    mockServer();
+    let finish!: (value: Playlist) => void;
+    const bulk = vi
+      .spyOn(api, "bulkUpdatePlaylistItems")
+      .mockReturnValue(
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+      );
+    const publish = vi
+      .spyOn(api, "publishPlaylist")
+      .mockResolvedValue(publication);
+    renderEditor();
+
+    const button = await screen.findByRole("button", { name: "Publish" });
+    const duration = screen.getByLabelText(
+      "Playlist image duration in seconds",
+    );
+    fireEvent.change(duration, { target: { value: "12" } });
+    fireEvent.blur(duration);
+    await waitFor(() => expect(bulk).toHaveBeenCalled());
+    expect(button).toBeDisabled();
+    expect(screen.getByText("Saving changes…")).toBeVisible();
+    fireEvent.click(button);
+    expect(publish).not.toHaveBeenCalled();
+
+    finish({ ...playlist(), draftRevision: 4 });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(publish).toHaveBeenCalledWith("p1", 4, "token"),
+    );
+  });
+
   it("reports publishing with a toast instead of an inline success alert", async () => {
     mockDesktop();
     mockServer();
