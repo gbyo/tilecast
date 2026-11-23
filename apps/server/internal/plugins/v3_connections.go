@@ -655,15 +655,21 @@ func (s *Service) lockConnection(ctx context.Context, tx pgx.Tx, pluginID string
 }
 
 func (s *Service) auditConnection(ctx context.Context, tx pgx.Tx, action, pluginID string, id uuid.UUID, name string, userID uuid.UUID, metadata map[string]any) error {
+	return s.auditPluginResource(ctx, tx, action, "plugin_connection", pluginID, id, name, userID, metadata)
+}
+
+// auditPluginResource writes one audit row about a host-owned plugin
+// resource. Work without a human actor names the server as the client.
+func (s *Service) auditPluginResource(ctx context.Context, tx pgx.Tx, action, resourceType, pluginID string, id uuid.UUID, name string, userID uuid.UUID, metadata map[string]any) error {
 	metadata["pluginId"] = pluginID
-	event := audit.Event{Action: action, ResourceType: "plugin_connection", ResourceID: id.String(), ResourceName: name, Metadata: metadata}
+	event := audit.Event{Action: action, ResourceType: resourceType, ResourceID: id.String(), ResourceName: name, Metadata: metadata}
 	if userID != uuid.Nil {
 		actor := userID
 		event.Actor = &actor
 	}
 	if userID == uuid.Nil || audit.SurfaceFrom(ctx) == "" {
-		// A refresh during a plugin hook has no HTTP principal and no human
-		// actor: the server is the client.
+		// A refresh or a publication during a plugin hook has no HTTP
+		// principal and no human actor: the server is the client.
 		event.Surface = audit.SurfaceSystem
 		event.ClientID = "tilecast-server"
 	}

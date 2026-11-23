@@ -265,6 +265,10 @@ func (s *Service) instanceStatus(ctx context.Context, pluginID string) (pluginSt
 	err := s.db.QueryRow(ctx, `SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM plugin_instances WHERE plugin_id=$1`, pluginID).
 		Scan(&status.active, &status.count)
 	status.configured = status.count > 0
+	if err != nil {
+		return status, err
+	}
+	status.attention, err = s.feedAttention(ctx, pluginID)
 	return status, err
 }
 

@@ -43,6 +43,16 @@ import {
   OPERATOR_ORIGIN,
 } from "./connections.ts";
 import {
+  FEED_CONTROLS,
+  feedIdPattern,
+  feedProblems,
+  MAX_FEED_FIELDS,
+  MAX_FEED_REFRESH_SECONDS,
+  MAX_FEEDS,
+  MIN_FEED_REFRESH_SECONDS,
+  OVERRIDE_POLICIES,
+} from "./feeds.ts";
+import {
   parseServiceReference,
   serviceReferencePattern,
   serviceReferenceProblem,
@@ -666,6 +676,40 @@ const connectionDeclaration = z.strictObject({
     ),
 });
 
+const feedField = z.strictObject({
+  key: z.string(),
+  label: z.string(),
+  labelKey: z.string().optional(),
+  description: z.string().optional(),
+  descriptionKey: z.string().optional(),
+  control: z.enum(FEED_CONTROLS),
+  required: z.boolean().optional(),
+  default: z.unknown().optional(),
+  minimum: z.number().optional(),
+  maximum: z.number().optional(),
+  minLength: z.int().min(0).optional(),
+  maxLength: z.int().min(0).optional(),
+  options: z
+    .array(
+      z.strictObject({ value: z.string(), label: z.string(), labelKey: z.string().optional() }),
+    )
+    .optional(),
+  personal: z.strictObject({ retentionDays: z.int().min(1).max(3650) }).optional(),
+  override: z.enum(OVERRIDE_POLICIES).optional(),
+  image: z.strictObject({ connection: z.string() }).optional(),
+});
+
+const feedDeclaration = z.strictObject({
+  id: z.string().regex(feedIdPattern),
+  version: z.int().min(1).describe("The feed version. A schema change is a new version."),
+  title: z.string().min(1).max(80),
+  description: z.string().max(280).optional(),
+  dataset: z.enum(["organization", "instance"]),
+  instanceKind: z.string().optional(),
+  expectedRefreshSeconds: z.int().min(MIN_FEED_REFRESH_SECONDS).max(MAX_FEED_REFRESH_SECONDS),
+  fields: z.array(feedField).min(1).max(MAX_FEED_FIELDS),
+});
+
 const v3Members = {
   apiVersion: z
     .literal(3)
@@ -719,6 +763,13 @@ const v3Members = {
     .describe(
       "Host-owned outbound connections. Plugin code names a connection record and never states an origin, an address rule, or a credential.",
     ),
+  feeds: z
+    .array(feedDeclaration)
+    .max(MAX_FEEDS)
+    .default([])
+    .describe(
+      "Datasets the plugin publishes with feeds.publish@1. Each appears as the Data Source provider <plugin id>.<feed id>.",
+    ),
 };
 
 export const pluginManifestV1Schema = z
@@ -768,6 +819,7 @@ export type PluginManifestV2 = Extract<PluginManifest, { apiVersion: 2 }>;
 export type PluginManifestV3 = Extract<PluginManifest, { apiVersion: 3 }>;
 export type InstanceKind = PluginManifestV3["instances"][number];
 export type ConnectionDeclaration = PluginManifestV3["connections"][number];
+export type FeedManifestDeclaration = PluginManifestV3["feeds"][number];
 
 /** Problems of one API 3 field list beyond the shared schema rules. */
 export function pluginFieldProblems(
@@ -868,6 +920,7 @@ export function manifestV3Problems(
           `instance kind "${kind.kind}" field "${field.key}" uses a key the host owns`,
         );
   }
+  problems.push(...feedProblems(manifest as Parameters<typeof feedProblems>[0]));
   const connections = new Set<string>();
   for (const connection of manifest.connections ?? []) {
     if (connections.has(connection.id))

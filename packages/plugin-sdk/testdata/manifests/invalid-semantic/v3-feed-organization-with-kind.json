@@ -1,0 +1,156 @@
+{
+  "apiVersion": 3,
+  "id": "menu_sign",
+  "definitionVersion": 1,
+  "name": "Menu Sign",
+  "description": "Show a menu from a catalog.",
+  "category": "Display",
+  "icon": "utensils",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "menu",
+    "plural": "menus"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/menu-sign"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/menu-sign"
+  },
+  "services": [
+    "http.fetch@1",
+    "feeds.publish@1"
+  ],
+  "connections": [
+    {
+      "id": "catalog",
+      "title": "Catalog",
+      "type": "http",
+      "origins": [
+        "https://catalog.example.com"
+      ]
+    }
+  ],
+  "instances": [
+    {
+      "kind": "menu",
+      "noun": {
+        "singular": "menu",
+        "plural": "menus"
+      },
+      "path": "menus",
+      "operations": {
+        "singular": "MenuSign",
+        "plural": "MenuSigns"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "control": "text",
+          "required": true,
+          "maxLength": 80
+        }
+      ]
+    }
+  ],
+  "feeds": [
+    {
+      "id": "items",
+      "version": 1,
+      "title": "Menu items",
+      "dataset": "instance",
+      "instanceKind": "menu",
+      "expectedRefreshSeconds": 900,
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "control": "text",
+          "maxLength": 120,
+          "override": "local_until_changed"
+        },
+        {
+          "key": "shortLabel",
+          "label": "Short label",
+          "control": "text",
+          "maxLength": 40,
+          "override": "local"
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "control": "number",
+          "minimum": 0
+        },
+        {
+          "key": "available",
+          "label": "Available",
+          "control": "boolean"
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "control": "select",
+          "options": [
+            {
+              "value": "food",
+              "label": "Food"
+            },
+            {
+              "value": "drink",
+              "label": "Drink"
+            }
+          ]
+        },
+        {
+          "key": "photo",
+          "label": "Photo",
+          "control": "url",
+          "image": {
+            "connection": "catalog"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notices",
+      "version": 2,
+      "title": "Notices",
+      "dataset": "organization",
+      "expectedRefreshSeconds": 3600,
+      "fields": [
+        {
+          "key": "text",
+          "label": "Text",
+          "control": "multiline_text",
+          "maxLength": 500
+        },
+        {
+          "key": "author",
+          "label": "Author",
+          "control": "text",
+          "maxLength": 80,
+          "personal": {
+            "retentionDays": 30
+          }
+        },
+        {
+          "key": "posted",
+          "label": "Posted",
+          "control": "datetime"
+        }
+      ],
+      "instanceKind": "menu"
+    }
+  ]
+}

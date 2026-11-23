@@ -357,6 +357,10 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.timerSchedule(ctx, call)
 	case "timers.cancel@1/cancel":
 		return d.timerCancel(ctx, call)
+	case "feeds.publish@1/publish":
+		return d.feedPublish(ctx, call)
+	case "feeds.publish@1/revision":
+		return d.feedRevision(ctx, call)
 	default:
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "operation has no handler"}, nil
 	}

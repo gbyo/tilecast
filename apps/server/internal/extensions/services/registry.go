@@ -399,7 +399,28 @@ var capabilities = []Capability{
 			{Name: "timers.cancel@1/cancel", CapabilityID: "timers.cancel", CapabilityVersion: 1, Title: "Cancel timer", Description: "Remove the pending timer of a key.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
 		},
 	},
+	{
+		// Bundled only. A feed is a dataset the plugin publishes; the host
+		// projects it as the Data Source provider <plugin>.<feed>.
+		ID:          "feeds.publish",
+		Version:     1,
+		Name:        "Feed publication",
+		Description: "Publish the complete record set of one of this plugin's feed datasets.",
+		Category:    CategoryManage,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "feeds.publish@1/publish", CapabilityID: "feeds.publish", CapabilityVersion: 1, Title: "Publish feed", Description: "Replace the records of one dataset. The publication names the revision it replaces; a concurrent publication fails with a conflict.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxInputBytes: FeedPublishMaxInputBytes}},
+			{Name: "feeds.publish@1/revision", CapabilityID: "feeds.publish", CapabilityVersion: 1, Title: "Read feed revision", Description: "Read the current revision of one dataset, the one the next publication replaces.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
+		},
+	},
 }
+
+// feeds.publish@1 transport bound: a publication is at most 512 KiB of
+// canonical JSON; the request JSON around it, whitespace and escapes
+// included, gets 128 KiB more.
+const FeedPublishMaxInputBytes = 512<<10 + 128<<10
 
 // storage.kv@1 transport bounds. A value is bytes, so JSON carries it in
 // base64: a 64 KiB value is 87,384 bytes, and the key and the JSON need

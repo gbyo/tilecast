@@ -56,6 +56,9 @@ type Manifest struct {
 	// Connections are host-owned outbound connections. Plugin Manifest API
 	// 3 only.
 	Connections []Connection `json:"connections,omitempty"`
+	// Feeds are datasets the plugin publishes through feeds.publish@1.
+	// Plugin Manifest API 3 only.
+	Feeds []Feed `json:"feeds,omitempty"`
 }
 
 type InstanceNoun struct {
@@ -371,7 +374,7 @@ func (m Manifest) Validate() error {
 			return fail("%v", err)
 		}
 	}
-	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0 || len(m.Connections) > 0) {
+	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0 || len(m.Connections) > 0 || len(m.Feeds) > 0) {
 		return fail("services, settings, instances, and connections are Plugin Manifest API 3 members")
 	}
 	switch m.APIVersion {

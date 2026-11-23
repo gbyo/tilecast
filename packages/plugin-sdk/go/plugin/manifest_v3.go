@@ -240,6 +240,9 @@ func (m Manifest) validateV3() error {
 	if err := m.validateConnections(); err != nil {
 		return err
 	}
+	if err := m.validateFeeds(); err != nil {
+		return err
+	}
 	if len(m.Instances) > 0 {
 		if m.API == nil {
 			return fmt.Errorf("instances need api.basePaths: the host mounts their routes below the first base path")

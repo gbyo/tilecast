@@ -844,5 +844,11 @@
     "file": "00142_plugin_kv_and_timers.sql",
     "owner": "core",
     "sha256": "c9f0e10e28d5d298a01efd1599e9953673920e54e2708c107637025febfb6ef3"
+  },
+  {
+    "version": 143,
+    "file": "00143_plugin_feeds.sql",
+    "owner": "core",
+    "sha256": "10a5c48eb2a1d66b781b5c9fb757df29a0b5c2d30f8708014f6c057b0f26e0ae"
   }
 ]

@@ -76,6 +76,9 @@ func (s *Service) Sweep(ctx context.Context) error {
 	if err := s.sweepDataSources(ctx, staleAfter); err != nil {
 		return err
 	}
+	if err := s.sweepFeeds(ctx); err != nil {
+		return err
+	}
 	return s.sweepEmptyPlaylists(ctx)
 }
 
@@ -142,6 +145,7 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 		WHERE d.deleted_at IS NULL
 		  AND COALESCE(r.last_success_at,d.created_at) < now()-$1::interval
 		  AND d.id=ANY($2::uuid[])
+		  AND NOT EXISTS (SELECT 1 FROM plugin_feed_datasets f WHERE f.id=d.id)
 		ON CONFLICT DO NOTHING`, staleAfter, used); err != nil {
 		return err
 	}
@@ -155,10 +159,56 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 		JOIN data_source_refresh_states r ON r.data_source_id=d.id
 		WHERE i.incident_type='data_source' AND i.status IN('open','acknowledged')
 		  AND i.dedupe_key='data_source:source:'||d.id::text
+		  AND NOT EXISTS (SELECT 1 FROM plugin_feed_datasets f WHERE f.id=d.id)
 		  AND (d.deleted_at IS NOT NULL
 		       OR (r.last_success_at IS NOT NULL AND r.last_success_at >= now()-$1::interval))`,
 		staleAfter)
 	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// sweepFeeds is the Content Health condition of plugin feeds
+// (docs/plugin-feeds.md#staleness). A feed dataset that a Widget uses is
+// stale when its last publication is older than twice the feed's expected
+// refresh interval; a fresh publication recovers it. It is the same
+// data_source incident as any other Data Source.
+func (s *Service) sweepFeeds(ctx context.Context) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO incidents(
+			id,incident_type,severity,status,title,description,opened_at,last_seen_at,
+			failure_code,probable_cause,related_type,related_id,dedupe_key,metadata)
+		SELECT gen_random_uuid(),'data_source','warning','open',
+		       'Data Source is not refreshing',
+		       d.name||' last published '||
+		           COALESCE(to_char(f.published_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI')||' UTC','never')||
+		           '. The plugin publishes it every '||(f.expected_refresh_seconds/60)||' minutes.',
+		       COALESCE(f.published_at,f.created_at)+make_interval(secs=>2*f.expected_refresh_seconds), now(),
+		       'feed_stale','The plugin has not published this feed on time.',
+		       'data_source',d.id::text,'data_source:source:'||d.id::text,
+		       jsonb_build_object('source','content_health','dataSourceId',d.id::text,'dataSourceName',d.name,
+		                          'provider',d.provider,'pluginId',f.plugin_id,'feed',f.feed_id)
+		FROM plugin_feed_datasets f JOIN data_sources d ON d.id=f.id AND d.deleted_at IS NULL
+		WHERE COALESCE(f.published_at,f.created_at) < now()-make_interval(secs=>2*f.expected_refresh_seconds)
+		  AND EXISTS (SELECT 1 FROM widgets w JOIN assets a ON a.id=w.asset_id AND a.deleted_at IS NULL
+		              WHERE w.configuration->>'dataSourceId'=d.id::text OR w.managed_data_source_id=d.id)
+		ON CONFLICT DO NOTHING`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE incidents i SET status='recovered',recovered_at=COALESCE(f.published_at,now()),recovery_mode='automatic',
+			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'The plugin published the feed again.'),updated_at=now()
+		FROM plugin_feed_datasets f JOIN data_sources d ON d.id=f.id
+		WHERE i.incident_type='data_source' AND i.status IN('open','acknowledged')
+		  AND i.dedupe_key='data_source:source:'||d.id::text
+		  AND (d.deleted_at IS NOT NULL
+		       OR (f.published_at IS NOT NULL AND f.published_at >= now()-make_interval(secs=>2*f.expected_refresh_seconds)))`); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
