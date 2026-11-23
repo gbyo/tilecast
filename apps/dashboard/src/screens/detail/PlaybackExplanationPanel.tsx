@@ -13,7 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "../../components/ui/accordion";
-import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Field, FieldError, FieldLabel } from "../../components/ui/field";
@@ -55,8 +55,8 @@ function CandidateRow({
   return (
     <Item size="sm" variant="outline">
       <ItemContent>
-        <ItemTitle className="flex flex-wrap items-center gap-2">
-          <span className="min-w-0 break-words">
+        <ItemTitle className="line-clamp-none flex-wrap items-center gap-2">
+          <span className="min-w-0 [overflow-wrap:anywhere]">
             {candidateTitle(
               candidate,
               (source) => t(`playback.sources.${source}`),
@@ -69,11 +69,11 @@ function CandidateRow({
             {t(`playbackPlan.status.${candidate.status}`)}
           </Badge>
         </ItemTitle>
-        <ItemDescription>
+        <ItemDescription className="line-clamp-none [overflow-wrap:anywhere]">
           {t(`playbackPlan.reasons.${candidate.reason}`)}
         </ItemDescription>
         {schedule && (
-          <ItemDescription>
+          <ItemDescription className="line-clamp-none [overflow-wrap:anywhere]">
             {t("playbackPlan.precedence", {
               priority: schedule.priority,
               specificity: schedule.specificity,
@@ -113,9 +113,8 @@ export function PlaybackExplanationPanel({
   const [invalid, setInvalid] = useState(false);
   const query = useQuery({
     ...screenQueries.playbackPlan(screenId, at),
-    // TanStack Query already permits it: keep the last visible answer while a
-    // background refresh or a new inspection resolves.
-    placeholderData: (previous) => previous,
+    // A different requested instant must never display the previous answer.
+    // Same-key background refreshes still retain their cached data.
   });
   const plan = query.data;
   const current = plan?.current;
@@ -147,9 +146,22 @@ export function PlaybackExplanationPanel({
           <Skeleton className="h-5 w-2/3" />
           <Skeleton className="h-4 w-1/2" />
         </div>
-      ) : query.isError && !plan ? (
+      ) : query.isError ? (
         <Alert variant="destructive">
-          <AlertDescription>{apiErrorMessage(query.error)}</AlertDescription>
+          <AlertTitle>{t("playback.expectedLoadError")}</AlertTitle>
+          <AlertDescription className="grid gap-2">
+            <span>{apiErrorMessage(query.error)}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
         </Alert>
       ) : (
         plan && (
