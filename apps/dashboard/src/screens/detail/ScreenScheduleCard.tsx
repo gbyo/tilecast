@@ -252,7 +252,11 @@ export function ScreenScheduleCard({
   const others = content.filter((row) => row.id !== active?.scheduleId);
   const activeRow = content.find((row) => row.id === active?.scheduleId);
   const next = (
-    <NextSection plan={plan} futurePlan={futurePlan} futureState={futureState} />
+    <NextSection
+      plan={plan}
+      futurePlan={futurePlan}
+      futureState={futureState}
+    />
   );
 
   return (
