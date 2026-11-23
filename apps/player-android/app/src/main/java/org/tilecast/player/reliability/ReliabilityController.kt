@@ -208,7 +208,10 @@ class ReliabilityController(private val context: Context) {
             .setPackage(context.packageName)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pending = PendingIntent.getActivity(context, 4040, restartIntent, PendingIntent.FLAG_IMMUTABLE)
-        alarm.setExact(
+        // Process restart does not need exact timing. setAndAllowWhileIdle
+        // survives this process dying and works without the special exact-alarm
+        // access required by setExact on Android 12+.
+        alarm.setAndAllowWhileIdle(
             AlarmManager.ELAPSED_REALTIME_WAKEUP,
             android.os.SystemClock.elapsedRealtime() + 1500,
             pending,
