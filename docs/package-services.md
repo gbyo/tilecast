@@ -34,7 +34,8 @@ bundled [Plugin Manifest API 3](plugin-api-v3.md#service-client) plugin calls th
 same operations through a generated, typed Go client in the plugin SDK. Each
 capability lists its callers: `package`, `bundled`, or both. `settings.read@1`,
 `secrets.read@1`, `http.fetch@1`, `storage.kv@1`, `timers.schedule@1`,
-`timers.cancel@1`, and `feeds.publish@1` are for bundled plugins only. See
+`timers.cancel@1`, `feeds.publish@1`, and `instances.read@1` are for bundled
+plugins only. See
 [Plugin storage and timers](plugin-storage.md) and
 [Plugin feeds](plugin-feeds.md). The old
 package `http_fetch` import keeps its own contract. A package grant for a
