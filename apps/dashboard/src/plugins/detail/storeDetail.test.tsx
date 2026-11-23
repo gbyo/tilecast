@@ -1394,6 +1394,29 @@ describe("Update review", () => {
     );
   });
 
+  it("remounts the package interface when an update changes the installed digest", async () => {
+    packages["acme.kiosk"] = installedPackage({
+      capabilities: { studioUI: { entry: "./studio/index.html" } },
+    });
+    check = updateCheck({
+      installed: packages["acme.kiosk"]!,
+      available: true,
+      upToDate: false,
+      latest: latest(),
+    });
+    const user = userEvent.setup();
+    const dialog = await openUpdateReview(user);
+    const before = screen.getByTitle("Package interface");
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Update to 1.3.0" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByTitle("Package interface")).not.toBe(before),
+    );
+  });
+
   it("uses a Drawer for the update review on a phone", async () => {
     stubViewport({ compact: true });
     check = updateCheck({
