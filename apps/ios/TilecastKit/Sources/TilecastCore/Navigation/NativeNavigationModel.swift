@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// A tab in the compact-width layout.
+/// A native navigation selection token. Every Studio destination can be a
+/// direct selection in sidebarAdaptable navigation; `.more` is the compact
+/// iPhone container for secondary destinations and server controls.
 public enum NavigationTab: Hashable, Sendable {
-    /// A destination Studio marked primary, by its opaque identifier.
     case destination(String)
-    /// The app's More tab: the other destinations and server controls.
     case more
 }
 
@@ -63,8 +63,10 @@ public final class NativeNavigationModel {
         Array((catalog?.destinations ?? []).filter { $0.placement == .primary }.prefix(Self.maximumPrimaryTabs))
     }
 
-    /// Every other destination, in its catalog group.
-    public var moreGroups: [NavigationCatalog.Group] {
+    /// Destinations that do not occupy one of the compact primary tab slots,
+    /// kept in Studio's catalog groups. iPhone renders these in More; iPad
+    /// renders them directly as sidebar TabSections.
+    public var secondaryGroups: [NavigationCatalog.Group] {
         let primary = Set(primaryDestinations.map(\.id))
         return (catalog?.groups ?? []).compactMap { group in
             let destinations = group.destinations.filter { !primary.contains($0.id) }

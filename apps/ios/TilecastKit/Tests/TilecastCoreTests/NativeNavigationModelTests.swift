@@ -40,21 +40,21 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
     @Test func primaryTabsComeFromTheCatalog() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo", "charlie"], more: ["delta", "echo"]))
         #expect(model.primaryDestinations.map(\.id) == ["alpha", "bravo", "charlie"])
-        #expect(model.moreGroups.flatMap(\.destinations).map(\.id) == ["delta", "echo"])
-        #expect(model.moreGroups.map(\.title) == ["Other"])
+        #expect(model.secondaryGroups.flatMap(\.destinations).map(\.id) == ["delta", "echo"])
+        #expect(model.secondaryGroups.map(\.title) == ["Other"])
     }
 
     @Test func extraPrimaryDestinationsMoveToMore() {
         let (model, _) = makeModel(catalog(primary: ["a", "b", "c", "d", "e", "f"], more: ["g"]))
         #expect(model.primaryDestinations.map(\.id) == ["a", "b", "c", "d"])
-        #expect(model.moreGroups.flatMap(\.destinations).map(\.id) == ["e", "f", "g"])
+        #expect(model.secondaryGroups.flatMap(\.destinations).map(\.id) == ["e", "f", "g"])
     }
 
     @Test func aStudioReleaseCanChangeWhichDestinationsArePrimary() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["room-bookings"]), active: "alpha")
         model.apply(catalog(primary: ["alpha", "room-bookings"], more: ["bravo"]))
         #expect(model.primaryDestinations.map(\.id) == ["alpha", "room-bookings"])
-        #expect(model.moreGroups.flatMap(\.destinations).map(\.id) == ["bravo"])
+        #expect(model.secondaryGroups.flatMap(\.destinations).map(\.id) == ["bravo"])
     }
 
     @Test func movingASecondaryDestinationToPrimaryRemapsOnlyCompactNavigation() {

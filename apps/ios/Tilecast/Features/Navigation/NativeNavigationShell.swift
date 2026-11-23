@@ -94,7 +94,7 @@ struct NativeTabNavigation: View {
                 // top tab bar while making them first-class selections in the
                 // adaptable sidebar. The groups and labels come entirely from
                 // Studio's catalog.
-                ForEach(navigation.moreGroups) { group in
+                ForEach(navigation.secondaryGroups) { group in
                     TabSection {
                         ForEach(group.destinations) { destination in
                             Tab(
@@ -204,7 +204,7 @@ struct MoreView: View {
 
     var body: some View {
         List {
-            ForEach(navigation.moreGroups) { group in
+            ForEach(navigation.secondaryGroups) { group in
                 Section {
                     ForEach(group.destinations) { destination in
                         Button {
