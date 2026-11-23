@@ -851,6 +851,59 @@
         "handler_panic": "El plugin se detuvo inesperadamente",
         "lease_expired": "El servidor se detuvo mientras se ejecutaba el plugin"
       }
+    },
+    "events": {
+      "publishedBy": "Publicado por {{publisher}}",
+      "publisher": {
+        "core": "Tilecast",
+        "plugin": "{{name}} ({{id}})",
+        "unknown": "el plugin {{id}}, que esta versión de Tilecast no incluye"
+      },
+      "core": {
+        "screenStatusChanged": "Una pantalla se desconecta o vuelve",
+        "takeoverStarted": "Empieza una toma de control",
+        "takeoverEnded": "Termina una toma de control",
+        "takeoverSuspended": "Una toma de control más fuerte oculta otra en todas sus pantallas",
+        "incidentOpened": "Se abre un incidente",
+        "incidentRecovered": "Se cierra un incidente",
+        "scheduleChanged": "Cambia una programación",
+        "feedStale": "Una de las fuentes de este plugin deja de actualizarse"
+      },
+      "status": {
+        "subscriptions": {
+          "title": "Eventos que recibe este plugin",
+          "description": "Tilecast entrega estos eventos al plugin. Un evento inactivo no se entrega hasta que se corrija su motivo.",
+          "active": "Activo",
+          "inactive": "Inactivo"
+        },
+        "reasons": {
+          "publisher_unknown": "El plugin que publica este evento no forma parte de esta versión de Tilecast.",
+          "publisher_not_installed": "{{publisher}} no está instalado. Instálelo para recibir este evento.",
+          "event_not_declared": "{{publisher}} no publica esta versión del evento.",
+          "no_own_feeds": "Este evento informa solo de las fuentes del propio plugin, y el plugin no tiene ninguna.",
+          "other": "Tilecast no entrega este evento ahora."
+        },
+        "published": {
+          "title": "Eventos que publica este plugin",
+          "noSubscribers": "Ningún plugin instalado lo recibe",
+          "subscribers_one": "{{count}} plugin instalado lo recibe",
+          "subscribers_many": "{{count}} plugins instalados lo reciben",
+          "subscribers_other": "{{count}} plugins instalados lo reciben",
+          "schemaChangedTitle": "No se publica: el contenido cambió",
+          "schemaChanged": "El contenido de esta versión del evento es distinto del que esta instalación registró cuando el plugin lo publicó por primera vez. Tilecast se niega a publicarlo para que los suscriptores no reciban datos que no pueden leer. El plugin debe publicar el cambio como una versión nueva."
+        }
+      },
+      "review": {
+        "title": "Eventos",
+        "description": "Los eventos permiten que los plugins reaccionen a Tilecast y entre sí. Esta lista es informativa: instalar el plugin no le da más acceso.",
+        "publishes": "Publica",
+        "subscribes": "Recibe",
+        "coreEvent": "Evento de Tilecast",
+        "pluginEvent": "Evento de plugin",
+        "fields_one": "{{count}} campo",
+        "fields_many": "{{count}} campos",
+        "fields_other": "{{count}} campos"
+      }
     }
   },
   "secrets": {

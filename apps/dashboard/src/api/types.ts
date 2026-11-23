@@ -1305,7 +1305,12 @@ export type PluginSummary = {
   connections?: PluginConnectionReview[];
   /** Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. */
   feeds?: PluginFeedReview[];
+  /** Server events a Plugin Manifest API 3 plugin publishes and receives. */
+  events?: PluginEventReview;
 };
+
+export type PluginEventReview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginEventReview"];
 
 export type PluginFeedReview =
   import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginFeedReview"];

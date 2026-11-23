@@ -47,9 +47,11 @@ const status: PluginStatus = {
       at: "2026-11-23T09:30:00Z",
     },
   },
+  subscriptions: [],
+  publishedEvents: [],
 };
 
-function stub() {
+function stub(body: PluginStatus = status) {
   const sent: { method: string; path: string }[] = [];
   vi.stubGlobal(
     "fetch",
@@ -66,7 +68,7 @@ function stub() {
         method !== "GET"
           ? status.deliveries.parked[0]
           : path.endsWith("/status")
-            ? status
+            ? body
             : { items: [] };
       return Promise.resolve(new Response(JSON.stringify({ data })));
     }),
@@ -80,9 +82,115 @@ afterEach(() => {
 });
 
 describe("status page", () => {
-  it("exists only for plugins with queued work", () => {
+  it("exists for plugins with timers or events", () => {
     expect(hasStatusPage(manifest)).toBe(true);
     expect(hasStatusPage({ ...manifest, services: [] })).toBe(false);
+    expect(hasStatusPage({ ...manifest, services: ["events.publish@1"] })).toBe(
+      true,
+    );
+    expect(
+      hasStatusPage({
+        ...manifest,
+        services: [],
+        events: { subscribes: ["takeover.started@1"] },
+      }),
+    ).toBe(true);
+    expect(
+      hasStatusPage({
+        ...manifest,
+        services: [],
+        events: { subscribes: [], publishes: [] },
+      }),
+    ).toBe(false);
+  });
+
+  it("explains inactive subscriptions and a changed event schema", async () => {
+    stub({
+      ...status,
+      deliveries: {
+        ...status.deliveries,
+        parked: [],
+        parkedCount: 0,
+        expiredCount: 0,
+      },
+      subscriptions: [
+        {
+          event: "takeover.started@1",
+          state: "active",
+          publisher: "core",
+        },
+        {
+          event: "plugin.bell_schedule.period_started@1",
+          state: "inactive",
+          reason: "publisher_not_installed",
+          publisher: "bell_schedule",
+          publisherName: "Bell Schedule",
+        },
+        {
+          event: "plugin.gone.thing@1",
+          state: "inactive",
+          reason: "publisher_unknown",
+          publisher: "gone",
+        },
+      ],
+      publishedEvents: [
+        {
+          event: "plugin.room_sign.meeting_started@1",
+          title: "Meeting started",
+          subscribers: 2,
+          schemaChanged: false,
+        },
+        {
+          event: "plugin.room_sign.room_free@1",
+          title: "Room free",
+          subscribers: 0,
+          schemaChanged: true,
+        },
+      ],
+    });
+    renderPluginRoute(
+      <HostedStatusPage pluginId="room_sign" manifest={manifest} />,
+      { path: "/plugins/room-sign/status", role: "administrator" },
+    );
+    expect(
+      await screen.findByText("Events this plugin receives"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("A Takeover starts")).toBeInTheDocument();
+    expect(screen.getAllByText("Inactive")).toHaveLength(2);
+    expect(
+      screen.getByText(
+        "Bell Schedule (bell_schedule) is not installed. Install it to receive this event.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The plugin that publishes this event is not part of this Tilecast release.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Published by Tilecast/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Events this plugin publishes"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 installed plugins receive it/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No installed plugin receives it/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Not published: the payload changed"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no event sections without events", async () => {
+    stub();
+    renderPluginRoute(
+      <HostedStatusPage pluginId="room_sign" manifest={manifest} />,
+      { path: "/plugins/room-sign/status", role: "administrator" },
+    );
+    expect(await screen.findByText("Plugin work")).toBeInTheDocument();
+    expect(screen.queryByText("Events this plugin receives")).toBeNull();
+    expect(screen.queryByText("Events this plugin publishes")).toBeNull();
   });
 
   it("explains parked and expired work and lets an Owner retry and discard", async () => {
