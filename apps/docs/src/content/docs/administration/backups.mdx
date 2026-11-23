@@ -7,7 +7,7 @@ import Screenshot from "../../../components/Screenshot.astro";
 import screenshot from "../../../assets/screenshots/backups.png";
 import darkScreenshot from "../../../assets/screenshots/backups-dark.png";
 
-Tilecast backups include the database, media originals and processed files, thumbnails, and cached Player updates. Only the **Owner** can manage backups. Open **Settings** > **Backup and restore**.
+Tilecast backups include the database, media originals and processed files, and thumbnails. Cached Player update artifacts are not included because they can be fetched again from the configured update provider; release and deployment metadata remains in the database. Only the **Owner** can manage backups. Open **Settings** > **Backup and restore**.
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -48,6 +48,8 @@ Under **Automatic backup schedule**, enable scheduled backups and choose daily o
 1. Select **Verify** for the archive you plan to restore.
 2. Select **Restore** and review the confirmation. Tilecast creates a pre-restore backup, then replaces the current database and media state. Studio is temporarily unavailable during the restore.
 3. If Studio warns that the archive belongs to a different installation, continue only if that is intentional. Players enrolled with the current installation must be reset and paired again after restoring a backup from another installation.
+
+Cached Player update files are treated as disposable cache. Backups created by current Tilecast versions do not contain them, so restored releases may need to be cached again before an update deployment can download its artifact. Older backups that contain Player update files continue to restore them.
 
 </Steps>
 

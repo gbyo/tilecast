@@ -366,6 +366,17 @@ func loadDatabaseContents(ctx context.Context, opts ApplyOptions, manifest Manif
 		return fmt.Errorf("migrate restored database to the current version: %w", err)
 	}
 
+	// New backups intentionally omit cached Player update artifacts. The
+	// database snapshot can still contain rows that said those disposable
+	// files were cached, so normalize them before the restored server starts.
+	// Legacy archives that actually contain update files retain their cached
+	// state and continue to restore exactly as before.
+	if !manifestHasPlayerUpdateArtifacts(manifest) {
+		if err := resetRestoredPlayerUpdateCache(ctx, conn); err != nil {
+			return err
+		}
+	}
+
 	// Confirm the restored identity matches the archive.
 	var installationID string
 	if err := conn.QueryRow(ctx, `SELECT installation_id FROM organization_settings WHERE singleton`).Scan(&installationID); err != nil {
@@ -373,6 +384,29 @@ func loadDatabaseContents(ctx context.Context, opts ApplyOptions, manifest Manif
 	}
 	if installationID != manifest.InstallationID {
 		return fmt.Errorf("restored installation identity does not match the archive")
+	}
+	return nil
+}
+
+func manifestHasPlayerUpdateArtifacts(manifest Manifest) bool {
+	component, ok := manifest.Component(ComponentPlayerUpdates)
+	return ok && component.FileCount > 0
+}
+
+func resetRestoredPlayerUpdateCache(ctx context.Context, conn *pgx.Conn) error {
+	_, err := conn.Exec(ctx, `UPDATE player_releases
+		SET cache_status='missing',
+			cache_downloaded_bytes=0,
+			verification_status=CASE
+				WHEN verification_status='verified' THEN 'verified_manifest'
+				ELSE verification_status
+			END,
+			verification_error=NULL
+		WHERE cache_status<>'missing'
+			OR cache_downloaded_bytes<>0
+			OR verification_status='verified'`)
+	if err != nil {
+		return fmt.Errorf("reset restored Player update cache state: %w", err)
 	}
 	return nil
 }

@@ -61,17 +61,15 @@ type CreateResult struct {
 	Manifest      Manifest
 }
 
-// mediaComponents returns the file components included in a backup.
-// Media uploads (in-flight) and trash are transient and excluded. Player
-// update GitHub OAuth state holds credentials and is never archived.
-func backupComponents(mediaRoot, updatesRoot string) []fileComponent {
+// backupComponents returns the durable file components included in a backup.
+// Media uploads (in-flight) and trash are transient and excluded. Cached
+// Player update artifacts are also excluded: release/deployment metadata lives
+// in PostgreSQL and the artifacts can be cached again from the update provider.
+func backupComponents(mediaRoot string) []fileComponent {
 	return []fileComponent{
 		{name: ComponentMediaOriginals, root: filepath.Join(mediaRoot, "originals"), prefix: originalsPrefix},
 		{name: ComponentMediaVariants, root: filepath.Join(mediaRoot, "variants"), prefix: variantsPrefix},
 		{name: ComponentMediaThumbnails, root: filepath.Join(mediaRoot, "thumbnails"), prefix: thumbnailsPrefix},
-		{name: ComponentPlayerUpdates, root: updatesRoot, prefix: updatesPrefix, exclude: func(rel string) bool {
-			return strings.HasPrefix(rel, "github-oauth") || strings.HasSuffix(rel, ".part")
-		}},
 	}
 }
 
@@ -119,7 +117,7 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 	}
 
 	components := []ManifestComponent{databaseComponent(writer.files)}
-	for index, component := range backupComponents(opts.MediaRoot, opts.UpdatesRoot) {
+	for index, component := range backupComponents(opts.MediaRoot) {
 		opts.Progress("archiving_"+component.name, 25+index*15)
 		summary, err := archiveDirectory(ctx, writer, component)
 		if err != nil {
@@ -128,6 +126,9 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 		}
 		components = append(components, summary)
 	}
+	// Keep the component in format-v1 manifests for compatibility with older
+	// readers, but intentionally store no cached Player update artifacts.
+	components = append(components, ManifestComponent{Name: ComponentPlayerUpdates})
 
 	packages, err := snapshotPackages(ctx, opts.DB)
 	if err != nil {
@@ -298,7 +299,7 @@ func checkBackupDiskSpace(ctx context.Context, opts CreateOptions) error {
 		return fmt.Errorf("estimate database size: %w", err)
 	}
 	estimate := databaseBytes
-	for _, component := range backupComponents(opts.MediaRoot, opts.UpdatesRoot) {
+	for _, component := range backupComponents(opts.MediaRoot) {
 		size, err := directorySize(component.root)
 		if err != nil {
 			return fmt.Errorf("estimate %s size: %w", component.name, err)
