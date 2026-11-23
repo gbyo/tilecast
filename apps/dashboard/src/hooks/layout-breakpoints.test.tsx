@@ -6,6 +6,10 @@ import { useCompactLayout } from "./use-compact-layout";
 import { useDesktopLayout } from "./use-desktop-layout";
 import { useIsMobile } from "./use-mobile";
 import { usePhoneLayout } from "./use-phone-layout";
+import {
+  useAnyCoarsePointer,
+  useFineHoverPointer,
+} from "./use-media-query";
 
 afterEach(() => {
   cleanup();
@@ -79,5 +83,40 @@ describe("Studio layout breakpoints", () => {
       offcanvasNavigation: false,
       desktop: true,
     });
+  });
+});
+
+
+describe("Studio input capabilities", () => {
+  it("treats touch as coarse without inventing hover", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+
+    expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(true);
+    expect(renderHook(() => useFineHoverPointer()).result.current).toBe(false);
+  });
+
+  it("keeps fine hover separate from touch capability", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(hover: hover) and (pointer: fine)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+
+    expect(renderHook(() => useAnyCoarsePointer()).result.current).toBe(false);
+    expect(renderHook(() => useFineHoverPointer()).result.current).toBe(true);
   });
 });
