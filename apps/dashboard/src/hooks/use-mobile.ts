@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMediaQuery } from "./use-media-query";
 
 // The sidebar primitive calls this state "mobile", but it is really the
 // off-canvas navigation boundary. Keep navigation off-canvas until the
@@ -22,5 +22,5 @@ function getServerSnapshot() {
 }
 
 export function useIsMobile() {
-  return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMediaQuery(MOBILE_QUERY);
 }
