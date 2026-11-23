@@ -36,7 +36,7 @@ func (s *server) previewService() *previews.Service {
 		// recorder. Installing it here rather than at each call site means a
 		// frame cannot reach a screen's live preview without also being offered
 		// to history.
-		service.SetHistoryRecorder(s.snapshots.Record)
+		service.SetHistoryRecorder(s.snapshots.RecordTriggered)
 	}
 	return service
 }
@@ -53,7 +53,14 @@ func (s *server) renewScreenPreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	session, err := s.previewService().Renew(r.Context(), screenID, body.ForceCapture)
+	service := s.previewService()
+	var session previews.Session
+	var err error
+	if body.ForceCapture {
+		session, err = service.RenewManual(r.Context(), screenID, true)
+	} else {
+		session, err = service.Renew(r.Context(), screenID, false)
+	}
 	if err != nil {
 		s.writePreviewError(w, r, err)
 		return
