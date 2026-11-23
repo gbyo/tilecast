@@ -12,7 +12,10 @@ import {
 import type { PlaylistItem } from "../../api/types";
 import { PlaylistTimeline } from "./PlaylistTimeline";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function item(
   id: string,
@@ -127,6 +130,12 @@ describe("PlaylistTimeline rows", () => {
 
 describe("PlaylistTimeline row actions", () => {
   it("offers the same commands from the overflow menu and the context menu", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-hover: hover) and (any-pointer: fine)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
     const handlers = renderTimeline();
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for Alpha" }));

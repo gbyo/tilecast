@@ -54,7 +54,8 @@ export function setViewport(viewport: Viewport) {
   window.matchMedia = (query: string) => ({
     matches:
       (query.includes("min-width: 1024px") && viewport === "desktop") ||
-      (query.includes("max-width: 1023px") && viewport !== "desktop"),
+      (query.includes("max-width: 1023px") && viewport !== "desktop") ||
+      (query.includes("max-width: 639px") && viewport === "phone"),
     media: query,
     onchange: null,
     addListener: () => undefined,

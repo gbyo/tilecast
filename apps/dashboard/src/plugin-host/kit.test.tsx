@@ -16,6 +16,7 @@ import {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 const actions: StudioActionGroup[] = [
@@ -43,6 +44,12 @@ describe("@tilecast/studio action menus", () => {
   });
 
   it("exports a working context menu", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-hover: hover) and (any-pointer: fine)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
     render(
       <ActionContextMenu label="Actions for Fixture" actions={actions}>
         <div data-testid="target">Fixture</div>

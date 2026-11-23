@@ -92,7 +92,8 @@ function stubViewport(next: Partial<typeof viewport>) {
   viewport = { ...viewport, ...next };
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches:
-      (query === "(max-width: 1023px)" && viewport.compact) ||
+      ((query === "(max-width: 1023px)" || query === "(max-width: 639px)") &&
+        viewport.compact) ||
       (query === "(min-width: 1280px)" && viewport.wide),
     media: query,
     onchange: null,

@@ -46,9 +46,16 @@ vi.mock("../auth/AuthProvider", () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(any-hover: hover) and (any-pointer: fine)",
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
   HTMLDialogElement.prototype.showModal = function showModal() {
     this.open = true;
   };

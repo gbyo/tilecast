@@ -158,7 +158,6 @@ import { useAuth } from "../auth/AuthProvider";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { hasCapability } from "../auth/capabilities";
 import {
