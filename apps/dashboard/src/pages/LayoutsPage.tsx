@@ -642,11 +642,7 @@ export function LayoutsPage() {
             },
           ]
         : [];
-    return [
-      { actions: primary },
-      { actions: scheduling },
-      { actions: danger },
-    ];
+    return [{ actions: primary }, { actions: scheduling }, { actions: danger }];
   };
 
   return (
