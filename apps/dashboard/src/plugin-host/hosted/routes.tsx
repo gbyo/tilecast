@@ -12,6 +12,7 @@ import { HostedFeedRecordsPage } from "./feeds/HostedFeedRecordsPage";
 import { HostedFeedsPage } from "./feeds/HostedFeedsPage";
 import { HostedStatusPage } from "./status/HostedStatusPage";
 import { hasStatusPage } from "./status/model";
+import { hostedLandingPage } from "./landing";
 import { HostedWebhooksPage } from "./webhooks/HostedWebhooksPage";
 import { hasWebhooksPage } from "./webhooks/model";
 
@@ -49,8 +50,27 @@ export function hostedRouteObjects(
   if (v3.apiVersion !== 3) return [];
   const props = { pluginId: plugin.id, manifest: v3 };
   const out: RouteObject[] = [];
+  // A plugin that brings its own index page keeps it; the host adds no
+  // landing page in front of it.
+  const customIndex = (plugin.definition.routes ?? []).some(
+    (route) => route.index,
+  );
+  const landing = customIndex ? null : hostedLandingPage(v3);
+  if (landing && landing !== "instances") {
+    const pages = {
+      settings: HostedSettingsPage,
+      connections: HostedConnectionsPage,
+      feeds: HostedFeedsPage,
+      webhooks: HostedWebhooksPage,
+      status: HostedStatusPage,
+    } as const;
+    const Page = pages[landing];
+    out.push({ index: true, element: <Page {...props} /> });
+  }
   if (v3.instances.length > 0) {
-    out.push({ index: true, element: <HostedInstancesPage {...props} /> });
+    if (landing === "instances") {
+      out.push({ index: true, element: <HostedInstancesPage {...props} /> });
+    }
     for (const kind of v3.instances) {
       const kindProps = { ...props, kindPath: kind.path };
       out.push(
@@ -90,10 +110,6 @@ export function hostedRouteObjects(
         },
       },
     );
-  } else if (v3.settings?.organization?.length) {
-    out.push({ index: true, element: <HostedSettingsPage {...props} /> });
-  } else if ((v3.connections ?? []).length > 0) {
-    out.push({ index: true, element: <HostedConnectionsPage {...props} /> });
   }
   if ((v3.connections ?? []).length > 0) {
     out.push(
@@ -148,7 +164,7 @@ export function hostedRouteObjects(
       handle: crumb("Status", "hosted.breadcrumbs.status"),
     });
   }
-  if (v3.settings?.organization?.length && v3.instances.length > 0) {
+  if (v3.settings?.organization?.length) {
     out.push({
       path: "settings",
       element: <HostedSettingsPage {...props} />,

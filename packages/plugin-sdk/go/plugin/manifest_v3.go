@@ -15,12 +15,13 @@ import (
 // personal-data marker on fields, and the Server services the plugin's
 // typed client calls. Later phases add their own members.
 
-// MaxInstanceKinds bounds the instance kinds of one plugin. Studio renders
-// each kind as one tab of the plugin's page. Four is the most tabs Studio
-// already shows in one tab list (the Widget inspector's four sections), and
-// it fits a phone-width page without a scrolling tab list. Each kind also
-// generates five API operations and five automation commands.
-const MaxInstanceKinds = 4
+// MaxInstanceKinds bounds the instance kinds of one plugin. The bound limits
+// generated contract surface: each kind creates generated routes, five CRUD
+// OpenAPI operations, five automation commands, Studio resources, and
+// validation work. Sixteen permits complex plugins while keeping that
+// generated surface bounded and reviewable. Studio navigation does not set
+// it: two to four kinds show as tabs and more show as a selector.
+const MaxInstanceKinds = 16
 
 // MaxSchemaFields bounds the fields of one settings scope or instance kind.
 // It matches the component configuration bound of 64 keys.

@@ -60,7 +60,7 @@ func TestSecretUnavailableIsATypedFailure(t *testing.T) {
 }
 
 func TestInstanceCountBoundMatchesTheDeclaredLimit(t *testing.T) {
-	if plugin.MaxInstanceKinds != 4 {
-		t.Fatalf("MaxInstanceKinds = %d; the TypeScript schema and docs say 4", plugin.MaxInstanceKinds)
+	if plugin.MaxInstanceKinds != 16 {
+		t.Fatalf("MaxInstanceKinds = %d; the TypeScript schema and docs say 16", plugin.MaxInstanceKinds)
 	}
 }

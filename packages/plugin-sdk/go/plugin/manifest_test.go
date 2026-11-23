@@ -48,3 +48,32 @@ func TestManifestDefaults(t *testing.T) {
 		t.Fatalf("unexpected defaults: %+v", manifest)
 	}
 }
+
+// At the instance-kind limit the host still generates a bounded, distinct
+// route surface: the settings routes plus five routes for each kind.
+func TestGeneratedRoutesAtTheKindLimit(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "manifests", "valid", "v3-sixteen-kinds.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := ParseManifest(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Instances) != MaxInstanceKinds || MaxInstanceKinds != 16 {
+		t.Fatalf("kinds = %d, limit = %d", len(manifest.Instances), MaxInstanceKinds)
+	}
+	routes := GeneratedRoutes(manifest)
+	seen := map[string]bool{}
+	for _, route := range routes {
+		key := route.Method + " " + route.Pattern
+		if seen[key] {
+			t.Fatalf("duplicate generated route %s", key)
+		}
+		seen[key] = true
+	}
+	// Two settings scopes with GET and PUT each, then five routes per kind.
+	if len(routes) != 4+16*5 {
+		t.Fatalf("generated routes = %d", len(routes))
+	}
+}

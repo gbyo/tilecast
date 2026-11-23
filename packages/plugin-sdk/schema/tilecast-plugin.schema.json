@@ -1275,7 +1275,7 @@
         "instances": {
           "default": [],
           "description": "Host-owned instance kinds.",
-          "maxItems": 4,
+          "maxItems": 16,
           "type": "array",
           "items": {
             "type": "object",

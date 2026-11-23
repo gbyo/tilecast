@@ -98,12 +98,13 @@ export const PLUGIN_API_VERSION = 3;
 export const SUPPORTED_PLUGIN_API_VERSIONS = [1, 2, 3] as const;
 
 /**
- * The most instance kinds one plugin may declare. Studio renders each kind
- * as one tab of the plugin's page; four is the most tabs Studio already
- * shows in one tab list (the Widget inspector's sections), and it fits a
- * phone-width page without a scrolling tab list.
+ * The most instance kinds one plugin may declare. The bound limits generated
+ * contract surface: each kind creates generated routes, CRUD OpenAPI
+ * operations, automation commands, Studio resources, and validation work.
+ * Sixteen permits complex plugins while keeping that surface bounded and
+ * reviewable. Studio shows two to four kinds as tabs and more as a selector.
  */
-export const MAX_INSTANCE_KINDS = 4;
+export const MAX_INSTANCE_KINDS = 16;
 /** The most fields of one settings scope or instance kind. */
 export const MAX_SCHEMA_FIELDS = 64;
 /** The most Server services one plugin declares. */

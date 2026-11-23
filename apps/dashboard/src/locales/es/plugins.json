@@ -1058,7 +1058,8 @@
         "channel": "Canal de notificación: entrega las notificaciones que Tilecast ya envía, según su configuración de notificaciones.",
         "check": "Comprobación de estado del contenido: lee un elemento cada vez que cambia ({{kinds}}) e informa de los problemas como incidentes."
       }
-    }
+    },
+    "kindSelectorLabel": "Tipo"
   },
   "secrets": {
     "state": {
