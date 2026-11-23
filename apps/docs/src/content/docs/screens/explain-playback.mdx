@@ -39,7 +39,10 @@ schedules** lists the rest with their presentations and enabled state.
 evaluation boundary and only claims a change when the answer differs.
 Otherwise it tells you the current selection is still expected, or shows the
 boundary alone when the prediction cannot load. A boundary alone never
-promises that the content changes. For example, a schedule can end while
+promises that the content changes. The next transition is shown even if no
+content schedules exist, such as when a Show Now presentation ends. If no
+presentation is selected next, Studio says so instead of implying that default
+content resumes. For example, a schedule can end while
 another schedule selects the same Playlist.
 
 ## Explain why this content won
