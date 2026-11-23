@@ -14,7 +14,7 @@ export const HEADER_FULL_WIDTH = 760;
  * sidebar together; a viewport breakpoint cannot say whether the controls
  * fit. An unmeasured header (tests, no shell) counts as wide.
  */
-export function useNarrowHeader() {
+export function useNarrowHeader(fullWidth = HEADER_FULL_WIDTH) {
   const slots = useEditorHeaderSlots();
   const slot = slots?.right ?? null;
   const [narrow, setNarrow] = useState(false);
@@ -23,13 +23,13 @@ export function useNarrowHeader() {
     if (!header) return;
     const measure = () => {
       const width = header.clientWidth;
-      setNarrow(width > 0 && width < HEADER_FULL_WIDTH);
+      setNarrow(width > 0 && width < fullWidth);
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     return () => observer.disconnect();
-  }, [slot]);
+  }, [fullWidth, slot]);
   return narrow;
 }
