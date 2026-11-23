@@ -94,6 +94,7 @@ import { hasCapability } from "../../auth/capabilities";
 
 export function PlaylistEditorPage() {
   const { t } = useTranslation(["playlists", "common"]);
+  const { t: tReview } = useTranslation("review");
   const openPlaylistPreview = useOpenPlaylistPreview();
   const { id = "" } = useParams();
   const auth = useAuth();
@@ -221,11 +222,18 @@ export function PlaylistEditorPage() {
         ? api.publishPlaylist(id, expectedRevision, csrf)
         : api.submitContent("playlist", id, csrf, undefined, expectedRevision);
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      // Publish permission does not bypass the organization review policy.
+      const submission = "submission" in result ? result.submission : result;
+      const published = submission.status === "published";
       toast.add({
-        title: canPublish
+        title: published
           ? t("editor.toasts.published")
           : t("editor.toasts.submitted"),
+        description: tReview("submissions.detail.coverage", {
+          screens: submission.affectedScreenCount,
+          locations: submission.affectedLocationCount,
+        }),
         type: "success",
       });
       await Promise.all([
