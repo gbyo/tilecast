@@ -216,19 +216,19 @@ describe("ActionContextMenu", () => {
   }
 
   it("does not hide context actions behind touch long-press", () => {
-      vi.stubGlobal("matchMedia", (query: string) => ({
-        matches: query === "(any-pointer: coarse)",
-        media: query,
-        onchange: null,
-        addListener: () => undefined,
-        removeListener: () => undefined,
-        addEventListener: () => undefined,
-        removeEventListener: () => undefined,
-        dispatchEvent: () => false,
-      }));
-      renderCard(groups({}));
-      fireEvent.contextMenu(screen.getByTestId("card"));
-      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    renderCard(groups({}));
+    fireEvent.contextMenu(screen.getByTestId("card"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(screen.getByTestId("card")).toBeVisible();
   });
 
