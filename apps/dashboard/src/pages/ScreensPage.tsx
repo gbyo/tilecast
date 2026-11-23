@@ -1594,6 +1594,10 @@ export function ScreenListContent({
       ),
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectionOpen, setSelectionOpen] = useState(false);
+  const [restartTargets, setRestartTargets] = useState<Screen[] | null>(null);
+  const [restartPending, setRestartPending] = useState(false);
+  const selectedScreens = screens.filter((screen) => selected.has(screen.id));
   const [archiveTarget, setArchiveTarget] = useState<Screen | null>(null);
   const [bulkLocation, setBulkLocation] = useState("");
   const filtered = useMemo(() => {
@@ -1765,33 +1769,52 @@ export function ScreenListContent({
     );
   };
   const restartSelected = async () => {
-    const ids = [...selected];
+    if (!restartTargets?.length || restartPending) return;
+    setRestartPending(true);
+    const targets = restartTargets;
     try {
-      await toast.promise(
-        Promise.all(
-          ids.map((id) =>
-            api.createScreenCommand(
-              id,
-              "restart_player_process",
-              {},
-              csrfToken,
-            ),
+      const results = await Promise.allSettled(
+        targets.map((screen) =>
+          api.createScreenCommand(
+            screen.id,
+            "restart_player_process",
+            {},
+            csrfToken,
           ),
         ),
-        {
-          loading: `Requesting restart for ${ids.length} screens…`,
-          success: `Restart requested for ${ids.length} screens.`,
-          error: "The restart request could not be sent.",
-        },
       );
-    } catch {
-      return;
+      const queued = targets.filter(
+        (_, index) => results[index]?.status === "fulfilled",
+      );
+      const failed = targets.filter(
+        (_, index) => results[index]?.status === "rejected",
+      );
+      setSelected((current) => {
+        const next = new Set(current);
+        for (const screen of queued) next.delete(screen.id);
+        return next;
+      });
+      if (queued.length) {
+        toast.add({
+          title: t("detail.commandQueued"),
+          type: "success",
+        });
+      }
+      if (failed.length) {
+        toast.add({
+          title: t("bulk.someFailed"),
+          description: failed.map((screen) => screen.name).join(", "),
+          type: "error",
+        });
+      }
+      setRestartTargets(null);
+    } finally {
+      setRestartPending(false);
     }
-    setSelected(new Set());
   };
   const changeSelectedLocation = async () => {
     const chosen = bulkLocation || undefined;
-    const targets = screens.filter((screen) => selected.has(screen.id));
+    const targets = selectedScreens;
     const results = await Promise.allSettled(
       targets.map((screen) =>
         api.updateScreen(
@@ -1965,15 +1988,21 @@ export function ScreenListContent({
       {effectiveView === "grid" && (
         <p className="text-xs text-muted-foreground">{t("list.gridHint")}</p>
       )}
-      {selected.size > 0 && canManage && (
+      {selectedScreens.length > 0 && canManage && (
         <div className="flex flex-wrap items-center gap-2 border-l-2 border-primary bg-muted/50 px-3 py-2">
-          <strong className="mr-2 text-sm">
-            {t("list.selectedCount", { count: selected.size })}
-          </strong>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-haspopup="dialog"
+            onClick={() => setSelectionOpen(true)}
+          >
+            {t("list.selectedCount", { count: selectedScreens.length })}
+          </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void restartSelected()}
+            onClick={() => setRestartTargets(selectedScreens)}
           >
             <RefreshCw aria-hidden="true" /> {t("list.restart")}
           </Button>
@@ -2137,7 +2166,7 @@ export function ScreenListContent({
                           screen={screen}
                           csrfToken={csrfToken}
                           selected={selected.has(screen.id)}
-                          selectionActive={selected.size > 0}
+                          selectionActive={selectedScreens.length > 0}
                           canManage={canManage}
                           showLocation={groupBy !== "location"}
                           onSelect={(checked) => {
@@ -2157,6 +2186,52 @@ export function ScreenListContent({
           })}
         </div>
       )}
+      <Dialog open={selectionOpen} onOpenChange={setSelectionOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t("list.selectedCount", { count: selectedScreens.length })}
+            </DialogTitle>
+          </DialogHeader>
+          <FleetSelectedScreens screens={selectedScreens} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectionOpen(false)}>
+              {t("common:actions.close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={restartTargets !== null}
+        onOpenChange={(open) => {
+          if (!open && !restartPending) setRestartTargets(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("detail.cmdRestart")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("bulk.commandHint")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="text-sm font-medium">
+            {t("list.selectedCount", { count: restartTargets?.length ?? 0 })}
+          </p>
+          <FleetSelectedScreens screens={restartTargets ?? []} />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restartPending}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={restartPending || !restartTargets?.length}
+              aria-busy={restartPending || undefined}
+              onClick={() => void restartSelected()}
+            >
+              {restartPending ? t("bulk.applying") : t("list.restart")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {archiveTarget && (
         <ArchiveScreenDialog
           screen={archiveTarget}
@@ -2168,6 +2243,23 @@ export function ScreenListContent({
         />
       )}
     </section>
+  );
+}
+
+function FleetSelectedScreens({ screens }: { screens: Screen[] }) {
+  return (
+    <ul className="max-h-[40dvh] overflow-y-auto divide-y rounded-lg border">
+      {screens.map((screen) => (
+        <li key={screen.id} className="grid gap-0.5 px-3 py-2 text-sm">
+          <span className="font-medium break-words">{screen.name}</span>
+          {screen.location && (
+            <span className="text-xs text-muted-foreground break-words">
+              {screen.location}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
