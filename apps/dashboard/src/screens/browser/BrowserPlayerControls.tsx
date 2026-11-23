@@ -30,6 +30,7 @@ import {
 } from "../../pairing/PairingDetailsForm";
 import type { ApprovalForm } from "../../pairing/pairingFlow";
 import { screenKeys } from "../../data/screens";
+import { writeTextToClipboard } from "../../lib/clipboard";
 
 /** Launch credentials remain in this mounted UI's memory and are shown once. */
 function LaunchLink({ launch }: { launch: BrowserLaunch }) {
@@ -73,10 +74,10 @@ function LaunchLink({ launch }: { launch: BrowserLaunch }) {
           size="sm"
           variant="outline"
           onClick={() => {
-            void navigator.clipboard.writeText(url).then(
-              () => setCopied(true),
-              () => setFailed(true),
-            );
+            void writeTextToClipboard(url).then((success) => {
+              setCopied(success);
+              setFailed(!success);
+            });
           }}
         >
           {copied ? t("browser.copied") : t("browser.copy")}

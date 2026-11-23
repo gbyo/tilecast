@@ -46,6 +46,7 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { toast } from "../components/ui/toast";
+import { writeTextToClipboard } from "../lib/clipboard";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 
 export const securityKey = ["me", "security"] as const;
@@ -598,20 +599,15 @@ function RecoveryCodeBlock({ status }: { status: SecurityStatus }) {
             <Button
               variant="secondary"
               onClick={() => {
-                void navigator.clipboard
-                  ?.writeText((codes ?? []).join("\n"))
-                  .then(() =>
+                void writeTextToClipboard((codes ?? []).join("\n")).then(
+                  (success) =>
                     toast.add({
-                      title: "Recovery codes copied.",
-                      type: "success",
+                      title: success
+                        ? "Recovery codes copied."
+                        : "Recovery codes could not be copied.",
+                      type: success ? "success" : "error",
                     }),
-                  )
-                  .catch(() =>
-                    toast.add({
-                      title: "Recovery codes could not be copied.",
-                      type: "error",
-                    }),
-                  );
+                );
               }}
             >
               {t("security.recovery.copyAll")}

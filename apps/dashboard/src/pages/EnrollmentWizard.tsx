@@ -25,6 +25,7 @@ import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
+import { writeTextToClipboard } from "../lib/clipboard";
 import { securityKey } from "./SecurityPage";
 
 /**
@@ -477,30 +478,15 @@ function RecoveryStep({
             <Button
               variant="secondary"
               onClick={() => {
-                // Without the Clipboard API the chain below never runs, so say so.
-                const clipboard = navigator.clipboard;
-                if (!clipboard) {
+                void writeTextToClipboard(codes.join("\n")).then((success) => {
+                  if (success) setCopied(true);
                   toast.add({
-                    title: t("enrollment.recovery.copyUnavailable"),
-                    type: "error",
+                    title: success
+                      ? "Recovery codes copied."
+                      : t("enrollment.recovery.copyUnavailable"),
+                    type: success ? "success" : "error",
                   });
-                  return;
-                }
-                void clipboard
-                  .writeText(codes.join("\n"))
-                  .then(() => {
-                    setCopied(true);
-                    toast.add({
-                      title: "Recovery codes copied.",
-                      type: "success",
-                    });
-                  })
-                  .catch(() =>
-                    toast.add({
-                      title: "Recovery codes could not be copied.",
-                      type: "error",
-                    }),
-                  );
+                });
               }}
             >
               {copied
