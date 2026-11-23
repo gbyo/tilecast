@@ -102,6 +102,7 @@ import { hasCapability } from "../../auth/capabilities";
 
 export function PlaylistEditorPage() {
   const { t } = useTranslation(["playlists", "common"]);
+  const { t: tReview } = useTranslation("review");
   const openPlaylistPreview = useOpenPlaylistPreview();
   const { id = "" } = useParams();
   const auth = useAuth();
@@ -135,6 +136,8 @@ export function PlaylistEditorPage() {
   const desktop = useDesktopLayout();
   const [addFailure, setAddFailure] = useState("");
   const [editorError, setEditorError] = useState("");
+  const [itemWrites, setItemWrites] = useState(0);
+  const [addWrites, setAddWrites] = useState(0);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string>();
   // The last inspector width a user chose, restored when the pane reopens.
@@ -221,24 +224,35 @@ export function PlaylistEditorPage() {
 
   const publish = useMutation({
     mutationFn: () => {
-      const expectedRevision = query.data?.draftRevision ?? 0;
+      const expectedRevision =
+        client.getQueryData<Playlist>(playlistKeys.detail(id))?.draftRevision ??
+        query.data?.draftRevision ??
+        0;
       return canPublish
         ? api.publishPlaylist(id, expectedRevision, csrf)
         : api.submitContent("playlist", id, csrf, undefined, expectedRevision);
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      // Publish permission does not bypass the organization review policy.
+      const submission = "submission" in result ? result.submission : result;
+      const published = submission.status === "published";
       toast.add({
-        title: canPublish
+        title: published
           ? t("editor.toasts.published")
           : t("editor.toasts.submitted"),
+        description: tReview("submissions.detail.coverage", {
+          screens: submission.affectedScreenCount,
+          locations: submission.affectedLocationCount,
+        }),
         type: "success",
       });
-      void client.invalidateQueries({ queryKey: playlistKeys.detail(id) });
-      void client.invalidateQueries({ queryKey: playlistKeys.all });
-      void client.invalidateQueries({ queryKey: ["content-submissions"] });
-      void client.invalidateQueries({
-        queryKey: ["content-history", "playlist", id],
-      });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: playlistKeys.all }),
+        client.invalidateQueries({ queryKey: ["content-submissions"] }),
+        client.invalidateQueries({
+          queryKey: ["content-history", "playlist", id],
+        }),
+      ]);
     },
   });
 
@@ -272,16 +286,18 @@ export function PlaylistEditorPage() {
       itemDrafts.current.get(item.id),
     );
     itemDrafts.current.set(item.id, input);
+    setItemWrites((count) => count + 1);
     itemQueue.current = itemQueue.current.then(async () => {
-      const latest = itemDrafts.current.get(item.id);
-      if (latest !== input) return;
       try {
+        const latest = itemDrafts.current.get(item.id);
+        if (latest !== input) return;
         await updateItem.mutateAsync({ itemId: item.id, input });
       } catch {
         // onError reports it; later edits still run.
       } finally {
         if (itemDrafts.current.get(item.id) === input)
           itemDrafts.current.delete(item.id);
+        setItemWrites((count) => count - 1);
       }
     });
   };
@@ -366,6 +382,15 @@ export function PlaylistEditorPage() {
   });
 
   const add = async (selected: Asset[]): Promise<ContentPickerResult> => {
+    setAddWrites((count) => count + 1);
+    try {
+      return await addAssets(selected);
+    } finally {
+      setAddWrites((count) => count - 1);
+    }
+  };
+
+  const addAssets = async (selected: Asset[]): Promise<ContentPickerResult> => {
     if (!query.data) return { failures: [] };
     const failures: ContentPickerResult["failures"] = [];
     const items = query.data.items ?? [];
@@ -439,6 +464,7 @@ export function PlaylistEditorPage() {
   }, [canManage, searchParams]);
 
   const addLayout = async (layoutId: string) => {
+    setAddWrites((count) => count + 1);
     try {
       const items = query.data?.items ?? [];
       const authoring = playlistAuthoringDefaults(items, "layout");
@@ -468,6 +494,8 @@ export function PlaylistEditorPage() {
           ? apiErrorMessage(error)
           : t("editor.layoutAddError"),
       );
+    } finally {
+      setAddWrites((count) => count - 1);
     }
   };
 
@@ -538,6 +566,15 @@ export function PlaylistEditorPage() {
   }
 
   const playlist = query.data;
+  const savingDraft =
+    save.isPending ||
+    saveTagRule.isPending ||
+    itemWrites > 0 ||
+    addWrites > 0 ||
+    updateItem.isPending ||
+    deleteItem.isPending ||
+    reorder.isPending ||
+    bulkUpdate.isPending;
   const items = playlist.items ?? [];
   const commonTransition = playlistTransition(items);
   const imageDuration = playlistImageDuration(items);
@@ -687,8 +724,18 @@ export function PlaylistEditorPage() {
           canSubmit={canSubmit}
           canPublish={canPublish}
           publishPending={publish.isPending}
+          savingDraft={savingDraft}
+          unsavedDetails={metadataDirty || tagRuleDirty}
+          unsavedDetailsLabel={
+            metadataDirty ? t("details.saveDetails") : t("details.saveSource")
+          }
+          onResolveDetails={() =>
+            openDetails(metadataDirty ? "general" : "source")
+          }
           onPreview={() => openPlaylistPreview(playlist)}
-          onPublish={() => publish.mutate()}
+          onPublish={() => {
+            if (!savingDraft && !dirty && !publish.isPending) publish.mutate();
+          }}
           onOpenHistory={openHistory}
           onOpenDetails={() => openDetails()}
           onDuplicate={() => duplicate.mutate()}

@@ -493,6 +493,94 @@ describe("PlaylistEditor panes", () => {
     expect(screen.queryByRole("tab", { name: "History" })).toBeNull();
   });
 
+  it("offers a path back to unsaved details instead of publishing them silently", async () => {
+    mockDesktop();
+    mockServer();
+    const publish = vi.spyOn(api, "publishPlaylist");
+    renderEditor();
+
+    await screen.findByRole("button", { name: "Publish" });
+    openMore();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Playlist details" }),
+    );
+    const details = await screen.findByRole("dialog");
+    fireEvent.change(within(details).getByLabelText("Name"), {
+      target: { value: "Updated lobby loop" },
+    });
+    fireEvent.click(within(details).getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(publish).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save details" }));
+    expect(await screen.findByLabelText("Name")).toHaveValue(
+      "Updated lobby loop",
+    );
+  });
+
+  it("waits for playback defaults to save before publishing the new revision", async () => {
+    mockDesktop();
+    mockServer();
+    let finish!: (value: Playlist) => void;
+    const response = new Promise<Playlist>((resolve) => {
+      finish = resolve;
+    });
+    const bulk = vi
+      .spyOn(api, "bulkUpdatePlaylistItems")
+      .mockReturnValue(response);
+    const publish = vi.spyOn(api, "publishPlaylist");
+    publish.mockResolvedValue(publication);
+    renderEditor();
+
+    const button = await screen.findByRole("button", { name: "Publish" });
+    const durationLabel = "Playlist image duration in seconds";
+    const duration = screen.getByLabelText(durationLabel);
+    fireEvent.change(duration, { target: { value: "12" } });
+    fireEvent.blur(duration);
+    await waitFor(() => expect(bulk).toHaveBeenCalled());
+    expect(button).toBeDisabled();
+    expect(screen.getByText("Saving changes…")).toBeVisible();
+    fireEvent.click(button);
+    expect(publish).not.toHaveBeenCalled();
+
+    finish({ ...playlist(), draftRevision: 4 });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await waitFor(() => {
+      expect(publish).toHaveBeenCalledWith("p1", 4, "token");
+    });
+  });
+
+  it("reports review submission rather than publication when policy requires review", async () => {
+    mockDesktop();
+    mockServer();
+    const add = vi.spyOn(toast, "add");
+    vi.spyOn(api, "publishPlaylist").mockResolvedValue({
+      ...publication.submission,
+      status: "in_review",
+      reviewRequired: true,
+      affectedScreenCount: 3,
+      affectedLocationCount: 2,
+    });
+    renderEditor();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Publish" }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Playlist submitted for review.",
+          description: "3 screens across 2 locations",
+        }),
+      ),
+    );
+    expect(add).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Playlist published." }),
+    );
+  });
+
   it("reports publishing with a toast instead of an inline success alert", async () => {
     mockDesktop();
     mockServer();
