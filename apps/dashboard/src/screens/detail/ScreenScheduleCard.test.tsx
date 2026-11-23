@@ -97,7 +97,9 @@ describe("ScreenScheduleCard", () => {
       futurePlan: planFixture({ selected: null, candidates: [] }),
     });
     expect(screen.getByText(/No content assigned/)).toBeVisible();
-    expect(screen.queryByText("Default content resumes")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Default content resumes"),
+    ).not.toBeInTheDocument();
   });
 
   it("says plainly when the next evaluation keeps the selection", () => {
