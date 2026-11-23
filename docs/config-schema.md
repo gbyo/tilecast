@@ -22,16 +22,14 @@ The validator enforces the difference. A Widget schema that uses `secret`,
 `connection`, or `personal` is invalid. The Widget editor does not need to
 avoid sending them.
 
-A plugin manifest does not accept `connection` or `data_source` fields yet. Host
-connections arrive in a later phase of
-[ADR: Plugin Model V3](adr/plugin-model-v3.md).
+A plugin manifest does not accept `data_source` fields yet.
 
 ## Field
 
 A field has a `key`, a `label`, and a `control`. These members are optional:
 `labelKey`, `description`, `descriptionKey`, `required`, `default`, `minimum`,
 `maximum`, `minLength`, `maxLength`, `options`, `mediaTypes`, `maximumItems`,
-`itemFields`, `ui`, and `personal`. The data source members
+`itemFields`, `ui`, `personal`, and `connections`. The data source members
 (`acceptedDataSourceKinds`, `requiredFields`, `dataSourceFieldTypes`,
 `dataSourceKey`) belong to Widgets.
 
@@ -51,6 +49,12 @@ A field has a `key`, a `label`, and a `control`. These members are optional:
 - A schema has at most four `font` fields, and a repeating group holds none.
 - A `secret` is top level, has no default, and holds at most 4096 bytes. The
   configuration document never holds its value. The secret store does.
+- A `connection` is top level and has no default. `connections` lists 1 to 8
+  connection declarations that the field accepts. The value is the ID of a
+  connection record. The Server checks that the record belongs to the plugin
+  and has an accepted declaration. A non-nil Go `References` that does not
+  implement `ConnectionReferences` refuses every connection value. See
+  [Plugin connections](plugin-connections.md#references).
 
 ### Authoring hints
 
@@ -77,7 +81,7 @@ enforces.
 `Normalize` (Go) and `normalizeConfigValues` (TypeScript) check a configuration
 document against a field list. They apply defaults, trim text, lowercase IDs,
 write datetimes in UTC, sort weekdays, and refuse unknown keys. They refuse a
-value for a `secret` or `connection` field.
+value for a `secret` field. A `connection` value must be a record ID.
 
 The Go version takes a `References` value. The Server implements it to check
 that a Data Source, a media asset, or a font exists. The TypeScript version
