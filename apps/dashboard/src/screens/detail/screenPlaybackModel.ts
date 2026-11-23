@@ -194,6 +194,7 @@ export type NextPrediction =
   | { state: "loading" }
   | { state: "failed"; at: string }
   | { state: "unchanged"; at: string; name?: string }
+  | { state: "cleared"; at: string }
   | {
       state: "changed";
       at: string;
@@ -222,9 +223,8 @@ export function nextPrediction(
   if (sameSelection(now, next)) {
     return { state: "unchanged", at, name: now?.name };
   }
-  if (!next || !isPlaybackSource(next.source)) {
-    return { state: "changed", at, name: undefined, source: "assignment" };
-  }
+  if (!next) return { state: "cleared", at };
+  if (!isPlaybackSource(next.source)) return { state: "failed", at };
   return {
     state: "changed",
     at,
