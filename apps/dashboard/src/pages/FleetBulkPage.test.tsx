@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
@@ -175,6 +175,48 @@ describe("Fleet bulk changes", () => {
     expect(screen.getByText(/share a Display Group/)).toBeTruthy();
   });
 
+  it("does not show a preview that arrives after the operator changes screens", async () => {
+    let finish!: (value: BulkPreview) => void;
+    const build = vi
+      .spyOn(api, "previewBulkOperation")
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+      )
+      .mockResolvedValue(preview);
+    const apply = vi.spyOn(api, "applyBulkOperation");
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Cafeteria/ }),
+    );
+    await choose(user, "Playlist", "New menu");
+    await user.click(
+      screen.getByRole("button", { name: /Preview the change/ }),
+    );
+    await waitFor(() => expect(build).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("checkbox", { name: /Cafeteria/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Gym/ }));
+    await act(async () => {
+      finish(preview);
+    });
+    const previewButton = await screen.findByRole("button", {
+      name: /Preview the change/,
+    });
+    expect(
+      screen.queryByRole("button", { name: "Change 2 screens" }),
+    ).toBeNull();
+    expect(apply).not.toHaveBeenCalled();
+    await user.click(previewButton);
+    await waitFor(() => expect(build).toHaveBeenCalledTimes(2));
+    expect(build.mock.calls[1]?.[0]).toMatchObject({
+      screenIds: ["s2"],
+      action: "assign_playlist",
+      playlistId: "p1",
+    });
+  });
+
   it("reports a blocked screen as skipped rather than dropping it", async () => {
     vi.spyOn(api, "previewBulkOperation").mockResolvedValue(preview);
     renderPage();
@@ -236,7 +278,12 @@ describe("Fleet bulk changes", () => {
 
     await waitFor(() => expect(apply).toHaveBeenCalled());
     const [applied] = apply.mock.calls[0] ?? [];
-    expect(applied?.expectedChangeCount).toBe(2);
+    expect(applied).toMatchObject({
+      expectedChangeCount: 2,
+      screenIds: ["s1"],
+      action: "assign_playlist",
+      playlistId: "p1",
+    });
   });
 
   it("offers undo after a reversible change", async () => {
@@ -304,6 +351,11 @@ describe("Fleet bulk changes", () => {
     expect(
       await screen.findByText(/Screens changed since this preview/),
     ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Change 2 screens" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
     const review = screen.getByRole("button", { name: "Review changes" });
     await user.click(review);
     await waitFor(() => expect(build).toHaveBeenCalledTimes(2));

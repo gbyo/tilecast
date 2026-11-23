@@ -55,6 +55,7 @@ function BulkSelect({
   options,
   placeholder,
   hint,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -63,12 +64,14 @@ function BulkSelect({
   options: readonly { value: string; label: string }[];
   placeholder?: string;
   hint?: string;
+  disabled?: boolean;
 }) {
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
         items={options}
+        disabled={disabled}
         value={value}
         onValueChange={(next) => onChange(next ?? "")}
       >
@@ -149,7 +152,10 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
   const [layoutId, setLayoutId] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [commandType, setCommandType] = useState("sync_now");
-  const [preview, setPreview] = useState<BulkPreview>();
+  const [review, setReview] = useState<{
+    request: BulkOperationRequest;
+    preview: BulkPreview;
+  }>();
   const [result, setResult] = useState<BulkOperation>();
   // Kept separately because apply clears the preview before the result renders.
   const [undoWindowMinutes, setUndoWindowMinutes] = useState<number>();
@@ -157,7 +163,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
   const items = screens.data?.items ?? [];
 
   function buildRequest(): BulkOperationRequest {
-    const request: BulkOperationRequest = { screenIds: selected, action };
+    const request: BulkOperationRequest = { screenIds: [...selected], action };
     if (action === "assign_playlist") request.playlistId = playlistId;
     if (action === "assign_layout") request.layoutId = layoutId;
     if (action === "set_enabled") request.enabled = enabled;
@@ -165,24 +171,33 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
     return request;
   }
 
+  // A response belongs to the exact request sent for preview, not to the
+  // editable controls as they happen to look when that response arrives.
+  const requestMatches =
+    JSON.stringify(review?.request) === JSON.stringify(buildRequest());
+  const currentReview = requestMatches ? review : undefined;
+
   const build = useMutation({
-    mutationFn: () => api.previewBulkOperation(buildRequest()),
-    onSuccess: (data) => {
-      setPreview(data);
-      setResult(undefined);
-      setUndoWindowMinutes(data.undoWindowMinutes);
+    mutationFn: (request: BulkOperationRequest) =>
+      api.previewBulkOperation(request),
+    onSuccess: (preview, request) => {
+      setReview({ request, preview });
     },
   });
   const apply = useMutation({
-    mutationFn: () =>
+    mutationFn: (review: NonNullable<typeof currentReview>) =>
       api.applyBulkOperation(
-        { ...buildRequest(), expectedChangeCount: preview?.changeCount ?? 0 },
+        {
+          ...review.request,
+          expectedChangeCount: review.preview.changeCount,
+        },
         csrf,
       ),
-    onSuccess: (data) => {
+    onSuccess: (data, appliedReview) => {
       toast.add({ title: t("bulk.applied"), type: "success" });
       setResult(data);
-      setPreview(undefined);
+      setUndoWindowMinutes(appliedReview.preview.undoWindowMinutes);
+      setReview(undefined);
       void client.invalidateQueries({ queryKey: ["screens"] });
       void client.invalidateQueries({ queryKey: ["bulk-operations"] });
     },
@@ -203,6 +218,13 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
     (action !== "assign_layout" || layoutId !== "");
 
   const allSelected = items.length > 0 && selected.length === items.length;
+  const preview = currentReview?.preview;
+  const locked = apply.isPending || undo.isPending;
+  const requestPreview = () => {
+    setReview(undefined);
+    apply.reset();
+    build.mutate(buildRequest());
+  };
 
   return (
     <div className="grid w-full max-w-[1180px] min-w-0 gap-6">
@@ -233,9 +255,9 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
                 variant="ghost"
                 size="sm"
                 type="button"
-                disabled={items.length === 0}
+                disabled={locked || items.length === 0}
                 onClick={() => {
-                  setPreview(undefined);
+                  setReview(undefined);
                   setSelected(allSelected ? [] : items.map((item) => item.id));
                 }}
               >
@@ -304,9 +326,10 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
                   >
                     <Checkbox
                       checked={isSelected}
+                      disabled={locked}
                       aria-label={t("bulk.selectAria", { name: item.name })}
                       onCheckedChange={(checked) => {
-                        setPreview(undefined);
+                        setReview(undefined);
                         setSelected((ids) =>
                           checked === true
                             ? [...ids, item.id]
@@ -350,9 +373,10 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
               <FieldLegend>{t("bulk.actionLabel")}</FieldLegend>
               <RadioGroup
                 value={action}
+                disabled={locked}
                 onValueChange={(value) => {
                   setAction(value as BulkAction);
-                  setPreview(undefined);
+                  setReview(undefined);
                 }}
                 className="grid gap-2"
               >
@@ -373,12 +397,13 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
 
             {action === "assign_playlist" && (
               <BulkSelect
+                disabled={locked}
                 id="bulk-playlist"
                 label={t("bulk.playlistLabel")}
                 value={playlistId}
                 onChange={(value) => {
                   setPlaylistId(value);
-                  setPreview(undefined);
+                  setReview(undefined);
                 }}
                 options={(playlists.data?.items ?? []).map((playlist) => ({
                   value: playlist.id,
@@ -390,12 +415,13 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
 
             {action === "assign_layout" && (
               <BulkSelect
+                disabled={locked}
                 id="bulk-layout"
                 label={t("bulk.layoutLabel")}
                 value={layoutId}
                 onChange={(value) => {
                   setLayoutId(value);
-                  setPreview(undefined);
+                  setReview(undefined);
                 }}
                 options={(layouts.data?.items ?? []).map((layout) => ({
                   value: layout.id,
@@ -408,12 +434,13 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
 
             {action === "set_enabled" && (
               <BulkSelect
+                disabled={locked}
                 id="bulk-enabled"
                 label={t("bulk.playbackLabel")}
                 value={enabled ? "enabled" : "disabled"}
                 onChange={(value) => {
                   setEnabled(value === "enabled");
-                  setPreview(undefined);
+                  setReview(undefined);
                 }}
                 options={[
                   { value: "enabled", label: t("detail.enablePlayback") },
@@ -424,12 +451,13 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
 
             {action === "send_command" && (
               <BulkSelect
+                disabled={locked}
                 id="bulk-command"
                 label={t("bulk.commandLabel")}
                 value={commandType}
                 onChange={(value) => {
                   setCommandType(value);
-                  setPreview(undefined);
+                  setReview(undefined);
                 }}
                 options={bulkCommands.map((command) => ({
                   value: command.value,
@@ -446,8 +474,8 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button
                 type="button"
-                disabled={!ready || build.isPending}
-                onClick={() => build.mutate()}
+                disabled={!ready || build.isPending || locked}
+                onClick={requestPreview}
               >
                 {build.isPending ? t("bulk.checking") : t("bulk.preview")}
               </Button>
@@ -461,10 +489,12 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
           preview={preview}
           applying={apply.isPending}
           applyError={apply.error}
-          reviewing={build.isPending}
-          onApply={() => apply.mutate()}
-          onCancel={() => setPreview(undefined)}
-          onReview={() => build.mutate()}
+          reviewing={build.isPending || undo.isPending}
+          onApply={() => {
+            if (currentReview) apply.mutate(currentReview);
+          }}
+          onCancel={() => setReview(undefined)}
+          onReview={requestPreview}
         />
       )}
 
@@ -542,7 +572,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
                 <Button
                   variant="secondary"
                   type="button"
-                  disabled={undo.isPending}
+                  disabled={locked || build.isPending}
                   onClick={() => undo.mutate(result.id)}
                 >
                   <RotateCcw size={15} aria-hidden="true" />{" "}
@@ -602,7 +632,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
                     variant="secondary"
                     size="sm"
                     type="button"
-                    disabled={undo.isPending}
+                    disabled={locked || build.isPending}
                     onClick={() => undo.mutate(operation.id)}
                   >
                     {t("bulk.undo")}
@@ -644,6 +674,7 @@ function PreviewSection({
   const stale =
     applyError instanceof ApiError &&
     applyError.code === "bulk_operation_stale";
+  const cannotApply = applying || reviewing || stale || !preview.changeCount;
   return (
     // The preview is the decision point on this page, so it is the one panel
     // that takes the accent outline. Colour is never the only signal: it also
@@ -752,7 +783,7 @@ function PreviewSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={reviewing}
+                disabled={reviewing || applying}
                 onClick={onReview}
               >
                 {t("bulk.reviewAction")}
@@ -768,12 +799,17 @@ function PreviewSection({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/40 px-4 py-3">
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant="ghost" type="button" onClick={onCancel}>
+          <Button
+            variant="ghost"
+            type="button"
+            disabled={applying || reviewing}
+            onClick={onCancel}
+          >
             {t("common:actions.cancel")}
           </Button>
           <Button
             type="button"
-            disabled={applying || preview.changeCount === 0}
+            disabled={cannotApply}
             onClick={onApply}
           >
             {applying
