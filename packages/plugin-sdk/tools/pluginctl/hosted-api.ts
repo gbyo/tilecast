@@ -41,7 +41,6 @@ function fieldSchema(field: ConfigField): Record<string, unknown> {
     case "weekdays":
       out["type"] = "array";
       out["uniqueItems"] = true;
-      out["maxItems"] = 7;
       out["items"] = { type: "integer", minimum: 0, maximum: 6 };
       break;
     case "string_list":

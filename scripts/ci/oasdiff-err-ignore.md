@@ -137,3 +137,5 @@ PATCH /api/v1/users/{id} removed the enum value `viewer` of the request property
 PATCH /api/v1/users/{id} added the pattern `^[a-z][a-z0-9.-]{1,63}$` to the request property `role`: every earlier value (owner, administrator, editor, contributor, viewer) matches the pattern, which only describes the key shape the Server already enforces for built-in and custom role keys.
 
 PUT /api/v1/users/{id}/screen-scopes added the new required request property `mode`: deliberate security change. The old contract read an empty grant list as the whole fleet, so the Server can no longer infer the mode from the grants; a caller that omits it receives 422 screen_access_mode_required instead of a silent widening. Studio sends the mode.
+
+PUT /api/v1/plugins/countdown-bar/instances/{id} added the new required request property `expectedRevision`: deliberate compatibility change of Plugin Model V3 phase 1. The host now owns Countdown Bar instances and refuses an update that does not name the revision it read (428 `expected_revision_required`) so a stale edit can never overwrite a newer one. A client must send the `revision` from its last read. See docs/plugin-api-v3.md.

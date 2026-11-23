@@ -1,8 +1,10 @@
 # Tilecast Plugin API v2
 
-Status: accepted. The foundation is implemented. Countdown Bar uses Plugin
-API v2. Emergency Alerts and Forms stay on [Plugin API v1](plugin-api.md). A
-later change can move each one.
+Status: accepted. The foundation is implemented. Countdown Bar moved to
+[Plugin Manifest API 3](plugin-api-v3.md), which keeps the Player contribution
+that this document describes. Emergency Alerts and Forms stay on
+[Plugin API v1](plugin-api.md). Version 2 stays supported. A later change can
+move each one.
 
 The decision record is
 [ADR: Plugin Model V2](adr/plugin-model-v2.md).

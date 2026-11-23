@@ -6,8 +6,7 @@ export function hostedClient(basePath: string, kindPath: string) {
   const collection = `${basePath}/${kindPath}`;
   const csrf = (token: string) => ({ "X-CSRF-Token": token });
   return {
-    list: () =>
-      request<{ items: HostedDocument[]; total: number }>(collection),
+    list: () => request<{ items: HostedDocument[]; total: number }>(collection),
     get: (id: string) => request<HostedDocument>(`${collection}/${id}`),
     create: (body: Record<string, unknown>, token: string) =>
       request<HostedDocument>(collection, {

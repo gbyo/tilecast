@@ -19399,7 +19399,6 @@ components:
           description: Days of the week
           type: array
           uniqueItems: true
-          maxItems: 7
           items:
             type: integer
             minimum: 0
@@ -19541,7 +19540,6 @@ components:
           description: Days of the week
           type: array
           uniqueItems: true
-          maxItems: 7
           items:
             type: integer
             minimum: 0

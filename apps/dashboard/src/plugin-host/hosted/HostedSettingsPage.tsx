@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { groupAuthoringFields, visibleAuthoringFields, type ConfigField } from "@tilecast/config-schema";
+import {
+  groupAuthoringFields,
+  visibleAuthoringFields,
+  type ConfigField,
+} from "@tilecast/config-schema";
 import { normalizeConfigValues } from "@tilecast/config-schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +18,11 @@ import { apiErrorMessage } from "@/i18n";
 import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import { PluginPage } from "../PluginPage";
 import { useStudioSession } from "../session";
-import { hostedSettingsKey, REVISION_CONFLICT_CODES, settingsClient } from "./api";
+import {
+  hostedSettingsKey,
+  REVISION_CONFLICT_CODES,
+  settingsClient,
+} from "./api";
 import { HostedSecretField } from "./HostedSecretField";
 import type { HostedPluginProps } from "./HostedInstancesPage";
 import { localizePluginFields } from "./localize";
@@ -33,10 +41,13 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
   const queryClient = useQueryClient();
   const client = settingsClient(manifest.api!.basePaths[0]!);
   const fields = useMemo(
-    () => localizePluginFields(pluginId, (manifest.settings?.organization ?? [])),
+    () => localizePluginFields(pluginId, manifest.settings?.organization ?? []),
     [pluginId, manifest.settings],
   );
-  const saved = useQuery({ queryKey: hostedSettingsKey(pluginId), queryFn: client.get });
+  const saved = useQuery({
+    queryKey: hostedSettingsKey(pluginId),
+    queryFn: client.get,
+  });
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const [cleared, setCleared] = useState<string[]>([]);
@@ -47,7 +58,10 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
   useEffect(() => {
     if (!saved.data || loaded.current === saved.data.revision) return;
     loaded.current = saved.data.revision;
-    setValues({ ...configDefaults(fields, regional.timezone), ...saved.data.values });
+    setValues({
+      ...configDefaults(fields, regional.timezone),
+      ...saved.data.values,
+    });
     setSecrets({});
     setCleared([]);
     setEpoch((value) => value + 1);
@@ -55,7 +69,11 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
   const readOnly = !session.canManage;
   const normalized = normalizeConfigValues(
     (fields as ConfigField[]).filter((field) => field.control !== "secret"),
-    Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined && value !== "")),
+    Object.fromEntries(
+      Object.entries(values).filter(
+        ([, value]) => value !== undefined && value !== "",
+      ),
+    ),
   );
   const problem = normalized.ok ? undefined : normalized;
   const save = useMutation({
@@ -63,9 +81,18 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
       client.put(
         {
           values: Object.fromEntries(
-            Object.entries(values).map(([key, value]) => [key, value === "" ? null : value]),
+            Object.entries(values).map(([key, value]) => [
+              key,
+              value === "" ? null : value,
+            ]),
           ),
-          ...(Object.keys(secrets).length ? { secrets: Object.fromEntries(Object.entries(secrets).filter(([, v]) => v !== "")) } : {}),
+          ...(Object.keys(secrets).length
+            ? {
+                secrets: Object.fromEntries(
+                  Object.entries(secrets).filter(([, v]) => v !== ""),
+                ),
+              }
+            : {}),
           ...(cleared.length ? { clearSecrets: cleared } : {}),
           expectedRevision: saved.data?.revision ?? 0,
         },
@@ -77,11 +104,16 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
       toast.add({ title: t("hosted.settingsSaved"), type: "success" });
     },
     onError: (error) => {
-      if (error instanceof ApiError && REVISION_CONFLICT_CODES.includes(error.code)) setConflict(true);
+      if (
+        error instanceof ApiError &&
+        REVISION_CONFLICT_CODES.includes(error.code)
+      )
+        setConflict(true);
     },
   });
   const sections = groupAuthoringFields(visibleAuthoringFields(fields, values));
-  const errorFor = (path: string) => (revealed && problem?.path === path ? problem.problem : undefined);
+  const errorFor = (path: string) =>
+    revealed && problem?.path === path ? problem.problem : undefined;
   return (
     <PluginPage pluginId={pluginId} title={t("hosted.settings")}>
       <SecretKeyNotice />
@@ -122,7 +154,9 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
         <RowIdentityEpoch value={epoch}>
           {sections.map((group) => (
             <section key={group.section} className="grid gap-4">
-              <h2 className="text-base font-semibold">{t(`content:widgets.editor.sections.${group.section}`)}</h2>
+              <h2 className="text-base font-semibold">
+                {t(`content:widgets.editor.sections.${group.section}`)}
+              </h2>
               {group.fields.map((field) =>
                 field.control === "secret" ? (
                   <HostedSecretField
@@ -134,8 +168,16 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
                     value={secrets[field.key] ?? ""}
                     cleared={cleared.includes(field.key)}
                     readOnly={readOnly}
-                    onValue={(value) => setSecrets({ ...secrets, [field.key]: value })}
-                    onClear={(on) => setCleared(on ? [...cleared, field.key] : cleared.filter((key) => key !== field.key))}
+                    onValue={(value) =>
+                      setSecrets({ ...secrets, [field.key]: value })
+                    }
+                    onClear={(on) =>
+                      setCleared(
+                        on
+                          ? [...cleared, field.key]
+                          : cleared.filter((key) => key !== field.key),
+                      )
+                    }
                   />
                 ) : (
                   <WidgetInspectorField
@@ -147,7 +189,9 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
                     fields={fields}
                     rootValues={values}
                     rootFields={fields}
-                    onChange={(next) => setValues({ ...values, [field.key]: next })}
+                    onChange={(next) =>
+                      setValues({ ...values, [field.key]: next })
+                    }
                     readOnly={readOnly || !saved.isSuccess}
                     csrf={session.csrfToken}
                     errorFor={errorFor}
@@ -161,11 +205,18 @@ export function HostedSettingsPage({ pluginId, manifest }: HostedPluginProps) {
         </RowIdentityEpoch>
         <div className="flex flex-wrap gap-2">
           {!readOnly && (
-            <Button type="submit" size="lg" disabled={save.isPending || !saved.isSuccess}>
+            <Button
+              type="submit"
+              size="lg"
+              disabled={save.isPending || !saved.isSuccess}
+            >
               {t("common:actions.save")}
             </Button>
           )}
-          <Link className={buttonVariants({ variant: "outline", size: "lg" })} to={manifest.studio!.route}>
+          <Link
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+            to={manifest.studio!.route}
+          >
             {t("common:actions.cancel")}
           </Link>
         </div>

@@ -29,7 +29,13 @@ target assertions check all three screens.
 ## Inventory
 
 The service registry (`internal/extensions/services`) owns the supported
-service identities and versions. A grant for an unknown version fails
+service identities and versions. It is the one Server service vocabulary. A
+bundled [Plugin Manifest API 3](plugin-api-v3.md#service-client) plugin calls the
+same operations through a generated, typed Go client in the plugin SDK. Each
+capability lists its callers: `package`, `bundled`, or both. `settings.read@1` and
+`secrets.read@1` are for bundled plugins only. A package grant for a
+bundled-only service fails closed, like an unknown one. The `system` context
+now has a producer: a bundled plugin's Player projection. A grant for an unknown version fails
 closed. The install review resolves every grant against
 the registry and shows the operations it unlocks. An unknown service
 fails the review, the install, and the activation.

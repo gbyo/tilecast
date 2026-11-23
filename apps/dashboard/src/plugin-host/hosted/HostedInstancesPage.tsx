@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
 import { Plus, Settings2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link } from "react-router";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -36,6 +36,8 @@ import { SecretKeyNotice } from "./SecretKeyNotice";
 export type HostedPluginProps = {
   pluginId: string;
   manifest: PluginManifestV3;
+  /** The instance kind this page is for, by its path. Defaults to the first. */
+  kindPath?: string;
 };
 
 /** The plugin's route and the path of one kind's pages below it. */
@@ -48,11 +50,14 @@ export function kindRoute(manifest: PluginManifestV3, kind: HostedKind) {
  * list; more than one shows a tab for each. Everything here comes from the
  * manifest, so a plugin writes no list page of its own.
  */
-export function HostedInstancesPage({ pluginId, manifest }: HostedPluginProps) {
+export function HostedInstancesPage({
+  pluginId,
+  manifest,
+  kindPath,
+}: HostedPluginProps) {
   const { t } = useTranslation(["plugins", "common"]);
-  const params = useParams();
   const kinds = manifest.instances;
-  const kind = kinds.find((item) => item.path === params["kindPath"]) ?? kinds[0]!;
+  const kind = kinds.find((item) => item.path === kindPath) ?? kinds[0]!;
   const session = useStudioSession();
   const queryClient = useQueryClient();
   const { confirm, dialog } = useConfirm();
@@ -79,7 +84,8 @@ export function HostedInstancesPage({ pluginId, manifest }: HostedPluginProps) {
   const items = instances.data?.items ?? [];
   // Only a successful, empty list is "nothing configured": a failed load must
   // not read as an empty fleet.
-  const showEmptyState = !instances.isError && !instances.isLoading && items.length === 0;
+  const showEmptyState =
+    !instances.isError && !instances.isLoading && items.length === 0;
   return (
     <>
       {dialog}
@@ -97,7 +103,10 @@ export function HostedInstancesPage({ pluginId, manifest }: HostedPluginProps) {
               </Link>
             ) : null}
             {manageable && (
-              <Link className={buttonVariants({ size: "lg" })} to={`${base}/new`}>
+              <Link
+                className={buttonVariants({ size: "lg" })}
+                to={`${base}/new`}
+              >
                 <Plus data-icon="inline-start" aria-hidden="true" />{" "}
                 {t("hosted.new", { noun: kind.noun.singular })}
               </Link>
@@ -163,7 +172,9 @@ export function HostedInstancesPage({ pluginId, manifest }: HostedPluginProps) {
                   <ItemContent>
                     <ItemTitle>
                       <h2 className="text-sm font-medium">{instance.name}</h2>
-                      <Badge variant={instance.enabled ? "default" : "secondary"}>
+                      <Badge
+                        variant={instance.enabled ? "default" : "secondary"}
+                      >
                         {instance.enabled
                           ? t("shared.enabledBadge")
                           : t("shared.disabledBadge")}
@@ -186,7 +197,10 @@ export function HostedInstancesPage({ pluginId, manifest }: HostedPluginProps) {
                   </ItemContent>
                   <ItemActions className="flex-wrap">
                     <Link
-                      className={buttonVariants({ variant: "outline", size: "sm" })}
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "sm",
+                      })}
                       to={`${base}/${instance.id}`}
                     >
                       {t("shared.manage")}
@@ -196,11 +210,17 @@ export function HostedInstancesPage({ pluginId, manifest }: HostedPluginProps) {
                         type="button"
                         size="icon"
                         variant="destructive"
-                        aria-label={t("shared.deleteAction", { name: instance.name })}
+                        aria-label={t("shared.deleteAction", {
+                          name: instance.name,
+                        })}
                         onClick={() => {
                           void confirm({
-                            title: t("shared.deleteTitle", { name: instance.name }),
-                            body: t("hosted.deleteBody", { noun: kind.noun.singular }),
+                            title: t("shared.deleteTitle", {
+                              name: instance.name,
+                            }),
+                            body: t("hosted.deleteBody", {
+                              noun: kind.noun.singular,
+                            }),
                             action: t("common:actions.delete"),
                             destructive: true,
                           }).then((ok) => {

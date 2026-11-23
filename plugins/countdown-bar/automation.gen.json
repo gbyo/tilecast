@@ -86,7 +86,6 @@
             "daysOfWeek": {
               "type": "array",
               "description": "Days of the week",
-              "maxItems": 7,
               "uniqueItems": true,
               "items": {
                 "type": "integer",
@@ -257,7 +256,6 @@
             "daysOfWeek": {
               "type": "array",
               "description": "Days of the week",
-              "maxItems": 7,
               "uniqueItems": true,
               "items": {
                 "type": "integer",

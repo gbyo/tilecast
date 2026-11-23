@@ -23,7 +23,7 @@ Use a checkout that already passes the repository checks. Install the dependenci
    npm run plugins:new -- transit_alerts --name "Transit Alerts" --category Automation --api
    ```
 
-   The scaffold uses Plugin API v2. Pick only the parts the plugin needs:
+   The scaffold uses Plugin API v2. Add `--plugin-api 3` for a plugin whose instances and settings Tilecast should store for you: it generates the routes, API description, and Studio pages from the manifest, so those files aren't scaffolded. Pick only the parts the plugin needs:
 
    - `--api` adds HTTP routes and an API description.
    - `--no-studio` leaves out Studio pages, for a server-only integration.

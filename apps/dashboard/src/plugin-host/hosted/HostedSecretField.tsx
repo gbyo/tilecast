@@ -59,7 +59,9 @@ export function HostedSecretField({
         </Badge>
       </div>
       {description && (
-        <FieldDescription id={`${id}-description`}>{description}</FieldDescription>
+        <FieldDescription id={`${id}-description`}>
+          {description}
+        </FieldDescription>
       )}
       <div className="flex gap-2">
         <Input
@@ -71,7 +73,9 @@ export function HostedSecretField({
           disabled={readOnly}
           maxLength={field.maxLength}
           placeholder={
-            effective === "set" ? t("secrets.replacePlaceholder") : t("secrets.enterPlaceholder")
+            effective === "set"
+              ? t("secrets.replacePlaceholder")
+              : t("secrets.enterPlaceholder")
           }
           aria-describedby={description ? `${id}-description` : undefined}
           aria-invalid={error ? true : undefined}

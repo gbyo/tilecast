@@ -111,7 +111,10 @@ export function scheduleDefaults(
   return {};
 }
 
-export function newFormState(kind: HostedKind, timezone: string): HostedFormState {
+export function newFormState(
+  kind: HostedKind,
+  timezone: string,
+): HostedFormState {
   return {
     name: "",
     enabled: true,
@@ -119,7 +122,7 @@ export function newFormState(kind: HostedKind, timezone: string): HostedFormStat
     targetScope: "all",
     targetIds: [],
     schedule: scheduleDefaults(kind, timezone),
-    config: configDefaults((kind.fields ?? []), timezone),
+    config: configDefaults(kind.fields ?? [], timezone),
     secrets: {},
     clearSecrets: [],
   };
@@ -160,11 +163,15 @@ export function requestBody(
     name: form.name.trim(),
     enabled: form.enabled,
   };
-  for (const field of (kind.fields ?? [])) {
+  for (const field of kind.fields ?? []) {
     if (field.control === "secret") continue;
     const value = form.config[field.key];
     body[field.key] =
-      value === undefined || value === "" ? (field.required ? value : null) : value;
+      value === undefined || value === ""
+        ? field.required
+          ? value
+          : null
+        : value;
   }
   if (kind.priority) body["priority"] = form.priority;
   if (kind.targeting === "screens") {
@@ -178,7 +185,8 @@ export function requestBody(
   if (Object.keys(secrets).length > 0) body["secrets"] = secrets;
   const clear = form.clearSecrets.filter((key) => !(key in secrets));
   if (clear.length > 0) body["clearSecrets"] = clear;
-  if (expectedRevision !== undefined) body["expectedRevision"] = expectedRevision;
+  if (expectedRevision !== undefined)
+    body["expectedRevision"] = expectedRevision;
   return body;
 }
 
@@ -203,14 +211,15 @@ export function formProblems(
   },
 ): FormProblem[] {
   const problems: FormProblem[] = [];
-  if (form.name.trim() === "") problems.push({ path: "name", message: messages.name });
+  if (form.name.trim() === "")
+    problems.push({ path: "name", message: messages.name });
   if (
     kind.targeting === "screens" &&
     form.targetScope !== "all" &&
     form.targetIds.length === 0
   )
     problems.push({ path: "targets", message: messages.targets });
-  const fields = (kind.fields ?? []);
+  const fields = kind.fields ?? [];
   const result = normalizeConfigValues(
     fields.filter((field) => field.control !== "secret"),
     Object.fromEntries(
@@ -241,29 +250,55 @@ export function scheduleFields(
 ): ConfigField[] {
   if (kind.schedule === "window")
     return [
-      { key: "startsAt", label: label("startsAt"), control: "datetime", required: true },
-      { key: "endsAt", label: label("endsAt"), control: "datetime", required: true },
+      {
+        key: "startsAt",
+        label: label("startsAt"),
+        control: "datetime",
+        required: true,
+      },
+      {
+        key: "endsAt",
+        label: label("endsAt"),
+        control: "datetime",
+        required: true,
+      },
     ];
   if (kind.schedule === "weekly")
     return [
-      { key: "timezone", label: label("timezone"), control: "timezone", required: true },
-      { key: "days", label: label("days"), control: "weekdays", required: true },
-      { key: "startTime", label: label("startTime"), control: "time", required: true },
-      { key: "endTime", label: label("endTime"), control: "time", required: true },
+      {
+        key: "timezone",
+        label: label("timezone"),
+        control: "timezone",
+        required: true,
+      },
+      {
+        key: "days",
+        label: label("days"),
+        control: "weekdays",
+        required: true,
+      },
+      {
+        key: "startTime",
+        label: label("startTime"),
+        control: "time",
+        required: true,
+      },
+      {
+        key: "endTime",
+        label: label("endTime"),
+        control: "time",
+        required: true,
+      },
     ];
   return [];
 }
 
-/** A short line describing an instance in a list, from its first few fields. */
+/** A short line describing an instance in a list: its first text field. */
 export function summaryOf(kind: HostedKind, document: HostedDocument): string {
-  const parts: string[] = [];
-  for (const field of (kind.fields ?? [])) {
+  for (const field of kind.fields) {
     const value = document[field.key];
     if (typeof value === "string" && value !== "" && field.control === "text")
-      parts.push(value);
-    if (parts.length === 1) break;
+      return value;
   }
-  if (kind.priority && document.priority !== undefined)
-    parts.push(`${document.priority}`);
-  return parts.join(" · ");
+  return "";
 }

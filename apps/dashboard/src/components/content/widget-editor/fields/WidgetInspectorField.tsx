@@ -463,7 +463,7 @@ function NumberControl({
         min={minimum}
         max={maximum}
         step={field.control === "integer" ? 1 : 0.1}
-        value={[numeric ?? minimum!]}
+        value={[numeric ?? minimum]}
         disabled={common.disabled}
         // The slider and the input edit one value under one label.
         aria-labelledby={`${common.id}-label`}

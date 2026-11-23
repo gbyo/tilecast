@@ -1,20 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { request } from "../../api/client";
+import { api } from "../../api/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/i18n";
 import { useStudioSession } from "../session";
 
-export interface PluginSecretStatus {
-  currentKekId: string;
-  kekIds: string[];
-  exportAcknowledged: boolean;
-  secrets: number;
-  pendingMigration: number;
-  unreadable: number;
-}
+/** The shell command that writes the keys to a file; it is not translated. */
+const EXPORT_COMMAND = "tilecast-server secrets export-kek <file>";
 
 export const pluginSecretStatusKey = ["plugin-secret-status"] as const;
 
@@ -32,16 +26,12 @@ export function SecretKeyNotice() {
   const allowed = session.can("system.backups");
   const status = useQuery({
     queryKey: pluginSecretStatusKey,
-    queryFn: () => request<PluginSecretStatus>("/system/plugin-secrets"),
+    queryFn: api.pluginSecretStatus,
     enabled: allowed,
     retry: false,
   });
   const confirm = useMutation({
-    mutationFn: () =>
-      request<PluginSecretStatus>("/system/plugin-secrets/export-confirmations", {
-        method: "POST",
-        headers: { "X-CSRF-Token": session.csrfToken },
-      }),
+    mutationFn: () => api.confirmPluginSecretExport(session.csrfToken),
     onSuccess: (next) => queryClient.setQueryData(pluginSecretStatusKey, next),
   });
   const data = status.data;
@@ -63,9 +53,7 @@ export function SecretKeyNotice() {
           <AlertTitle>{t("secretKeys.exportTitle")}</AlertTitle>
           <AlertDescription>
             <p>{t("secretKeys.exportBody")}</p>
-            <code className="mt-2 block text-xs">
-              tilecast-server secrets export-kek &lt;file&gt;
-            </code>
+            <code className="mt-2 block text-xs">{EXPORT_COMMAND}</code>
             {confirm.isError && (
               <p className="mt-2 text-destructive" role="alert">
                 {apiErrorMessage(confirm.error)}

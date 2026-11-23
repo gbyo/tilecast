@@ -1191,6 +1191,7 @@
     "restoreTitle": "Restore {{fileName}}?",
     "restoreBody": "Tilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first.",
     "restoreBodyMismatch": "Tilecast will become temporarily unavailable and current database and media state will be replaced. A pre-restore backup will be created first. WARNING: This backup belongs to a different installation. Enrolled players will need to be reset and paired again.",
+    "restoreBodySecrets": "WARNING: {{count}} plugin secret(s) in this backup need keys this server does not have. After the restore they show “needs a new value” until someone enters them again:\n{{list}}\n(and {{more}} more)",
     "restoreAction": "Restore",
     "deleteTitle": "Delete {{fileName}}? This cannot be undone.",
     "deleteLastTitle": "This is the last complete backup. Delete it anyway?",

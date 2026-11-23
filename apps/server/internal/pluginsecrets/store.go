@@ -77,9 +77,16 @@ func (s *Store) kek(id string) ([]byte, bool) {
 	return s.ring.key(id)
 }
 
+// currentKEK returns the KEK that wraps a new DEK. It reads the key file
+// again first, so a rotate-kek run by the command line while the server runs
+// is seen: a DEK wrapped with a KEK that the next prune-keks removes would be
+// lost. New DEKs are rare, so the read is cheap.
 func (s *Store) currentKEK() (string, []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.ring.Reload(); err != nil {
+		s.logger.Warn("secrets key file could not be reloaded", "error", err)
+	}
 	id := s.ring.CurrentID()
 	key, _ := s.ring.key(id)
 	return id, key

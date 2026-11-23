@@ -1,8 +1,12 @@
 # ADR: Plugin Model V3
 
-Status: proposed. This record does not change a contract yet. Each phase
-below changes the related contracts in the same change as its
-implementation. The current contracts are [Plugin API v1](../plugin-api.md),
+Status: proposed. Each phase below changes the related contracts in the same
+change as its implementation.
+
+Implementation: phase 1 is implemented. See
+[Plugin Manifest API 3](../plugin-api-v3.md),
+[configuration schema](../config-schema.md), and
+[plugin secrets](../plugin-secrets.md). Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
 [External package service capabilities](../package-services.md), and
 [External Player plugins](../external-player-plugins.md).

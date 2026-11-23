@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { groupAuthoringFields, visibleAuthoringFields } from "@tilecast/config-schema";
+import {
+  groupAuthoringFields,
+  visibleAuthoringFields,
+} from "@tilecast/config-schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -50,11 +53,15 @@ const NO_FOCUS = null;
  * to one plugin. An update names the revision it read, and a newer saved
  * version is reported instead of being overwritten.
  */
-export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) {
+export function HostedInstanceEditor({
+  pluginId,
+  manifest,
+  kindPath,
+}: HostedPluginProps) {
   const { t } = useTranslation(["plugins", "common", "content"]);
   const params = useParams();
   const kinds = manifest.instances;
-  const kind = kinds.find((item) => item.path === params["kindPath"]) ?? kinds[0]!;
+  const kind = kinds.find((item) => item.path === kindPath) ?? kinds[0]!;
   const id = params["id"];
   const editing = Boolean(id);
   const session = useStudioSession();
@@ -65,7 +72,7 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
   const backTo = kindRoute(manifest, kind);
   const readOnly = !session.canManage;
   const fields = useMemo(
-    () => localizePluginFields(pluginId, (kind.fields ?? [])),
+    () => localizePluginFields(pluginId, kind.fields ?? []),
     [pluginId, kind.fields],
   );
   const saved = useQuery({
@@ -101,7 +108,8 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
   }, [saved.data, kind, regional.timezone, reset]);
   useEffect(() => {
     // A new instance starts in the organization's own zone.
-    if (!editing) setValue("config", newFormState(kind, regional.timezone).config);
+    if (!editing)
+      setValue("config", newFormState(kind, regional.timezone).config);
   }, [editing, kind, regional.timezone, setValue]);
 
   const awaitingSaved = editing && !saved.isSuccess;
@@ -132,7 +140,9 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
     secretRequired: (label) => t("hosted.secretRequired", { label }),
   });
   const problemFor = (path: string) =>
-    revealed ? problems.find((problem) => problem.path === path)?.message : undefined;
+    revealed
+      ? problems.find((problem) => problem.path === path)?.message
+      : undefined;
 
   const navigationDialog = useNavigationWarning({
     dirty: form.formState.isDirty,
@@ -150,7 +160,11 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
   const save = useMutation({
     mutationFn: (value: HostedFormState) =>
       editing
-        ? client.update(id!, requestBody(kind, value, revision), session.csrfToken)
+        ? client.update(
+            id!,
+            requestBody(kind, value, revision),
+            session.csrfToken,
+          )
         : client.create(requestBody(kind, value), session.csrfToken),
     onSuccess: (document) => {
       setConflict(false);
@@ -160,10 +174,15 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
         }),
         type: "success",
       });
-      void queryClient.invalidateQueries({ queryKey: hostedInstancesKey(pluginId, kind.kind) });
+      void queryClient.invalidateQueries({
+        queryKey: hostedInstancesKey(pluginId, kind.kind),
+      });
       void queryClient.invalidateQueries({ queryKey: pluginsQueryKey });
       if (editing) {
-        queryClient.setQueryData(hostedInstanceKey(pluginId, kind.kind, document.id), document);
+        queryClient.setQueryData(
+          hostedInstanceKey(pluginId, kind.kind, document.id),
+          document,
+        );
         loadedFor.current = null;
         return;
       }
@@ -171,7 +190,10 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
       void navigate(backTo);
     },
     onError: (error) => {
-      if (error instanceof ApiError && REVISION_CONFLICT_CODES.includes(error.code))
+      if (
+        error instanceof ApiError &&
+        REVISION_CONFLICT_CODES.includes(error.code)
+      )
         setConflict(true);
     },
   });
@@ -188,7 +210,11 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
   const title = editing
     ? t("hosted.manageTitle", { noun: kind.noun.singular })
     : t("hosted.createTitle", { noun: kind.noun.singular });
-  const fieldProps = (field: ContentDefinitionField, values: Record<string, unknown>, onChange: (next: Record<string, unknown>) => void) => ({
+  const fieldProps = (
+    field: ContentDefinitionField,
+    values: Record<string, unknown>,
+    onChange: (next: Record<string, unknown>) => void,
+  ) => ({
     field,
     path: field.key,
     value: values[field.key],
@@ -229,7 +255,12 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
               <AlertTitle>{t("hosted.conflictTitle")}</AlertTitle>
               <AlertDescription>
                 <p>{t("hosted.conflictBody")}</p>
-                <Button type="button" size="sm" className="mt-3" onClick={reload}>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  onClick={reload}
+                >
                   {t("hosted.conflictReload")}
                 </Button>
               </AlertDescription>
@@ -242,7 +273,9 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
           )}
           {saved.isError && (
             <Alert variant="destructive">
-              <AlertDescription>{apiErrorMessage(saved.error)}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(saved.error)}
+              </AlertDescription>
             </Alert>
           )}
           <RowIdentityEpoch value={epoch}>
@@ -264,14 +297,20 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
                 render={({ field }) => (
                   <Field orientation="horizontal">
                     <div className="grid gap-1">
-                      <FieldLabel htmlFor="hosted-enabled">{t("hosted.enabled")}</FieldLabel>
-                      <FieldDescription>{t("hosted.enabledHint")}</FieldDescription>
+                      <FieldLabel htmlFor="hosted-enabled">
+                        {t("hosted.enabled")}
+                      </FieldLabel>
+                      <FieldDescription>
+                        {t("hosted.enabledHint")}
+                      </FieldDescription>
                     </div>
                     <Switch
                       id="hosted-enabled"
                       checked={field.value}
                       disabled={readOnly || awaitingSaved}
-                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
                     />
                   </Field>
                 )}
@@ -298,7 +337,10 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
                 className="grid gap-4"
                 aria-labelledby={`hosted-section-${group.section}`}
               >
-                <h2 id={`hosted-section-${group.section}`} className="text-base font-semibold">
+                <h2
+                  id={`hosted-section-${group.section}`}
+                  className="text-base font-semibold"
+                >
                   {t(`content:widgets.editor.sections.${group.section}`)}
                 </h2>
                 {group.fields.map((field) =>
@@ -314,14 +356,20 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
                       readOnly={readOnly || awaitingSaved}
                       error={problemFor(field.key)}
                       onValue={(value) =>
-                        setValue("secrets", { ...state.secrets, [field.key]: value }, { shouldDirty: true })
+                        setValue(
+                          "secrets",
+                          { ...state.secrets, [field.key]: value },
+                          { shouldDirty: true },
+                        )
                       }
                       onClear={(cleared) =>
                         setValue(
                           "clearSecrets",
                           cleared
                             ? [...state.clearSecrets, field.key]
-                            : state.clearSecrets.filter((key) => key !== field.key),
+                            : state.clearSecrets.filter(
+                                (key) => key !== field.key,
+                              ),
                           { shouldDirty: true },
                         )
                       }
@@ -341,12 +389,20 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
                   {t("hosted.scheduleHeading")}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {t(kind.schedule === "window" ? "hosted.windowHint" : "hosted.weeklyHint")}
+                  {t(
+                    kind.schedule === "window"
+                      ? "hosted.windowHint"
+                      : "hosted.weeklyHint",
+                  )}
                 </p>
                 {scheduleFieldList.map((field) => (
                   <WidgetInspectorField
                     key={field.key}
-                    {...fieldProps(field, state.schedule as Record<string, unknown>, setSchedule)}
+                    {...fieldProps(
+                      field,
+                      state.schedule as Record<string, unknown>,
+                      setSchedule,
+                    )}
                     errorFor={(path) => problemFor(`schedule.${path}`)}
                   />
                 ))}
@@ -373,11 +429,18 @@ export function HostedInstanceEditor({ pluginId, manifest }: HostedPluginProps) 
           </RowIdentityEpoch>
           <div className="flex flex-wrap gap-2">
             {!readOnly && (
-              <Button type="submit" size="lg" disabled={save.isPending || awaitingSaved}>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={save.isPending || awaitingSaved}
+              >
                 {t("common:actions.save")}
               </Button>
             )}
-            <Link className={buttonVariants({ variant: "outline", size: "lg" })} to={backTo}>
+            <Link
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+              to={backTo}
+            >
               {t("common:actions.cancel")}
             </Link>
           </div>

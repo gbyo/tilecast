@@ -237,3 +237,25 @@ func TestMissingKEKReportsNeedsValueAndStartsANewDEK(t *testing.T) {
 		t.Fatalf("locations: %+v %v", locations, err)
 	}
 }
+
+// A KEK rotated by the command line while the server runs is used for the
+// next DEK the server makes, so pruning old KEKs cannot orphan it.
+func TestRunningStoreSeesAKEKRotatedElsewhere(t *testing.T) {
+	env := withStore(t)
+	env.write(t, orgRef("a"), "alpha")
+	other, err := Load(env.ring.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotated, err := other.AddKEK()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.store.RotateDEK(env.ctx); err != nil {
+		t.Fatal(err)
+	}
+	var wrappedWith string
+	if err := env.pool.QueryRow(env.ctx, `SELECT kek_id FROM plugin_secret_deks WHERE state='current'`).Scan(&wrappedWith); err != nil || wrappedWith != rotated.ID {
+		t.Fatalf("the new DEK is wrapped with %q, want the rotated KEK %q (%v)", wrappedWith, rotated.ID, err)
+	}
+}

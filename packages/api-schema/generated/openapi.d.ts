@@ -994,6 +994,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/system/plugin-secrets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read the plugin secret key status: the current and held key encryption key IDs (never key bytes), whether an Owner confirmed exporting exactly this key set, how many secrets exist, and how many this server cannot read. Studio warns Owners until the export is confirmed. Requires system.backups with the admin scope. */
+    get: operations["getPluginSecretStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/system/plugin-secrets/export-confirmations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Record that the current key set was exported with `tilecast-server secrets export-kek` and stored apart from backups. A key rotation changes the set, so the warning returns. Requires system.backups with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    post: operations["confirmPluginSecretExport"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/system/backups/{id}/verify": {
     parameters: {
       query?: never;
@@ -5771,10 +5805,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description List configured Countdown Bar instances. */
+    /** @description List countdown bars, strongest priority first. */
     get: operations["listCountdownBarInstances"];
     put?: never;
-    /** @description Create a Countdown Bar instance. Requires an Owner or Administrator. */
+    /** @description Create a countdown bar. Requires plugins.manage and screen access to its targets. */
     post: operations["createCountdownBarInstance"];
     delete?: never;
     options?: never;
@@ -5789,12 +5823,12 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Get a Countdown Bar instance. */
+    /** @description Get one countdown bar with its current revision, to send back as expectedRevision when updating it. */
     get: operations["getCountdownBarInstance"];
-    /** @description Replace a Countdown Bar instance. Requires an Owner or Administrator. */
+    /** @description Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets. */
     put: operations["updateCountdownBarInstance"];
     post?: never;
-    /** @description Delete a Countdown Bar instance. Requires an Owner or Administrator. */
+    /** @description Delete a countdown bar and remove it from its screens. */
     delete: operations["deleteCountdownBarInstance"];
     options?: never;
     head?: never;
@@ -7579,6 +7613,16 @@ export interface components {
       /** Format: date-time */
       nextRunAt?: string;
     };
+    PluginSecretStatus: {
+      currentKekId: string;
+      kekIds: string[];
+      exportAcknowledged: boolean;
+      secrets: number;
+      /** @description Secrets not yet moved to the current data encryption key. */
+      pendingMigration: number;
+      /** @description Secrets this server holds no key for. They need new values. */
+      unreadable: number;
+    };
     BackupList: {
       backups: components["schemas"]["BackupArchive"][];
       /** @description Null when no job is active or known. */
@@ -7612,6 +7656,19 @@ export interface components {
       components: components["schemas"]["BackupComponent"][];
       identityMismatch: boolean;
       currentInstallationId: string;
+      /** @description Compares the archive's encrypted plugin secrets with the keys this server holds, so an operator sees which settings would need new values before confirming. It never names a value. */
+      pluginSecrets?: {
+        requiredKekIds: string[];
+        missingKekIds: string[];
+        unreadable: {
+          pluginId: string;
+          /** @enum {unknown} */
+          ownerType: "organization" | "instance" | "screen";
+          settingKey: string;
+          kekId: string;
+          count: number;
+        }[];
+      };
     };
     SystemHealth: {
       /** @enum {string} */
@@ -12419,66 +12476,228 @@ export interface components {
       assetId?: string | null;
       imageUrl: string;
     };
-    CountdownBarInput: {
+    CountdownBarInstanceInput: {
       name: string;
-      message: string;
-      /** @enum {unknown} */
-      scheduleType: "weekly" | "one_time";
-      targetTime?: string;
-      daysOfWeek: number[];
-      /** Format: date-time */
-      oneTimeAt?: string;
-      timezone: string;
-      leadTimeSeconds: number;
-      completionText: string;
+      /** @description Defaults to true on create and keeps its value on update. */
+      enabled?: boolean;
       /**
-       * @description Show a short confetti fall from the top of the Player when the countdown reaches zero. This does not require completion text.
+       * @description Message
+       * @default Lunch ends in
+       */
+      message: string;
+      /** @description Shown for one minute after the target; leave blank to hide at zero. */
+      completionText?: string;
+      /**
+       * @description Show confetti when the countdown reaches zero
        * @default false
        */
       showConfetti: boolean;
-      /** @enum {unknown} */
+      /**
+       * @description Schedule
+       * @default weekly
+       * @enum {unknown}
+       */
+      scheduleType: "weekly" | "one_time";
+      /** @description Target time */
+      targetTime?: string;
+      /**
+       * @description Days of the week
+       * @default [
+       *       1,
+       *       2,
+       *       3,
+       *       4,
+       *       5
+       *     ]
+       */
+      daysOfWeek: number[];
+      /**
+       * Format: date-time
+       * @description The Player counts down to this instant.
+       */
+      oneTimeAt?: string;
+      /** @description Timezone */
+      timezone: string;
+      /**
+       * @description Appear this many minutes before
+       * @default 900
+       */
+      leadTimeSeconds: number;
+      /**
+       * @description Mode
+       * @default overlay
+       * @enum {unknown}
+       */
       displayMode: "overlay" | "push";
+      /**
+       * @description Bottom-bar height (px)
+       * @default 72
+       */
       heightPx: number;
       /**
-       * @description Background treatment behind the bar text. "drain" starts the bar fully tinted when the lead window opens and retreats the tint leftward as the target approaches, leaving only the bar background at zero. Omitted means "none".
+       * @description Drain empties the bar from right to left as the target approaches.
        * @default none
        * @enum {unknown}
        */
       progressFill: "none" | "drain";
       /**
-       * @description Share of each side left as a gutter, as a percentage of the bar width. Lowering it gives a long message or a larger type size more room. The default 4 matches the bar's original gutters.
+       * @description Lower padding gives the message and countdown more room.
        * @default 4
        */
       contentPadding: number;
       /**
-       * @description Percentage applied to the height-derived type size, so a bar can carry larger text without changing its height. 100 is the original appearance.
+       * @description Increase the type size without changing the bar height.
        * @default 100
        */
       textScale: number;
       /**
        * Format: uuid
-       * @description An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
+       * @description Add fonts in Settings. Screens that cannot load the font keep the default.
        */
       fontId?: string;
       /**
-       * @description Enable automatic starting-soon, urgent, and final pulse stages.
+       * @description Change the bar automatically as the target approaches.
        * @default false
        */
       urgencyEnabled: boolean;
-      /** @default 300 */
+      /**
+       * @description Starting soon (orange), minutes before
+       * @default 300
+       */
       startingSoonSeconds: number;
-      /** @default 60 */
+      /**
+       * @description Urgent (red), seconds before
+       * @default 60
+       */
       urgentSeconds: number;
       /**
-       * @description Final seconds during which the urgent bar pulses and grows by 25 percent.
+       * @description The bar and text grow by 25% during this final stage.
        * @default 10
        */
       pulseSeconds: number;
-      enabled: boolean;
+      /** @default 0 */
       priority: number;
       /** @enum {unknown} */
       targetScope: "all" | "screens" | "sync_groups" | "locations";
       targetIds: string[];
+    };
+    CountdownBarInstanceUpdate: {
+      name: string;
+      /** @description Defaults to true on create and keeps its value on update. */
+      enabled?: boolean;
+      /**
+       * @description Message
+       * @default Lunch ends in
+       */
+      message: string;
+      /** @description Shown for one minute after the target; leave blank to hide at zero. */
+      completionText?: string;
+      /**
+       * @description Show confetti when the countdown reaches zero
+       * @default false
+       */
+      showConfetti: boolean;
+      /**
+       * @description Schedule
+       * @default weekly
+       * @enum {unknown}
+       */
+      scheduleType: "weekly" | "one_time";
+      /** @description Target time */
+      targetTime?: string;
+      /**
+       * @description Days of the week
+       * @default [
+       *       1,
+       *       2,
+       *       3,
+       *       4,
+       *       5
+       *     ]
+       */
+      daysOfWeek: number[];
+      /**
+       * Format: date-time
+       * @description The Player counts down to this instant.
+       */
+      oneTimeAt?: string;
+      /** @description Timezone */
+      timezone: string;
+      /**
+       * @description Appear this many minutes before
+       * @default 900
+       */
+      leadTimeSeconds: number;
+      /**
+       * @description Mode
+       * @default overlay
+       * @enum {unknown}
+       */
+      displayMode: "overlay" | "push";
+      /**
+       * @description Bottom-bar height (px)
+       * @default 72
+       */
+      heightPx: number;
+      /**
+       * @description Drain empties the bar from right to left as the target approaches.
+       * @default none
+       * @enum {unknown}
+       */
+      progressFill: "none" | "drain";
+      /**
+       * @description Lower padding gives the message and countdown more room.
+       * @default 4
+       */
+      contentPadding: number;
+      /**
+       * @description Increase the type size without changing the bar height.
+       * @default 100
+       */
+      textScale: number;
+      /**
+       * Format: uuid
+       * @description Add fonts in Settings. Screens that cannot load the font keep the default.
+       */
+      fontId?: string;
+      /**
+       * @description Change the bar automatically as the target approaches.
+       * @default false
+       */
+      urgencyEnabled: boolean;
+      /**
+       * @description Starting soon (orange), minutes before
+       * @default 300
+       */
+      startingSoonSeconds: number;
+      /**
+       * @description Urgent (red), seconds before
+       * @default 60
+       */
+      urgentSeconds: number;
+      /**
+       * @description The bar and text grow by 25% during this final stage.
+       * @default 10
+       */
+      pulseSeconds: number;
+      /** @default 0 */
+      priority: number;
+      /** @enum {unknown} */
+      targetScope: "all" | "screens" | "sync_groups" | "locations";
+      targetIds: string[];
+      /** @description The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428. */
+      expectedRevision: number;
+    };
+    CountdownBarInstance: components["schemas"]["CountdownBarInstanceInput"] & {
+      /** Format: uuid */
+      id: string;
+      /** @constant */
+      kind: "instance";
+      revision: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
     };
   };
   responses: never;
@@ -14988,6 +15207,95 @@ export interface operations {
       };
     };
   };
+  getPluginSecretStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Plugin secret key status */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginSecretStatus"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Plugin secrets are unavailable on this server */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  confirmPluginSecretExport: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Updated plugin secret key status */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginSecretStatus"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Plugin secrets are unavailable on this server */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   verifyBackup: {
     parameters: {
       query?: never;
@@ -15105,6 +15413,8 @@ export interface operations {
       content: {
         "application/json": {
           confirmIdentityMismatch?: boolean;
+          /** @description Confirms that plugin secrets protected by a key this server does not hold will show "needs a new value" after the restore. Without it, such a restore answers 409 restore_unreadable_secrets and changes nothing. */
+          confirmUnreadableSecrets?: boolean;
         };
       };
     };
@@ -15143,6 +15453,13 @@ export interface operations {
       };
       /** @description Backup not found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The archive's plugin secrets need keys this server does not hold (restore_unreadable_secrets). The details name the missing key IDs and each affected plugin setting, never a value. */
+      409: {
         headers: {
           [name: string]: unknown;
         };
@@ -28523,12 +28840,19 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Configured Countdown Bar instances */
+      /** @description countdown bars */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              items?: components["schemas"]["CountdownBarInstance"][];
+              total?: number;
+            };
+          };
+        };
       };
     };
   };
@@ -28544,26 +28868,37 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["CountdownBarInput"];
+        "application/json": components["schemas"]["CountdownBarInstanceInput"];
       };
     };
     responses: {
-      /** @description Countdown Bar instance created */
+      /** @description countdown bar created */
       201: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["CountdownBarInstance"];
+          };
+        };
       };
-      /** @description Typed configuration or targets are invalid */
+      /** @description Configuration or targets are invalid */
       400: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Owner or Administrator required */
+      /** @description Capability or screen access missing */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The plugin is not installed */
+      409: {
         headers: {
           [name: string]: unknown;
         };
@@ -28582,14 +28917,18 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Countdown Bar instance */
+      /** @description countdown bar */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["CountdownBarInstance"];
+          };
+        };
       };
-      /** @description Instance not found */
+      /** @description Not found */
       404: {
         headers: {
           [name: string]: unknown;
@@ -28612,33 +28951,51 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["CountdownBarInput"];
+        "application/json": components["schemas"]["CountdownBarInstanceUpdate"];
       };
     };
     responses: {
-      /** @description Countdown Bar instance replaced */
+      /** @description countdown bar replaced */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["CountdownBarInstance"];
+          };
+        };
       };
-      /** @description Typed configuration or targets are invalid */
+      /** @description Configuration or targets are invalid */
       400: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Owner or Administrator required */
+      /** @description Capability or screen access missing */
       403: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Instance not found */
+      /** @description Not found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Stale revision; nothing changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description expectedRevision is missing */
+      428: {
         headers: {
           [name: string]: unknown;
         };
@@ -28660,21 +29017,21 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Countdown Bar instance deleted */
+      /** @description countdown bar deleted */
       204: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Owner or Administrator required */
+      /** @description Capability or screen access missing */
       403: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Instance not found */
+      /** @description Not found */
       404: {
         headers: {
           [name: string]: unknown;

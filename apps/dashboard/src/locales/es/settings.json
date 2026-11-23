@@ -1191,6 +1191,7 @@
     "restoreTitle": "¿Restaurar {{fileName}}?",
     "restoreBody": "Tilecast quedará temporalmente no disponible y la base de datos y el estado multimedia actuales serán reemplazados. Primero se creará una copia previa a la restauración.",
     "restoreBodyMismatch": "Tilecast quedará temporalmente no disponible y la base de datos y el estado multimedia actuales serán reemplazados. Primero se creará una copia previa a la restauración. ADVERTENCIA: Esta copia pertenece a otra instalación. Los reproductores vinculados deberán restablecerse y vincularse de nuevo.",
+    "restoreBodySecrets": "ADVERTENCIA: {{count}} secreto(s) de plugins de esta copia necesitan claves que este servidor no tiene. Tras la restauración mostrarán «necesita un valor nuevo» hasta que alguien los introduzca de nuevo:\n{{list}}\n(y {{more}} más)",
     "restoreAction": "Restaurar",
     "deleteTitle": "¿Eliminar {{fileName}}? Esto no se puede deshacer.",
     "deleteLastTitle": "Esta es la última copia completa. ¿Eliminarla de todos modos?",

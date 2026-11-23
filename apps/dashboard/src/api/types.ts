@@ -1142,6 +1142,27 @@ export type BackupRestorePlan = {
   components: BackupComponent[];
   identityMismatch: boolean;
   currentInstallationId: string;
+  /** Plugin secrets the archive holds and whether this server can read them. */
+  pluginSecrets?: {
+    requiredKekIds: string[];
+    missingKekIds: string[];
+    unreadable: {
+      pluginId: string;
+      ownerType: "organization" | "instance" | "screen";
+      settingKey: string;
+      kekId: string;
+      count: number;
+    }[];
+  };
+};
+/** The plugin secret key status: key IDs and counts, never key material. */
+export type PluginSecretStatus = {
+  currentKekId: string;
+  kekIds: string[];
+  exportAcknowledged: boolean;
+  secrets: number;
+  pendingMigration: number;
+  unreadable: number;
 };
 export type ScreenGroup = {
   id: string;

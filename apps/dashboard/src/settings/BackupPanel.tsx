@@ -122,16 +122,37 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   const restore = useMutation({
     mutationFn: async (archive: BackupArchive) => {
       const plan = await api.backupRestorePlan(archive.id);
+      const secrets = plan.pluginSecrets;
+      const unreadable =
+        secrets && secrets.missingKekIds.length > 0 ? secrets.unreadable : [];
+      // Name each plugin setting that would need a new value. Never a value.
+      const listed = unreadable
+        .slice(0, 8)
+        .map((item) => `${item.pluginId}: ${item.settingKey}`)
+        .join("\n");
+      const base = plan.identityMismatch
+        ? t("backups.restoreBodyMismatch")
+        : t("backups.restoreBody");
       const ok = await confirm({
         title: t("backups.restoreTitle", { fileName: archive.fileName }),
-        body: plan.identityMismatch
-          ? t("backups.restoreBodyMismatch")
-          : t("backups.restoreBody"),
+        body:
+          unreadable.length > 0
+            ? `${base}\n\n${t("backups.restoreBodySecrets", {
+                count: unreadable.length,
+                list: listed,
+                more: Math.max(0, unreadable.length - 8),
+              })}`
+            : base,
         action: t("backups.restoreAction"),
         destructive: true,
       });
       if (!ok) throw new CancelledAction();
-      return api.restoreBackup(archive.id, plan.identityMismatch, csrf);
+      return api.restoreBackup(
+        archive.id,
+        plan.identityMismatch,
+        csrf,
+        unreadable.length > 0,
+      );
     },
     onSuccess: refresh,
   });

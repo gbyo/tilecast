@@ -9,6 +9,10 @@ Status: accepted. The foundation is implemented and the built-in plugins
 have moved to the new structure; see [Migration status](#migration-status).
 This document describes the frozen Plugin API v1 contract.
 
+[Plugin Manifest API 3](plugin-api-v3.md) is the contract for new plugins that store
+instances or settings. It is supported beside v1 and v2. This document stays
+the contract for the frozen v1 plugins.
+
 [Plugin API v2](plugin-api-v2.md) is supported beside v1. It describes a
 plugin by independent Server, Studio, and Player contributions, and Player
 behavior by versioned services. A surface is one of those services. Countdown
