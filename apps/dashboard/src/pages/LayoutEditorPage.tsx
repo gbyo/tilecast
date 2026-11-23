@@ -1693,9 +1693,7 @@ export function LayoutEditorPage() {
     if (!current) return;
     const source = selectedPlacements(current, selection);
     if (!source.length) return;
-    const mapping = new Map(
-      source.map((item) => [item.id, newUuid()]),
-    );
+    const mapping = new Map(source.map((item) => [item.id, newUuid()]));
     const copies = source.map((item) => ({
       ...clone(item),
       id: mapping.get(item.id)!,
