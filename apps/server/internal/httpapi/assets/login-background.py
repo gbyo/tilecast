@@ -101,7 +101,7 @@ coord = nt.nodes.new("ShaderNodeTexCoord")
 grad = nt.nodes.new("ShaderNodeTexGradient")
 grad.gradient_type = "SPHERICAL"
 mapping = nt.nodes.new("ShaderNodeMapping")
-mapping.inputs["Location"].default_value = (-1.0, -1.0, 0)
+mapping.inputs["Location"].default_value = (-1.35, -1.0, 0)
 mapping.inputs["Scale"].default_value = (2.6, 2.6, 0)
 ramp = nt.nodes.new("ShaderNodeValToRGB")
 ramp.color_ramp.elements[0].color = (*srgb_to_linear((0.012, 0.016, 0.04)), 1)
@@ -133,19 +133,19 @@ area_light("rim_violet", (3, 7, -1), center, 2, 1600, (0.55, 0.40, 1.0))
 area_light("top", (-1, 1, 7), center, 6, 900, (0.75, 0.85, 1.0))
 area_light("fill", (-3, -6, -2), center, 6, 250, (0.40, 0.55, 0.95))
 
-# Camera close on the front-right side so the stack fills the frame and runs
-# off the right and bottom edges. CAM, LOOK, LENS, FSTOP, and FOCUS override it.
+# Restore the original right-aligned camera, leaving negative space at left.
+# CAM, LOOK, LENS, FSTOP, and FOCUS can override these defaults.
 cam_data = bpy.data.cameras.new("cam")
-cam_data.lens = float(os.environ.get("LENS", "35"))
+cam_data.lens = float(os.environ.get("LENS", "50"))
 cam_data.dof.use_dof = True
-cam_data.dof.aperture_fstop = float(os.environ.get("FSTOP", "2.8"))
+cam_data.dof.aperture_fstop = float(os.environ.get("FSTOP", "5.6"))
 cam = bpy.data.objects.new("cam", cam_data)
 scene.collection.objects.link(cam)
 scene.camera = cam
-cam.location = Vector(map(float, os.environ.get("CAM", "1.85,-3.25,1.4").split(",")))
-look = Vector(center) + Vector(map(float, os.environ.get("LOOK", "0.1,-0.3,-0.05").split(",")))
+cam.location = Vector(map(float, os.environ.get("CAM", "9.4,-6.8,2.4").split(",")))
+look = Vector(center) + Vector(map(float, os.environ.get("LOOK", "-0.2,-2.6,-0.1").split(",")))
 cam.rotation_euler = (look - cam.location).to_track_quat("-Z", "Y").to_euler()
-cam_data.dof.focus_object = panels[int(os.environ.get("FOCUS", "1"))]
+cam_data.dof.focus_object = panels[int(os.environ.get("FOCUS", "0"))]
 
 # Face the backdrop toward the camera, behind the stack.
 view = (look - cam.location).normalized()
