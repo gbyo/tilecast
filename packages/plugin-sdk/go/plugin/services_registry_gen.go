@@ -27,12 +27,24 @@ var ServerServices = []ServerService{
 	{ID: "settings.read", Version: 1, Name: "Plugin settings", Description: "Read this plugin's own non-secret settings for the organization or one screen.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "settings.read@1/get", Title: "Read settings", Description: "Read this plugin's non-secret settings and whether each secret is set.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
+	{ID: "storage.kv", Version: 1, Name: "Plugin key/value storage", Description: "Keep small values of this plugin: 128-byte keys, 64 KiB values, 1 MiB in all.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "storage.kv@1/get", Title: "Read value", Description: "Read one value of this plugin. A missing key answers not_found.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 91480},
+		{Name: "storage.kv@1/set", Title: "Write value", Description: "Store one value of this plugin within the key, value, and quota bounds.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 91480, MaxOutputBytes: 65536},
+		{Name: "storage.kv@1/compareAndSet", Title: "Compare and write value", Description: "Store one value only when the current value equals the expected value; a null expected value means the key must not exist.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 178864, MaxOutputBytes: 65536},
+		{Name: "storage.kv@1/delete", Title: "Delete value", Description: "Delete one value of this plugin.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
 	{ID: "targets.resolve", Version: 1, Name: "Resolve display targets", Description: "Validate screen and group selections and resolve them to screens.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "targets.resolve@1/resolve", Title: "Resolve targets", Description: "Validate screen and group selections and resolve them to screens.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "targets.resolve@2/resolve", Title: "Resolve targets", Description: "Validate explicit all or a nonempty screen, group, and location selection.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "targets.resolve@2/options", Title: "List target options", Description: "List bounded target names and identifiers within the operator's scope.", Mutating: false, Contexts: []string{"studio"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
+	{ID: "timers.cancel", Version: 1, Name: "Cancel durable timers", Description: "Cancel a pending callback of this plugin.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "timers.cancel@1/cancel", Title: "Cancel timer", Description: "Remove the pending timer of a key.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
+	{ID: "timers.schedule", Version: 1, Name: "Durable timers", Description: "Schedule a callback of this plugin at a time, with a key and a payload of at most 4 KiB.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "timers.schedule@1/schedule", Title: "Schedule timer", Description: "Schedule one callback at a time. Scheduling a key again replaces its pending timer.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "users.read-basic", Version: 1, Name: "User directory", Description: "Read basic user directory facts for attribution and workflows.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "users.read-basic@1/get", Title: "Read user", Description: "Read one user's basic directory facts.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
@@ -76,6 +88,26 @@ func (s *Services) SettingsReadGet(ctx context.Context, input, output any) error
 	return s.Call(ctx, "settings.read@1/get", input, output)
 }
 
+// StorageKvGet calls storage.kv@1/get: Read one value of this plugin. A missing key answers not_found
+func (s *Services) StorageKvGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "storage.kv@1/get", input, output)
+}
+
+// StorageKvSet calls storage.kv@1/set: Store one value of this plugin within the key, value, and quota bounds
+func (s *Services) StorageKvSet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "storage.kv@1/set", input, output)
+}
+
+// StorageKvCompareAndSet calls storage.kv@1/compareAndSet: Store one value only when the current value equals the expected value; a null expected value means the key must not exist
+func (s *Services) StorageKvCompareAndSet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "storage.kv@1/compareAndSet", input, output)
+}
+
+// StorageKvDelete calls storage.kv@1/delete: Delete one value of this plugin
+func (s *Services) StorageKvDelete(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "storage.kv@1/delete", input, output)
+}
+
 // TargetsResolveResolve calls targets.resolve@1/resolve: Validate screen and group selections and resolve them to screens
 func (s *Services) TargetsResolveResolve(ctx context.Context, input, output any) error {
 	return s.Call(ctx, "targets.resolve@1/resolve", input, output)
@@ -89,6 +121,16 @@ func (s *Services) TargetsResolveV2Resolve(ctx context.Context, input, output an
 // TargetsResolveV2Options calls targets.resolve@2/options: List bounded target names and identifiers within the operator's scope
 func (s *Services) TargetsResolveV2Options(ctx context.Context, input, output any) error {
 	return s.Call(ctx, "targets.resolve@2/options", input, output)
+}
+
+// TimersCancelCancel calls timers.cancel@1/cancel: Remove the pending timer of a key
+func (s *Services) TimersCancelCancel(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "timers.cancel@1/cancel", input, output)
+}
+
+// TimersScheduleSchedule calls timers.schedule@1/schedule: Schedule one callback at a time. Scheduling a key again replaces its pending timer
+func (s *Services) TimersScheduleSchedule(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "timers.schedule@1/schedule", input, output)
 }
 
 // UsersReadBasicGet calls users.read-basic@1/get: Read one user's basic directory facts

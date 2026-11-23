@@ -10,23 +10,25 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/kvstore"
 )
 
-// KV bounds for plugin-owned storage.
+// KV bounds for plugin-owned storage. They are the shared bounds of every
+// plugin key/value store (internal/extensions/kvstore).
 const (
 	// MaxKVKeyBytes caps one storage key. Keys are UTF-8 text; the host
 	// rejects anything longer before touching the store.
-	MaxKVKeyBytes = 128
+	MaxKVKeyBytes = kvstore.MaxKeyBytes
 	// MaxKVValueBytes caps one stored value at 64 KiB, matching the
 	// database CHECK constraint.
-	MaxKVValueBytes = 64 << 10
+	MaxKVValueBytes = kvstore.MaxValueBytes
 	// MaxKVPackageBytes caps one package's total stored values at 1 MiB.
 	// Set checks the quota inside its write transaction.
-	MaxKVPackageBytes = 1 << 20
+	MaxKVPackageBytes = kvstore.MaxNamespaceBytes
 )
 
 // ErrKVNotFound answers a read for a key the package never stored.
-var ErrKVNotFound = errors.New("wasm: storage key not found")
+var ErrKVNotFound = kvstore.ErrNotFound
 
 // KVStore is plugin-owned key/value storage: one namespace per package,
 // bounded keys and values, and a per-package quota.
@@ -52,8 +54,8 @@ func NewMemoryKV() *MemoryKV {
 
 // Get implements KVStore.
 func (s *MemoryKV) Get(_ context.Context, packageID, key string) ([]byte, error) {
-	if len(key) == 0 || len(key) > MaxKVKeyBytes {
-		return nil, errors.New("wasm: storage key must hold 1 to 128 bytes")
+	if err := kvstore.CheckKey(key); err != nil {
+		return nil, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -70,11 +72,8 @@ func (s *MemoryKV) Get(_ context.Context, packageID, key string) ([]byte, error)
 
 // Set implements KVStore.
 func (s *MemoryKV) Set(_ context.Context, packageID, key string, value []byte) error {
-	if len(key) == 0 || len(key) > MaxKVKeyBytes {
-		return errors.New("wasm: storage key must hold 1 to 128 bytes")
-	}
-	if len(value) > MaxKVValueBytes {
-		return errors.New("wasm: storage value exceeds 64 KiB")
+	if err := kvstore.CheckEntry(key, value); err != nil {
+		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -83,14 +82,14 @@ func (s *MemoryKV) Set(_ context.Context, packageID, key string, value []byte) e
 		values = map[string][]byte{}
 		s.values[packageID] = values
 	}
-	total := len(value)
+	var others int64
 	for existingKey, existing := range values {
 		if existingKey != key {
-			total += len(existing)
+			others += int64(len(existing))
 		}
 	}
-	if total > MaxKVPackageBytes {
-		return errors.New("wasm: package storage quota exceeded")
+	if err := kvstore.CheckQuota(others, len(value)); err != nil {
+		return err
 	}
 	values[key] = append([]byte{}, value...)
 	return nil
@@ -117,8 +116,8 @@ func NewPostgresKV(pool *pgxpool.Pool) *PostgresKV {
 // Get implements KVStore. One organization per installation, so reads
 // filter by package alone, matching the installer.
 func (s *PostgresKV) Get(ctx context.Context, packageID, key string) ([]byte, error) {
-	if len(key) == 0 || len(key) > MaxKVKeyBytes {
-		return nil, errors.New("wasm: storage key must hold 1 to 128 bytes")
+	if err := kvstore.CheckKey(key); err != nil {
+		return nil, err
 	}
 	var value []byte
 	if call := invocationOf(ctx); call != nil && call.executionEpoch != uuid.Nil {
@@ -158,11 +157,8 @@ func (s *PostgresKV) Get(ctx context.Context, packageID, key string) ([]byte, er
 // transaction with a package lock, so concurrent writers cannot jointly
 // exceed the per-package cap.
 func (s *PostgresKV) Set(ctx context.Context, packageID, key string, value []byte) error {
-	if len(key) == 0 || len(key) > MaxKVKeyBytes {
-		return errors.New("wasm: storage key must hold 1 to 128 bytes")
-	}
-	if len(value) > MaxKVValueBytes {
-		return errors.New("wasm: storage value exceeds 64 KiB")
+	if err := kvstore.CheckEntry(key, value); err != nil {
+		return err
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -181,7 +177,7 @@ func (s *PostgresKV) Set(ctx context.Context, packageID, key string, value []byt
 		}
 		storage = &epoch
 	}
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "external_plugin_kv:"+packageID); err != nil {
+	if err := kvstore.Lock(ctx, tx, "external_plugin_kv:"+packageID); err != nil {
 		return err
 	}
 	var total int64
@@ -192,8 +188,8 @@ func (s *PostgresKV) Set(ctx context.Context, packageID, key string, value []byt
 	if err != nil {
 		return err
 	}
-	if total+int64(len(value)) > MaxKVPackageBytes {
-		return errors.New("wasm: package storage quota exceeded")
+	if err := kvstore.CheckQuota(total, len(value)); err != nil {
+		return err
 	}
 	tag, execErr := tx.Exec(ctx,
 		`INSERT INTO external_plugin_kv(organization_id, package_id, key, value, updated_at, storage_epoch)

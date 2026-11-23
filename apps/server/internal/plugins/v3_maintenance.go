@@ -15,8 +15,8 @@ import (
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
-// Host maintenance for Plugin Manifest API 3 storage: schedule boundaries
-// and personal-data retention.
+// Host maintenance for Plugin Manifest API 3 storage: schedule boundaries,
+// durable timers, expired OAuth attempts, and personal-data retention.
 
 const (
 	scheduleTick  = 30 * time.Second
@@ -27,13 +27,22 @@ const (
 func (s *Service) RunMaintenance(ctx context.Context) {
 	schedule := time.NewTicker(scheduleTick)
 	retention := time.NewTicker(retentionTick)
+	timers := time.NewTicker(timerTick)
 	defer schedule.Stop()
 	defer retention.Stop()
+	defer timers.Stop()
 	s.maintain(ctx, true)
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-timers.C:
+			if s.backgroundJobs != nil && !s.backgroundJobs.Allowed() {
+				continue
+			}
+			if _, err := s.RunDueTimers(ctx); err != nil && ctx.Err() == nil {
+				s.logger.Warn("plugin timer pass failed", "error", err)
+			}
 		case <-schedule.C:
 			s.maintain(ctx, false)
 		case <-retention.C:

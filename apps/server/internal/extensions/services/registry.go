@@ -355,7 +355,60 @@ var capabilities = []Capability{
 				Limits: TransportLimits{MaxInputBytes: HTTPFetchMaxInputBytes, MaxOutputBytes: HTTPFetchMaxOutputBytes}},
 		},
 	},
+	{
+		// Bundled only. The package KV imports keep their own contract and
+		// share the bounds through internal/extensions/kvstore.
+		ID:          "storage.kv",
+		Version:     1,
+		Name:        "Plugin key/value storage",
+		Description: "Keep small values of this plugin: 128-byte keys, 64 KiB values, 1 MiB in all.",
+		Category:    CategoryManage,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "storage.kv@1/get", CapabilityID: "storage.kv", CapabilityVersion: 1, Title: "Read value", Description: "Read one value of this plugin. A missing key answers not_found.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxOutputBytes: KVMaxValueTransportBytes}},
+			{Name: "storage.kv@1/set", CapabilityID: "storage.kv", CapabilityVersion: 1, Title: "Write value", Description: "Store one value of this plugin within the key, value, and quota bounds.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxInputBytes: KVMaxValueTransportBytes}},
+			{Name: "storage.kv@1/compareAndSet", CapabilityID: "storage.kv", CapabilityVersion: 1, Title: "Compare and write value", Description: "Store one value only when the current value equals the expected value; a null expected value means the key must not exist.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxInputBytes: KVMaxCompareTransportBytes}},
+			{Name: "storage.kv@1/delete", CapabilityID: "storage.kv", CapabilityVersion: 1, Title: "Delete value", Description: "Delete one value of this plugin.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
+		},
+	},
+	{
+		ID:          "timers.schedule",
+		Version:     1,
+		Name:        "Durable timers",
+		Description: "Schedule a callback of this plugin at a time, with a key and a payload of at most 4 KiB.",
+		Category:    CategoryManage,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "timers.schedule@1/schedule", CapabilityID: "timers.schedule", CapabilityVersion: 1, Title: "Schedule timer", Description: "Schedule one callback at a time. Scheduling a key again replaces its pending timer.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
+		},
+	},
+	{
+		ID:          "timers.cancel",
+		Version:     1,
+		Name:        "Cancel durable timers",
+		Description: "Cancel a pending callback of this plugin.",
+		Category:    CategoryManage,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "timers.cancel@1/cancel", CapabilityID: "timers.cancel", CapabilityVersion: 1, Title: "Cancel timer", Description: "Remove the pending timer of a key.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
+		},
+	},
 }
+
+// storage.kv@1 transport bounds. A value is bytes, so JSON carries it in
+// base64: a 64 KiB value is 87,384 bytes, and the key and the JSON need
+// a little more. compareAndSet carries two values.
+const (
+	kvEnvelopeRoom             = 4 << 10
+	KVMaxValueTransportBytes   = (64<<10+2)/3*4 + kvEnvelopeRoom
+	KVMaxCompareTransportBytes = 2*((64<<10+2)/3*4) + kvEnvelopeRoom
+)
 
 // http.fetch@1 transport bounds. The input holds a body of at most 1 MiB in
 // base64, the URL, and at most 16 KiB of headers. The answer holds a body of

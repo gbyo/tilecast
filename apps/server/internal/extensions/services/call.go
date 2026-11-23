@@ -345,6 +345,18 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.pluginSecretGet(ctx, call)
 	case "http.fetch@1/request":
 		return d.httpFetch(ctx, call)
+	case "storage.kv@1/get":
+		return d.kvGet(ctx, call)
+	case "storage.kv@1/set":
+		return d.kvSet(ctx, call)
+	case "storage.kv@1/compareAndSet":
+		return d.kvCompareAndSet(ctx, call)
+	case "storage.kv@1/delete":
+		return d.kvDelete(ctx, call)
+	case "timers.schedule@1/schedule":
+		return d.timerSchedule(ctx, call)
+	case "timers.cancel@1/cancel":
+		return d.timerCancel(ctx, call)
 	default:
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "operation has no handler"}, nil
 	}

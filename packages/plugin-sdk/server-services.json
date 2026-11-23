@@ -157,6 +157,67 @@
       ]
     },
     {
+      "id": "storage.kv",
+      "version": 1,
+      "name": "Plugin key/value storage",
+      "description": "Keep small values of this plugin: 128-byte keys, 64 KiB values, 1 MiB in all.",
+      "contexts": [
+        "studio",
+        "background",
+        "system"
+      ],
+      "operations": [
+        {
+          "name": "storage.kv@1/get",
+          "title": "Read value",
+          "mutating": false,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 32768,
+          "maxOutputBytes": 91480
+        },
+        {
+          "name": "storage.kv@1/set",
+          "title": "Write value",
+          "mutating": true,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 91480,
+          "maxOutputBytes": 65536
+        },
+        {
+          "name": "storage.kv@1/compareAndSet",
+          "title": "Compare and write value",
+          "mutating": true,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 178864,
+          "maxOutputBytes": 65536
+        },
+        {
+          "name": "storage.kv@1/delete",
+          "title": "Delete value",
+          "mutating": true,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 32768,
+          "maxOutputBytes": 65536
+        }
+      ]
+    },
+    {
       "id": "targets.resolve",
       "version": 1,
       "name": "Resolve display targets",
@@ -206,6 +267,56 @@
           "mutating": false,
           "contexts": [
             "studio"
+          ],
+          "maxInputBytes": 32768,
+          "maxOutputBytes": 65536
+        }
+      ]
+    },
+    {
+      "id": "timers.cancel",
+      "version": 1,
+      "name": "Cancel durable timers",
+      "description": "Cancel a pending callback of this plugin.",
+      "contexts": [
+        "studio",
+        "background",
+        "system"
+      ],
+      "operations": [
+        {
+          "name": "timers.cancel@1/cancel",
+          "title": "Cancel timer",
+          "mutating": true,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 32768,
+          "maxOutputBytes": 65536
+        }
+      ]
+    },
+    {
+      "id": "timers.schedule",
+      "version": 1,
+      "name": "Durable timers",
+      "description": "Schedule a callback of this plugin at a time, with a key and a payload of at most 4 KiB.",
+      "contexts": [
+        "studio",
+        "background",
+        "system"
+      ],
+      "operations": [
+        {
+          "name": "timers.schedule@1/schedule",
+          "title": "Schedule timer",
+          "mutating": true,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
           ],
           "maxInputBytes": 32768,
           "maxOutputBytes": 65536
