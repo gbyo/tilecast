@@ -612,10 +612,7 @@ export function ManualDataSourceEditor({
             onClick={() =>
               setConfiguration((current) => ({
                 ...current,
-                rows: [
-                  ...current.rows,
-                  { id: newUuid(), values: {} },
-                ],
+                rows: [...current.rows, { id: newUuid(), values: {} }],
               }))
             }
           >
