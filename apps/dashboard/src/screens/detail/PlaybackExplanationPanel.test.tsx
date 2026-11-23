@@ -171,6 +171,69 @@ describe("PlaybackExplanationPanel", () => {
     ).toBeVisible();
   });
 
+  it("does not show the previous instant while another inspection loads", async () => {
+    const interaction = userEvent.setup();
+    let release = () => {};
+    const response = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get("/api/v1/screens/screen-1/playback-plan", async ({ request }) => {
+        const at = new URL(request.url).searchParams.get("at");
+        if (!at) return HttpResponse.json({ data: planFixture() });
+        await response;
+        return HttpResponse.json({
+          data: {
+            screenId: "screen-1",
+            at,
+            evaluatedAt: "2026-09-28T14:00:00Z",
+            basis: "historical_expectation_unavailable",
+          },
+        });
+      }),
+    );
+    renderPanel();
+    await screen.findByText("Selection precedence");
+    await interaction.click(
+      screen.getByRole("button", { name: "Inspect another time" }),
+    );
+    await interaction.type(
+      screen.getByLabelText("Inspect an instant"),
+      "2020-05-01T10:00",
+    );
+    try {
+      await interaction.click(screen.getByRole("button", { name: "Inspect" }));
+      expect(
+        await screen.findByRole("status", {
+          name: "Loading playback explanation",
+        }),
+      ).toBeVisible();
+      const previous = screen.queryByText("Selection precedence");
+      expect(previous).not.toBeInTheDocument();
+      expect(screen.queryByText("Lunch Menu")).not.toBeInTheDocument();
+    } finally {
+      release();
+    }
+    expect(
+      await screen.findByText("Historical expectation unavailable"),
+    ).toBeVisible();
+  });
+
+  it("offers a retry when an inspection fails", async () => {
+    const interaction = userEvent.setup();
+    server.use(
+      http.get("/api/v1/screens/screen-1/playback-plan", () =>
+        new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    renderPanel();
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(screen.queryByText("Selection precedence")).not.toBeInTheDocument();
+    server.resetHandlers();
+    await interaction.click(retry);
+    expect(await screen.findByText("Selection precedence")).toBeVisible();
+  });
+
   it("keeps historical inspection free of current content names", async () => {
     const interaction = userEvent.setup();
     renderPanel();

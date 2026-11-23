@@ -270,6 +270,17 @@ describe("nextPrediction", () => {
     });
   });
 
+  it("distinguishes an empty future selection from a default assignment", () => {
+    const future = planWith(selection());
+    expect(
+      nextPrediction(
+        current,
+        { ...future, current: { ...future.current!, selected: undefined } },
+        "ready",
+      ),
+    ).toEqual({ state: "cleared", at });
+  });
+
   it("never claims a change while the prediction loads or fails", () => {
     expect(nextPrediction(current, undefined, "loading")).toEqual({
       state: "loading",

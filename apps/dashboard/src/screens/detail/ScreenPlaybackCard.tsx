@@ -135,12 +135,18 @@ function ExpectedNowSection({
       : t(`status.${screenStatus}`, {
           defaultValue: humanize(screenStatus),
         }));
+  // A cached "playing" report must not make a disconnected screen look live.
+  const connectionStatus = t(`status.${screenStatus}`, {
+    defaultValue: humanize(screenStatus),
+  });
   const playerLine =
-    lastContactAt && screenStatus !== "online" && !assignment?.playbackState
-      ? t("playback.playerOffline", {
-          status: playbackPart,
-          at: new Date(lastContactAt).toLocaleString(locale),
-        })
+    screenStatus !== "online"
+      ? lastContactAt
+        ? t("playback.playerOffline", {
+            status: connectionStatus,
+            at: new Date(lastContactAt).toLocaleString(locale),
+          })
+        : t("playback.playerBare", { state: connectionStatus })
       : syncLabel
         ? t("playback.player", { state: playbackPart, sync: syncLabel })
         : t("playback.playerBare", { state: playbackPart });
@@ -181,8 +187,8 @@ function ExpectedNowSection({
       <ItemGroup className="mt-1">
         <Item size="sm" className="px-0">
           <ItemContent>
-            <ItemTitle className="flex flex-wrap items-center gap-2 text-base">
-              <span className="min-w-0 break-words">
+            <ItemTitle className="line-clamp-none flex-wrap items-center gap-2 text-base">
+              <span className="min-w-0 [overflow-wrap:anywhere]">
                 {expected?.name ?? t("playback.missingContent")}
               </span>
               {expected && (
@@ -191,9 +197,11 @@ function ExpectedNowSection({
                 </Badge>
               )}
             </ItemTitle>
-            <ItemDescription>{context}</ItemDescription>
-            <ItemDescription>
-              <span className="text-muted-foreground">{playerLine}</span>
+            <ItemDescription className="line-clamp-none [overflow-wrap:anywhere]">
+              {context}
+            </ItemDescription>
+            <ItemDescription className="line-clamp-none [overflow-wrap:anywhere]">
+              {playerLine}
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -328,7 +336,7 @@ function DefaultContentSection({
         <ItemGroup className="mt-1">
           <Item size="sm" className="px-0">
             <ItemContent>
-              <ItemTitle className="text-base">
+              <ItemTitle className="line-clamp-none text-base [overflow-wrap:anywhere]">
                 {content.name ?? t("playback.missingContent")}
               </ItemTitle>
               <ItemDescription>
@@ -348,8 +356,12 @@ function DefaultContentSection({
               )}
             </ItemContent>
             {canManage && (
-              <ItemActions className="flex-row items-center">
-                <Button size="sm" onClick={() => setPickerOpen(true)}>
+              <ItemActions className="min-w-0 flex-wrap items-center">
+                <Button
+                  size="sm"
+                  className="h-auto min-w-0 whitespace-normal py-1.5 text-start [overflow-wrap:anywhere]"
+                  onClick={() => setPickerOpen(true)}
+                >
                   {group
                     ? t("playback.changeForGroup", { name: group.name })
                     : t("playback.changeDefault")}

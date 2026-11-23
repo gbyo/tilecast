@@ -190,6 +190,16 @@ function NextSection({
       </section>
     );
   }
+  if (prediction.state === "cleared") {
+    return (
+      <section aria-label={t("screenSchedule.next")} className="min-w-0">
+        <h3 className="text-sm font-semibold">{t("screenSchedule.next")}</h3>
+        <p className="mt-1 text-sm">
+          {time} → {t("playbackPlan.noContent")}
+        </p>
+      </section>
+    );
+  }
   const followUp =
     prediction.source === "assignment"
       ? t("screenSchedule.defaultResumes")
@@ -241,6 +251,13 @@ export function ScreenScheduleCard({
   );
   const others = content.filter((row) => row.id !== active?.scheduleId);
   const activeRow = content.find((row) => row.id === active?.scheduleId);
+  const next = (
+    <NextSection
+      plan={plan}
+      futurePlan={futurePlan}
+      futureState={futureState}
+    />
+  );
 
   return (
     <Card className="min-w-0">
@@ -267,24 +284,27 @@ export function ScreenScheduleCard({
             <Skeleton className="h-10 w-full" />
           </div>
         ) : content.length === 0 ? (
-          <Empty className="gap-2 border border-dashed py-6">
-            <EmptyHeader>
-              <EmptyTitle className="text-sm">
-                {t("screenSchedule.emptyTitle")}
-              </EmptyTitle>
-              <EmptyDescription>
-                {t("screenSchedule.emptyBody")}
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                size="sm"
-                render={<Link to={`/schedules/new?screen=${screenId}`} />}
-              >
-                {t("screenSchedule.addSchedule")}
-              </Button>
-            </EmptyContent>
-          </Empty>
+          <>
+            {next}
+            <Empty className="gap-2 border border-dashed py-6">
+              <EmptyHeader>
+                <EmptyTitle className="text-sm">
+                  {t("screenSchedule.emptyTitle")}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {t("screenSchedule.emptyBody")}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  size="sm"
+                  render={<Link to={`/schedules/new?screen=${screenId}`} />}
+                >
+                  {t("screenSchedule.addSchedule")}
+                </Button>
+              </EmptyContent>
+            </Empty>
+          </>
         ) : (
           <>
             {active && activeRow && (
@@ -309,11 +329,7 @@ export function ScreenScheduleCard({
                 </ItemGroup>
               </section>
             )}
-            <NextSection
-              plan={plan}
-              futurePlan={futurePlan}
-              futureState={futureState}
-            />
+            {next}
             {others.length > 0 && (
               <section
                 aria-label={t("screenSchedule.others")}

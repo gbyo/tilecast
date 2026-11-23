@@ -140,6 +140,27 @@ describe("ScreenPlaybackCard expected now", () => {
     expect(screen.getByText(/last confirmed/)).toBeVisible();
   });
 
+  it("does not present a cached playing state as live on an offline screen", () => {
+    renderCard({
+      screenStatus: "offline",
+      lastContactAt: "2026-09-28T13:00:00Z",
+      assignment: assignmentFixture({
+        playbackState: "playing",
+        synchronizationStatus: "current",
+      }),
+    });
+    expect(screen.getByText(/Player: Offline/)).toBeVisible();
+    expect(screen.getByText(/last confirmed/)).toBeVisible();
+    expect(screen.queryByText(/Player: playing/)).not.toBeInTheDocument();
+    expect(screen.getByText("Lunch Menu")).toBeVisible();
+  });
+
+  it("shows the disconnected state even without a last contact", () => {
+    renderCard({ screenStatus: "offline" });
+    expect(screen.getByText("Player: Offline")).toBeVisible();
+    expect(screen.queryByText(/Player: playing/)).not.toBeInTheDocument();
+  });
+
   it("opens the explanation panel from Why this?", async () => {
     const interaction = userEvent.setup();
     const { onExplain } = renderCard();
