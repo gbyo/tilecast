@@ -735,13 +735,13 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | Milestone | Scope                                                                                                                                                                   |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                                                  |
-| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, adaptive iPhone/iPad navigation                    |
+| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, adaptive iPhone/iPad navigation                       |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
 | 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                           |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
-| 8A        | Implemented: system share, semantic haptics, deep links, native media intake, and Studio composition beneath the iPhone floating tab bar                                  |
+| 8A        | Implemented: system share, semantic haptics, deep links, native media intake, and Studio composition beneath the iPhone floating tab bar                                |
 | 8B        | Push notifications, notification actions, App Intents and Shortcuts, and screen quick actions. See [ADR: push and quick actions](adr/ios-m8b-push-and-quick-actions.md) |
 
 Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio. Milestone 8A adds no native product screen: the app has no native Media library.
