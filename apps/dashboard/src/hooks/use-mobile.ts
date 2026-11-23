@@ -1,25 +1,25 @@
 import * as React from "react";
 
-// This hook now answers the sidebar presentation question: below the desktop
-// workspace boundary, navigation is off-canvas so it never consumes a large
-// share of an iPad or resized window. The historical name is kept because the
-// sidebar primitive exposes the state as `isMobile`.
-const MOBILE_BREAKPOINT = 1024;
+// The sidebar primitive calls this state "mobile", but it is really the
+// off-canvas navigation boundary. Keeping navigation off-canvas below the
+// desktop workspace threshold stops it consuming a large share of an iPad or
+// a resized window.
+const MOBILE_QUERY = "(max-width: 1023px)";
+
+function subscribe(onChange: () => void) {
+  const query = window.matchMedia(MOBILE_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function getSnapshot() {
+  return window.matchMedia(MOBILE_QUERY).matches;
+}
+
+function getServerSnapshot() {
+  return false;
+}
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
-    undefined,
-  );
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
-  return !!isMobile;
+  return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
