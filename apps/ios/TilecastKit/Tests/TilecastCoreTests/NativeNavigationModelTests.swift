@@ -115,8 +115,10 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         #expect(model.adaptiveSelectedTab == .destination("charlie"))
         #expect(model.adaptiveFrontendTab == .destination("alpha"))
         #expect(model.isAdaptiveSelectionPending)
-        // Compact iPhone navigation still maps this destination through More.
-        #expect(model.compactSelectedTab == .destination("alpha"))
+        // A mid-navigation size-class change already has the right compact
+        // projection: this secondary destination belongs in More.
+        #expect(model.compactSelectedTab == .more)
+        #expect(model.isCompactSelectionPending)
 
         model.apply(NavigationState(activeDestinationID: "charlie"))
         #expect(model.adaptiveSelectedTab == .destination("charlie"))

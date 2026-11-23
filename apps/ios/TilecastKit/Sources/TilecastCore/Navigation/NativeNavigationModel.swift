@@ -196,6 +196,13 @@ public final class NativeNavigationModel {
     public func selectAdaptiveTab(_ tab: NavigationTab) {
         guard case .destination(let id) = tab,
               catalog?.destination(withID: id) != nil else { return }
+
+        // Keep the compact projection in sync too. If the iPad window becomes
+        // compact before Studio acknowledges the route, the system can switch
+        // tab structures without briefly highlighting the previous page.
+        compactSelectedTab = primaryDestinations.contains(where: { $0.id == id })
+            ? .destination(id)
+            : .more
         compactMoreShowsList = false
         open(id)
     }
