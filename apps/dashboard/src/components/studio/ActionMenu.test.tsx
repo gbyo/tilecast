@@ -61,6 +61,35 @@ function renderButton(actions: StudioActionGroup[]) {
 }
 
 describe("ActionMenuButton in a browser", () => {
+  it("uses a large action drawer on a coarse pointer", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    const onOpen = vi.fn();
+    renderButton(groups({ onOpen }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
+    const drawer = await screen.findByRole("dialog", {
+      name: "Actions for Lobby",
+    });
+    expect(drawer).toHaveAttribute("data-slot", "drawer-content");
+    expect(
+      screen.queryByRole("menuitem", { name: "Open" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Open", exact: true }),
+    );
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith();
+  });
+
   it("opens the web menu with grouped actions", async () => {
     const onOpen = vi.fn();
     const onDelete = vi.fn();
