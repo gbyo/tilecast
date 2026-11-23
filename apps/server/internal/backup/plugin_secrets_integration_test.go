@@ -241,6 +241,40 @@ func TestRestoreWithKeysKeepsSecretsReadable(t *testing.T) {
 	}
 }
 
+func TestRestoreConfirmationIsPresentWhenTheJobIsInserted(t *testing.T) {
+	b := newSecretBackup(t)
+	if _, err := b.pool.Exec(b.ctx, `TRUNCATE backup_jobs`); err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewService(b.pool, b.backups, NewGuard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveID := uuid.New()
+	if err := service.RegisterArchive(b.ctx, Archive{
+		ID: archiveID, FileName: filepath.Base(b.archive), Kind: KindManual, Status: "complete", Verification: "verified",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// The worker can claim a row as soon as the INSERT commits. Require the
+	// flag on that write so setting it in a later UPDATE fails the test.
+	if _, err := b.pool.Exec(b.ctx, `ALTER TABLE backup_jobs ADD CONSTRAINT test_restore_confirmation
+		CHECK (kind <> 'restore' OR confirm_unreadable_secrets) NOT VALID`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := b.pool.Exec(b.ctx, `ALTER TABLE backup_jobs DROP CONSTRAINT test_restore_confirmation`); err != nil {
+			t.Error(err)
+		}
+		if _, err := b.pool.Exec(b.ctx, `DELETE FROM backup_jobs WHERE archive_id=$1`, archiveID); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := service.EnqueueRestore(b.ctx, archiveID, nil, false, true); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestConfirmedRestoreWithoutKeyLeavesOnlySecretsUnreadable(t *testing.T) {
 	b := newSecretBackup(t)
 	other, _, err := pluginsecrets.LoadOrCreate(filepath.Join(t.TempDir(), "other", "kek.json"))

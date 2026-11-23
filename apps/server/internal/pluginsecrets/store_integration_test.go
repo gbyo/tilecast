@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -107,19 +108,19 @@ func TestKEKRotationRewrapsDEKsWithoutRewritingSecrets(t *testing.T) {
 	}
 	rows.Close()
 	oldKEK := env.ring.CurrentID()
-	if _, err := env.ring.AddKEK(); err != nil {
+	if _, err := env.ring.addKEK(); err != nil {
 		t.Fatal(err)
 	}
 	inUse, err := env.store.KEKsInUse(env.ctx, env.pool)
 	if err != nil || !inUse[oldKEK] {
 		t.Fatalf("the old KEK is still needed: %v %v", inUse, err)
 	}
-	rewrapped, missing, err := env.store.RewrapDEKs(env.ctx)
+	rewrapped, missing, err := env.store.rewrapDEKs(env.ctx)
 	if err != nil || rewrapped != 1 || len(missing) != 0 {
 		t.Fatalf("rewrap: %d %v %v", rewrapped, missing, err)
 	}
 	// A second run has nothing to do: the rotation is idempotent.
-	if again, _, err := env.store.RewrapDEKs(env.ctx); err != nil || again != 0 {
+	if again, _, err := env.store.rewrapDEKs(env.ctx); err != nil || again != 0 {
 		t.Fatalf("second rewrap: %d %v", again, err)
 	}
 	var after [][]byte
@@ -140,11 +141,11 @@ func TestKEKRotationRewrapsDEKsWithoutRewritingSecrets(t *testing.T) {
 		t.Fatal("a DEK still uses the old KEK after rewrap")
 	}
 	// A fresh process that has only the new KEK reads every secret.
-	ring, err := Load(env.ring.Path())
-	if err != nil {
+	if _, err := env.store.PruneKEKs(env.ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ring.Prune(inUse); err != nil {
+	ring, err := Load(env.ring.Path())
+	if err != nil {
 		t.Fatal(err)
 	}
 	fresh := NewStore(env.pool, ring, nil)
@@ -247,7 +248,7 @@ func TestRunningStoreSeesAKEKRotatedElsewhere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rotated, err := other.AddKEK()
+	rotated, _, _, err := NewStore(env.pool, other, nil).RotateKEK(env.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,5 +258,57 @@ func TestRunningStoreSeesAKEKRotatedElsewhere(t *testing.T) {
 	var wrappedWith string
 	if err := env.pool.QueryRow(env.ctx, `SELECT kek_id FROM plugin_secret_deks WHERE state='current'`).Scan(&wrappedWith); err != nil || wrappedWith != rotated.ID {
 		t.Fatalf("the new DEK is wrapped with %q, want the rotated KEK %q (%v)", wrappedWith, rotated.ID, err)
+	}
+}
+
+func TestConcurrentKeyCommandsRefreshTheRunningStore(t *testing.T) {
+	env := withStore(t)
+	env.write(t, orgRef("a"), "alpha")
+	userID := uuid.New()
+	if _, err := env.pool.Exec(env.ctx, `INSERT INTO users(id,name,username,password_hash,role,active)
+		VALUES($1,'Test owner',$2,'unused','owner',TRUE)`, userID, "key-test-"+userID.String()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = env.pool.Exec(env.ctx, `DELETE FROM users WHERE id=$1`, userID) })
+	tx, err := env.pool.Begin(env.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(env.ctx) //nolint:errcheck
+	if _, err := env.store.AcknowledgeExport(env.ctx, tx, userID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(env.ctx); err != nil {
+		t.Fatal(err)
+	}
+	before, err := env.store.Status(env.ctx)
+	if err != nil || !before.ExportAcknowledged {
+		t.Fatalf("initial status: %+v %v", before, err)
+	}
+	imported, _, err := LoadOrCreate(filepath.Join(env.dir, "import.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	errs := make(chan error, 2)
+	go func() {
+		_, err := ImportKEKs(env.ring.Path(), imported.Path())
+		errs <- err
+	}()
+	go func() {
+		_, _, _, err := NewStore(env.pool, env.ring, nil).RotateKEK(env.ctx)
+		errs <- err
+	}()
+	for range 2 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids := env.store.AvailableKEKIDs()
+	if len(ids) != 3 || !slices.Contains(ids, imported.CurrentID()) {
+		t.Fatalf("keys after concurrent import and rotation: %v", ids)
+	}
+	after, err := env.store.Status(env.ctx)
+	if err != nil || after.ExportAcknowledged || after.Unreadable != 0 || after.CurrentKEKID == before.CurrentKEKID {
+		t.Fatalf("running store status: %+v %v", after, err)
 	}
 }

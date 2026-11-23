@@ -3,7 +3,11 @@
  * bundle is built, so adding plugins/<name>/studio/index.tsx is all a plugin
  * does to appear here; no runtime loading and no third-party code.
  */
-import type { PluginManifestInput } from "@tilecast/plugin-sdk/manifest";
+import {
+  parsePluginManifest,
+  type PluginManifestInput,
+  type PluginManifestV3,
+} from "@tilecast/plugin-sdk/manifest";
 import type { StudioPluginDefinition } from "./kit";
 
 export interface DiscoveredStudioPlugin {
@@ -16,7 +20,7 @@ export interface DiscoveredStudioPlugin {
   /** The manifest's studio.additionalRoutes, for example ["/forms"]. */
   additionalRoutes: string[];
   /** The manifest, for host-generated pages of a Plugin Manifest API 3 plugin. */
-  manifest: PluginManifestInput;
+  manifest: Exclude<PluginManifestInput, { apiVersion: 3 }> | PluginManifestV3;
   definition: StudioPluginDefinition;
 }
 
@@ -67,25 +71,32 @@ export function discoverStudioPlugins(
       name: manifest.name,
       route: manifest.studio.route,
       additionalRoutes: manifest.studio.additionalRoutes ?? [],
-      manifest,
+      manifest: normalizeStudioManifest(manifest),
       definition,
     });
   }
   // A Plugin Manifest API 3 plugin whose pages are all host-generated needs
   // no Studio module at all.
   for (const [dir, manifest] of byDir) {
-    if (withModule.has(dir) || manifest.apiVersion !== 3 || !manifest.studio) continue;
+    if (withModule.has(dir) || manifest.apiVersion !== 3 || !manifest.studio)
+      continue;
     out.push({
       id: manifest.id,
       dir,
       name: manifest.name,
       route: manifest.studio.route,
       additionalRoutes: manifest.studio.additionalRoutes ?? [],
-      manifest,
+      manifest: normalizeStudioManifest(manifest),
       definition: { id: manifest.id },
     });
   }
   return out.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function normalizeStudioManifest(
+  manifest: PluginManifestInput,
+): DiscoveredStudioPlugin["manifest"] {
+  return manifest.apiVersion === 3 ? parsePluginManifest(manifest) : manifest;
 }
 
 const manifestModules = import.meta.glob<PluginManifestInput>(

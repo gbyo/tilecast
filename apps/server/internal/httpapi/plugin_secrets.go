@@ -41,11 +41,11 @@ func (s *server) confirmPluginSecretExport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
-	if err := s.pluginSecrets.AcknowledgeExport(r.Context(), tx, *userID); err != nil {
+	ids, err := s.pluginSecrets.AcknowledgeExport(r.Context(), tx, *userID)
+	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	ids := s.pluginSecrets.Ring().IDs()
 	if err := audit.RecordTx(r.Context(), tx, audit.Event{Action: "plugin_secrets.export_confirmed", ResourceType: "plugin_secrets",
 		ResourceID: pluginsecrets.KEKSetID(ids), Metadata: map[string]any{"kekIds": ids}, Actor: userID}); err != nil {
 		s.internalError(w, r, err)
@@ -62,5 +62,5 @@ func (s *server) secretKEKIDs() []string {
 	if s.pluginSecrets == nil {
 		return nil
 	}
-	return s.pluginSecrets.Ring().IDs()
+	return s.pluginSecrets.AvailableKEKIDs()
 }

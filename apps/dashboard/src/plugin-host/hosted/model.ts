@@ -12,6 +12,17 @@ import type { TargetScope } from "../../plugins/shared";
 
 export type HostedKind = PluginManifestV3["instances"][number];
 
+export type HostedPluginProps = {
+  pluginId: string;
+  manifest: PluginManifestV3;
+  /** The instance kind this page is for, by its path. Defaults to the first. */
+  kindPath?: string;
+};
+
+export function kindRoute(manifest: PluginManifestV3, kind: HostedKind) {
+  return `${manifest.studio!.route}/${kind.path}`;
+}
+
 export type SecretState = "set" | "not_set" | "needs_value";
 
 export interface HostedSchedule {
@@ -229,11 +240,12 @@ export function formProblems(
     ),
   );
   if (!result.ok) problems.push({ path: result.path, message: result.problem });
+  const clearedSecrets = new Set(form.clearSecrets);
   for (const field of fields) {
     if (field.control !== "secret" || !field.required) continue;
     const typed = (form.secrets[field.key] ?? "") !== "";
     const stored = secretStates?.[field.key] === "set";
-    const cleared = form.clearSecrets.includes(field.key);
+    const cleared = clearedSecrets.has(field.key);
     if (!typed && (!stored || cleared))
       problems.push({
         path: field.key,
@@ -246,7 +258,7 @@ export function formProblems(
 /** Synthetic fields that let the shared field renderer draw a host schedule. */
 export function scheduleFields(
   kind: HostedKind,
-  label: (key: string) => string,
+  label: (key: keyof HostedSchedule) => string,
 ): ConfigField[] {
   if (kind.schedule === "window")
     return [

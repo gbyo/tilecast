@@ -60,7 +60,7 @@ Under **Automatic backup schedule**, enable scheduled backups and choose daily o
 1. Select **Verify** for the archive you plan to restore.
 2. Select **Restore** and review the confirmation. Tilecast creates a pre-restore backup, then replaces the current database and media state. Studio is temporarily unavailable during the restore.
 3. If Studio warns that the archive belongs to a different installation, continue only if that is intentional. Players enrolled with the current installation must be reset and paired again after restoring a backup from another installation.
-4. If Studio lists plugin settings that need a new value, this server doesn't have the key for those secrets. Restore the key first if you have the export (`tilecast-server secrets import-kek`), or continue and enter those secrets again after the restore. Everything else keeps working.
+4. If Studio lists plugin settings that need a new value, this server doesn't have the key for those secrets. If you have the export, import it with `tilecast-server secrets import-kek` and reopen the restore dialog to check again. You can also continue and enter the affected secrets again after the restore.
 
 </Steps>
 

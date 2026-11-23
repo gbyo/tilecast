@@ -297,22 +297,22 @@ func (s *Service) prepareInstance(ctx context.Context, hosted hostedPlugin, kind
 }
 
 // requiredSecretsSet refuses a write that leaves a required secret unset.
-func (s *Service) requiredSecretsSet(ctx context.Context, tx pgx.Tx, pluginID string, kind plugin.InstanceKind, id uuid.UUID, prepared preparedInstance) error {
-	for _, field := range kind.Fields {
+func (s *Service) requiredSecretsSet(ctx context.Context, tx pgx.Tx, pluginID, ownerType string, ownerID uuid.UUID, fields []configschema.Field, secrets map[string]string, clear []string) error {
+	for _, field := range fields {
 		if field.Control != configschema.ControlSecret || !field.Required {
 			continue
 		}
-		if _, set := prepared.secrets[field.Key]; set {
+		if _, set := secrets[field.Key]; set {
 			continue
 		}
 		cleared := false
-		for _, key := range prepared.clear {
+		for _, key := range clear {
 			cleared = cleared || key == field.Key
 		}
 		var exists bool
 		if !cleared && s.secrets != nil {
-			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM plugin_secrets WHERE plugin_id=$1 AND owner_type='instance' AND owner_id=$2 AND setting_key=$3)`,
-				pluginID, id, field.Key).Scan(&exists); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM plugin_secrets WHERE plugin_id=$1 AND owner_type=$2 AND owner_id=$3 AND setting_key=$4)`,
+				pluginID, ownerType, ownerID, field.Key).Scan(&exists); err != nil {
 				return err
 			}
 		}
@@ -347,7 +347,7 @@ func (s *Service) CreateInstance(ctx context.Context, pluginID, kindName string,
 		if err := s.checkNewTarget(ctx, tx, prepared.target); err != nil {
 			return nil, err
 		}
-		if err := s.requiredSecretsSet(ctx, tx, pluginID, kind, id, prepared); err != nil {
+		if err := s.requiredSecretsSet(ctx, tx, pluginID, pluginsecrets.OwnerInstance, id, kind.Fields, prepared.secrets, prepared.clear); err != nil {
 			return nil, err
 		}
 		if err := s.insertInstance(ctx, tx, organizationID, pluginID, kind, id, userID, prepared); err != nil {
@@ -426,7 +426,7 @@ func (s *Service) UpdateInstance(ctx context.Context, pluginID, kindName string,
 		if err := s.checkNewTarget(ctx, tx, prepared.target); err != nil {
 			return nil, err
 		}
-		if err := s.requiredSecretsSet(ctx, tx, pluginID, kind, id, prepared); err != nil {
+		if err := s.requiredSecretsSet(ctx, tx, pluginID, pluginsecrets.OwnerInstance, id, kind.Fields, prepared.secrets, prepared.clear); err != nil {
 			return nil, err
 		}
 		schedule, next := scheduleColumns(prepared.schedule, s.clock.Now())
@@ -608,16 +608,9 @@ func (s *Service) authorizeTarget(ctx context.Context, tx pgx.Tx, target plugin.
 // names, and writes or clears its secrets.
 func (s *Service) storeInstanceResources(ctx context.Context, tx pgx.Tx, hosted hostedPlugin, kind plugin.InstanceKind, id, userID uuid.UUID, prepared preparedInstance) error {
 	pluginID := hosted.manifest.ID
-	fontIDs := []uuid.UUID{}
-	for _, value := range configschema.FontValues(kind.Fields, prepared.configuration) {
-		fontIDs = append(fontIDs, uuid.MustParse(value))
-	}
 	// The library refuses to remove a family while an instance uses it.
 	// Disabled instances count: enabling one must not find the font gone.
-	if err := (fontService{pluginID: pluginID}).UseInTx(ctx, tx, id, prepared.name, fontIDs...); err != nil {
-		return err
-	}
-	if err := useMedia(ctx, tx, pluginID, id, prepared.name, configschema.MediaAssetValues(kind.Fields, prepared.configuration)); err != nil {
+	if err := storeConfigReferences(ctx, tx, pluginID, id, prepared.name, kind.Fields, prepared.configuration); err != nil {
 		return err
 	}
 	ref := func(key string) pluginsecrets.SecretRef {
@@ -634,6 +627,17 @@ func (s *Service) storeInstanceResources(ctx context.Context, tx pgx.Tx, hosted 
 		}
 	}
 	return nil
+}
+
+func storeConfigReferences(ctx context.Context, tx pgx.Tx, pluginID string, id uuid.UUID, label string, fields []configschema.Field, values map[string]any) error {
+	fontIDs := []uuid.UUID{}
+	for _, value := range configschema.FontValues(fields, values) {
+		fontIDs = append(fontIDs, uuid.MustParse(value))
+	}
+	if err := (fontService{pluginID: pluginID}).UseInTx(ctx, tx, id, label, fontIDs...); err != nil {
+		return err
+	}
+	return useMedia(ctx, tx, pluginID, id, label, configschema.MediaAssetValues(fields, values))
 }
 
 // useMedia replaces the library media one owner names. Each asset is locked

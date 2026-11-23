@@ -151,18 +151,17 @@ function scheduleSchema(kind: InstanceKind) {
   return null;
 }
 
-/** The instance request schema: host members beside the kind's fields. */
-function inputSchema(kind: InstanceKind, update: boolean) {
+/** Host members sit beside the kind's fields in each instance shape. */
+function instanceSchema(
+  kind: InstanceKind,
+  mode: "create" | "update" | "response",
+) {
   const fields = (kind.fields ?? []) as ConfigField[];
   const config = objectSchema(fields);
   const properties: Record<string, unknown> = {
     name: { type: "string", minLength: 1, maxLength: 180 },
-    enabled: {
-      type: "boolean",
-      description: "Defaults to true on create and keeps its value on update.",
-    },
+    enabled: { type: "boolean" },
     ...(config["properties"] as Record<string, unknown>),
-    ...secretsSchema(fields),
   };
   const required = ["name"];
   if (kind.priority)
@@ -189,7 +188,35 @@ function inputSchema(kind: InstanceKind, update: boolean) {
     properties["schedule"] = schedule;
     required.push("schedule");
   }
-  if (update) {
+  if (mode === "response") {
+    Object.assign(properties, {
+      id: { type: "string", format: "uuid" },
+      kind: { const: kind.kind },
+      revision: { type: "integer", minimum: 1 },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    });
+    required.push(
+      "id",
+      "kind",
+      "enabled",
+      "revision",
+      "createdAt",
+      "updatedAt",
+    );
+    if (kind.priority) required.push("priority");
+    if (fields.some((field) => field.control === "secret")) {
+      properties["secrets"] = secretStates;
+      required.push("secrets");
+    }
+  } else {
+    properties["enabled"] = {
+      type: "boolean",
+      description: "Defaults to true on create and keeps its value on update.",
+    };
+    Object.assign(properties, secretsSchema(fields));
+  }
+  if (mode === "update") {
     properties["expectedRevision"] = {
       type: "integer",
       minimum: 1,
@@ -206,30 +233,6 @@ function inputSchema(kind: InstanceKind, update: boolean) {
     )
       required.push(field.key);
   return { type: "object", additionalProperties: false, required, properties };
-}
-
-function documentSchema(kind: InstanceKind, singular: string) {
-  return {
-    allOf: [
-      { $ref: `#/components/schemas/${singular}Input` },
-      {
-        type: "object",
-        required: ["id", "kind", "revision", "createdAt", "updatedAt"],
-        properties: {
-          id: { type: "string", format: "uuid" },
-          kind: { const: kind.kind },
-          revision: { type: "integer", minimum: 1 },
-          createdAt: { type: "string", format: "date-time" },
-          updatedAt: { type: "string", format: "date-time" },
-          ...(((kind.fields ?? []) as ConfigField[]).some(
-            (field) => field.control === "secret",
-          )
-            ? { secrets: secretStates }
-            : {}),
-        },
-      },
-    ],
-  };
 }
 
 const data = (schema: unknown) => ({
@@ -333,9 +336,9 @@ export function generatedFragment(
   }
   for (const kind of manifest.instances) {
     const { singular, plural } = kind.operations;
-    schemas[`${singular}Input`] = inputSchema(kind, false);
-    schemas[`${singular}Update`] = inputSchema(kind, true);
-    schemas[singular] = documentSchema(kind, singular);
+    schemas[`${singular}Input`] = instanceSchema(kind, "create");
+    schemas[`${singular}Update`] = instanceSchema(kind, "update");
+    schemas[singular] = instanceSchema(kind, "response");
     const collection = `/api/v1${base}/${kind.path}`;
     const noun = kind.noun;
     paths[collection] = {

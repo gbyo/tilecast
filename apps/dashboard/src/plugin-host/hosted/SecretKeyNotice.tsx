@@ -10,7 +10,7 @@ import { useStudioSession } from "../session";
 /** The shell command that writes the keys to a file; it is not translated. */
 const EXPORT_COMMAND = "tilecast-server secrets export-kek <file>";
 
-export const pluginSecretStatusKey = ["plugin-secret-status"] as const;
+const pluginSecretStatusKey = ["plugin-secret-status"] as const;
 
 /**
  * Warns Owners and Administrators who may export keys until one confirms an

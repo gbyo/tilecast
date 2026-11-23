@@ -39,6 +39,7 @@ type Querier interface {
 type Store struct {
 	db     *pgxpool.Pool
 	logger *slog.Logger
+	path   string
 
 	mu   sync.Mutex
 	ring *KeyRing
@@ -53,14 +54,17 @@ func NewStore(db *pgxpool.Pool, ring *KeyRing, logger *slog.Logger) *Store {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Store{db: db, ring: ring, logger: logger, deks: map[uuid.UUID][]byte{}}
+	return &Store{db: db, path: ring.Path(), ring: ring.clone(), logger: logger, deks: map[uuid.UUID][]byte{}}
 }
 
-// Ring returns the key ring. Callers must not keep key material.
-func (s *Store) Ring() *KeyRing {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.ring
+// AvailableKEKIDs lists the keys on disk, or none if the file is unusable.
+func (s *Store) AvailableKEKIDs() []string {
+	ring, err := Load(s.path)
+	if err != nil {
+		s.logger.Warn("secrets key file could not be read", "error", err)
+		return nil
+	}
+	return ring.IDs()
 }
 
 func (s *Store) kek(id string) ([]byte, bool) {
@@ -82,13 +86,13 @@ func (s *Store) kek(id string) ([]byte, bool) {
 // is seen: a DEK wrapped with a KEK that the next prune-keks removes would be
 // lost. New DEKs are rare, so the read is cheap.
 func (s *Store) currentKEK() (string, []byte) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ring.Reload(); err != nil {
+	ring, err := Load(s.path)
+	if err != nil {
 		s.logger.Warn("secrets key file could not be reloaded", "error", err)
+		return "", nil
 	}
-	id := s.ring.CurrentID()
-	key, _ := s.ring.key(id)
+	id := ring.CurrentID()
+	key, _ := ring.key(id)
 	return id, key
 }
 
@@ -423,10 +427,70 @@ func (s *Store) MigrateAll(ctx context.Context, batch int) (int, error) {
 	}
 }
 
-// RewrapDEKs wraps every DEK that is not under the current KEK with the
+// RotateKEK writes the new KEK before rewrapping existing DEKs, so an
+// interrupted command leaves every DEK with a key the file still holds.
+func (s *Store) RotateKEK(ctx context.Context) (KEK, int, []string, error) {
+	var kek KEK
+	var rewrapped int
+	var missing []string
+	err := withKeyFileLock(s.path, func(path string) error {
+		err := s.withDEKLock(ctx, func(pgx.Tx) error {
+			ring, err := Load(path)
+			if err != nil {
+				return err
+			}
+			kek, err = ring.addKEK()
+			return err
+		})
+		if err != nil {
+			return err
+		}
+		rewrapped, missing, err = s.rewrapDEKs(ctx)
+		return err
+	})
+	return kek, rewrapped, missing, err
+}
+
+// PruneKEKs removes old keys only after checking for references while
+// holding both the key-file lock and the lock used to create DEKs.
+func (s *Store) PruneKEKs(ctx context.Context) ([]string, error) {
+	var removed []string
+	err := withKeyFileLock(s.path, func(path string) error {
+		return s.withDEKLock(ctx, func(tx pgx.Tx) error {
+			ring, err := Load(path)
+			if err != nil {
+				return err
+			}
+			inUse, err := s.KEKsInUse(ctx, tx)
+			if err != nil {
+				return err
+			}
+			removed, err = ring.prune(inUse)
+			return err
+		})
+	})
+	return removed, err
+}
+
+func (s *Store) withDEKLock(ctx context.Context, work func(pgx.Tx) error) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := lockDEKs(ctx, tx); err != nil {
+		return err
+	}
+	if err := work(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// rewrapDEKs wraps every DEK that is not under the current KEK with the
 // current KEK. Secrets are not touched. Each DEK changes in its own compare
 // and swap, so a run that stops halfway can run again.
-func (s *Store) RewrapDEKs(ctx context.Context) (int, []string, error) {
+func (s *Store) rewrapDEKs(ctx context.Context) (int, []string, error) {
 	rows, err := s.db.Query(ctx, `SELECT id,kek_id,wrapped_key FROM plugin_secret_deks ORDER BY created_at,id`)
 	if err != nil {
 		return 0, nil, err
@@ -445,6 +509,9 @@ func (s *Store) RewrapDEKs(ctx context.Context) (int, []string, error) {
 		return 0, nil, err
 	}
 	currentID, current := s.currentKEK()
+	if current == nil {
+		return 0, nil, ErrKeyFileInvalid
+	}
 	rewrapped := 0
 	missing := map[string]bool{}
 	for _, item := range list {
@@ -526,19 +593,22 @@ func KEKSetID(ids []string) string {
 	return strings.Join(sorted, ",")
 }
 
-// ExportAcknowledged reports whether an Owner confirmed exporting exactly
-// the current KEK set.
-func (s *Store) ExportAcknowledged(ctx context.Context) (bool, error) {
+func (s *Store) exportAcknowledged(ctx context.Context, ids []string) (bool, error) {
 	var exists bool
-	err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM plugin_secret_kek_exports WHERE kek_ids=$1)`, KEKSetID(s.Ring().IDs())).Scan(&exists)
+	err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM plugin_secret_kek_exports WHERE kek_ids=$1)`, KEKSetID(ids)).Scan(&exists)
 	return exists, err
 }
 
 // AcknowledgeExport records an Owner's confirmation for the current KEK set.
-func (s *Store) AcknowledgeExport(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error {
-	_, err := tx.Exec(ctx, `INSERT INTO plugin_secret_kek_exports(kek_ids,acknowledged_by) VALUES($1,$2)
-		ON CONFLICT (kek_ids) DO UPDATE SET acknowledged_by=EXCLUDED.acknowledged_by,acknowledged_at=now()`, KEKSetID(s.Ring().IDs()), userID)
-	return err
+func (s *Store) AcknowledgeExport(ctx context.Context, tx pgx.Tx, userID uuid.UUID) ([]string, error) {
+	ring, err := Load(s.path)
+	if err != nil {
+		return nil, err
+	}
+	ids := ring.IDs()
+	_, err = tx.Exec(ctx, `INSERT INTO plugin_secret_kek_exports(kek_ids,acknowledged_by) VALUES($1,$2)
+		ON CONFLICT (kek_ids) DO UPDATE SET acknowledged_by=EXCLUDED.acknowledged_by,acknowledged_at=now()`, KEKSetID(ids), userID)
+	return ids, err
 }
 
 // Status summarizes the secret store for operators without naming keys.
@@ -553,15 +623,18 @@ type Status struct {
 
 // Status reports the store state.
 func (s *Store) Status(ctx context.Context) (Status, error) {
-	ring := s.Ring()
+	ring, err := Load(s.path)
+	if err != nil {
+		return Status{}, err
+	}
 	status := Status{CurrentKEKID: ring.CurrentID(), KEKIDs: ring.IDs()}
-	acknowledged, err := s.ExportAcknowledged(ctx)
+	acknowledged, err := s.exportAcknowledged(ctx, status.KEKIDs)
 	if err != nil {
 		return status, err
 	}
 	status.ExportAcknowledged = acknowledged
 	if err := s.db.QueryRow(ctx, `SELECT count(*),count(*) FILTER (WHERE d.state<>'current'),count(*) FILTER (WHERE NOT (d.kek_id=ANY($1)))
-		FROM plugin_secrets s JOIN plugin_secret_deks d ON d.id=s.dek_id`, ring.IDs()).Scan(&status.Secrets, &status.PendingMigration, &status.Unreadable); err != nil {
+		FROM plugin_secrets s JOIN plugin_secret_deks d ON d.id=s.dek_id`, status.KEKIDs).Scan(&status.Secrets, &status.PendingMigration, &status.Unreadable); err != nil {
 		return status, err
 	}
 	return status, nil

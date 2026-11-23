@@ -12688,7 +12688,109 @@ export interface components {
       /** @description The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428. */
       expectedRevision: number;
     };
-    CountdownBarInstance: components["schemas"]["CountdownBarInstanceInput"] & {
+    CountdownBarInstance: {
+      name: string;
+      enabled: boolean;
+      /**
+       * @description Message
+       * @default Lunch ends in
+       */
+      message: string;
+      /** @description Shown for one minute after the target; leave blank to hide at zero. */
+      completionText?: string;
+      /**
+       * @description Show confetti when the countdown reaches zero
+       * @default false
+       */
+      showConfetti: boolean;
+      /**
+       * @description Schedule
+       * @default weekly
+       * @enum {unknown}
+       */
+      scheduleType: "weekly" | "one_time";
+      /** @description Target time */
+      targetTime?: string;
+      /**
+       * @description Days of the week
+       * @default [
+       *       1,
+       *       2,
+       *       3,
+       *       4,
+       *       5
+       *     ]
+       */
+      daysOfWeek: number[];
+      /**
+       * Format: date-time
+       * @description The Player counts down to this instant.
+       */
+      oneTimeAt?: string;
+      /** @description Timezone */
+      timezone: string;
+      /**
+       * @description Appear this many minutes before
+       * @default 900
+       */
+      leadTimeSeconds: number;
+      /**
+       * @description Mode
+       * @default overlay
+       * @enum {unknown}
+       */
+      displayMode: "overlay" | "push";
+      /**
+       * @description Bottom-bar height (px)
+       * @default 72
+       */
+      heightPx: number;
+      /**
+       * @description Drain empties the bar from right to left as the target approaches.
+       * @default none
+       * @enum {unknown}
+       */
+      progressFill: "none" | "drain";
+      /**
+       * @description Lower padding gives the message and countdown more room.
+       * @default 4
+       */
+      contentPadding: number;
+      /**
+       * @description Increase the type size without changing the bar height.
+       * @default 100
+       */
+      textScale: number;
+      /**
+       * Format: uuid
+       * @description Add fonts in Settings. Screens that cannot load the font keep the default.
+       */
+      fontId?: string;
+      /**
+       * @description Change the bar automatically as the target approaches.
+       * @default false
+       */
+      urgencyEnabled: boolean;
+      /**
+       * @description Starting soon (orange), minutes before
+       * @default 300
+       */
+      startingSoonSeconds: number;
+      /**
+       * @description Urgent (red), seconds before
+       * @default 60
+       */
+      urgentSeconds: number;
+      /**
+       * @description The bar and text grow by 25% during this final stage.
+       * @default 10
+       */
+      pulseSeconds: number;
+      /** @default 0 */
+      priority: number;
+      /** @enum {unknown} */
+      targetScope: "all" | "screens" | "sync_groups" | "locations";
+      targetIds: string[];
       /** Format: uuid */
       id: string;
       /** @constant */

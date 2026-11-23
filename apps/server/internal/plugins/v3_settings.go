@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,6 +95,29 @@ func (s *Service) GetSettings(ctx context.Context, pluginID, scope string, scree
 }
 
 func (s *Service) readSettings(ctx context.Context, q queryer, pluginID, scope string, screenID uuid.UUID, fields []configschema.Field) (SettingsDocument, error) {
+	document, err := readSettingsValues(ctx, q, pluginID, scope, screenID, fields)
+	if err != nil {
+		return SettingsDocument{}, err
+	}
+	if keys := configschema.SecretKeys(fields); len(keys) > 0 {
+		organizationID, err := organizationService{service: s}.ID(ctx)
+		if err != nil {
+			return SettingsDocument{}, err
+		}
+		ownerType, ownerID := ownerFor(scope, organizationID, screenID)
+		if s.secrets == nil {
+			document.Secrets = map[string]pluginsecrets.State{}
+			for _, key := range keys {
+				document.Secrets[key] = pluginsecrets.StateNeedsValue
+			}
+		} else if document.Secrets, err = s.secrets.States(ctx, q, pluginID, ownerType, ownerID, keys); err != nil {
+			return SettingsDocument{}, err
+		}
+	}
+	return document, nil
+}
+
+func readSettingsValues(ctx context.Context, q queryer, pluginID, scope string, screenID uuid.UUID, fields []configschema.Field) (SettingsDocument, error) {
 	document := SettingsDocument{Scope: scope, Values: map[string]any{}}
 	if scope == scopeScreen {
 		id := screenID
@@ -109,7 +133,10 @@ func (s *Service) readSettings(ctx context.Context, q queryer, pluginID, scope s
 	}
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		defaults, normalizeErr := configschema.Normalize(ctx, fields, map[string]any{}, nil)
+		defaultFields := slices.DeleteFunc(slices.Clone(fields), func(field configschema.Field) bool {
+			return field.Default == nil
+		})
+		defaults, normalizeErr := configschema.Normalize(ctx, defaultFields, nil, nil)
 		if normalizeErr == nil {
 			document.Values = defaults
 		}
@@ -118,21 +145,6 @@ func (s *Service) readSettings(ctx context.Context, q queryer, pluginID, scope s
 	default:
 		document.UpdatedAt = &updatedAt
 		if err := json.Unmarshal(raw, &document.Values); err != nil {
-			return SettingsDocument{}, err
-		}
-	}
-	if keys := configschema.SecretKeys(fields); len(keys) > 0 {
-		organizationID, err := organizationService{service: s}.ID(ctx)
-		if err != nil {
-			return SettingsDocument{}, err
-		}
-		ownerType, ownerID := ownerFor(scope, organizationID, screenID)
-		if s.secrets == nil {
-			document.Secrets = map[string]pluginsecrets.State{}
-			for _, key := range keys {
-				document.Secrets[key] = pluginsecrets.StateNeedsValue
-			}
-		} else if document.Secrets, err = s.secrets.States(ctx, q, pluginID, ownerType, ownerID, keys); err != nil {
 			return SettingsDocument{}, err
 		}
 	}
@@ -235,6 +247,10 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, sc
 				return nil, err
 			}
 		}
+		ownerType, ownerID := ownerFor(scope, organizationID, screenID)
+		if err := s.requiredSecretsSet(ctx, tx, pluginID, ownerType, ownerID, fields, secrets, write.ClearSecrets); err != nil {
+			return nil, err
+		}
 		encoded, err := json.Marshal(normalized)
 		if err != nil {
 			return nil, err
@@ -255,17 +271,9 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, sc
 			return nil, err
 		}
 		label := hosted.definition.Name + " settings"
-		fontIDs := []uuid.UUID{}
-		for _, value := range configschema.FontValues(fields, normalized) {
-			fontIDs = append(fontIDs, uuid.MustParse(value))
-		}
-		if err := (fontService{pluginID: pluginID}).UseInTx(ctx, tx, rowID, label, fontIDs...); err != nil {
+		if err := storeConfigReferences(ctx, tx, pluginID, rowID, label, fields, normalized); err != nil {
 			return nil, err
 		}
-		if err := useMedia(ctx, tx, pluginID, rowID, label, configschema.MediaAssetValues(fields, normalized)); err != nil {
-			return nil, err
-		}
-		ownerType, ownerID := ownerFor(scope, organizationID, screenID)
 		secretKeys := []string{}
 		for key, value := range secrets {
 			ref := pluginsecrets.SecretRef{PluginID: pluginID, OwnerType: ownerType, OwnerID: ownerID, Key: key}
@@ -305,8 +313,8 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, sc
 
 // invalidateSettings bumps only the manifests a settings change can affect:
 // the one screen for a screen setting, and for an organization setting the
-// screens that receive one of the plugin's instances. A plugin without a
-// Player contribution changes no manifest.
+// screens that receive one of the plugin's instances. A plugin with its
+// own state projector can use organization settings on any screen.
 func (s *Service) invalidateSettings(ctx context.Context, tx pgx.Tx, hosted hostedPlugin, scope string, screenID uuid.UUID) ([]note, error) {
 	if !hosted.manifest.PlayerFacing() {
 		return nil, nil
@@ -314,6 +322,9 @@ func (s *Service) invalidateSettings(ctx context.Context, tx pgx.Tx, hosted host
 	reason := "plugin.settings.updated:" + hosted.manifest.ID
 	if scope == scopeScreen {
 		return bumpScreens(ctx, tx, []uuid.UUID{screenID}, reason)
+	}
+	if _, ok := hosted.plugin.(plugin.PlayerStateProjector); ok {
+		return bumpAllScreens(ctx, tx, reason)
 	}
 	rows, err := tx.Query(ctx, `SELECT id FROM plugin_instances WHERE plugin_id=$1 AND enabled AND target_scope IS NOT NULL`, hosted.manifest.ID)
 	if err != nil {

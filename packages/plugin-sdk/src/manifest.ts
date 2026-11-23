@@ -769,6 +769,15 @@ export function manifestV3Problems(
     if (!manifest.studio)
       problems.push("instances need a studio route: the host mounts their pages there");
   }
+  if (
+    manifest.studio &&
+    manifest.settings?.organization?.length &&
+    !manifest.api
+  ) {
+    problems.push(
+      "hosted Studio settings need api.basePaths: the host mounts their routes below the first base path",
+    );
+  }
   return problems;
 }
 export type PlayerContribution = NonNullable<PluginManifestV2["player"]>;

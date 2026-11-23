@@ -28,7 +28,7 @@
     "font": "Fuente",
     "fontHint": "Agregue fuentes en Ajustes. Las pantallas que no puedan cargar la fuente conservan la predeterminada.",
     "urgencyEnabled": "Habilitar etapas de urgencia de la cuenta atrás",
-    "urgencyHint": "Cambia la barra automáticamente a medida que se acerca el objetivo. Las etapas no tocadas siguen el tiempo total de antelación; los valores personalizados quedan fijos. Los mensajes completados vuelven al tamaño normal.",
+    "urgencyHint": "Cambia la barra automáticamente a medida que se acerca el objetivo. De forma predeterminada, las etapas comienzan 300, 60 y 10 segundos antes del objetivo. Cambiar el tiempo de antelación mantiene fijos los tiempos de las etapas. Los mensajes completados vuelven al tamaño normal.",
     "startingSoon": "Pronto (naranja), minutos antes",
     "urgent": "Urgente (rojo), segundos antes",
     "pulse": "Pulso y ampliación, segundos finales",

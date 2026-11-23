@@ -138,7 +138,10 @@ export function BackupPanel({ owner }: { owner: boolean }) {
         body:
           unreadable.length > 0
             ? `${base}\n\n${t("backups.restoreBodySecrets", {
-                count: unreadable.length,
+                count: unreadable.reduce(
+                  (total, group) => total + group.count,
+                  0,
+                ),
                 list: listed,
                 more: Math.max(0, unreadable.length - 8),
               })}`

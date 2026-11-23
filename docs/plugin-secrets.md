@@ -115,7 +115,9 @@ A crash leaves every DEK wrapped with a KEK that the file still holds. Run the
 command again to finish. A second run with nothing to do changes nothing. Old
 KEKs stay in the file until `prune-keks` removes the ones that no DEK uses. A
 Server that runs during the rotation reads the file again before it makes a new
-DEK, so no DEK is wrapped with a KEK that the next prune removes.
+DEK, so no DEK is wrapped with a KEK that the next prune removes. Rotation,
+import, and pruning take turns through a lock beside the key file. The Server
+reads the current file when it checks restore readiness or export confirmation.
 
 After a KEK rotation, export the keys again. Studio warns Owners until an Owner
 confirms an export of the current key set.

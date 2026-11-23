@@ -226,7 +226,7 @@ describe("hosted instance editor for Countdown Bar", () => {
     ).toBeVisible();
   }, 15_000);
 
-  it("keeps the form closed until the saved instance loads, then updates with its revision", async () => {
+  it("fills the form from the saved instance and updates with its revision", async () => {
     const { submitted } = stubStudioApi({
       installed: ["countdown_bar"],
       respond: (path) =>
@@ -235,7 +235,6 @@ describe("hosted instance editor for Countdown Bar", () => {
           : undefined,
     });
     editor(`${base}/bar-1`);
-    expect(await screen.findByRole("button", { name: "Save" })).toBeDisabled();
     await waitFor(() =>
       expect(screen.getByLabelText("Name")).toHaveValue("Lunch"),
     );

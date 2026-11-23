@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -129,23 +130,53 @@ func LoadOrCreate(path string) (*KeyRing, bool, error) {
 	if !errors.Is(err, ErrKeyFileMissing) {
 		return nil, false, err
 	}
-	kek, err := newKEK()
-	if err != nil {
-		return nil, false, err
-	}
-	ring = &KeyRing{path: path, current: kek.ID, keys: map[string]KEK{kek.ID: kek}}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, false, fmt.Errorf("create the secrets key directory: %w", err)
 	}
-	if err := writeKeyFile(path, ring, true); err != nil {
-		if errors.Is(err, os.ErrExist) {
-			// Another process created it first; use that one.
-			ring, err = Load(path)
-			return ring, false, err
+	created := false
+	err = withKeyFileLock(path, func(path string) error {
+		ring, err = Load(path)
+		if !errors.Is(err, ErrKeyFileMissing) {
+			return err
 		}
-		return nil, false, err
+		kek, err := newKEK()
+		if err != nil {
+			return err
+		}
+		ring = &KeyRing{path: path, current: kek.ID, keys: map[string]KEK{kek.ID: kek}}
+		if err := writeKeyFile(path, ring, false); err != nil {
+			return err
+		}
+		created = true
+		return nil
+	})
+	return ring, created, err
+}
+
+// The lock lives beside the KEK file and keeps its inode when the KEK file
+// is atomically replaced. The OS releases it if a command exits early.
+func withKeyFileLock(path string, work func(string) error) error {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err == nil {
+		path = resolved
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
-	return ring, true, nil
+	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("open the secrets key lock: %w", err)
+	}
+	defer lock.Close()
+	for {
+		err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX)
+		if !errors.Is(err, syscall.EINTR) {
+			break
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("lock the secrets key file: %w", err)
+	}
+	return work(path)
 }
 
 // Load reads an existing key file.
@@ -282,9 +313,9 @@ func syncDirectory(path string) error {
 	return nil
 }
 
-// AddKEK adds a new current KEK and writes the file. The previous KEKs stay:
+// addKEK adds a new current KEK and writes the file. The previous KEKs stay:
 // DEKs wrapped with them must remain readable until they are wrapped again.
-func (r *KeyRing) AddKEK() (KEK, error) {
+func (r *KeyRing) addKEK() (KEK, error) {
 	if len(r.keys) >= maxKeys {
 		return KEK{}, fmt.Errorf("the key file holds %d keys; prune keys no DEK uses before rotating", len(r.keys))
 	}
@@ -302,9 +333,9 @@ func (r *KeyRing) AddKEK() (KEK, error) {
 	return kek, nil
 }
 
-// Prune removes the KEKs that are not current and not in keep, and writes
+// prune removes the KEKs that are not current and not in keep, and writes
 // the file. It returns the removed IDs.
-func (r *KeyRing) Prune(keep map[string]bool) ([]string, error) {
+func (r *KeyRing) prune(keep map[string]bool) ([]string, error) {
 	next := r.clone()
 	removed := []string{}
 	for _, id := range r.IDs() {
@@ -323,9 +354,24 @@ func (r *KeyRing) Prune(keep map[string]bool) ([]string, error) {
 	return removed, nil
 }
 
-// Import adds the KEKs of another key file or export that this ring does not
+// ImportKEKs adds the KEKs of another key file or export that this ring does not
 // hold, keeping the current KEK. It returns the added IDs.
-func (r *KeyRing) Import(path string) ([]string, error) {
+func ImportKEKs(path, source string) ([]string, error) {
+	var added []string
+	err := withKeyFileLock(path, func(path string) error {
+		ring, err := Load(path)
+		if err != nil {
+			return err
+		}
+		added, err = ring.importKeys(source)
+		return err
+	})
+	return added, err
+}
+
+// importKeys adds the KEKs of another key file or export that this ring does not
+// hold, keeping the current KEK. It returns the added IDs.
+func (r *KeyRing) importKeys(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open the import file: %w", err)

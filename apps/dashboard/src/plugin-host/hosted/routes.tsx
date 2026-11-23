@@ -35,9 +35,8 @@ const crumb = (breadcrumb: string, key: string) => ({
 export function hostedRouteObjects(
   plugin: DiscoveredStudioPlugin,
 ): RouteObject[] {
-  const manifest = plugin.manifest;
-  if (manifest.apiVersion !== 3) return [];
-  const v3 = manifest as unknown as PluginManifestV3;
+  const v3 = plugin.manifest;
+  if (v3.apiVersion !== 3) return [];
   const props = { pluginId: plugin.id, manifest: v3 };
   const out: RouteObject[] = [];
   if (v3.instances.length > 0) {

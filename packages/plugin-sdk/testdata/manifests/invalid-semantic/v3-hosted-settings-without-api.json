@@ -1,0 +1,16 @@
+{
+  "apiVersion": 3,
+  "id": "settings_only",
+  "definitionVersion": 1,
+  "name": "Settings Only",
+  "description": "A plugin with hosted organization settings.",
+  "category": "Display",
+  "icon": "settings",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": { "singular": "item", "plural": "items" },
+  "server": { "entrypoint": "./plugin.go" },
+  "studio": { "route": "/plugins/settings-only" },
+  "settings": {
+    "organization": [{ "key": "title", "label": "Title", "control": "text" }]
+  }
+}

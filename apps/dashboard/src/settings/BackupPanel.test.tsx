@@ -139,7 +139,14 @@ describe("BackupPanel restore", () => {
             ownerType: "organization",
             settingKey: "apiToken",
             kekId: "kek-1",
-            count: 1,
+            count: 95,
+          },
+          {
+            pluginId: "room_sign",
+            ownerType: "screen",
+            settingKey: "accessKey",
+            kekId: "kek-1",
+            count: 5,
           },
         ],
       }),
@@ -150,7 +157,9 @@ describe("BackupPanel restore", () => {
     const user = await startRestore();
     expect(await screen.findByText(/room_sign: apiToken/)).toBeInTheDocument();
     expect(
-      screen.getByText(/need keys this server does not have/),
+      screen.getByText(
+        /100 plugin secret\(s\).*need keys this server does not have/,
+      ),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Restore" }));
     await waitFor(() =>

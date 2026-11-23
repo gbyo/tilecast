@@ -81,7 +81,7 @@ func TestRotationKeepsOldKeysUntilPruned(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := ring.CurrentID()
-	second, err := ring.AddKEK()
+	second, err := ring.addKEK()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,11 +92,11 @@ func TestRotationKeepsOldKeysUntilPruned(t *testing.T) {
 	if reloaded.CurrentID() != second.ID || !reloaded.Has(first) {
 		t.Fatalf("rotation lost a key: %v", reloaded.IDs())
 	}
-	removed, err := ring.Prune(map[string]bool{first: true})
+	removed, err := ring.prune(map[string]bool{first: true})
 	if err != nil || len(removed) != 0 {
 		t.Fatalf("pruned a key in use: %v %v", removed, err)
 	}
-	removed, err = ring.Prune(map[string]bool{})
+	removed, err = ring.prune(map[string]bool{})
 	if err != nil || len(removed) != 1 || removed[0] != first {
 		t.Fatalf("prune: %v %v", removed, err)
 	}
@@ -137,7 +137,10 @@ func TestExportIsSeparateAndRefusesOverwriteAndBackupRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	added, err := other.Import(export)
+	added, err := ImportKEKs(other.Path(), export)
+	if reloadErr := other.Reload(); reloadErr != nil {
+		t.Fatal(reloadErr)
+	}
 	if err != nil || len(added) != 1 || !other.Has(ring.CurrentID()) {
 		t.Fatalf("import: %v %v", added, err)
 	}

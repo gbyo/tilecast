@@ -1,6 +1,7 @@
 import { isValidElement } from "react";
 import type { RouteObject } from "react-router";
 import { describe, expect, it } from "vitest";
+import type { PluginManifestInput } from "@tilecast/plugin-sdk/manifest";
 import { studioRoutes } from "../App";
 import {
   discoverStudioPlugins,
@@ -35,6 +36,55 @@ const manifest = (id: string, route?: string, additionalRoutes?: string[]) => ({
         },
       }
     : {}),
+});
+
+it("generates Studio routes for API 3 manifests with omitted lists", () => {
+  const settingsOnly = {
+    ...manifest("settings_only"),
+    apiVersion: 3,
+    studio: { route: "/plugins/settings-only" },
+    api: { basePaths: ["/plugins/settings-only"] },
+    settings: {
+      organization: [{ key: "title", label: "Title", control: "text" }],
+    },
+  } satisfies PluginManifestInput;
+  const fieldless = {
+    ...settingsOnly,
+    id: "fieldless",
+    studio: { route: "/plugins/fieldless" },
+    api: { basePaths: ["/plugins/fieldless"] },
+    instances: [
+      {
+        kind: "item",
+        path: "items",
+        noun: { singular: "item", plural: "items" },
+        operations: { singular: "FieldlessItem", plural: "FieldlessItems" },
+        targeting: "none",
+        schedule: "none",
+      },
+    ],
+  } satisfies PluginManifestInput;
+  const plugins = discoverStudioPlugins(
+    {
+      "/plugins/settings-only/tilecast.plugin.json": settingsOnly,
+      "/plugins/fieldless/tilecast.plugin.json": fieldless,
+    },
+    {},
+  );
+  expect(plugins[1]?.manifest).toMatchObject({ instances: [] });
+  expect(plugins[0]?.manifest).toMatchObject({
+    instances: [{ fields: [], schedule: "none" }],
+  });
+  const routes = pluginRouteObjects(plugins);
+  expect(
+    routes.find((route) => route.path === "settings-only")?.children?.[0]
+      ?.index,
+  ).toBe(true);
+  expect(
+    routes
+      .find((route) => route.path === "fieldless")
+      ?.children?.some((route) => route.path === "items/new"),
+  ).toBe(true);
 });
 
 function discoverSample(

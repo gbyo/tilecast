@@ -68,8 +68,10 @@ A version 3 manifest adds these members to the shared ones.
 
 A version 3 manifest does not accept `capabilities.playerManifest`,
 `capabilities.network`, or `runtime`. It requires `api.basePaths` and a
-`studio` route when it declares instances. The host mounts the generated routes
-below the first base path and the generated pages at the Studio route.
+`studio` route when it declares instances. A plugin that declares organization
+settings and a Studio route also needs `api.basePaths`. The host mounts the
+generated routes below the first base path and the generated pages at the Studio
+route.
 
 ### Settings
 
@@ -158,7 +160,8 @@ Every instance and every settings document has a revision.
   `plugin_instance_revision_conflict`. The answer carries
   `details.currentRevision`. A stale update changes nothing: not the
   configuration, the targets, the schedule, the secrets, or the references.
-- Settings that were never saved have revision 0.
+- Settings that were never saved have revision 0. The host supplies the same
+  defaults to Studio and to instance projections.
 
 ### Authorization
 
@@ -282,6 +285,8 @@ A field of the plugin profile can carry `personal: { retentionDays }`, from 1 to
 - A personal field is top level. A repeating group does not hold one.
 - The host records when each personal field was last written. A host task runs every six hours. It removes a value, and a secret, that is
   older than its retention.
+- When the task removes a value, it increases the document revision and
+  releases references to fonts and media that the document no longer uses.
 - `PersonalFields()` gives later features the declarations.
 
 Phase 1 does not add subject export or erase, masked Player state, or sensitive

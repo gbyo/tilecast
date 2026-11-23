@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -251,30 +250,12 @@ func (s *Service) projectionSettings(ctx context.Context, hosted hostedPlugin, s
 	if hosted.manifest.Settings == nil {
 		return map[string]any{}, map[string]any{}, nil
 	}
-	organization, err := s.settingsValues(ctx, hosted.manifest.ID, scopeOrganization, uuid.Nil)
+	organization, err := readSettingsValues(ctx, s.db, hosted.manifest.ID, scopeOrganization, uuid.Nil, hosted.manifest.Settings.Organization)
 	if err != nil {
 		return nil, nil, err
 	}
-	screen, err := s.settingsValues(ctx, hosted.manifest.ID, scopeScreen, screenID)
-	return organization, screen, err
-}
-
-func (s *Service) settingsValues(ctx context.Context, pluginID, scope string, screenID uuid.UUID) (map[string]any, error) {
-	var raw []byte
-	var err error
-	if scope == scopeOrganization {
-		err = s.db.QueryRow(ctx, `SELECT "values" FROM plugin_settings WHERE plugin_id=$1 AND scope='organization'`, pluginID).Scan(&raw)
-	} else {
-		err = s.db.QueryRow(ctx, `SELECT "values" FROM plugin_settings WHERE plugin_id=$1 AND scope='screen' AND screen_id=$2`, pluginID, screenID).Scan(&raw)
-	}
-	values := map[string]any{}
-	if err == pgx.ErrNoRows {
-		return values, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return values, json.Unmarshal(raw, &values)
+	screen, err := readSettingsValues(ctx, s.db, hosted.manifest.ID, scopeScreen, screenID, hosted.manifest.Settings.Screen)
+	return organization.Values, screen.Values, err
 }
 
 // instanceStatus answers the catalog for a plugin whose instances the host

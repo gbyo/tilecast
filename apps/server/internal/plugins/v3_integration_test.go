@@ -15,6 +15,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
+	"github.com/tilecast/tilecast/packages/config-schema/go/configschema"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugintest/samplev3"
 )
@@ -198,6 +199,14 @@ func TestV3SettingsInvalidateOnlyTheScreensTheyAffect(t *testing.T) {
 			signWrite("Sign", plugin.Target{Scope: plugin.TargetScreens, IDs: []uuid.UUID{shown, other}}, nil)); err != nil {
 			t.Fatal(err)
 		}
+		projected, err := e.service.PlayerStateForScreen(e.ctx, shown, map[string]int{"player.clock": 1, "plugin.host": 2})
+		if err != nil || len(projected) != 1 {
+			t.Fatalf("project before first settings save: %v %v", projected, err)
+		}
+		var defaults map[string]any
+		if err := json.Unmarshal(projected[0].State, &defaults); err != nil || defaults["refreshMinutes"] != 5.0 {
+			t.Fatalf("projected settings defaults: %v %v", defaults, err)
+		}
 		before := map[string]int64{"shown": e.version(t, shown), "other": e.version(t, other), "bare": e.version(t, bare)}
 		zero := int64(0)
 		if _, err := e.service.UpdateSettings(e.owner, samplev3.ID, scopeOrganization, uuid.Nil, e.userID,
@@ -228,18 +237,61 @@ func TestV3SettingsInvalidateOnlyTheScreensTheyAffect(t *testing.T) {
 	})
 }
 
+type ownStateProjector struct{ *samplev3.Plugin }
+
+func (ownStateProjector) ProjectPlayerState(context.Context, uuid.UUID) ([]plugin.PlayerState, error) {
+	return nil, nil
+}
+
+func TestV3OrganizationSettingsInvalidateOwnProjectorScreens(t *testing.T) {
+	withV3(t, func(e v3Environment) {
+		e.service.hosted[0].plugin = ownStateProjector{e.sample}
+		e.service.hosted[0].manifest.Instances = nil
+		screen := e.screen(t, "Lobby")
+		before := e.version(t, screen)
+		zero := int64(0)
+		if _, err := e.service.UpdateSettings(e.owner, samplev3.ID, scopeOrganization, uuid.Nil, e.userID,
+			SettingsWrite{Values: map[string]any{"refreshMinutes": 7}, ExpectedRevision: &zero}); err != nil {
+			t.Fatal(err)
+		}
+		if e.version(t, screen) <= before {
+			t.Fatal("settings did not revise the screen served by the plugin's own projector")
+		}
+	})
+}
+
+func TestV3SettingsRequireSecretsOnCreateAndUpdate(t *testing.T) {
+	withV3(t, func(e v3Environment) {
+		e.service.hosted[0].manifest.Settings.Organization[0].Required = true
+		zero := int64(0)
+		write := SettingsWrite{ExpectedRevision: &zero}
+		update := func(write SettingsWrite) (SettingsDocument, error) {
+			return e.service.UpdateSettings(e.owner, samplev3.ID, scopeOrganization, uuid.Nil, e.userID, write)
+		}
+		if _, err := update(write); !errors.Is(err, plugin.ErrInvalid) {
+			t.Fatalf("omitted required secret: %v", err)
+		}
+		write.Secrets = map[string]string{"apiToken": "test-value"}
+		saved, err := update(write)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write = SettingsWrite{ExpectedRevision: &saved.Revision, ClearSecrets: []string{"apiToken"}}
+		if _, err := update(write); !errors.Is(err, plugin.ErrInvalid) {
+			t.Fatalf("cleared required secret: %v", err)
+		}
+		write.ClearSecrets = nil
+		kept, err := update(write)
+		if err != nil || kept.Revision != saved.Revision+1 || kept.Secrets["apiToken"] != pluginsecrets.StateSet {
+			t.Fatalf("kept existing required secret: %+v %v", kept, err)
+		}
+	})
+}
+
 func TestV3InstanceSecretsReferencesAndDeletion(t *testing.T) {
 	withV3(t, func(e v3Environment) {
 		screen := e.screen(t, "Lobby")
-		font := uuid.New()
-		asset := uuid.New()
-		if _, err := e.pool.Exec(e.ctx, `INSERT INTO font_families(id,organization_id,family,source,created_by) VALUES($1,$2,'Lobster','upload',$3)`, font, e.orgID, e.userID); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := e.pool.Exec(e.ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,origin,system_managed,created_by)
-			VALUES($1,$2,'Logo','image','logo.png','image/png',$3,100,'ready','library',FALSE,$4)`, asset, e.orgID, make([]byte, 32), e.userID); err != nil {
-			t.Fatal(err)
-		}
+		font, asset := e.libraryResources(t)
 		const key = "KEY-never-in-audit-9f3"
 		write := signWrite("Sign", plugin.Target{Scope: plugin.TargetScreens, IDs: []uuid.UUID{screen}},
 			map[string]any{"fontId": font.String(), "logoAssetId": asset.String(), "contact": "reception@example.com"})
@@ -324,6 +376,19 @@ func TestV3InstanceSecretsReferencesAndDeletion(t *testing.T) {
 			t.Fatalf("an unreferenced asset could not be archived: %v", err)
 		}
 	})
+}
+
+func (e v3Environment) libraryResources(t *testing.T) (font, asset uuid.UUID) {
+	t.Helper()
+	font, asset = uuid.New(), uuid.New()
+	if _, err := e.pool.Exec(e.ctx, `INSERT INTO font_families(id,organization_id,family,source,created_by) VALUES($1,$2,'Lobster','upload',$3)`, font, e.orgID, e.userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(e.ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,origin,system_managed,created_by)
+		VALUES($1,$2,'Logo','image','logo.png','image/png',$3,100,'ready','library',FALSE,$4)`, asset, e.orgID, make([]byte, 32), e.userID); err != nil {
+		t.Fatal(err)
+	}
+	return font, asset
 }
 
 func TestV3PluginValidatesDomainMeaningAndKindsStayApart(t *testing.T) {
@@ -428,8 +493,17 @@ func TestV3WindowScheduleProjectsInsideItAndRevisesAtItsEdges(t *testing.T) {
 
 func TestV3PersonalFieldsAreRemovedWhenRetentionEnds(t *testing.T) {
 	withV3(t, func(e v3Environment) {
-		created, err := e.service.CreateInstance(e.owner, samplev3.ID, "sign", e.userID,
-			signWrite("Visitor", plugin.Target{Scope: plugin.TargetAll, IDs: []uuid.UUID{}}, map[string]any{"contact": "a@example.com"}))
+		font, asset := e.libraryResources(t)
+		fields := e.service.hosted[0].manifest.Instances[0].Fields
+		for i := range fields {
+			switch fields[i].Control {
+			case "font", "media_asset":
+				fields[i].Personal = &configschema.Personal{RetentionDays: 1}
+			}
+		}
+		initial := signWrite("Visitor", plugin.Target{Scope: plugin.TargetAll, IDs: []uuid.UUID{}},
+			map[string]any{"contact": "a@example.com", "fontId": font.String(), "logoAssetId": asset.String()})
+		created, err := e.service.CreateInstance(e.owner, samplev3.ID, "sign", e.userID, initial)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -437,7 +511,7 @@ func TestV3PersonalFieldsAreRemovedWhenRetentionEnds(t *testing.T) {
 			t.Fatalf("an early purge removed %d: %v", removed, err)
 		}
 		e.clock.Set(e.clock.Now().Add(25 * time.Hour))
-		if removed, err := e.service.PurgePersonalData(e.ctx); err != nil || removed != 1 {
+		if removed, err := e.service.PurgePersonalData(e.ctx); err != nil || removed != 3 {
 			t.Fatalf("purge removed %d: %v", removed, err)
 		}
 		current, err := e.service.GetInstance(e.ctx, samplev3.ID, "sign", created.ID)
@@ -446,6 +520,75 @@ func TestV3PersonalFieldsAreRemovedWhenRetentionEnds(t *testing.T) {
 		}
 		if _, present := current.Configuration["contact"]; present || current.Configuration["title"] != "Visitor" {
 			t.Fatalf("after retention: %v", current.Configuration)
+		}
+		var refs int
+		if err := e.pool.QueryRow(e.ctx, `SELECT (SELECT count(*) FROM font_references WHERE owner_id=$1)
+			+(SELECT count(*) FROM plugin_media_references WHERE owner_id=$1)`, created.ID).Scan(&refs); err != nil || refs != 0 {
+			t.Fatalf("expired personal resource references: %d %v", refs, err)
+		}
+		initial.ExpectedRevision = &created.Revision
+		var conflict *plugin.APIError
+		_, err = e.service.UpdateInstance(e.owner, samplev3.ID, "sign", created.ID, e.userID, initial)
+		if !errors.As(err, &conflict) || conflict.Code != "plugin_instance_revision_conflict" {
+			t.Fatalf("stale update after retention: %v", err)
+		}
+	})
+}
+
+func TestV3RetentionKeepsSecretsOfOtherKindsAndScopes(t *testing.T) {
+	withV3(t, func(e v3Environment) {
+		manifest := &e.service.hosted[0].manifest
+		field := configschema.Field{Key: "sharedToken", Label: "Shared token", Control: configschema.ControlSecret}
+		personal := field
+		personal.Personal = &configschema.Personal{RetentionDays: 1}
+		manifest.Instances[0].Fields = append(manifest.Instances[0].Fields, personal)
+		manifest.Instances[1].Fields = append(manifest.Instances[1].Fields, field)
+		manifest.Settings.Organization = append(manifest.Settings.Organization, personal)
+		manifest.Settings.Screen = append(manifest.Settings.Screen, field)
+		screenID := e.screen(t, "Lobby")
+		values := map[string]string{field.Key: "test-value"}
+		sign := signWrite("Lobby", plugin.Target{Scope: plugin.TargetAll, IDs: []uuid.UUID{}}, nil)
+		sign.Secrets = values
+		first, err := e.service.CreateInstance(e.owner, samplev3.ID, "sign", e.userID, sign)
+		if err != nil {
+			t.Fatal(err)
+		}
+		second, err := e.service.CreateInstance(e.owner, samplev3.ID, "note", e.userID, instanceWrite{
+			Name: str("Note"), Configuration: map[string]any{"text": "hello"}, Secrets: values})
+		if err != nil {
+			t.Fatal(err)
+		}
+		zero := int64(0)
+		for scope, id := range map[string]uuid.UUID{scopeOrganization: uuid.Nil, scopeScreen: screenID} {
+			if _, err := e.service.UpdateSettings(e.owner, samplev3.ID, scope, id, e.userID,
+				SettingsWrite{Secrets: values, ExpectedRevision: &zero}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := e.pool.Exec(e.ctx, `UPDATE plugin_secrets SET updated_at=$1 WHERE plugin_id=$2`, e.clock.Now().Add(-48*time.Hour), samplev3.ID); err != nil {
+			t.Fatal(err)
+		}
+		if n, err := e.service.PurgePersonalData(e.ctx); err != nil || n != 2 {
+			t.Fatalf("expired secrets removed: %d %v", n, err)
+		}
+		for _, check := range []struct {
+			owner string
+			id    uuid.UUID
+			want  pluginsecrets.State
+		}{
+			{pluginsecrets.OwnerInstance, first.ID, pluginsecrets.StateNotSet},
+			{pluginsecrets.OwnerInstance, second.ID, pluginsecrets.StateSet},
+			{pluginsecrets.OwnerOrganization, e.orgID, pluginsecrets.StateNotSet},
+			{pluginsecrets.OwnerScreen, screenID, pluginsecrets.StateSet},
+		} {
+			states, err := e.secrets.States(e.ctx, e.pool, samplev3.ID, check.owner, check.id, []string{field.Key})
+			if err != nil || states[field.Key] != check.want {
+				t.Errorf("%s %s: %v %v, want %s", check.owner, check.id, states, err, check.want)
+			}
+		}
+		org, err := e.service.GetSettings(e.owner, samplev3.ID, scopeOrganization, uuid.Nil)
+		if err != nil || org.Revision != 2 {
+			t.Fatalf("organization revision after secret retention: %+v %v", org, err)
 		}
 	})
 }

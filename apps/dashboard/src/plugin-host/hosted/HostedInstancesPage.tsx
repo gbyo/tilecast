@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
 import { Plus, Settings2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -30,20 +29,8 @@ import { pluginsQueryKey } from "../../plugins/pluginCatalog";
 import { PluginPage } from "../PluginPage";
 import { useStudioSession } from "../session";
 import { hostedClient, hostedInstancesKey } from "./api";
-import { summaryOf, type HostedKind } from "./model";
+import { kindRoute, summaryOf, type HostedPluginProps } from "./model";
 import { SecretKeyNotice } from "./SecretKeyNotice";
-
-export type HostedPluginProps = {
-  pluginId: string;
-  manifest: PluginManifestV3;
-  /** The instance kind this page is for, by its path. Defaults to the first. */
-  kindPath?: string;
-};
-
-/** The plugin's route and the path of one kind's pages below it. */
-export function kindRoute(manifest: PluginManifestV3, kind: HostedKind) {
-  return `${manifest.studio!.route}/${kind.path}`;
-}
 
 /**
  * The generated list page of a plugin's instance kinds. One kind shows a

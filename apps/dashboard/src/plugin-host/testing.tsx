@@ -70,7 +70,7 @@ export function renderPluginRoute(
     ],
     { initialEntries: [path] },
   );
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <StudioSessionProvider
         session={{
@@ -90,6 +90,7 @@ export function renderPluginRoute(
       </StudioSessionProvider>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient: client };
 }
 
 /** Base UI Select hides its native control, so pick the way a person does. */

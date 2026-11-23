@@ -245,6 +245,9 @@ func (m Manifest) validateV3() error {
 			return fmt.Errorf("instances need a studio route: the host mounts their pages there")
 		}
 	}
+	if m.Studio != nil && m.Settings != nil && len(m.Settings.Organization) > 0 && m.API == nil {
+		return fmt.Errorf("hosted Studio settings need api.basePaths: the host mounts their routes below the first base path")
+	}
 	return nil
 }
 

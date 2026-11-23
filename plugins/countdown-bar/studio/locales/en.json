@@ -28,7 +28,7 @@
     "font": "Font",
     "fontHint": "Add fonts in Settings. Screens that cannot load the font keep the default.",
     "urgencyEnabled": "Enable countdown urgency stages",
-    "urgencyHint": "Change the bar automatically as the target approaches. Untouched stage times follow the total lead time; custom values stay fixed. Completed messages return to the normal size.",
+    "urgencyHint": "Change the bar automatically as the target approaches. By default, the stages start 300, 60, and 10 seconds before the target. Changing the lead time keeps these stage times fixed. Completed messages return to the normal size.",
     "startingSoon": "Starting soon (orange), minutes before",
     "urgent": "Urgent (red), seconds before",
     "pulse": "Pulse and enlarge, final seconds",

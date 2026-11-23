@@ -1,13 +1,20 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderPluginRoute } from "../testing";
 import { HostedInstanceEditor } from "./HostedInstanceEditor";
 import { HostedSettingsPage } from "./HostedSettingsPage";
 import type { PluginSecretStatus } from "../../api/types";
+import { hostedSettingsKey } from "./api";
 import { SecretKeyNotice } from "./SecretKeyNotice";
 
 const manifest = {
@@ -80,7 +87,7 @@ interface Recorded {
   body: Record<string, unknown>;
 }
 
-function stub(answers: Record<string, unknown>) {
+function stub(answers: Record<string, unknown>, settingsConflict = false) {
   const recorded: Recorded[] = [];
   vi.stubGlobal(
     "fetch",
@@ -110,6 +117,17 @@ function stub(answers: Record<string, unknown>) {
       const key = Object.keys(answers).find((candidate) =>
         path.endsWith(candidate),
       );
+      if (settingsConflict && method === "PUT") {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "plugin_settings_revision_conflict",
+              message: "Newer settings exist.",
+            },
+          }),
+          { status: 409 },
+        );
+      }
       return new Response(
         JSON.stringify({ data: key ? answers[key] : { items: [], total: 0 } }),
       );
@@ -181,6 +199,53 @@ describe("plugin secret key notice", () => {
 });
 
 describe("secret fields", () => {
+  it("keeps a draft and its revision through a refetch until the editor reloads", async () => {
+    const path = "/plugins/room-sign/settings/organization";
+    const answers = {
+      [path]: {
+        scope: "organization",
+        values: { refreshMinutes: 5 },
+        secrets: { apiToken: "set" },
+        revision: 2,
+      },
+    };
+    const recorded = stub(answers, true);
+    const { queryClient } = renderPluginRoute(
+      <HostedSettingsPage pluginId="room_sign" manifest={manifest} />,
+      { path: "/plugins/room-sign/settings", role: "owner" },
+    );
+    const token = await screen.findByLabelText("API token");
+    const refresh = screen.getByLabelText(/Refresh/);
+    fireEvent.change(token, { target: { value: "draft-token" } });
+    fireEvent.change(refresh, { target: { value: "10" } });
+    answers[path] = {
+      ...answers[path],
+      values: { refreshMinutes: 30 },
+      revision: 3,
+    };
+    await act(() =>
+      queryClient.invalidateQueries({
+        queryKey: hostedSettingsKey("room_sign"),
+      }),
+    );
+    expect(refresh).toHaveValue(10);
+    expect(token).toHaveValue("draft-token");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const reload = await screen.findByRole("button", {
+      name: "Reload the latest version",
+    });
+    expect(recorded[0]?.body).toMatchObject({
+      values: { refreshMinutes: 10 },
+      secrets: { apiToken: "draft-token" },
+      expectedRevision: 2,
+    });
+    fireEvent.click(reload);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Refresh/)).toHaveValue(30),
+    );
+    expect(screen.getByLabelText("API token")).toHaveValue("");
+  });
+
   it("shows only whether a settings secret is set, and sends a new value or a clear", async () => {
     const recorded = stub({
       "/plugins/room-sign/settings/organization": {

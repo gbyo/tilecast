@@ -23,6 +23,14 @@ func cliSecrets(ctx context.Context, logger *slog.Logger, args []string) {
 			os.Exit(2)
 		}
 	}
+	if args[0] == "import-kek" {
+		added, err := pluginsecrets.ImportKEKs(cfg.SecretsKeyFile, args[1])
+		if err != nil {
+			cliFail("import key encryption keys", err)
+		}
+		fmt.Printf("Added %d key encryption key(s): %s\n", len(added), strings.Join(added, ", "))
+		return
+	}
 	ring, err := pluginsecrets.Load(cfg.SecretsKeyFile)
 	if err != nil {
 		cliFail("read "+pluginsecrets.KeyFileEnvironmentVariable, err)
@@ -36,13 +44,6 @@ func cliSecrets(ctx context.Context, logger *slog.Logger, args []string) {
 		fmt.Printf("Wrote %d key encryption key(s) to %s.\n", len(ring.IDs()), args[1])
 		fmt.Println("Store this file apart from Tilecast backups. Anyone with it and a backup can read the plugin secrets.")
 		fmt.Println("Then confirm the export in Studio (Settings, Plugin secrets) so Owners stop seeing the warning.")
-		return
-	case "import-kek":
-		added, err := ring.Import(args[1])
-		if err != nil {
-			cliFail("import key encryption keys", err)
-		}
-		fmt.Printf("Added %d key encryption key(s): %s\n", len(added), strings.Join(added, ", "))
 		return
 	}
 	db, err := database.Open(ctx, cfg.DatabaseURL)
@@ -68,13 +69,9 @@ func cliSecrets(ctx context.Context, logger *slog.Logger, args []string) {
 		// The new KEK is written to the file first, so a crash at any point
 		// leaves every DEK wrapped with a KEK the file still holds. Running
 		// the command again finishes the rewrap.
-		kek, err := ring.AddKEK()
+		kek, rewrapped, missing, err := store.RotateKEK(ctx)
 		if err != nil {
-			cliFail("add a key encryption key", err)
-		}
-		rewrapped, missing, err := store.RewrapDEKs(ctx)
-		if err != nil {
-			cliFail("rewrap data encryption keys (run the command again to finish)", err)
+			cliFail("rotate the key encryption key (run the command again to finish an interrupted rotation)", err)
 		}
 		fmt.Printf("Current KEK is now %s. Rewrapped %d data encryption key(s).\n", kek.ID, rewrapped)
 		if len(missing) > 0 {
@@ -96,11 +93,7 @@ func cliSecrets(ctx context.Context, logger *slog.Logger, args []string) {
 			fmt.Printf("Moved %d secret(s).\n", moved)
 		}
 	case "prune-keks":
-		inUse, err := store.KEKsInUse(ctx, db)
-		if err != nil {
-			cliFail("read the KEKs in use", err)
-		}
-		removed, err := ring.Prune(inUse)
+		removed, err := store.PruneKEKs(ctx)
 		if err != nil {
 			cliFail("prune key encryption keys", err)
 		}

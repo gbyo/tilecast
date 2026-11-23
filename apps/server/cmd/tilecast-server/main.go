@@ -330,7 +330,7 @@ func serve() {
 		ReservedFreeBytes: cfg.Backup.ReservedFreeBytes,
 		Limits:            backup.Limits{MaxFiles: cfg.Backup.MaxArchiveFiles, MaxExpandedBytes: cfg.Backup.MaxArchiveBytes},
 		Build:             version.CurrentBuild(),
-		SecretKEKIDs:      func() []string { return pluginSecrets.Ring().IDs() },
+		SecretKEKIDs:      pluginSecrets.AvailableKEKIDs,
 	}, logger)
 	backupWorker.Start(ctx)
 	defer backupWorker.Stop()

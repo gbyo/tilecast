@@ -151,7 +151,7 @@ func scanArchive(row rowScanner) (Archive, error) {
 
 // EnqueueBackup queues a backup job. Only one job may be active.
 func (s *Service) EnqueueBackup(ctx context.Context, trigger string, requestedBy *uuid.UUID) (Job, error) {
-	return s.enqueue(ctx, "backup", trigger, nil, requestedBy, false)
+	return s.enqueue(ctx, "backup", trigger, nil, requestedBy, false, false)
 }
 
 // EnqueueVerify queues a verification job for an existing archive.
@@ -159,7 +159,7 @@ func (s *Service) EnqueueVerify(ctx context.Context, archiveID uuid.UUID, trigge
 	if _, err := s.Get(ctx, archiveID); err != nil {
 		return Job{}, err
 	}
-	return s.enqueue(ctx, "verify", trigger, &archiveID, requestedBy, false)
+	return s.enqueue(ctx, "verify", trigger, &archiveID, requestedBy, false, false)
 }
 
 // EnqueueRestore queues a restore job for a complete archive.
@@ -171,19 +171,13 @@ func (s *Service) EnqueueRestore(ctx context.Context, archiveID uuid.UUID, reque
 	if archive.Status != "complete" {
 		return Job{}, ErrArchiveNotUsable
 	}
-	job, err := s.enqueue(ctx, "restore", "manual", &archiveID, requestedBy, confirmIdentityMismatch)
-	if err != nil || !confirmUnreadableSecrets {
-		return job, err
-	}
-	if _, err := s.db.Exec(ctx, `UPDATE backup_jobs SET confirm_unreadable_secrets=TRUE WHERE id=$1 AND status='queued'`, job.ID); err != nil {
-		return Job{}, fmt.Errorf("record the restore confirmation: %w", err)
-	}
-	return job, nil
+	return s.enqueue(ctx, "restore", "manual", &archiveID, requestedBy, confirmIdentityMismatch, confirmUnreadableSecrets)
 }
 
-func (s *Service) enqueue(ctx context.Context, kind, trigger string, archiveID *uuid.UUID, requestedBy *uuid.UUID, confirmIdentityMismatch bool) (Job, error) {
+func (s *Service) enqueue(ctx context.Context, kind, trigger string, archiveID *uuid.UUID, requestedBy *uuid.UUID, confirmIdentityMismatch, confirmUnreadableSecrets bool) (Job, error) {
 	id := uuid.New()
-	_, err := s.db.Exec(ctx, `INSERT INTO backup_jobs (id, kind, trigger, archive_id, requested_by, confirm_identity_mismatch) VALUES ($1, $2, $3, $4, $5, $6)`, id, kind, trigger, archiveID, requestedBy, confirmIdentityMismatch)
+	_, err := s.db.Exec(ctx, `INSERT INTO backup_jobs (id, kind, trigger, archive_id, requested_by, confirm_identity_mismatch, confirm_unreadable_secrets)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`, id, kind, trigger, archiveID, requestedBy, confirmIdentityMismatch, confirmUnreadableSecrets)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
