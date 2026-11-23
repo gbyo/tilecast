@@ -208,9 +208,8 @@ describe("PlaybackExplanationPanel", () => {
           name: "Loading playback explanation",
         }),
       ).toBeVisible();
-      expect(
-        screen.queryByText("Selection precedence"),
-      ).not.toBeInTheDocument();
+      const previous = screen.queryByText("Selection precedence");
+      expect(previous).not.toBeInTheDocument();
       expect(screen.queryByText("Lunch Menu")).not.toBeInTheDocument();
     } finally {
       release();
