@@ -23,6 +23,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/connectivity"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
+	"github.com/tilecast/tilecast/apps/server/internal/contentmodel"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
@@ -46,6 +47,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginproviders"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
@@ -414,6 +416,13 @@ func serve() {
 	takeoverService.SetEvents(pluginService)
 	schedulingService.SetEvents(pluginService)
 	contentHealthService.SetEvents(pluginService)
+	// Provider slots (docs/plugin-providers.md): plugin notification
+	// channels are a sender of the notification outbox, and plugin Content
+	// Health checks run in the content sweep, each through a narrow
+	// interface of the core feature.
+	notifyService.SetChannelProvider(pluginproviders.Channels{Plugins: pluginService})
+	contentHealthService.SetPluginChecks(pluginproviders.Checks{Plugins: pluginService},
+		contentmodel.NewBuilder(db, playlistService, layoutService, mediaService), logger)
 	notifyWorker := notify.NewWorker(notifyService, logger)
 	// Sweeps run before the outbox scan, so an outage they record in this
 	// pass is notified in the same pass.

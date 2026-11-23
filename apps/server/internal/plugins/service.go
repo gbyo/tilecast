@@ -186,6 +186,10 @@ type CatalogPlugin struct {
 	// with the authentication of each and whether it needs a public HTTPS
 	// address.
 	Webhooks []WebhookReview `json:"webhooks"`
+
+	// Providers are the core provider slots the plugin fills: notification
+	// channels and Content Health checks with the item kinds they read.
+	Providers ProviderReview `json:"providers"`
 }
 
 // PluginAttention is a bounded, advisory status note. It never blocks
@@ -326,7 +330,7 @@ func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlug
 		Configured: status.configured, Active: status.active, InstanceCount: status.count,
 		Attention: attention, Connections: append([]ConnectionReview{}, d.Connections...),
 		Feeds: append([]FeedReview{}, d.Feeds...), Events: d.Events.clone(),
-		Webhooks: append([]WebhookReview{}, d.Webhooks...),
+		Webhooks: append([]WebhookReview{}, d.Webhooks...), Providers: d.Providers.clone(),
 	}
 }
 

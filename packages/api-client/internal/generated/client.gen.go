@@ -2433,24 +2433,6 @@ func (e NotificationCategory) Valid() bool {
 	}
 }
 
-// Defines values for NotificationDeliveryChannel.
-const (
-	Email   NotificationDeliveryChannel = "email"
-	Webhook NotificationDeliveryChannel = "webhook"
-)
-
-// Valid indicates whether the value is a known member of the NotificationDeliveryChannel enum.
-func (e NotificationDeliveryChannel) Valid() bool {
-	switch e {
-	case Email:
-		return true
-	case Webhook:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for NotificationDeliverySeverity.
 const (
 	NotificationDeliverySeverityCritical NotificationDeliverySeverity = "critical"
@@ -7516,9 +7498,12 @@ type CatalogPlugin struct {
 	InstanceNounSingular string `json:"instanceNounSingular"`
 
 	// ManagementPath Studio route; a navigation hint, not an authorization boundary
-	ManagementPath string              `json:"managementPath"`
-	Name           string              `json:"name"`
-	Requirements   []PluginRequirement `json:"requirements"`
+	ManagementPath string `json:"managementPath"`
+	Name           string `json:"name"`
+
+	// Providers The core provider slots a Plugin Manifest API 3 plugin fills. Empty lists for other plugins. A notification channel delivers notifications Tilecast already decided to send; a Content Health check reads one item of the listed kinds at a time.
+	Providers    *PluginProviderReview `json:"providers,omitempty"`
+	Requirements []PluginRequirement   `json:"requirements"`
 
 	// Version Definition contract version compiled into this release
 	Version int `json:"version"`
@@ -9820,9 +9805,11 @@ type NotificationCategory string
 
 // NotificationDelivery defines model for NotificationDelivery.
 type NotificationDelivery struct {
-	Attempts  int                          `json:"attempts"`
-	Category  NotificationCategory         `json:"category"`
-	Channel   NotificationDeliveryChannel  `json:"channel"`
+	Attempts int                  `json:"attempts"`
+	Category NotificationCategory `json:"category"`
+
+	// Channel email, webhook, or plugin. A plugin delivery's target is <plugin id>:<channel id>, a notification channel that a Plugin Manifest API 3 plugin declares (docs/plugin-providers.md).
+	Channel   string                       `json:"channel"`
 	CreatedAt time.Time                    `json:"createdAt"`
 	EventKey  string                       `json:"eventKey"`
 	Id        openapi_types.UUID           `json:"id"`
@@ -9833,9 +9820,6 @@ type NotificationDelivery struct {
 	Subject   string                       `json:"subject"`
 	Target    string                       `json:"target"`
 }
-
-// NotificationDeliveryChannel defines model for NotificationDelivery.Channel.
-type NotificationDeliveryChannel string
 
 // NotificationDeliverySeverity defines model for NotificationDelivery.Severity.
 type NotificationDeliverySeverity string
@@ -11434,6 +11418,49 @@ type PluginParkedDelivery struct {
 	Subject string `json:"subject"`
 }
 
+// PluginProviderReview The core provider slots a Plugin Manifest API 3 plugin fills. Empty lists for other plugins. A notification channel delivers notifications Tilecast already decided to send; a Content Health check reads one item of the listed kinds at a time.
+type PluginProviderReview struct {
+	Channels []struct {
+		Description *string `json:"description,omitempty"`
+		Id          string  `json:"id"`
+		Title       string  `json:"title"`
+	} `json:"channels"`
+	Checks []struct {
+		Description *string  `json:"description,omitempty"`
+		Id          string   `json:"id"`
+		Kinds       []string `json:"kinds"`
+		Title       string   `json:"title"`
+	} `json:"checks"`
+}
+
+// PluginProviderStatus defines model for PluginProviderStatus.
+type PluginProviderStatus struct {
+	Channels []struct {
+		Failed       int        `json:"failed"`
+		Id           string     `json:"id"`
+		LastFailedAt *time.Time `json:"lastFailedAt,omitempty"`
+		LastSentAt   *time.Time `json:"lastSentAt,omitempty"`
+		Pending      int        `json:"pending"`
+
+		// Ready False when the channel is intentionally off or not configured; notifications skip it.
+		Ready bool   `json:"ready"`
+		Sent  int    `json:"sent"`
+		Title string `json:"title"`
+	} `json:"channels"`
+	Checks []struct {
+		CheckedItems int `json:"checkedItems"`
+
+		// FailingItems Items whose latest check failed. Their earlier conditions stay open.
+		FailingItems   int        `json:"failingItems"`
+		Id             string     `json:"id"`
+		Kinds          []string   `json:"kinds"`
+		LastFailedAt   *time.Time `json:"lastFailedAt,omitempty"`
+		LastFailure    *string    `json:"lastFailure,omitempty"`
+		OpenConditions int        `json:"openConditions"`
+		Title          string     `json:"title"`
+	} `json:"checks"`
+}
+
 // PluginRequirement defines model for PluginRequirement.
 type PluginRequirement struct {
 	Description *string               `json:"description,omitempty"`
@@ -11463,6 +11490,7 @@ type PluginStatus struct {
 	Deliveries      PluginDeliveryStatus `json:"deliveries"`
 	Installed       bool                 `json:"installed"`
 	PluginId        string               `json:"pluginId"`
+	Providers       PluginProviderStatus `json:"providers"`
 	PublishedEvents []struct {
 		Event string `json:"event"`
 

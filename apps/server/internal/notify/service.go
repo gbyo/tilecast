@@ -30,6 +30,8 @@ type Service struct {
 	logger   *slog.Logger
 	email    EmailSender
 	webhooks WebhookSender
+	// channels are the plugin notification channels. Nil sends to none.
+	channels ChannelProvider
 
 	// batchBudget bounds how long one DeliverDue call keeps sending before it
 	// releases the rest of its claim.
@@ -113,6 +115,18 @@ func (s *Service) Enqueue(ctx context.Context, event Event) error {
 		// A webhook is a machine receiver. Quiet hours and digests are human
 		// comforts and would only make an integration look broken.
 		if err := s.insertDelivery(ctx, event, "webhook", target.ID, now); err != nil {
+			return err
+		}
+	}
+	channels, err := s.pluginTargets(ctx)
+	if err != nil {
+		return err
+	}
+	for _, channel := range channels {
+		// A plugin channel is a machine receiver too: no quiet hours, no
+		// digest. Only a channel that is ready now gets a row, so an
+		// intentionally disabled channel leaves no failed delivery behind.
+		if err := s.insertDelivery(ctx, event, ChannelPlugin, channel.Target, now); err != nil {
 			return err
 		}
 	}
@@ -267,7 +281,11 @@ func (s *Service) DeliverDue(ctx context.Context) (int, error) {
 			unsent = append(unsent, item)
 			continue
 		}
-		if s.deliverWebhook(ctx, item) {
+		deliver := s.deliverWebhook
+		if item.channel == ChannelPlugin {
+			deliver = s.deliverPlugin
+		}
+		if deliver(ctx, item) {
 			sent++
 		}
 	}
@@ -300,6 +318,9 @@ type pendingDelivery struct {
 	body     string
 	payload  []byte
 	attempts int
+	// createdAt is when the delivery was queued: the time of the
+	// transition.
+	createdAt time.Time
 	// lease is the next_attempt_at value this worker wrote when it claimed
 	// the row. Every later update is fenced on it.
 	lease time.Time
@@ -324,7 +345,7 @@ func (s *Service) claimDue(ctx context.Context) ([]pendingDelivery, error) {
 		SET next_attempt_at = now() + make_interval(secs => $1)
 		FROM due WHERE d.id = due.id
 		RETURNING d.id,d.event_key,d.category,d.severity,d.channel,d.target,
-		          d.subject,d.body,d.payload,d.attempts,d.next_attempt_at`, deliveryLease.Seconds())
+		          d.subject,d.body,d.payload,d.attempts,d.next_attempt_at,d.created_at`, deliveryLease.Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +354,7 @@ func (s *Service) claimDue(ctx context.Context) ([]pendingDelivery, error) {
 	for rows.Next() {
 		var d pendingDelivery
 		if err := rows.Scan(&d.id, &d.eventKey, &d.category, &d.severity, &d.channel,
-			&d.target, &d.subject, &d.body, &d.payload, &d.attempts, &d.lease); err != nil {
+			&d.target, &d.subject, &d.body, &d.payload, &d.attempts, &d.lease, &d.createdAt); err != nil {
 			return nil, err
 		}
 		out = append(out, d)

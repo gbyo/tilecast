@@ -868,5 +868,11 @@
     "file": "00146_plugin_webhooks.sql",
     "owner": "core",
     "sha256": "9fa05b98b387ec5ba0850bfcf0906f50bb80fe17bb66e473a96ca44748f662a4"
+  },
+  {
+    "version": 147,
+    "file": "00147_plugin_providers.sql",
+    "owner": "core",
+    "sha256": "717ee7e2773d03479e572b2e72f4e7882835c566462e394facc01b1dc3ab47a8"
   }
 ]

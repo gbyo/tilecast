@@ -10,6 +10,7 @@ package contenthealth
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,6 +37,11 @@ type Service struct {
 	events coreevents.Sink
 	// now dates those events. Tests replace it.
 	now func() time.Time
+	// checks and models are the contenthealth.checks provider slot. Nil
+	// runs no plugin check.
+	checks PluginChecks
+	models ContentModels
+	logger *slog.Logger
 }
 
 // SetClock replaces the clock that dates the sweep's core events.
@@ -66,7 +72,7 @@ func (s *Service) emitIDs(ctx context.Context, tx pgx.Tx, rows pgx.Rows, err err
 
 // NewService builds the content health service.
 func NewService(db *pgxpool.Pool, reader SettingsReader) *Service {
-	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad(), now: time.Now}
+	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad(), now: time.Now, logger: slog.Default()}
 }
 
 // SetContentDefinitions shares the release catalog used for playback projection.
@@ -112,7 +118,11 @@ func (s *Service) Sweep(ctx context.Context) error {
 	if err := s.sweepFeeds(ctx); err != nil {
 		return err
 	}
-	return s.sweepEmptyPlaylists(ctx)
+	if err := s.sweepEmptyPlaylists(ctx); err != nil {
+		return err
+	}
+	// Plugin checks are additional. They never change the built-in sweeps.
+	return s.sweepPluginChecks(ctx)
 }
 
 func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration) error {
@@ -354,13 +364,15 @@ func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
 
 	// Recover when the playlist has content again or is no longer assigned.
 	// Both are genuine ends of the condition: nothing is on a screen with
-	// nothing to play any more.
+	// nothing to play any more. A plugin check's condition is also a
+	// content incident; only its own check recovers it.
 	rows, err = tx.Query(ctx, `
 		UPDATE incidents i SET status='recovered',recovered_at=now(),
 			recovery_mode='automatic',
 			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'The playlist has content available again.'),
 			updated_at=now()
 		WHERE i.incident_type='content' AND i.status IN('open','acknowledged')
+		  AND i.failure_code IS DISTINCT FROM 'plugin_check'
 		  AND NOT EXISTS(
 		      WITH assigned AS (
 		          SELECT p.id, p.source_type, p.tag_match
