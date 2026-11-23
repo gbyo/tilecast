@@ -42,8 +42,9 @@ vi.mock("../content/WidgetSnapshotBackfill", () => ({
 const COMPACT_QUERY = "(max-width: 1023px)";
 
 function stubViewport(compact: boolean) {
+  const phoneQuery = "(max-width: 639px)";
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: compact && (query === COMPACT_QUERY || query === "(max-width: 639px)"),
+    matches: compact && [COMPACT_QUERY, phoneQuery].includes(query),
     media: query,
     onchange: null,
     addListener: () => undefined,
