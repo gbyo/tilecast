@@ -39,6 +39,7 @@ vi.mock("../auth/AuthProvider", () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 // A release-defined Data Source whose provider ID is NOT present in any TypeScript union,
@@ -171,6 +172,12 @@ describe("Data Source card actions", () => {
     const duplicate = vi
       .spyOn(api, "duplicateDataSource")
       .mockResolvedValue({ ...source, id: "source-2" });
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-hover: hover) and (any-pointer: fine)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
     renderPage();
     fireEvent.contextMenu(await (await desktop()).findByText("District news"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
