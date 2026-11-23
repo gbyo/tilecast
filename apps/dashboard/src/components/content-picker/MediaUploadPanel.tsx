@@ -1,7 +1,7 @@
+import { newUuid } from "../../lib/uuid";
 import { formatDurationClock } from "../../lib/formatDuration";
 import { formatBytes } from "../../lib/formatBytes";
 import {
-import { newUuid } from "../../lib/uuid";
   CircleCheck,
   Clock,
   FileUp,
