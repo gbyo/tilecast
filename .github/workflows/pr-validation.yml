@@ -89,11 +89,6 @@ jobs:
       conformance: false
       host_boot: false
 
-  ios_ci:
-    needs: changes
-    if: needs.changes.outputs.ios == 'true'
-    uses: ./.github/workflows/ci-ios.yml
-
   server_ci:
     needs: changes
     if: needs.changes.outputs.server == 'true'
@@ -168,7 +163,6 @@ jobs:
       - browser_player_ci
       - setup_relay_ci
       - android_ci
-      - ios_ci
       - linux_player_ci
       - server_ci
       - dashboard_ci
@@ -194,8 +188,6 @@ jobs:
           SETUP_RELAY_CI_RESULT: ${{ needs.setup_relay_ci.result }}
           ANDROID_CI_SELECTED: ${{ needs.changes.outputs.android == 'true' }}
           ANDROID_CI_RESULT: ${{ needs.android_ci.result }}
-          IOS_CI_SELECTED: ${{ needs.changes.outputs.ios == 'true' }}
-          IOS_CI_RESULT: ${{ needs.ios_ci.result }}
           LINUX_PLAYER_CI_SELECTED: ${{ needs.changes.outputs.linux == 'true' }}
           LINUX_PLAYER_CI_RESULT: ${{ needs.linux_player_ci.result }}
           SERVER_CI_SELECTED: ${{ needs.changes.outputs.server == 'true' }}
@@ -240,7 +232,6 @@ jobs:
           check browser_player_ci "$BROWSER_PLAYER_CI_SELECTED" "$BROWSER_PLAYER_CI_RESULT"
           check setup_relay_ci "$SETUP_RELAY_CI_SELECTED" "$SETUP_RELAY_CI_RESULT"
           check android_ci "$ANDROID_CI_SELECTED" "$ANDROID_CI_RESULT"
-          check ios_ci "$IOS_CI_SELECTED" "$IOS_CI_RESULT"
           check linux_player_ci "$LINUX_PLAYER_CI_SELECTED" "$LINUX_PLAYER_CI_RESULT"
           check server_ci "$SERVER_CI_SELECTED" "$SERVER_CI_RESULT"
           check dashboard_ci "$DASHBOARD_CI_SELECTED" "$DASHBOARD_CI_RESULT"
