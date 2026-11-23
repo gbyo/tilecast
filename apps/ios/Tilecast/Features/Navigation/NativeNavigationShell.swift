@@ -17,9 +17,11 @@ extension NavigationCatalog.Destination {
     var imageName: String { NavigationIcon.imageName(for: icon) }
 }
 
-/// Adaptive top-level navigation. iPhone uses the system bottom tab bar.
-/// iPadOS starts content-first with its top tab bar and lets people reveal
-/// the system sidebar when the window has room for it.
+/// Adaptive native navigation. iPhone keeps a compact set of primary tabs
+/// plus More. iPadOS uses sidebarAdaptable as the full navigation model:
+/// primary destinations stay in the top tab bar and every other Studio
+/// destination appears directly in the system sidebar, grouped by Studio's
+/// catalog.
 struct NativeTabNavigation: View {
     let page: StudioPage
     let actions: ServerActions
@@ -27,41 +29,97 @@ struct NativeTabNavigation: View {
     @Environment(StudioSlot.self) private var slot
 
     private var navigation: NativeNavigationModel { page.bridge.navigation }
+    private var usesCompactMore: Bool { UIDevice.current.userInterfaceIdiom == .phone }
+
+    private var selection: Binding<NavigationTab> {
+        Binding(
+            get: {
+                usesCompactMore
+                    ? navigation.selectedTab
+                    : navigation.adaptiveSelectedTab
+            },
+            set: { tab in
+                if usesCompactMore {
+                    navigation.selectTab(tab)
+                } else {
+                    navigation.selectAdaptiveTab(tab)
+                }
+            }
+        )
+    }
 
     var body: some View {
-        // The tab bar responds optimistically to a tap. Studio's WebView is
-        // exposed only after the route acknowledgement arrives after paint.
-        TabView(selection: Binding(get: { navigation.selectedTab }, set: { navigation.selectTab($0) })) {
+        // Native selection responds optimistically to a tap. Studio's WebView
+        // is exposed in the new tab only after the route acknowledgement
+        // arrives after paint.
+        TabView(selection: selection) {
             ForEach(navigation.primaryDestinations) { destination in
-                Tab(destination.title, image: destination.imageName, value: NavigationTab.destination(destination.id)) {
-                    studio(in: .destination(destination.id))
+                Tab(
+                    destination.title,
+                    image: destination.imageName,
+                    value: NavigationTab.destination(destination.id)
+                ) {
+                    studio(
+                        in: .destination(destination.id),
+                        adaptive: !usesCompactMore
+                    )
                 }
             }
-            Tab(value: NavigationTab.more) {
-                // The list and Studio take turns in the same adaptive tab.
-                // iPhone composites Studio behind the tab container; iPad
-                // overlays Studio only inside this tab's measured content slot.
-                if navigation.frontendTab == .more {
-                    NavigationStack {
-                        StudioSlotView(extendsBelowTabBar: true)
-                            .studioBackBar(navigation)
-                            .containerBackground(.clear, for: .navigation)
+
+            if usesCompactMore {
+                Tab(value: NavigationTab.more) {
+                    // The More list and Studio take turns in one compact tab.
+                    if navigation.frontendTab == .more {
+                        NavigationStack {
+                            StudioSlotView(extendsBelowTabBar: true)
+                                .studioBackBar(navigation)
+                                .containerBackground(.clear, for: .navigation)
+                        }
+                        .background {
+                            StudioTabContainerBackground(studioVisible: slot.frame != nil)
+                        }
+                    } else {
+                        NavigationStack {
+                            MoreView(page: page, actions: actions)
+                        }
+                        .background {
+                            StudioTabContainerBackground(studioVisible: slot.frame != nil)
+                        }
                     }
-                    .background { StudioTabContainerBackground(studioVisible: slot.frame != nil) }
-                } else {
-                    NavigationStack {
-                        MoreView(page: page, actions: actions)
-                    }
-                    .background { StudioTabContainerBackground(studioVisible: slot.frame != nil) }
+                } label: {
+                    Label("More", image: AppIcon.more)
                 }
-            } label: {
-                Label("More", image: AppIcon.more)
+            } else {
+                // sidebarOnly keeps secondary destinations out of the compact
+                // top tab bar while making them first-class selections in the
+                // adaptable sidebar. The groups and labels come entirely from
+                // Studio's catalog.
+                ForEach(navigation.moreGroups) { group in
+                    TabSection {
+                        ForEach(group.destinations) { destination in
+                            Tab(
+                                destination.title,
+                                image: destination.imageName,
+                                value: NavigationTab.destination(destination.id)
+                            ) {
+                                studio(
+                                    in: .destination(destination.id),
+                                    adaptive: true
+                                )
+                            }
+                            .tabPlacement(.sidebarOnly)
+                        }
+                    } header: {
+                        if let title = group.title {
+                            Text(title)
+                        }
+                    }
+                }
             }
         }
-        // Let iPadOS choose the representation as the window changes instead
-        // of treating every regular-width iPad as a permanently split layout.
-        // Apple recommends starting with the tab bar when content space matters;
-        // people can reveal the system sidebar when they want the hierarchy.
+        // iPadOS owns the transition between its content-first top tab bar and
+        // the richer sidebar. Tilecast describes hierarchy; it does not build a
+        // parallel split-view navigation system.
         .tabViewStyle(.sidebarAdaptable)
         .defaultAdaptableTabBarPlacement(.tabBar)
         .tabViewSidebarHeader {
@@ -81,25 +139,30 @@ struct NativeTabNavigation: View {
             }
             .accessibilityIdentifier("native.serverMenu")
         }
-        // Keep the adaptive container itself clear. iPhone composes Studio
-        // behind it; iPad overlays Studio only inside the measured content slot.
         .background(.clear)
     }
 
-    /// Studio appears in exactly one tab at a time. On iPhone its slot reaches
-    /// beneath the floating tab bar so the glass samples the page. On iPad the
-    /// slot instead bounds the overlay to the system tab/sidebar detail area.
-    @ViewBuilder private func studio(in tab: NavigationTab) -> some View {
+    /// Studio appears in exactly one tab at a time. iPhone maps secondary
+    /// destinations into More; iPad maps every destination to its own
+    /// sidebarAdaptable tab. In both cases the confirmed frame stays put until
+    /// Studio acknowledges the route after paint.
+    @ViewBuilder
+    private func studio(in tab: NavigationTab, adaptive: Bool) -> some View {
+        let frontendTab =
+            adaptive ? navigation.adaptiveFrontendTab : navigation.frontendTab
+        let selectedTab =
+            adaptive ? navigation.adaptiveSelectedTab : navigation.selectedTab
+        let selectionPending =
+            adaptive
+                ? navigation.isAdaptiveSelectionPending
+                : navigation.isTabSelectionPending
+
         NavigationStack {
-            if navigation.frontendTab == tab {
+            if frontendTab == tab {
                 StudioSlotView(extendsBelowTabBar: true)
                     .studioBackBar(navigation)
                     .containerBackground(.clear, for: .navigation)
-            } else if navigation.selectedTab == tab && navigation.isTabSelectionPending {
-                // The native selection has moved, but WebKit has not yet
-                // confirmed a painted frame for this destination. Cover the
-                // persistent WebView briefly instead of exposing its stale
-                // composited frame under the new tab.
+            } else if selectedTab == tab && selectionPending {
                 Color(uiColor: .systemBackground)
                     .ignoresSafeArea()
                     .toolbar(.hidden, for: .navigationBar)
@@ -110,7 +173,9 @@ struct NativeTabNavigation: View {
                     .containerBackground(.clear, for: .navigation)
             }
         }
-        .background { StudioTabContainerBackground(studioVisible: slot.frame != nil) }
+        .background {
+            StudioTabContainerBackground(studioVisible: slot.frame != nil)
+        }
     }
 }
 
