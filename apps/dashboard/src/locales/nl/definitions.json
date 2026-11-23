@@ -1,0 +1,286 @@
+{
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Gegevensbron",
+        "description": "Sluit een agenda of een andere recordbron aan."
+      },
+      "titleField": {
+        "label": "Titelveld"
+      },
+      "startField": {
+        "label": "Startveld"
+      },
+      "endField": {
+        "label": "Einde veld"
+      },
+      "locationField": {
+        "label": "Locatieveld"
+      },
+      "categoryField": {
+        "label": "Categorieveld"
+      },
+      "heading": {
+        "label": "Rubriek"
+      },
+      "maximumItems": {
+        "label": "Maximale evenementen"
+      },
+      "hideEnded": {
+        "label": "Verberg gebeurtenissen uit het verleden",
+        "description": "Beëindigde gebeurtenissen verlaten het bord met behulp van de Player-klok. Evenementen zonder einde blijven hun lokale dag behouden."
+      },
+      "showWeekday": {
+        "label": "Weekdag weergeven"
+      },
+      "showDate": {
+        "label": "Datum weergeven"
+      },
+      "showTime": {
+        "label": "Toon tijd"
+      },
+      "showLocation": {
+        "label": "Toon locatie"
+      },
+      "showCategory": {
+        "label": "Categorie weergeven"
+      },
+      "showDividers": {
+        "label": "Toon scheidingslijnen"
+      },
+      "dateStyle": {
+        "label": "Datum stijl",
+        "options": {
+          "short": "Korte maand en dag",
+          "day": "Dag van de maand",
+          "numeric": "Numerieke maand en dag"
+        }
+      },
+      "emptyText": {
+        "label": "Leeg bericht",
+        "description": "Laat dit leeg als u het standaard lege bericht wilt gebruiken."
+      },
+      "flow": {
+        "label": "Stroom",
+        "options": {
+          "auto": "Automatisch",
+          "vertical": "Verticaal",
+          "horizontal": "Horizontaal"
+        }
+      },
+      "verticalDirection": {
+        "label": "Verticale richting",
+        "options": {
+          "up": "Op",
+          "down": "Naar beneden"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Horizontale richting",
+        "options": {
+          "left": "Links",
+          "right": "Juist"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Scrollsnelheid",
+        "description": "1 is langzaam, 10 is snel. Het leestempo blijft consistent terwijl u gebeurtenissen toevoegt."
+      },
+      "scrolling": {
+        "label": "Scrollen ingeschakeld"
+      },
+      "textScale": {
+        "label": "Tekstgrootte (%)",
+        "description": "100 gebruikt de automatische grootte. Verhoog het voor grotere gebeurtenistekst."
+      },
+      "headingScale": {
+        "label": "Kopgrootte (%)",
+        "description": "Pas het formaat van de kop aan, onafhankelijk van de gebeurtenistekst."
+      },
+      "rowLayout": {
+        "label": "Rij-indeling",
+        "description": "Natuurlijke afstanden houden rijen bij elkaar. Korte lijsten kunnen ruimte laten na het laatste evenement.",
+        "options": {
+          "fill": "Kijkvenster vullen",
+          "natural": "Natuurlijke afstand"
+        }
+      },
+      "rowSpacing": {
+        "label": "Rijafstand (%)",
+        "description": "Pas de ruimte boven en onder de gebeurtenistekst aan. Kies Natuurlijke afstand om de extra ruimte te verwijderen die wordt gebruikt om het kijkvenster te vullen."
+      },
+      "contentPadding": {
+        "label": "Buitenvulling (%)",
+        "description": "Pas de ruimte rond het bord aan. 0 verwijdert het; 100 maakt gebruik van de automatische opvulling."
+      },
+      "headingSpacing": {
+        "label": "Kopafstand (%)",
+        "description": "Pas de ruimte onder de kop en rond de scheidingslijn aan."
+      },
+      "density": {
+        "label": "Dichtheid",
+        "options": {
+          "compact": "Compact",
+          "comfortable": "Comfortabel",
+          "spacious": "Ruim"
+        }
+      },
+      "backgroundColor": {
+        "label": "Achtergrond"
+      },
+      "foregroundColor": {
+        "label": "Voorgrond"
+      },
+      "accentColor": {
+        "label": "Accent"
+      }
+    }
+  },
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Canva-ontwerplink",
+        "description": "Plak een link naar een openbare ontwerpweergave, een link voor slim insluiten, iframe src URL of een korte link naar canva.link. Publiceer eerst een openbare insluiting in Canva."
+      },
+      "slideshow": {
+        "label": "Diavoorstelling",
+        "description": "Open het ontwerp in de presentatie-/kijkmodus van Canva. Canva vereist mogelijk nog steeds dat het afspelen wordt gestart."
+      },
+      "refreshIntervalSeconds": {
+        "label": "Herlaadinterval"
+      }
+    }
+  },
+  "website": {
+    "fields": {
+      "url": {
+        "label": "Webadres",
+        "description": "De openbare pagina die moet worden weergegeven. Gebruik HTTPS; plain HTTP werkt alleen voor privéadressen als deze installatie dit toestaat."
+      },
+      "dataSourceId": {
+        "label": "Gegevensbron",
+        "description": "Optioneel. Gebruik {data.room} voor het ruimteveld van de eerste record, {data.room:1} voor de tweede, of {data.json} voor alle records als JSON. Ook beschikbaar: {screen.id}, {date}, {time}, {datetime}."
+      },
+      "urlTemplatesEnabled": {
+        "label": "Schakel URL-variabelen in",
+        "description": "Vervang scherm-, datum-, tijd- en gegevensbronvariabelen. Vereist compatibele spelers."
+      },
+      "backgroundColor": {
+        "label": "Achtergrondkleur",
+        "description": "Wordt achter de pagina weergegeven terwijl deze wordt geladen."
+      },
+      "zoomPercent": {
+        "label": "Zoom (%)"
+      },
+      "scrollX": {
+        "label": "Horizontaal scrollen (px)"
+      },
+      "scrollY": {
+        "label": "Verticaal scrollen (px)"
+      },
+      "reloadPolicy": {
+        "label": "Herladen",
+        "options": {
+          "load_once": "Eén keer laden terwijl actief",
+          "on_each_activation": "Herlaad elke keer dat het verschijnt",
+          "interval": "Herlaad met een interval"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "Herlaad elke (seconden)"
+      },
+      "failureBehavior": {
+        "label": "Als de pagina niet kan laden",
+        "options": {
+          "placeholder": "Toon de tijdelijke aanduiding Tilecast",
+          "last_success": "Bewaar de laatste pagina die is geladen",
+          "fallback_image": "Laat een fallback-afbeelding zien",
+          "skip": "Sla dit artikel over"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Terugval afbeelding"
+      },
+      "loadTimeoutSeconds": {
+        "label": "Time-out laden (seconden)"
+      },
+      "allowedHosts": {
+        "label": "Toegestane hosts",
+        "description": "Exacte hostnamen waarnaar de pagina kan navigeren. De eigen host van de pagina is altijd toegestaan. Dit beperkt de navigatie op het hoogste niveau, en niet elke bron van derden."
+      },
+      "javascriptEnabled": {
+        "label": "Voer JavaScript uit"
+      },
+      "domStorageEnabled": {
+        "label": "DOM-opslag toestaan"
+      },
+      "cookiePolicy": {
+        "label": "Koekjes",
+        "options": {
+          "disabled": "Uitgeschakeld",
+          "first_party": "Alleen van de eerste partij",
+          "first_and_third_party": "Eerste en derde partij"
+        }
+      },
+      "customUserAgent": {
+        "label": "Aangepaste gebruikersagent",
+        "description": "Laat dit veld leeg voor de standaard user-agent van de Player. Overschrijvingen kunnen sites kapot maken."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "YouTube-video of afspeellijst URL",
+        "description": "Tilecast detecteert of dit een video of een afspeellijst is. Er is geen YouTube API-sleutel vereist."
+      },
+      "startSeconds": {
+        "label": "Begin om (seconden)"
+      },
+      "endSeconds": {
+        "label": "Eindig om (seconden)",
+        "description": "Laat leeg om tot het einde te spelen."
+      },
+      "captions": {
+        "label": "Onderschriften weergeven"
+      },
+      "captionLanguage": {
+        "label": "Taal van de ondertiteling",
+        "description": "Een taalcode zoals en of es. Laat dit leeg voor de standaardinstelling van YouTube."
+      },
+      "muted": {
+        "label": "Audio dempen"
+      },
+      "volume": {
+        "label": "Volume (%)"
+      },
+      "loop": {
+        "label": "Lus afspelen"
+      },
+      "controls": {
+        "label": "YouTube-bedieningselementen weergeven"
+      },
+      "playlistPlaybackMode": {
+        "label": "Lengte van afspeellijstitem",
+        "options": {
+          "until_end": "Speel totdat de video eindigt",
+          "fixed_duration": "Speel voor een vaste duur"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "Vaste duur (seconden)"
+      },
+      "failureBehavior": {
+        "label": "Als de video niet kan worden afgespeeld",
+        "options": {
+          "placeholder": "Toon de tijdelijke aanduiding Tilecast",
+          "fallback_image": "Laat een fallback-afbeelding zien",
+          "skip": "Sla dit artikel over"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Terugval afbeelding"
+      }
+    }
+  }
+}

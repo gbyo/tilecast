@@ -1,0 +1,148 @@
+{
+  "contentReview": {
+    "title": "Inhoud beoordeling",
+    "description": "Een afspeellijst of lay-out moet bij de huidige revisie worden goedgekeurd voordat deze op een scherm kan verschijnen. Als u goedgekeurde inhoud bewerkt, wordt deze hierheen teruggestuurd.",
+    "openInbox": "Open de inzendingsinbox",
+    "notRequiredNotice": "Goedkeuring is niet vereist voor deze installatie, dus niets blokkeert de toewijzing. Een eigenaar of beheerder kan dit inschakelen onder <settingsLink>Instellingen, Inhoudsbeoordeling</settingsLink>.",
+    "filterLabel": "Controleer staat",
+    "filterAll": "Allemaal",
+    "loading": "De beoordelingswachtrij laden",
+    "emptyPending": "Niets wacht op beoordeling",
+    "emptyOther": "Niets om te laten zien",
+    "table": {
+      "content": "Inhoud",
+      "state": "Staat",
+      "screens": "Op schermen",
+      "reviewAction": "Beoordeling"
+    },
+    "state": {
+      "pending": "Wachten op beoordeling",
+      "approved": "Goedgekeurd",
+      "rejected": "Teruggestuurd"
+    },
+    "contentType": {
+      "playlist": "Afspeellijst",
+      "layout": "Indeling"
+    },
+    "contentTypeName": {
+      "playlist": "afspeellijst",
+      "layout": "indeling"
+    },
+    "itemMeta": "{{type}} · revisie {{revision}} · bijgewerkte {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · revisie {{revision}} · {{author}} · bijgewerkte {{updatedAt}}",
+    "assignedScreens_one": "Al op het {{count}}-scherm",
+    "assignedScreens_other": "Al op {{count}}-schermen",
+    "sheet": {
+      "lastNote": "Laatste opmerking: {{note}}",
+      "openContent": "Open {{type}}"
+    },
+    "actions": {
+      "approve": "Goedkeuren",
+      "sendBack": "Stuur terug"
+    },
+    "rejectDialog": {
+      "title": "Terugsturen voor wijzigingen",
+      "description": "Een optionele opmerking vertelt de auteur wat hij moet oplossen.",
+      "noteLabel": "Let op",
+      "notePlaceholder": "Wat moet er veranderen voordat dit kan worden goedgekeurd?",
+      "noteHint": "Met de beslissing opgenomen en aan de auteur getoond."
+    },
+    "toast": {
+      "approved": "Inhoud goedgekeurd.",
+      "sentBack": "Inhoud teruggestuurd.",
+      "decisionFailed": "Kan de beslissing niet vastleggen."
+    }
+  },
+  "submissions": {
+    "title": "Inhoud beoordeling",
+    "description": "Elke inzending bevriest het exacte concept dat een recensent heeft gezien. Door te publiceren ontstaat er een nieuwe onveranderlijke runtime-revisie; latere bewerkingen blijven privé totdat ze opnieuw worden ingediend.",
+    "openLegacyQueue": "Open de verouderde revisiewachtrij",
+    "policyNotice": "Beleid: <strong>{{policy}}</strong>. Zelfgoedkeuring is {{selfApproval}}; goedgekeurde inzendingen {{behavior}}.",
+    "policy": {
+      "selfApprovalAllowed": "toegestaan",
+      "selfApprovalDisabled": "uitgeschakeld",
+      "behaviorAuto": "automatisch publiceren",
+      "behaviorManual": "wacht op een expliciete publicatie- of planningsactie"
+    },
+    "filterLabel": "Inzendingsstatus",
+    "filters": {
+      "needsReview": "Moet worden beoordeeld",
+      "changesRequested": "Wijzigingen gevraagd",
+      "approved": "Goedgekeurd",
+      "scheduled": "Gepland",
+      "publicationFailed": "Publicatie mislukt",
+      "published": "Gepubliceerd",
+      "allHistory": "Alle geschiedenis"
+    },
+    "status": {
+      "inReview": "Moet worden beoordeeld",
+      "changesRequested": "Wijzigingen gevraagd",
+      "approved": "Goedgekeurd",
+      "scheduled": "Gepland",
+      "published": "Gepubliceerd",
+      "superseded": "Vervangen",
+      "cancelled": "Geannuleerd",
+      "publicationFailed": "Publicatie mislukt"
+    },
+    "table": {
+      "submission": "Indiening",
+      "status": "Status",
+      "impact": "Impact",
+      "reviewAction": "Beoordeling"
+    },
+    "loading": "Inzendingen laden…",
+    "loadErrorTitle": "Kan inzendingen niet laden",
+    "loadErrorDescription": "Als het probleem zich blijft voordoen, probeer dan de pagina opnieuw te laden.",
+    "emptyTitle": "Er zijn geen inzendingen die overeenkomen met deze weergave",
+    "emptyDescription": "Inzendingen verschijnen hier zodra de inhoud ter beoordeling is ingediend.",
+    "itemMeta": "Conceptrevisie {{revision}} · {{submittedAt}} ingediend",
+    "itemMetaWithSubmitter": "Conceptrevisie {{revision}} · ingediend {{submittedAt}} door {{submitter}}",
+    "itemImpact": "Gepubliceerde revisie {{published}} · {{screens}}-schermen op {{locations}}-locaties",
+    "detail": {
+      "status": "Status",
+      "publishedRevision": "Gepubliceerde revisie",
+      "impact": "Impact",
+      "snapshotHash": "Momentopname SHA-256",
+      "noRevision": "geen",
+      "coverage": "{{screens}}-schermen op {{locations}}-locaties",
+      "newerDraft": "Er bestaat een nieuwer privéontwerp.",
+      "reviewNote": "Beoordelingsopmerking: {{note}}",
+      "viewSnapshot": "Bekijk de exacte ingediende momentopname",
+      "cancelSchedule": "Schema annuleren",
+      "openContent": "Inhoud openen"
+    },
+    "reviewForm": {
+      "noteLabel": "Beoordelingsnotitie",
+      "notePlaceholder": "Optionele notitie opgenomen met goedkeuring",
+      "approve": "Goedkeuren",
+      "requestChanges": "Wijzigingen aanvragen"
+    },
+    "rejectDialog": {
+      "title": "Wijzigingen aanvragen",
+      "description": "Er is een reden vereist, zodat de auteur weet wat hij moet oplossen.",
+      "reasonLabel": "Reden van retour sturen",
+      "reasonPlaceholder": "Wat moet er veranderen voordat dit kan worden goedgekeurd?",
+      "reasonHint": "Met de beslissing opgenomen en aan de auteur getoond.",
+      "confirm": "Stuur terug"
+    },
+    "publish": {
+      "publishNow": "Publiceer nu",
+      "publishAtLabel": "Publiceren op",
+      "publishAtTimeLabel": "Publicatie tijd",
+      "publishAtHint": "Plan de publicatie voor een toekomstige datum en tijd.",
+      "schedule": "Schema"
+    },
+    "toast": {
+      "approved": "Inzending goedgekeurd.",
+      "changesRequested": "Wijzigingen gevraagd.",
+      "published": "Inzending gepubliceerd.",
+      "scheduled": "Publicatie gepland.",
+      "scheduleCancelled": "Schema geannuleerd.",
+      "approveFailed": "Kon het niet goedkeuren.",
+      "requestChangesFailed": "Kan geen wijzigingen aanvragen.",
+      "publishFailed": "Kan niet publiceren.",
+      "scheduleFailed": "Kan niet plannen.",
+      "cancelScheduleFailed": "Kan het schema niet annuleren."
+    }
+  }
+}

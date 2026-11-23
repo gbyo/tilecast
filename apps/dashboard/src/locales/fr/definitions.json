@@ -1,0 +1,278 @@
+{
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Source de données",
+        "description": "Connectez un calendrier ou une autre source d'enregistrements."
+      },
+      "titleField": {
+        "label": "Champ de titre"
+      },
+      "startField": {
+        "label": "Champ de départ"
+      },
+      "endField": {
+        "label": "Champ de fin"
+      },
+      "locationField": {
+        "label": "Champ de localisation"
+      },
+      "categoryField": {
+        "label": "Champ Catégorie"
+      },
+      "heading": {
+        "label": "Rubrique"
+      },
+      "maximumItems": {
+        "label": "Nombre maximum d'événements"
+      },
+      "hideEnded": {
+        "label": "Masquer les événements passés",
+        "description": "Les événements terminés quittent le tableau en utilisant l'horloge Player. Les événements sans fin perdurent tout au long de leur journée locale."
+      },
+      "showWeekday": {
+        "label": "Afficher en semaine"
+      },
+      "showDate": {
+        "label": "Afficher la date"
+      },
+      "showTime": {
+        "label": "Afficher l'heure"
+      },
+      "showLocation": {
+        "label": "Afficher l'emplacement"
+      },
+      "showCategory": {
+        "label": "Afficher la catégorie"
+      },
+      "showDividers": {
+        "label": "Afficher les séparateurs"
+      },
+      "dateStyle": {
+        "label": "Style de date",
+        "options": {
+          "short": "Mois et jour courts",
+          "day": "Jour du mois",
+          "numeric": "Mois et jour numériques"
+        }
+      },
+      "emptyText": {
+        "label": "Message vide",
+        "description": "Laissez vide pour utiliser le message vide standard."
+      },
+      "flow": {
+        "label": "Flux",
+        "options": {
+          "auto": "Automatique",
+          "vertical": "Verticale",
+          "horizontal": "Horizontale"
+        }
+      },
+      "verticalDirection": {
+        "label": "Direction verticale",
+        "options": {
+          "up": "Vers le haut",
+          "down": "Vers le bas"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Direction horizontale",
+        "options": {
+          "left": "Gauche",
+          "right": "À droite"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Vitesse de défilement",
+        "description": "1 est lent, 10 est rapide. Le rythme de lecture reste cohérent à mesure que vous ajoutez des événements."
+      },
+      "scrolling": {
+        "label": "Défilement activé"
+      },
+      "textScale": {
+        "label": "Taille du texte (%)",
+        "description": "100 utilise la taille automatique. Augmentez-le pour obtenir un texte d'événement plus grand."
+      },
+      "headingScale": {
+        "label": "Taille du titre (%)",
+        "description": "Redimensionnez le titre indépendamment du texte de l'événement."
+      },
+      "rowLayout": {
+        "label": "Disposition des lignes",
+        "description": "L'espacement naturel maintient les rangées ensemble. Les listes restreintes peuvent laisser de la place après le dernier événement.",
+        "options": {
+          "fill": "Remplir la fenêtre",
+          "natural": "Espacement naturel"
+        }
+      },
+      "rowSpacing": {
+        "label": "Espacement des rangs (%)",
+        "description": "Ajustez l'espace au-dessus et au-dessous du texte de l'événement. Choisissez Espacement naturel pour supprimer l'espace supplémentaire utilisé pour remplir la fenêtre."
+      },
+      "contentPadding": {
+        "label": "Rembourrage extérieur (%)",
+        "description": "Ajustez l'espace autour du tableau. 0 le supprime ; 100 utilise le remplissage automatique."
+      },
+      "headingSpacing": {
+        "label": "Espacement des titres (%)",
+        "description": "Ajustez l'espace sous le titre et autour de son séparateur."
+      },
+      "density": {
+        "label": "Densité",
+        "options": {
+          "compact": "Compacte",
+          "comfortable": "Confortable",
+          "spacious": "Spacieux"
+        }
+      },
+      "backgroundColor": {
+        "label": "Contexte"
+      },
+      "foregroundColor": {
+        "label": "Premier plan"
+      },
+      "accentColor": {
+        "label": "Accent"
+      }
+    }
+  },
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Lien de conception Canva",
+        "description": "Collez un lien de vue de conception publique, un lien d'intégration intelligente, un lien iframe src URL ou un lien court canva.link. Publiez d’abord une intégration publique dans Canva."
+      },
+      "slideshow": {
+        "label": "Diaporama",
+        "description": "Ouvrez le design en mode présentation/visualisation de Canva. Canva peut toujours nécessiter le démarrage de la lecture."
+      },
+      "refreshIntervalSeconds": {
+        "label": "Intervalle de rechargement"
+      }
+    }
+  },
+  "website": {
+    "fields": {
+      "url": {
+        "label": "Adresse Internet",
+        "description": "La page publique à afficher. Utilisez HTTPS ; plain HTTP ne fonctionne que pour les adresses privées lorsque cette installation le permet."
+      },
+      "backgroundColor": {
+        "label": "Couleur de fond",
+        "description": "Affiché derrière la page pendant son chargement."
+      },
+      "zoomPercent": {
+        "label": "Zoom (%)"
+      },
+      "scrollX": {
+        "label": "Défilement horizontal (px)"
+      },
+      "scrollY": {
+        "label": "Défilement vertical (px)"
+      },
+      "reloadPolicy": {
+        "label": "Recharger",
+        "options": {
+          "load_once": "Charger une fois pendant qu'il est actif",
+          "on_each_activation": "Recharger à chaque fois qu'il apparaît",
+          "interval": "Recharger à intervalles réguliers"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "Recharger toutes les (secondes)"
+      },
+      "failureBehavior": {
+        "label": "Si la page ne peut pas se charger",
+        "options": {
+          "placeholder": "Afficher l'espace réservé Tilecast",
+          "last_success": "Conserver la dernière page chargée",
+          "fallback_image": "Afficher une image de secours",
+          "skip": "Ignorer cet élément"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Image de secours"
+      },
+      "loadTimeoutSeconds": {
+        "label": "Délai d'expiration du chargement (secondes)"
+      },
+      "allowedHosts": {
+        "label": "Hôtes autorisés",
+        "description": "Noms d'hôtes exacts vers lesquels la page peut accéder. Le propre hôte de la page est toujours autorisé. Cela limite la navigation de niveau supérieur, pas toutes les ressources tierces."
+      },
+      "javascriptEnabled": {
+        "label": "Exécuter JavaScript"
+      },
+      "domStorageEnabled": {
+        "label": "Autoriser le stockage DOM"
+      },
+      "cookiePolicy": {
+        "label": "Biscuits",
+        "options": {
+          "disabled": "Désactivé",
+          "first_party": "Première partie uniquement",
+          "first_and_third_party": "Première partie et tierce partie"
+        }
+      },
+      "customUserAgent": {
+        "label": "Agent utilisateur personnalisé",
+        "description": "Laissez vide pour l’agent utilisateur standard du Player. Les remplacements peuvent interrompre des sites."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "Vidéo ou playlist YouTube URL",
+        "description": "Tilecast détecte s'il s'agit d'une vidéo ou d'une liste de lecture. Aucune clé YouTube API n’est requise."
+      },
+      "startSeconds": {
+        "label": "Commencer à (secondes)"
+      },
+      "endSeconds": {
+        "label": "Terminer à (secondes)",
+        "description": "Laissez vide pour jouer jusqu'au bout."
+      },
+      "captions": {
+        "label": "Afficher les légendes"
+      },
+      "captionLanguage": {
+        "label": "Langue des sous-titres",
+        "description": "Un code de langue tel que en ou es. Laissez vide pour la valeur par défaut de YouTube."
+      },
+      "muted": {
+        "label": "Couper le son"
+      },
+      "volume": {
+        "label": "Volumes (%)"
+      },
+      "loop": {
+        "label": "Lecture en boucle"
+      },
+      "controls": {
+        "label": "Afficher les commandes YouTube"
+      },
+      "playlistPlaybackMode": {
+        "label": "Longueur des éléments de la playlist",
+        "options": {
+          "until_end": "Jouez jusqu'à la fin de la vidéo",
+          "fixed_duration": "Jouez pendant une durée déterminée"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "Durée fixe (secondes)"
+      },
+      "failureBehavior": {
+        "label": "Si la vidéo ne peut pas être lue",
+        "options": {
+          "placeholder": "Afficher l'espace réservé Tilecast",
+          "fallback_image": "Afficher une image de secours",
+          "skip": "Ignorer cet élément"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Image de secours"
+      }
+    }
+  }
+}

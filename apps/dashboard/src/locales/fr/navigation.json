@@ -1,0 +1,122 @@
+{
+  "brand": {
+    "home": "Vue d’ensemble Tilecast"
+  },
+  "groups": {
+    "screens": "Écrans",
+    "content": "Contenu",
+    "presentations": "Présentations",
+    "operations": "Opérations"
+  },
+  "overview": "Vue d’ensemble",
+  "userMenu": {
+    "openLabel": "Ouvrir le menu du compte de {{name}}",
+    "myForms": "Mes formulaires",
+    "myAccount": "Mon compte",
+    "signOut": "Se déconnecter"
+  },
+  "items": {
+    "fleet": "Parc d’écrans",
+    "displayGroups": "Groupes d’écrans",
+    "archive": "Archives",
+    "media": "Médias",
+    "widgets": "Widgets",
+    "dataSources": "Sources de données",
+    "playlists": "Listes de lecture",
+    "layouts": "Mises en page",
+    "campaigns": "Campagnes",
+    "schedules": "Programmes",
+    "plugins": "Extensions",
+    "activity": "Activité",
+    "settings": "Paramètres"
+  },
+  "header": {
+    "toggleNavigation": "Afficher ou masquer la navigation",
+    "search": "Rechercher dans Tilecast",
+    "notifications": "Notifications",
+    "notificationsWithCount_one": "Notifications, {{count}} active",
+    "notificationsWithCount_other": "Notifications, {{count}} actives",
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} actives",
+    "noneActive": "Aucune active",
+    "caughtUp": "Vous êtes à jour.",
+    "groups": {
+      "critical": "Critique",
+      "warning": "À traiter",
+      "info": "Information"
+    },
+    "notificationsWithCount_many": "Notifications, {{count}} actives",
+    "activeCount_many": "{{count}} actives"
+  },
+  "palette": {
+    "title": "Rechercher dans Tilecast",
+    "description": "Recherchez un espace de travail, un écran ou une action rapide.",
+    "label": "Rechercher dans Tilecast",
+    "placeholder": "Rechercher des écrans, des médias, des listes de lecture…",
+    "resultsLabel": "Résultats de recherche",
+    "noResults": "Aucun résultat pour « {{query}} ».",
+    "noDestinations": "Aucune destination disponible.",
+    "groups": {
+      "quickActions": "Actions rapides",
+      "screens": "Écrans",
+      "content": "Contenu",
+      "presentations": "Présentations",
+      "scheduling": "Planification",
+      "administration": "Administration",
+      "navigation": "Navigation"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "Associer un écran",
+        "description": "Connecter un nouveau lecteur d’affichage"
+      },
+      "uploadMedia": {
+        "label": "Importer des médias",
+        "description": "Ajouter des images, des vidéos ou des documents"
+      },
+      "createPlaylist": {
+        "label": "Créer une liste de lecture",
+        "description": "Créer une nouvelle présentation plein écran"
+      },
+      "createLayout": {
+        "label": "Créer une mise en page",
+        "description": "Organiser le contenu sur un canevas de présentation"
+      },
+      "createSchedule": {
+        "label": "Créer un programme",
+        "description": "Planifier où et quand le contenu est diffusé"
+      }
+    },
+    "plugin": "Extension",
+    "pluginNotInstalled": "Extension · Non installée",
+    "hints": {
+      "move": "déplacer",
+      "open": "ouvrir",
+      "close": "fermer"
+    },
+    "screenStatus": {
+      "online": "En ligne",
+      "recent": "Récemment en ligne",
+      "stale": "Ancien",
+      "offline": "Hors ligne",
+      "disabled": "Désactivé",
+      "revoked": "Association révoquée",
+      "awaiting_player": "En attente du lecteur"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Suivre le contenu, les présentations, les programmes, les groupes et les écrans",
+      "sectionFallback": "Paramètres de {{label}}"
+    }
+  },
+  "error": {
+    "title": "Impossible d’afficher cette page.",
+    "fallback": "Une erreur inattendue s’est produite lors de l’affichage de cette page.",
+    "retry": "Réessayer"
+  },
+  "access": {
+    "deniedTitle": "Votre rôle ne donne pas accès à cette section",
+    "deniedDescription": "Votre rôle ne permet pas d’accéder à cette page. Demandez l’accès à un administrateur si nécessaire.",
+    "goTo": "Accéder à {{destination}}",
+    "goToAccount": "Accéder à Mon compte"
+  }
+}

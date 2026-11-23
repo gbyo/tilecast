@@ -1,0 +1,286 @@
+{
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "数据源",
+        "description": "连接日历或其他记录来源。"
+      },
+      "titleField": {
+        "label": "标题字段"
+      },
+      "startField": {
+        "label": "开始字段"
+      },
+      "endField": {
+        "label": "结束字段"
+      },
+      "locationField": {
+        "label": "地点字段"
+      },
+      "categoryField": {
+        "label": "类别字段"
+      },
+      "heading": {
+        "label": "标题"
+      },
+      "maximumItems": {
+        "label": "最大事件数"
+      },
+      "hideEnded": {
+        "label": "隐藏已结束的事件",
+        "description": "根据播放器时钟从列表中移除已结束的事件。没有结束时间的事件会保留至当地日期结束。"
+      },
+      "showWeekday": {
+        "label": "显示星期"
+      },
+      "showDate": {
+        "label": "显示日期"
+      },
+      "showTime": {
+        "label": "显示时间"
+      },
+      "showLocation": {
+        "label": "显示地点"
+      },
+      "showCategory": {
+        "label": "显示类别"
+      },
+      "showDividers": {
+        "label": "显示分隔线"
+      },
+      "dateStyle": {
+        "label": "日期样式",
+        "options": {
+          "short": "简写月日",
+          "day": "月份中的日期",
+          "numeric": "数字月日"
+        }
+      },
+      "emptyText": {
+        "label": "空状态消息",
+        "description": "留空以使用默认空状态消息。"
+      },
+      "flow": {
+        "label": "排列方向",
+        "options": {
+          "auto": "自动",
+          "vertical": "垂直",
+          "horizontal": "水平"
+        }
+      },
+      "verticalDirection": {
+        "label": "垂直方向",
+        "options": {
+          "up": "向上",
+          "down": "向下"
+        }
+      },
+      "horizontalDirection": {
+        "label": "水平方向",
+        "options": {
+          "left": "向左",
+          "right": "向右"
+        }
+      },
+      "scrollSpeed": {
+        "label": "滚动速度",
+        "description": "1 表示慢，10 表示快。添加事件时阅读速度保持一致。"
+      },
+      "scrolling": {
+        "label": "启用滚动"
+      },
+      "textScale": {
+        "label": "文字大小 (%)",
+        "description": "100 使用自动大小。增大数值可放大事件文字。"
+      },
+      "headingScale": {
+        "label": "标题大小 (%)",
+        "description": "独立于事件文字调整标题大小。"
+      },
+      "rowLayout": {
+        "label": "行布局",
+        "description": "自然间距使各行保持紧凑。列表较短时，最后一个事件后可能留有空白。",
+        "options": {
+          "fill": "填满视口",
+          "natural": "自然间距"
+        }
+      },
+      "rowSpacing": {
+        "label": "行间距 (%)",
+        "description": "调整事件文字上下的间距。选择自然间距可移除用于填满视口的额外空间。"
+      },
+      "contentPadding": {
+        "label": "外边距 (%)",
+        "description": "调整面板周围的间距。0 表示移除，100 表示使用自动边距。"
+      },
+      "headingSpacing": {
+        "label": "标题间距 (%)",
+        "description": "调整标题下方及其分隔线周围的间距。"
+      },
+      "density": {
+        "label": "密度",
+        "options": {
+          "compact": "紧凑",
+          "comfortable": "舒适",
+          "spacious": "宽松"
+        }
+      },
+      "backgroundColor": {
+        "label": "背景"
+      },
+      "foregroundColor": {
+        "label": "前景"
+      },
+      "accentColor": {
+        "label": "强调色"
+      }
+    }
+  },
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Canva 设计链接",
+        "description": "粘贴公开设计查看链接、Smart embed 链接、iframe src URL 或 canva.link 短链接。请先在 Canva 中发布公开嵌入。"
+      },
+      "slideshow": {
+        "label": "幻灯片",
+        "description": "以 Canva 的演示或观看模式打开设计。Canva 仍可能要求手动开始播放。"
+      },
+      "refreshIntervalSeconds": {
+        "label": "重新加载间隔"
+      }
+    }
+  },
+  "website": {
+    "fields": {
+      "url": {
+        "label": "网页地址",
+        "description": "要显示的公开页面。请使用 HTTPS；仅当此安装允许时，私有地址才可使用普通 HTTP。"
+      },
+      "backgroundColor": {
+        "label": "背景颜色",
+        "description": "页面加载时显示在其后方。"
+      },
+      "zoomPercent": {
+        "label": "缩放 (%)"
+      },
+      "scrollX": {
+        "label": "水平滚动 (px)"
+      },
+      "scrollY": {
+        "label": "垂直滚动 (px)"
+      },
+      "reloadPolicy": {
+        "label": "重新加载",
+        "options": {
+          "load_once": "激活期间加载一次",
+          "on_each_activation": "每次显示时重新加载",
+          "interval": "按间隔重新加载"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "重新加载间隔（秒）"
+      },
+      "failureBehavior": {
+        "label": "页面无法加载时",
+        "options": {
+          "placeholder": "显示 Tilecast 占位内容",
+          "last_success": "保留上次加载的页面",
+          "fallback_image": "显示备用图片",
+          "skip": "跳过此项"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "备用图片"
+      },
+      "loadTimeoutSeconds": {
+        "label": "加载超时（秒）"
+      },
+      "allowedHosts": {
+        "label": "允许的主机",
+        "description": "页面可以导航到的完整主机名。始终允许页面自身的主机。这限制顶层导航，不限制所有第三方资源。"
+      },
+      "javascriptEnabled": {
+        "label": "运行 JavaScript"
+      },
+      "domStorageEnabled": {
+        "label": "允许 DOM 存储"
+      },
+      "cookiePolicy": {
+        "label": "Cookie",
+        "options": {
+          "disabled": "禁用",
+          "first_party": "仅第一方",
+          "first_and_third_party": "第一方和第三方"
+        }
+      },
+      "customUserAgent": {
+        "label": "自定义用户代理",
+        "description": "留空以使用播放器的标准用户代理。覆盖设置可能导致网站无法正常运行。"
+      },
+      "dataSourceId": {
+        "label": "数据源",
+        "description": "可选。使用 {data.room} 获取第一条记录的 room 字段，使用 {data.room:1} 获取第二条记录，或使用 {data.json} 以 JSON 格式获取所有记录。还可使用：{screen.id}、{date}、{time}、{datetime}。"
+      },
+      "urlTemplatesEnabled": {
+        "label": "启用 URL 变量",
+        "description": "替换屏幕、日期、时间和数据源变量。需要兼容的播放器。"
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "YouTube 视频或播放列表 URL",
+        "description": "Tilecast 会识别视频或播放列表。无需 YouTube API 密钥。"
+      },
+      "startSeconds": {
+        "label": "开始时间（秒）"
+      },
+      "endSeconds": {
+        "label": "结束时间（秒）",
+        "description": "留空以播放至结尾。"
+      },
+      "captions": {
+        "label": "显示字幕"
+      },
+      "captionLanguage": {
+        "label": "字幕语言",
+        "description": "语言代码，例如 en 或 es。留空以使用 YouTube 默认设置。"
+      },
+      "muted": {
+        "label": "静音"
+      },
+      "volume": {
+        "label": "音量 (%)"
+      },
+      "loop": {
+        "label": "循环播放"
+      },
+      "controls": {
+        "label": "显示 YouTube 控件"
+      },
+      "playlistPlaybackMode": {
+        "label": "播放列表项目时长",
+        "options": {
+          "until_end": "播放至视频结束",
+          "fixed_duration": "播放固定时长"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "固定时长（秒）"
+      },
+      "failureBehavior": {
+        "label": "视频无法播放时",
+        "options": {
+          "placeholder": "显示 Tilecast 占位内容",
+          "fallback_image": "显示备用图片",
+          "skip": "跳过此项"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "备用图片"
+      }
+    }
+  }
+}

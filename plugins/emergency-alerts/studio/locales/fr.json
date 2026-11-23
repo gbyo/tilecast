@@ -1,0 +1,148 @@
+{
+  "backToPlugins": "Plugins",
+  "title": "Alertes d'urgence",
+  "description": "Regardez les alertes météo officielles NWS et prenez automatiquement en charge les écrans correspondants, puis rétablissez la lecture normale lorsque l'alerte disparaît.",
+  "readOnlyNotice": "Un accès propriétaire ou administrateur est requis pour apporter des modifications.",
+  "prepare": {
+    "title": "Préparer du contenu d'urgence automatique",
+    "description": "Tilecast peut générer une alerte plein écran directement à partir des données NWS en direct. Une liste de lecture personnalisée reste facultative pour les organisations disposant de leur propre contenu de réponse. Ce plugin configure les réponses automatiques ; une prise de contrôle manuelle est l'action distincte « afficher ceci maintenant » sur les écrans, et ses valeurs par défaut se trouvent dans les paramètres.",
+    "managePlaylists": "Facultatif : gérer les playlists personnalisées",
+    "takeoverNow": "Commencez une prise de contrôle maintenant",
+    "takeoverDefaults": "Valeurs par défaut de prise de contrôle et de commande"
+  },
+  "monitor": {
+    "title": "Alertes météo automatisées",
+    "description": "Surveillez les alertes actives officielles pour les États, territoires, comtés et zones de prévision des États-Unis. Les règles de correspondance affichent les détails de l'alerte en direct ou une liste de lecture personnalisée facultative, puis rétablissent la lecture normale lorsque l'alerte disparaît.",
+    "safetyTitle": "La délivrance d'alertes s'effectue au mieux et non comme un système de sécurité des personnes.",
+    "safetyBody": "Maintenez les procédures d’urgence locales et les alertes d’urgence sans fil en place. Studio affiche l’état de l’interrogation afin que les pannes en amont ou réseau soient visibles.",
+    "enabledLabel": "Surveillance automatisée NWS",
+    "enabledHint": "Désactivé par défaut. Une règle configurée est requise pour agir.",
+    "coverageLegend": "Couverture des alertes",
+    "coverageHint": "Choisissez un état ou un territoire par son nom, puis surveillez l'ensemble de l'état ou ajoutez des comtés spécifiques et des zones de prévision NWS.",
+    "stateLabel": "État ou territoire",
+    "statePlaceholder": "Sélectionnez un état",
+    "monitorState": "Surveiller l'ensemble de l'état",
+    "zoneLabel": "Comté ou zone de prévision",
+    "loadingLocations": "Emplacements de chargement…",
+    "locationPlaceholder": "Sélectionnez un emplacement",
+    "county": "Comté",
+    "forecastZone": "Zone de prévision",
+    "addLocation": "Ajouter un emplacement",
+    "zonesError": "Les comtés et les zones de prévision n'ont pas pu être chargés à partir de NWS.",
+    "monitoredLocations": "Emplacements surveillés",
+    "entireState": "{{name}} entier",
+    "removeState": "Supprimer entièrement {{name}}",
+    "removeZone": "Supprimer {{name}}",
+    "zoneWithType": "{{name}} ({{type}})",
+    "noLocations": "Aucun emplacement sélectionné.",
+    "pollLabel": "Intervalle d'interrogation",
+    "pollHint": "Un intervalle d'une à deux minutes est recommandé pour la plupart des sites.",
+    "intervals": {
+      "oneMinute": "1 minute",
+      "twoMinutes": "2 minutes",
+      "fiveMinutes": "5 minutes",
+      "fifteenMinutes": "15 minutes"
+    },
+    "lastSuccess": "Dernier succès",
+    "lastAttempt": "Dernière tentative",
+    "matchedRules": "Règles correspondantes",
+    "health": "Santé",
+    "healthy": "Sain",
+    "never": "Jamais",
+    "saveMonitor": "Enregistrer le moniteur NWS",
+    "checking": "Vérification…",
+    "checkNow": "Vérifiez maintenant"
+  },
+  "rules": {
+    "title": "Règles des événements météorologiques",
+    "description": "Les noms d’événements correspondent exactement au libellé NWS. Laissez le champ vide pour faire correspondre chaque événement égal ou supérieur à la gravité et à l'urgence sélectionnées. L'alerte plein écran en direct de Tilecast est la valeur par défaut ; une barre de ticker est l'alternative aux alertes qui doivent informer sans interrompre ce qui est en cours de lecture.",
+    "enabledBadge": "Activé",
+    "disabledBadge": "Désactivé",
+    "allEventTypes": "Tous types d'événements",
+    "deleteTitle": "Supprimer « {{name}} » ?",
+    "formTitleAdd": "Ajouter une règle",
+    "formTitleEdit": "Modifier la règle",
+    "nameLabel": "Nom de la règle",
+    "eventsLabel": "Noms des événements NWS",
+    "severityLabel": "Gravité minimale",
+    "severity": {
+      "minor": "Mineur",
+      "moderate": "Modéré",
+      "severe": "Sévère",
+      "extreme": "Extrême"
+    },
+    "urgencyLabel": "Urgence minimale",
+    "urgency": {
+      "unknown": "Inconnu",
+      "future": "Avenir",
+      "expected": "Attendu",
+      "immediate": "Immédiat"
+    },
+    "displayLabel": "Affichage d'urgence",
+    "displayOptions": {
+      "builtin": "Tilecast alerte NWS en direct — plein écran",
+      "ticker": "Alerte Tilecast en direct NWS — barre téléscripteuse",
+      "playlist": "Utiliser une liste de lecture personnalisée – plein écran"
+    },
+    "displayHint": "L'écran intégré affiche automatiquement l'événement NWS exact, le titre, la gravité, la zone affectée, les instructions, l'expéditeur et l'expiration. Une barre de ticker affiche le même texte d'alerte en bas et laisse tout ce qui est en cours de lecture à l'écran.",
+    "tickerPlacement": "Placement du téléscripteur",
+    "placementOptions": {
+      "push": "Pousser le contenu vers le haut – rien n'est couvert",
+      "overlay": "Superposition – la barre recouvre le bord inférieur"
+    },
+    "tickerHeight": "Hauteur du téléscripteur",
+    "heightOptions": {
+      "compact": "Compacte : 64 px",
+      "standard": "Norme : 96 px",
+      "large": "Grand – 140px",
+      "extraLarge": "Très grand – 200 px"
+    },
+    "tickerSpeed": "Vitesse du téléscripteur",
+    "speedOptions": {
+      "slow": "Lent",
+      "medium": "Moyen",
+      "fast": "Rapide"
+    },
+    "playlistLabel": "Liste de lecture d'urgence personnalisée",
+    "playlistPlaceholder": "Sélectionnez une liste de lecture",
+    "playlistHint": "Seules les playlists non vides peuvent être activées.",
+    "playlistHintLink": "Créer ou modifier des listes de lecture",
+    "durationLabel": "Durée maximale",
+    "durationOptions": {
+      "oneHour": "1 heure",
+      "sixHours": "6 heures",
+      "twelveHours": "12 heures",
+      "day": "24 heures"
+    },
+    "targetScreens": "Écrans cibles",
+    "targetGroups": "Groupes cibles",
+    "targetsEmpty": "Aucun disponible.",
+    "enableRule": "Activer cette règle",
+    "saveRule": "Enregistrer la règle",
+    "addRuleButton": "Ajouter une règle",
+    "validation": {
+      "nameRequired": "Entrez un nom de règle.",
+      "playlistRequired": "Sélectionnez une liste de lecture d'urgence prédéfinie.",
+      "targetsRequired": "Sélectionnez au moins un écran ou un groupe."
+    }
+  },
+  "displaySummary": {
+    "ticker": "Barre de ticker Tilecast en direct NWS",
+    "builtin": "Alerte Tilecast en direct NWS",
+    "noPlaylist": "Aucune liste de lecture"
+  },
+  "playlist": {
+    "empty": "{{name}} — vide, ajoutez d'abord du contenu",
+    "count_one": "{{name}} — Article {{count}}",
+    "count_other": "{{name}} — Articles {{count}}",
+    "count_many": "{{name}} — Articles {{count}}"
+  },
+  "active": {
+    "title": "Urgences météorologiques actives",
+    "description": "Alertes actuellement associées à une règle et affichant du contenu.",
+    "emptyTitle": "Aucune alerte active",
+    "emptyBody": "Aucune alerte NWS n’est actuellement active."
+  },
+  "leaveTitle": "Partir sans économiser ?",
+  "leaveBody": "Les paramètres du moniteur ou les règles d'alerte comportent des modifications non enregistrées."
+}

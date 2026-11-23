@@ -1,0 +1,2063 @@
+{
+  "actionBar": {
+    "unsavedTitle": "未保存的更改",
+    "unsavedDescription": "当您浏览设置时，更改会被保留。",
+    "reload": "重新加载设置"
+  },
+  "definitions": {
+    "backups": {
+      "schedule_enabled": {
+        "title": "预定备份",
+        "description": "按计划自动创建完整备份"
+      },
+      "schedule_frequency": {
+        "title": "备份频率"
+      },
+      "schedule_day": {
+        "title": "备份日",
+        "description": "每周备份的星期几"
+      },
+      "schedule_time": {
+        "title": "备份时间"
+      },
+      "schedule_timezone": {
+        "title": "备份时区"
+      },
+      "retention_max_count": {
+        "title": "要保留的计划备份"
+      },
+      "retention_max_age_days": {
+        "title": "最大计划备份期限（天）"
+      }
+    },
+    "notifications": {
+      "enabled": {
+        "title": "发送通知",
+        "description": "电子邮件需要服务器上的 TILECAST_SMTP_HOST。如果没有它，通知将保持关闭并且不会出现任何故障。"
+      },
+      "from_address": {
+        "title": "发件人地址",
+        "description": "发送通知电子邮件的地址"
+      },
+      "from_name": {
+        "title": "来自名字"
+      },
+      "minimum_severity": {
+        "title": "最低严重程度",
+        "description": "低于此严重程度的情况会记录在“活动”中，但不会发送"
+      },
+      "digest_time": {
+        "title": "每日消化时间"
+      },
+      "timezone": {
+        "title": "通知时区",
+        "description": "适用于消化时间和安静时间"
+      },
+      "quiet_hours_enabled": {
+        "title": "安静时间",
+        "description": "保留通知直到安静时间结束。紧急情况总是立即发送。"
+      },
+      "quiet_hours_start": {
+        "title": "安静时间开始"
+      },
+      "quiet_hours_end": {
+        "title": "安静时间结束"
+      },
+      "retention_days": {
+        "title": "传送日志保留"
+      }
+    },
+    "content_health": {
+      "stale_source_hours": {
+        "title": "过时的数据源",
+        "description": "数据源在数小时内没有成功刷新就被视为过时。每周日历的容忍度远远超过天气反馈。"
+      },
+      "expiring_media_days": {
+        "title": "关于过期介质的警告",
+        "description": "内容健康报告列出即将过期的媒体的时间"
+      }
+    },
+    "snapshots": {
+      "enabled": {
+        "title": "保留快照历史记录",
+        "description": "存储定期屏幕图像，以便您可以看到屏幕之前显示的内容。快照保存在数据库中并包含在每个备份中。"
+      },
+      "interval_minutes": {
+        "title": "捕捉每一个"
+      },
+      "retention_days": {
+        "title": "保留快照"
+      },
+      "max_per_screen": {
+        "title": "每个屏幕保留的快照",
+        "description": "一旦屏幕达到这么多，最旧的就会被删除，无论保留期限如何"
+      }
+    },
+    "content": {
+      "approval_required": {
+        "title": "旧版审批开关",
+        "description": "保留是为了兼容性。新安装应使用内容审查政策。"
+      },
+      "review_policy": {
+        "title": "内容审核政策",
+        "description": "选择是否没有内容、贡献者工作或每个出版物都需要批准。"
+      },
+      "allow_self_approval": {
+        "title": "允许自我批准",
+        "description": "允许审稿人批准他们自己的提交。"
+      },
+      "auto_publish_on_approval": {
+        "title": "自动发布批准的提交",
+        "description": "提交获得批准后立即发布或安排请求的时间。"
+      }
+    },
+    "organization": {
+      "name": {
+        "title": "组织名称",
+        "description": "整个名称显示 Tilecast Studio"
+      },
+      "short_name": {
+        "title": "简称",
+        "description": "紧凑的组织名称"
+      },
+      "timezone": {
+        "title": "默认时区"
+      },
+      "locale": {
+        "title": "区域设置"
+      },
+      "first_day_of_week": {
+        "title": "一周的第一天"
+      },
+      "date_format": {
+        "title": "日期格式"
+      },
+      "time_format": {
+        "title": "时间格式"
+      },
+      "support_name": {
+        "title": "支持联系"
+      },
+      "support_email": {
+        "title": "支持电子邮件"
+      },
+      "support_message": {
+        "title": "内部支持消息"
+      }
+    },
+    "security": {
+      "mfa_required_scope": {
+        "title": "需要多重身份验证",
+        "description": "范围内的帐户必须先注册身份验证器应用程序或密钥，然后才能使用 Tilecast Studio。"
+      }
+    },
+    "branding": {
+      "logo_asset_id": {
+        "title": "标识"
+      },
+      "icon_asset_id": {
+        "title": "方形图标"
+      },
+      "primary_color": {
+        "title": "原色"
+      },
+      "player_background_color": {
+        "title": "Player背景"
+      },
+      "player_text_color": {
+        "title": "Player 文字"
+      },
+      "no_content_title": {
+        "title": "无内容标题"
+      },
+      "no_content_message": {
+        "title": "无内容消息"
+      },
+      "disabled_title": {
+        "title": "禁用标题"
+      },
+      "disabled_message": {
+        "title": "禁用消息"
+      },
+      "footer_text": {
+        "title": "页脚文本"
+      }
+    },
+    "player": {
+      "playback": {
+        "default_fit_mode": {
+          "title": "默认适配模式"
+        },
+        "default_volume": {
+          "title": "默认音量"
+        },
+        "default_image_duration_seconds": {
+          "title": "默认图像持续时间"
+        },
+        "default_transition": {
+          "title": "默认转换"
+        },
+        "default_audio_enabled": {
+          "title": "默认启用音频"
+        },
+        "resume_after_restart": {
+          "title": "重启后恢复"
+        }
+      },
+      "cache": {
+        "max_bytes": {
+          "title": "最大缓存字节数"
+        },
+        "minimum_free_bytes": {
+          "title": "最小可用字节数"
+        }
+      },
+      "download": {
+        "concurrent_limit": {
+          "title": "并发下载"
+        },
+        "automatic_threshold_bytes": {
+          "title": "自动发货门槛"
+        }
+      },
+      "sync": {
+        "manifest_seconds": {
+          "title": "清单调节间隔"
+        },
+        "status_seconds": {
+          "title": "状态报告间隔"
+        }
+      },
+      "website": {
+        "timeout_seconds": {
+          "title": "网站超时"
+        },
+        "cookie_policy": {
+          "title": "网站 cookie 政策"
+        },
+        "clear_on_restart": {
+          "title": "重启时清除网站数据"
+        }
+      },
+      "identify": {
+        "show_location": {
+          "title": "识别时显示位置"
+        }
+      },
+      "update": {
+        "channel": {
+          "title": "Player 更新通道",
+          "description": "稳定是硬化的默认值。 Beta 版本仍然需要显式部署。"
+        }
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "可靠性模式",
+        "description": "仅当 Android 确认设备策略功能时，托管 Kiosk 才会生效。"
+      },
+      "launch_after_boot": {
+        "title": "启动后启动",
+        "description": "仅限安卓。 Linux 播放器从 systemd 用户服务启动，该服务通过屏幕的“可靠性”选项卡按屏幕安装。"
+      },
+      "immersive_mode": {
+        "title": "沉浸式全屏"
+      },
+      "foreground_watchdog_enabled": {
+        "title": "前台看门狗"
+      },
+      "playback_stall_seconds": {
+        "title": "播放停顿阈值"
+      },
+      "webview_stall_seconds": {
+        "title": "网站摊位门槛"
+      },
+      "maximum_process_restarts": {
+        "title": "最大过程回收率"
+      },
+      "restart_window_minutes": {
+        "title": "恢复窗口"
+      },
+      "safe_mode_enabled": {
+        "title": "崩溃循环安全模式"
+      }
+    },
+    "power": {
+      "active_hours_enabled": {
+        "title": "活跃时间"
+      },
+      "active_hours_timezone": {
+        "title": "活动时间时区"
+      },
+      "active_hours_days": {
+        "title": "活跃天数"
+      },
+      "active_hours_start": {
+        "title": "开始时间"
+      },
+      "active_hours_end": {
+        "title": "结束时间"
+      },
+      "startup_grace_seconds": {
+        "title": "启动恩典",
+        "description": "仅限 Android Power Assist； Linux 的启动和进程恢复由 systemd 管理。"
+      },
+      "shutdown_prepare_seconds": {
+        "title": "停机准备",
+        "description": "仅 Android Power Assist 和状态报告； Linux 使用其 systemd/显示控制集成。"
+      },
+      "keep_screen_on": {
+        "title": "在活动时间内保持屏幕唤醒",
+        "description": "Android 活动时间唤醒策略； Linux 使用 linux_kiosk.prevent_display_sleep 作为主机显示睡眠阻止程序。"
+      },
+      "sleep_outside_active_hours": {
+        "title": "要求在活动时间之外休息",
+        "description": "仅限 Android Power Assist； Linux 显示其配置的非工作时间表面，并且不请求操作系统睡眠。"
+      },
+      "outside_active_hours_display": {
+        "title": "活动时间外",
+        "description": "选择当玩家不在活动时间且显示屏不休眠时仍保持可见的内容。"
+      },
+      "outside_active_hours_text": {
+        "title": "自定义文本",
+        "description": "在活动时间之外显示居中文本。当为空时，Tilecast 使用品牌页脚文本。"
+      },
+      "outside_active_hours_wake_animation": {
+        "title": "活动时间开始时播放启动动画",
+        "description": "当播放器从非营业时间屏幕返回时，在显示内容之前播放 Tilecast 启动动画。适用于弹跳徽标、自定义文本和黑屏。"
+      }
+    },
+    "managed_kiosk": {
+      "lock_task_enabled": {
+        "title": "锁定任务"
+      },
+      "block_overlays": {
+        "title": "支持的块覆盖"
+      },
+      "allow_settings_during_admin": {
+        "title": "维护期间允许设置"
+      },
+      "admin_session_minutes": {
+        "title": "维护会话持续时间"
+      }
+    },
+    "linux_kiosk": {
+      "fullscreen_enabled": {
+        "title": "信息亭全屏",
+        "description": "将 Tilecast 保留在 Linux 上的无框全屏信息亭窗口中。 TILECAST_WINDOWED=1 仍然是本地开发覆盖。"
+      },
+      "prevent_display_sleep": {
+        "title": "防止显示器休眠",
+        "description": "要求 Linux 桌面会话在 Tilecast Player 运行时保持显示器唤醒。"
+      }
+    },
+    "accessibility": {
+      "control_assist_enabled": {
+        "title": "无障碍控制辅助",
+        "description": "默认情况下，老练的玩家会请求此行为，但 Android 服务仍然需要特意进行本地启用。"
+      },
+      "return_delay_seconds": {
+        "title": "返程延迟"
+      },
+      "allowed_packages": {
+        "title": "维护应用"
+      },
+      "pause_during_updates": {
+        "title": "播放器更新期间暂停"
+      },
+      "pause_during_admin_session": {
+        "title": "维护期间暂停"
+      },
+      "report_foreground_package": {
+        "title": "报表前台包"
+      },
+      "maximum_returns": {
+        "title": "最大自动回报"
+      },
+      "return_window_minutes": {
+        "title": "返回尝试窗口"
+      }
+    },
+    "media": {
+      "upload": {
+        "max_bytes": {
+          "title": "Studio 上传限制"
+        }
+      },
+      "keep_originals": {
+        "title": "保留原件"
+      },
+      "video": {
+        "max_width": {
+          "title": "最大视频宽度"
+        },
+        "max_height": {
+          "title": "最大视频高度"
+        },
+        "max_frame_rate": {
+          "title": "最大帧率"
+        },
+        "default_delivery_policy": {
+          "title": "默认视频传送"
+        },
+        "default_fit_mode": {
+          "title": "默认视频适合"
+        }
+      },
+      "image": {
+        "default_fit_mode": {
+          "title": "默认图像适合"
+        }
+      },
+      "processing": {
+        "retry_limit": {
+          "title": "处理重试限制"
+        }
+      },
+      "temporary_upload_retention_hours": {
+        "title": "临时上传保留"
+      },
+      "deleted_retention_days": {
+        "title": "已删除媒体保留"
+      }
+    },
+    "scheduling": {
+      "prefetch_days": {
+        "title": "预取范围"
+      },
+      "activation_grace_seconds": {
+        "title": "激活恩典"
+      },
+      "clock_skew_warning_seconds": {
+        "title": "时钟偏差警告"
+      },
+      "default_one_time_duration_minutes": {
+        "title": "默认一次性持续时间"
+      }
+    },
+    "website": {
+      "default_javascript": {
+        "title": "JavaScript 默认值"
+      },
+      "default_dom_storage": {
+        "title": "DOM 存储默认"
+      },
+      "default_timeout_seconds": {
+        "title": "网站超时默认值"
+      },
+      "default_cookie_policy": {
+        "title": "默认 cookie 策略"
+      },
+      "default_reload_policy": {
+        "title": "默认重新加载策略"
+      },
+      "minimum_refresh_seconds": {
+        "title": "最小刷新间隔"
+      },
+      "default_failure_behavior": {
+        "title": "默认失败行为"
+      },
+      "default_zoom_percent": {
+        "title": "默认缩放"
+      },
+      "default_fallback_image_id": {
+        "title": "默认后备图像"
+      },
+      "clear_data_on_delete": {
+        "title": "删除后清除网站数据"
+      },
+      "private_http_enabled": {
+        "title": "私有 HTTP 已启用"
+      }
+    },
+    "takeover": {
+      "default_duration_minutes": {
+        "title": "默认接管持续时间"
+      },
+      "maximum_duration_minutes": {
+        "title": "最长接管持续时间"
+      },
+      "confirmation_required": {
+        "title": "需要接管确认"
+      },
+      "reauthentication_required": {
+        "title": "需要密码确认"
+      }
+    },
+    "commands": {
+      "default_expiry_minutes": {
+        "title": "命令过期"
+      },
+      "identify_duration_seconds": {
+        "title": "确定持续时间"
+      }
+    },
+    "retention": {
+      "command_history_days": {
+        "title": "命令历史保留"
+      },
+      "audit_days": {
+        "title": "审计保留"
+      },
+      "player_status_days": {
+        "title": "Player 状态保持"
+      },
+      "expired_pairing_days": {
+        "title": "过期的配对保留"
+      },
+      "failed_upload_days": {
+        "title": "上传失败保留"
+      },
+      "deleted_media_metadata_days": {
+        "title": "已删除的媒体元数据保留"
+      },
+      "takeover_history_days": {
+        "title": "收购历史保留"
+      },
+      "max_diagnostic_events_per_screen": {
+        "title": "诊断事件限制"
+      }
+    },
+    "preference": {
+      "appearance": {
+        "title": "外观"
+      },
+      "language": {
+        "title": "语言"
+      },
+      "density": {
+        "title": "界面密度"
+      },
+      "reduced_motion": {
+        "title": "减少运动"
+      },
+      "time_format": {
+        "title": "时间格式"
+      },
+      "content_view": {
+        "title": "默认内容视图"
+      },
+      "screens_view": {
+        "title": "默认屏幕视图"
+      },
+      "table_page_size": {
+        "title": "表页大小"
+      },
+      "remember_filters": {
+        "title": "记住过滤器"
+      },
+      "hide_completed_uploads_minutes": {
+        "title": "隐藏之后完成的上传"
+      },
+      "notifications": {
+        "mode": {
+          "title": "通知我",
+          "description": "当每个条件发生时立即发送。摘要将它们收集到一条每日消息中。"
+        },
+        "address": {
+          "title": "发送至",
+          "description": "您的电子邮件地址。设置此选项之前不会发送通知。"
+        },
+        "incidents": {
+          "title": "屏幕问题",
+          "description": "屏幕停报、播放失败、Player进入安全模式"
+        },
+        "content_health": {
+          "title": "内容问题",
+          "description": "数据源正在提供过时的数据，或者播放列表没有可供播放的内容"
+        },
+        "backups": {
+          "title": "备份"
+        },
+        "updates": {
+          "title": "Player 更新"
+        }
+      }
+    }
+  },
+  "enumValues": {
+    "managed_kiosk": "托管信息亭",
+    "standard": "标准可靠性",
+    "first_party": "第一方 cookie",
+    "first_and_third_party": "第一方和第三方 cookie",
+    "download_only": "仅限下载",
+    "on_each_activation": "每次激活时重新加载",
+    "load_once": "加载一次",
+    "fallback_image": "后备图像",
+    "last_success": "最后成功的页面",
+    "12-hour": "12小时",
+    "24-hour": "24小时",
+    "en_US": "英语（美国）",
+    "contain": "包含",
+    "cover": "封面",
+    "stretch": "拉伸",
+    "disabled": "残疾人",
+    "enabled": "启用",
+    "none": "无",
+    "fade": "淡出",
+    "automatic": "自动",
+    "download": "下载",
+    "stream": "串流",
+    "minimal": "最小",
+    "detailed": "详细",
+    "system": "系统",
+    "light": "光",
+    "dark": "黑暗",
+    "comfortable": "舒适",
+    "compact": "紧凑型",
+    "grid": "网格",
+    "list": "列表",
+    "groups": "团体",
+    "organization": "组织默认",
+    "sunday": "周日",
+    "monday": "星期一",
+    "tuesday": "星期二",
+    "wednesday": "星期三",
+    "thursday": "星期四",
+    "friday": "周五",
+    "saturday": "星期六",
+    "locale": "使用区域设置",
+    "placeholder": "Tilecast 占位符",
+    "skip": "跳过项目",
+    "interval": "按一定时间间隔重新加载",
+    "bouncing_logo": "弹跳Tilecast标志",
+    "custom_text": "自定义文本",
+    "black": "黑屏",
+    "daily": "每日",
+    "weekly": "每周",
+    "info": "信息",
+    "warning": "警告",
+    "error": "错误",
+    "critical": "关键",
+    "administrators": "管理员",
+    "all": "全部",
+    "contributors": "贡献者",
+    "everyone": "大家",
+    "off": "关闭",
+    "beta": "贝塔",
+    "stable": "稳定",
+    "digest": "摘要",
+    "immediate": "立即",
+    "crossfade": "交叉淡入淡出"
+  },
+  "nav": {
+    "groups": {
+      "organization": "组织机构",
+      "content": "内容及播放",
+      "players": "Player 管理",
+      "operations": "运营",
+      "tools": "系统工具"
+    },
+    "items": {
+      "general": "一般",
+      "branding": "品牌推广",
+      "fonts": "字体",
+      "users": "用户",
+      "security": "登录安全",
+      "locations": "地点",
+      "playback": "回放",
+      "media": "媒体",
+      "websites": "网站",
+      "scheduling": "调度",
+      "reliability": "可靠性和信息亭",
+      "power": "活跃时间和电量",
+      "accessibility": "辅助功能控制",
+      "player-updates": "Player 更新",
+      "presentation-networks": "演示网络",
+      "takeover": "接管和命令",
+      "retention": "数据保留",
+      "backups": "备份和恢复",
+      "notifications": "通知",
+      "system": "系统",
+      "content-review": "内容审核",
+      "snapshots": "快照历史记录",
+      "integrations": "集成代币",
+      "import-export": "进出口",
+      "dependency-graph": "依赖项浏览器",
+      "preferences": "偏好设置",
+      "roles": "角色"
+    },
+    "sections": {
+      "general": {
+        "title": "一般",
+        "description": "组织标识、区域格式和支持详细信息。"
+      },
+      "branding": {
+        "title": "品牌推广",
+        "description": "组织身份和玩家表现出的后备外观。"
+      },
+      "fonts": {
+        "title": "字体",
+        "description": "您的组织可以为布局文本选择的字体。仅当发布的内容使用某种字体时，玩家才会下载该字体。"
+      },
+      "users": {
+        "title": "用户",
+        "description": "为每个人提供单独的登录权限，并仅分配他们需要的权限。每个帐户的外观和密度首选项保持独立。"
+      },
+      "security": {
+        "title": "登录安全",
+        "description": "决定谁必须使用第二个因素进行登录。每个人都可以从“我的帐户”→“登录安全”管理自己的身份验证器、密钥和恢复代码。"
+      },
+      "locations": {
+        "title": "地点",
+        "description": "可重复使用的建筑物和校园分配给多个屏幕，而房间详细信息保留在每个玩家身上。"
+      },
+      "playback": {
+        "title": "回放",
+        "description": "默认播放、存储、传送、同步和诊断。"
+      },
+      "media": {
+        "title": "媒体",
+        "description": "上传限制、传送默认值和未来的媒体处理行为。"
+      },
+      "websites": {
+        "title": "网站",
+        "description": "网站播放、重新加载、cookies 和故障的安全默认设置。"
+      },
+      "scheduling": {
+        "title": "调度",
+        "description": "计划准备、计时和时钟警告默认值。"
+      },
+      "reliability": {
+        "title": "可靠性和信息亭",
+        "description": "与特定于平台的 Android 和 Linux kiosk 控件共享恢复。"
+      },
+      "power": {
+        "title": "活跃时间和电量",
+        "description": "Player 运行时间以及尽力而为的 Android 睡眠和唤醒行为。"
+      },
+      "accessibility": {
+        "title": "辅助功能控制",
+        "description": "可选的前台返回辅助，具有明确的安全暂停功能。"
+      },
+      "player-updates": {
+        "title": "Player 更新",
+        "description": "已验证 Tilecast Player 版本和更新部署。"
+      },
+      "presentation-networks": {
+        "title": "演示网络",
+        "description": "将支持的 Linux 播放器临时连接到 Wi-Fi 以实现 AirPlay 和其他本地演示功能，同时将以太网作为其主要 Tilecast 连接。"
+      },
+      "takeover": {
+        "title": "接管和命令",
+        "description": "手动启动接管和玩家命令的默认值。自动天气警报是紧急警报插件。"
+      },
+      "retention": {
+        "title": "数据保留",
+        "description": "操作记录的有限历史记录和清理期。"
+      },
+      "backups": {
+        "title": "备份和恢复",
+        "description": "创建、验证、下载、计划和恢复完整安装备份。"
+      },
+      "notifications": {
+        "title": "通知",
+        "description": "通过电子邮件或网络钩子发送警报。"
+      },
+      "system": {
+        "title": "系统",
+        "description": "安全诊断和精心维护操作。"
+      },
+      "content-review": {
+        "title": "内容审核",
+        "description": "在将播放列表或布局分配到屏幕之前需要获得批准。贡献者创作内容，但不能发布或分配它。"
+      },
+      "snapshots": {
+        "title": "快照历史记录",
+        "description": "具有可配置保留的定期 Player 屏幕截图。"
+      },
+      "integrations": {
+        "title": "集成代币",
+        "description": "用于手动表和车队运行状况的范围令牌。"
+      },
+      "import-export": {
+        "title": "进出口",
+        "description": "便携式、非秘密的 Tilecast 配置。"
+      },
+      "dependency-graph": {
+        "title": "依赖项浏览器",
+        "description": "通过演示文稿、时间表、组和屏幕跟踪内容和数据。"
+      },
+      "preferences": {
+        "title": "偏好设置",
+        "description": "您的 Studio 帐户的外观和工作流程首选项。"
+      },
+      "roles": {
+        "title": "角色",
+        "description": "决定人们可以做什么。使用内置角色或创建您自己的角色，然后在“用户”页面上分配它们。"
+      }
+    }
+  },
+  "section": {
+    "futureOnly": "仅适用于未来处理"
+  },
+  "fallback": {
+    "configureSetting": "配置{{title}}为Tilecast。"
+  },
+  "shell": {
+    "sectionsLabel": "设置部分",
+    "sectionLabel": "设置部分",
+    "unsavedBadge": "未保存",
+    "unsavedSuffix": " • 未保存"
+  },
+  "dependencies": {
+    "customText": "选择自定义文本来编辑此设置。",
+    "intervalReload": "选择间隔重新加载来设置刷新间隔。",
+    "activeHours": "启用活动时间以编辑此设置。",
+    "managedKiosk": "选择托管信息亭以编辑此设置。",
+    "accessibilityAssist": "启用辅助功能控制辅助以编辑此设置。"
+  },
+  "controls": {
+    "bool": {
+      "on": "开",
+      "off": "关闭"
+    },
+    "weekdays": {
+      "label": "活跃天数",
+      "monday": "周一",
+      "tuesday": "星期二",
+      "wednesday": "周三",
+      "thursday": "星期四",
+      "friday": "周五",
+      "saturday": "星期六",
+      "sunday": "太阳"
+    },
+    "timezone": {
+      "search": "搜索时区",
+      "empty": "没有匹配的 IANA 时区。"
+    },
+    "locale": {
+      "hint": "输入 BCP-47 语言标签，例如 ja-JP。建议常见的选择。",
+      "invalid": "输入有效的 BCP-47 语言标签。"
+    },
+    "packageList": {
+      "label": "安卓包名",
+      "add": "添加",
+      "invalid": "输入 Android 包名称，例如 com.android.settings。",
+      "remove": "删除",
+      "removeItem": "删除{{item}}"
+    },
+    "color": {
+      "picker": "颜色选择器",
+      "hex": "十六进制颜色",
+      "hint": "使用六位数的十六进制颜色。"
+    },
+    "durationUnits": {
+      "seconds": "秒",
+      "minutes": "分钟",
+      "hours": "小时"
+    },
+    "timeUnits": {
+      "minutes": "分钟",
+      "hours": "小时",
+      "days": "天"
+    },
+    "unitLabel": "{{title}}单位"
+  },
+  "groups": {
+    "playback": {
+      "defaults": {
+        "title": "播放默认设置"
+      },
+      "storage": {
+        "title": "储存及运送"
+      },
+      "sync": {
+        "title": "同步"
+      },
+      "identity": {
+        "title": "识别和诊断"
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "可靠性模式"
+      },
+      "startup": {
+        "title": "启动和演示"
+      },
+      "watchdog": {
+        "title": "看门狗和恢复"
+      },
+      "androidKiosk": {
+        "title": "Android 管理信息亭",
+        "description": "仅适用于 Android 的控件，在设备确认兼容的设备所有者功能时生效。"
+      },
+      "linuxKiosk": {
+        "title": "Linux 信息亭",
+        "description": "Linux 窗口和桌面会话行为。启动时启动并在进程退出后重新启动来自播放器的 systemd 服务，该服务是在屏幕的“可靠性”选项卡中按屏幕设置的，而不是在此处设置。"
+      }
+    },
+    "power": {
+      "hours": {
+        "title": "活跃时间"
+      },
+      "behavior": {
+        "title": "活跃时间行为"
+      },
+      "outside": {
+        "title": "活动时间外",
+        "description": "选择当播放器不在活动时间且 Android 或电视保持唤醒状态时显示的后备方案。"
+      }
+    },
+    "accessibility": {
+      "return": {
+        "title": "自动返回"
+      },
+      "safety": {
+        "title": "安全暂停"
+      },
+      "allowed": {
+        "title": "允许的维护应用"
+      },
+      "diagnostics": {
+        "title": "诊断"
+      }
+    },
+    "branding": {
+      "fallback": {
+        "title": "Player 后备屏幕"
+      }
+    },
+    "general": {
+      "identity": {
+        "title": "组织标识"
+      },
+      "regional": {
+        "title": "区域格式"
+      },
+      "support": {
+        "title": "支持详情"
+      }
+    },
+    "media": {
+      "uploads": {
+        "title": "上传和保留"
+      },
+      "future": {
+        "title": "未来的视频处理"
+      },
+      "delivery": {
+        "title": "交货默认值"
+      }
+    },
+    "websites": {
+      "capabilities": {
+        "title": "页面功能"
+      },
+      "loading": {
+        "title": "加载和重新加载"
+      },
+      "failure": {
+        "title": "失败行为"
+      },
+      "overrides": {
+        "title": "Player 覆盖"
+      }
+    },
+    "scheduling": {
+      "defaults": {
+        "title": "时间表默认值"
+      }
+    },
+    "takeover": {
+      "takeover": {
+        "title": "接管违约"
+      },
+      "commands": {
+        "title": "Player 命令默认值"
+      }
+    },
+    "retention": {
+      "security": {
+        "title": "安全和操作历史"
+      },
+      "cleanup": {
+        "title": "清理期"
+      },
+      "limits": {
+        "title": "诊断限制"
+      }
+    },
+    "backups": {
+      "schedule": {
+        "title": "自动备份计划"
+      },
+      "retention": {
+        "title": "计划备份保留",
+        "description": "保留适用于计划备份。手动创建的备份将保留，直到所有者将其删除。"
+      }
+    },
+    "notifications": {
+      "delivery": {
+        "title": "发货",
+        "description": "电子邮件需要在服务器上配置 SMTP 中继。 Webhook 无需连接即可工作。"
+      },
+      "timing": {
+        "title": "时机",
+        "description": "不管这些怎么说，紧急情况总是立即发送。"
+      },
+      "history": {
+        "title": "历史"
+      }
+    },
+    "preferences": {
+      "notifications": {
+        "title": "通知",
+        "description": "当您不看 Studio 时，Tilecast 会告诉您什么。"
+      },
+      "appearance": {
+        "title": "外观"
+      },
+      "dates": {
+        "title": "日期和表格"
+      },
+      "views": {
+        "title": "默认视图"
+      }
+    },
+    "security": {
+      "mfa": {
+        "title": "多重身份验证"
+      }
+    },
+    "snapshots": {
+      "capture": {
+        "title": "捕获",
+        "description": "快照保存在数据库中并包含在每个备份中。下面的大写字母是用来限制其范围的。"
+      }
+    },
+    "content-review": {
+      "approval": {
+        "title": "批准",
+        "description": "没有提交步骤。每当内容的当前版本没有决定时，内容就会等待审核，因此编辑批准的内容会自动将其发送回来。"
+      }
+    },
+    "additional": {
+      "title": "附加设置"
+    }
+  },
+  "page": {
+    "loading": "正在加载设置...",
+    "loadError": "无法加载设置。",
+    "leaveWarning": "保留未保存的更改设置吗？",
+    "leaveSectionTitle": "此部分有未保存的更改。保留它们并打开另一个“设置”部分？",
+    "leaveSectionAction": "放弃更改",
+    "saved": "设置已保存。",
+    "conflict": "这些设置在其他地方发生了变化。保存前重新加载最新设置。",
+    "reviewQueue": {
+      "title": "审核队列",
+      "description": "等待审核的内容列在主导航的“内容审核”下。"
+    },
+    "takeoverAlert": {
+      "title": "自动天气警报已移至插件。",
+      "description": "NWS 监控、警报规则和活动紧急情况在 <alertsLink>Emergency Alerts</alertsLink> 插件中配置。以下默认值适用于手动启动的接管和玩家命令。"
+    },
+    "accessibilityAlert": {
+      "title": "每个玩家都需要进行本地设置。",
+      "description": "必须在 Android 辅助功能设置中手动启用辅助功能控制辅助。此处启用策略不会授予 Android 权限。"
+    },
+    "powerAlert": {
+      "description": "开始时间和结束时间相同。选择一个不同的范围；较早的结束时间被视为过夜。"
+    },
+    "mfa": {
+      "allRequired": "每个帐户都必须注册第二个因素。",
+      "adminsRequired": "业主和管理员必须注册第二个因素。",
+      "consequence": "没有人退出。范围内尚未注册的帐户将被要求在下次登录时设置身份验证器应用程序或密钥，并且在完成之前不能使用 Studio 的其余部分。所有者或管理员可以从“设置”→“用户”中清除锁定帐户的因素。",
+      "passkeysUnavailable": "此安装中无法使用密钥。",
+      "passkeysFallback": "{{reason}} 身份验证器应用程序和恢复代码无论如何都可以工作。"
+    },
+    "preview": {
+      "title": "Player 预览",
+      "noContentTitle": "没有指定内容",
+      "noContentMessage": "此屏幕已准备好显示内容。",
+      "takeoverNote": "无论定制品牌如何，接管都会保留 Tilecast 的固定高对比度处理。"
+    }
+  },
+  "retention": {
+    "saved": "已保存活动保留设置。",
+    "title": "活动保留",
+    "description": "清理以有限的后台批次运行，并遵守部署硬限制。",
+    "save": "保存保留",
+    "loading": "正在加载保留设置...",
+    "loadError": "无法加载保留设置。",
+    "retrying": "正在重试...",
+    "retry": "再试一次",
+    "saveError": "无法保存保留设置。",
+    "rangeHint": "{{min}}–{{max}} 天",
+    "fields": {
+      "rawEventDays": "原始 Player 活动事件",
+      "playbackSessionDays": "游戏证明会话",
+      "screenStateDays": "屏幕状态间隔",
+      "auditLogDays": "审核日志",
+      "diagnosticMetadataDays": "详细的诊断元数据"
+    },
+    "validation": {
+      "required": "需要 {{label}}。",
+      "wholeDays": "{{label}} 必须是整数天。",
+      "range": "{{label}} 必须介于 {{min}} 和 {{max}} 天之间。"
+    }
+  },
+  "branding": {
+    "loginBackgroundSaved": "登录后台已保存。",
+    "loginBackgroundRemoved": "登录背景已删除。",
+    "title": "组织形象",
+    "description": "从此设备上传图像。 Tilecast 内部存储所选资产。",
+    "logo": {
+      "title": "标志",
+      "description": "Tilecast Studio 和支持的播放器屏幕的宽组织徽标。"
+    },
+    "icon": {
+      "title": "方形图标",
+      "description": "用于紧凑品牌和图标大小展示位置的方形标记。"
+    },
+    "loginBackground": {
+      "title": "登录后台",
+      "description": "Tilecast Studio 登录面板后面的全屏图像。"
+    },
+    "previewAlt": "{{title}} 预览",
+    "invalidType": "选择 PNG、JPEG、WebP 或 SVG 图像。",
+    "uploadFailed": "上传失败。",
+    "unavailable": "所选图像不可用。上传替换。",
+    "loadError": "无法加载所选图像。",
+    "uploading": "正在上传{{progress}}%",
+    "replace": "替换图片",
+    "upload": "上传图片",
+    "remove": "删除"
+  },
+  "backups": {
+    "kinds": {
+      "manual": "手册",
+      "scheduled": "预定",
+      "preRestore": "恢复前",
+      "imported": "进口"
+    },
+    "verification": {
+      "unverified": "未验证",
+      "failed": "验证失败"
+    },
+    "jobKinds": {
+      "backup": "备份",
+      "verify": "验证",
+      "restore": "恢复"
+    },
+    "jobStatuses": {
+      "queued": "排队",
+      "running": "跑步",
+      "succeeded": "成功了",
+      "failed": "失败",
+      "cancelled": "取消"
+    },
+    "phases": {
+      "checking_disk_space": "检查磁盘空间",
+      "database_snapshot": "保存数据库",
+      "pre_restore_backup": "创建恢复前备份",
+      "finalizing_archive": "完成存档",
+      "verifying": "正在验证",
+      "verifying_archive": "验证存档",
+      "staging_files": "暂存文件",
+      "restoring_database": "正在恢复数据库",
+      "activating_files": "激活文件",
+      "validating": "正在验证",
+      "finalizing": "敲定",
+      "complete": "完成"
+    },
+    "triggers": {
+      "manual": "手册",
+      "scheduled": "预定",
+      "preRestore": "恢复前"
+    },
+    "ownerOnly": "只有所有者可以管理备份。",
+    "loading": "正在加载备份...",
+    "loadError": "无法加载备份。",
+    "title": "安装备份",
+    "description": "完整备份包括数据库、媒体文件、缩略图、变体和缓存的播放器更新。",
+    "queuing": "排队…",
+    "create": "创建备份",
+    "lastSuccessful": "上次成功备份：",
+    "nextScheduled": "· 下一个预定：{{date}}",
+    "available": "可用备份",
+    "availableHint": "在依赖存档或开始还原之前验证存档。",
+    "empty": "无备份",
+    "emptyHint": "尚未创建任何备份。",
+    "verified": "已验证",
+    "versionMeta": "· Tilecast {{tilecastVersion}} · 架构 {{schemaVersion}}",
+    "verify": "验证",
+    "download": "下载",
+    "restore": "恢复",
+    "deleteArchive": "删除{{fileName}}",
+    "recent": "最近的备份活动",
+    "jobInProgress": "{{kind}} 进行中",
+    "restoreTitle": "恢复{{fileName}}？",
+    "restoreBody": "Tilecast 将暂时不可用，当前数据库和媒体状态将被替换。将首先创建预恢复备份。",
+    "restoreBodyMismatch": "Tilecast 将暂时不可用，当前数据库和媒体状态将被替换。将首先创建预恢复备份。警告：此备份属于不同的安装。已注册的玩家需要重置并再次配对。",
+    "restoreAction": "恢复",
+    "deleteTitle": "删除{{fileName}}？此操作无法撤消。",
+    "deleteLastTitle": "这是最后一次完整备份。还是删掉吧？",
+    "deleteLastBody": "您将没有已知良好的备份可供恢复。"
+  },
+  "integrations": {
+    "ownerOnly": "只有所有者可以管理集成令牌。",
+    "title": "集成代币",
+    "description": "授予选定的集成而不共享 Studio 密码。",
+    "secretNotice": "<strong> 立即复制此令牌。</strong> 显示一次。",
+    "copied": "我已经复制了",
+    "loading": "正在加载令牌...",
+    "tokensLoadError": "令牌数据加载失败。",
+    "empty": "没有代币",
+    "emptyHint": "不存在集成令牌。",
+    "revokeTitle": "撤销“{{name}}”？",
+    "revokeBody": "任何使用它的东西都会立即停止工作，并且撤销的令牌无法重新启用。",
+    "revokeAction": "撤销",
+    "revoke": "撤销",
+    "revokeToken": "撤销{{name}}",
+    "status": {
+      "revoked": "已撤销",
+      "expired": "已过期",
+      "active": "活跃"
+    },
+    "expiry": "过期 {{date}}",
+    "lastUsed": "最后使用的{{date}}",
+    "neverUsed": "从未使用过",
+    "limited_other": "仅限{{count}}数据源",
+    "scopes": {
+      "write": {
+        "title": "写入手动表行",
+        "description": "替换所选手动表数据源中的行。"
+      },
+      "read": {
+        "title": "读取车队健康状况",
+        "description": "通过以 JSON 或 Prometheus 指标报告状态、未解决的事件和内容问题来读取屏幕计数。"
+      }
+    },
+    "createTitle": "创建一个令牌",
+    "nameLabel": "名称",
+    "nameHint": "命名将使用它的系统，以便交付记录和审核日志说明谁做了什么。",
+    "capabilities": "能力",
+    "expiresLabel": "到期日",
+    "expiresHint": "该令牌将在当天结束时停止工作。对于永不过期的令牌，将其保留为空，并在使用它的系统退役时撤销它。",
+    "limitLabel": "数据源限制",
+    "limitHint": "选择无以允许每个手动表数据源。为它们命名是更安全的默认设置。",
+    "limitSearchLabel": "搜索数据源",
+    "limitSearchPlaceholder": "按名称搜索",
+    "limitSelected": "{{count}} 已选择",
+    "limitNoMatch": "没有数据源与此搜索匹配。",
+    "loadingSources": "正在加载数据源...",
+    "sourcesLoadError": "数据源数据加载失败。",
+    "noSources": "尚不存在手动表数据源。",
+    "creating": "创造……",
+    "createAction": "创建代币",
+    "created": "创建集成令牌。",
+    "revoked": "集成令牌已撤销。"
+  },
+  "locations": {
+    "searchLabel": "搜索地点",
+    "searchPlaceholder": "按姓名或地址搜索",
+    "add": "添加位置",
+    "saved": "位置已保存。",
+    "saveFailed": "无法保存该位置。",
+    "deleted": "地点已删除。",
+    "deleteConflict": "该位置仍分配有屏幕。在删除之前重新分配或取消分配它们。",
+    "deleteFailed": "无法删除该位置。",
+    "loadError": "位置数据加载失败。",
+    "loading": "加载地点...",
+    "noAddress": "没有设置地址",
+    "screens_other": "{{count}} 屏幕",
+    "editLocation": "编辑{{name}}",
+    "deleteLocation": "删除{{name}}",
+    "blockedTitle": "{{name}} 仍分配有屏幕且无法删除。",
+    "confirmOk": "好的",
+    "deleteTitle": "删除{{name}}？",
+    "emptySearch": "没有匹配的位置",
+    "empty": "还没有地点",
+    "emptySearchHint": "尝试使用不同的名称或地址。",
+    "emptyHint": "添加建筑物或校园以将其分配给屏幕。",
+    "addTitle": "添加位置",
+    "editTitle": "编辑位置",
+    "save": "保存位置",
+    "fields": {
+      "name": "地点名称",
+      "address1": "地址行 1",
+      "address2": "地址行2",
+      "city": "城市/地区",
+      "state": "州/省/地区",
+      "postal": "邮政编码",
+      "country": "国家",
+      "latitude": "纬度",
+      "longitude": "经度"
+    }
+  },
+  "updates": {
+    "console": {
+      "incompatibleTargets": "不兼容的屏幕：{{count}}。",
+      "playerFamily": "Player家族",
+      "families": {
+        "android": "安卓",
+        "linux": "Linux 遗产",
+        "edge": "Tilecast 边缘",
+        "windows": "窗户"
+      },
+      "status": {
+        "active": "活跃",
+        "paused": "已暂停",
+        "completed": "已完成",
+        "cancelled": "取消"
+      },
+      "deployments": "部署",
+      "releases": "发布",
+      "workspaceViews": "Player 更新视图",
+      "fleetCount": "{{count}} 屏幕",
+      "fleetCount_other": "{{count}} 屏幕",
+      "targetCount": "{{count}} 屏幕",
+      "targetCount_other": "{{count}} 屏幕",
+      "selectedCount": "{{count}} 屏幕已选择",
+      "selectedCount_other": "{{count}} 屏幕已选择",
+      "activeDeployments": "积极部署和关注",
+      "recentDeployments": "最近的部署",
+      "noHistory": "没有完成的部署",
+      "noHistoryHint": "此处显示已完成的部署。",
+      "viewRollout": "查看推出",
+      "sync": "同步发布",
+      "synced": "发布目录已同步。",
+      "more": "更多命令",
+      "continue": "继续",
+      "step": "{{stage}} 共 3 — {{title}}",
+      "steps": {
+        "release": "发布",
+        "targets": "目标",
+        "rollout": "推出"
+      },
+      "stepHints": {
+        "release": "选择一件经过验证的工件。将其架构与您的屏幕相匹配。",
+        "targets": "搜索屏幕或显示组。 Tilecast 检查每个已解析的屏幕。",
+        "rollout": "选择何时安装并在开始之前检查部署。"
+      },
+      "noReadyRelease": "部署之前在“发布”视图中准备发布。",
+      "prepareFirst": "部署前准备并验证",
+      "screens": "屏幕",
+      "noTargetMatch": "没有匹配的目标",
+      "groupMembers": "{{count}}成员·{{eligible}}兼容",
+      "checkingCompatibility": "检查兼容性...",
+      "selectEligible": "选择所有符合条件的",
+      "removeTarget": "删除{{name}}",
+      "modeHints": {
+        "install_now": "立即下载、验证并请求安装。",
+        "download_only": "在每个屏幕上准备更新而不安装。",
+        "maintenance_window": "立即下载并在所选时间或之后安装。"
+      },
+      "windowHint": "该浏览器的当地时间。玩家在该时刻或之后安装。",
+      "futureWindow": "选择未来的日期和时间。",
+      "canaryRollout": "金丝雀推出",
+      "canaryHint": "首先更新一小部分。仅在每只金丝雀成功后才继续。",
+      "invalidCanary": "使用 1-50 个金丝雀筛选，少于合格目标。在使用 Canary 之前删除已经存在的屏幕。",
+      "canarySummary": "{{count}} 金丝雀屏幕",
+      "canarySummary_other": "{{count}} 金丝雀屏",
+      "canaryPhase": "推出阶段：{{phase}}",
+      "waitingCanary": "等待金丝雀",
+      "review": "部署审核",
+      "blockedTitle": "选定的屏幕无法接收此版本",
+      "offlineWarning": "{{count}}屏幕没有最近的心跳。他们的更新命令等待重新连接并在 7 天后过期。",
+      "offlineWarning_other": "{{count}}屏幕没有最近的心跳。他们的更新命令等待重新连接并在 7 天后过期。",
+      "currentWarning": "{{count}} 屏幕已具有此版本或更高版本。他们没有收到更新命令。",
+      "currentWarning_other": "{{count}} 屏幕已具有此版本或更高版本。他们没有收到更新命令。",
+      "configureSource": "配置源",
+      "sourceHint": "GitHub 访问是可选的。签名上传也可以在没有 GitHub 的情况下使用。",
+      "deviceFlowHint": "在 OAuth 应用程序中启用设备流。 GitHub还需要回调URL； Tilecast 存储库 URL 是合适的。",
+      "uploadHint": "选择工件、其签名清单和分离的签名。需要服务器验证。",
+      "fileTooLarge": "{{name}} 不得超过 {{size}}。",
+      "verifyingRelease": "正在验证签名版本...",
+      "artifact": "神器",
+      "manifest": "清单",
+      "signature": "签名",
+      "releaseLibrary": "发布库",
+      "checked": "已检查 {{time}}",
+      "noReleases": "无可用版本",
+      "noReleasesHint": "同步 GitHub 或从 More 上传签名版本。",
+      "prepareRequested": "已请求下载工件。",
+      "prepareArtifact": "准备神器",
+      "deployArtifact": "部署{{architecture}}",
+      "releaseCommands": "{{version}} {{architecture}} 的命令",
+      "deploymentUsage": "{{count}} 部署 · {{active}} 活跃",
+      "technicalDetails": "技术细节",
+      "versionCode": "版本代码",
+      "sha256": "SHA-256",
+      "verification": "验证",
+      "fullyVerified": "工件和清单已验证",
+      "manifestVerified": "清单签名已验证",
+      "certificate": "签名证书 SHA-256",
+      "releaseNotes": "发行说明",
+      "noNotes": "未提供发行说明。",
+      "trustedKeyMissing": "在导入版本之前，在服务器上配置受信任的更新清单公钥。"
+    },
+    "states": {
+      "held": {
+        "label": "为金丝雀举行",
+        "detail": "当每个金丝雀屏幕报告更新成功时启动。"
+      },
+      "pending": {
+        "label": "排队",
+        "detail": "玩家已被告知获取此版本。"
+      },
+      "offline": {
+        "label": "等待重新连接",
+        "detail": "屏幕无法访问，恢复后将启动。"
+      },
+      "downloading": {
+        "label": "正在下载"
+      },
+      "downloaded": {
+        "label": "已下载",
+        "detail": "等待验证下载的文件。"
+      },
+      "verifying": {
+        "label": "正在验证",
+        "detail": "根据预期的哈希值检查下载的文件。"
+      },
+      "ready": {
+        "label": "准备安装",
+        "detail": "安装在该模式允许的下一刻开始。"
+      },
+      "waiting_for_permission": {
+        "label": "需要安装权限",
+        "detail": "在电视上允许此安装源，以便播放器可以安装更新。"
+      },
+      "waiting_for_user": {
+        "label": "需要电视上的批准",
+        "detail": "必须有人批准电视本身的安装程序。这并不是失败。"
+      },
+      "installing": {
+        "label": "安装中",
+        "detail": "播放器现在正在安装该版本。"
+      },
+      "reconnecting": {
+        "label": "正在重启",
+        "detail": "播放器重新启动进入新版本并正在重新连接。"
+      },
+      "succeeded": {
+        "label": "已更新"
+      },
+      "already_current": {
+        "label": "已经是当前的",
+        "detail": "此屏幕是在推出之前已部署的版本上。"
+      },
+      "failed": {
+        "label": "失败",
+        "detail": "更新停止了。一旦屏幕可达，请重试。"
+      },
+      "cancelled": {
+        "label": "取消",
+        "detail": "还没说完就停了。"
+      },
+      "incompatible": {
+        "label": "不兼容",
+        "detail": "此版本与此屏幕的设备要求不兼容。"
+      },
+      "unknown": {
+        "label": "未知",
+        "detail": "该玩家报告了 Studio 无法识别的状态。"
+      }
+    },
+    "stages": {
+      "queued": "排队",
+      "downloading": "正在下载",
+      "installing": "安装中",
+      "updated": "已更新"
+    },
+    "segments": {
+      "succeeded": "已更新",
+      "attention": "等待某人",
+      "failed": "失败",
+      "remaining": "进行中"
+    },
+    "headline": {
+      "cancelled": "已取消。",
+      "retry_other": "{{count}} 屏幕需要重试。",
+      "waiting_other": "{{count}} 屏幕正在电视旁等待某人。",
+      "pausedFallback": "金丝雀失败后暂停。",
+      "complete": "每个屏幕都在此版本中。",
+      "rolling": "推出。没有什么需要注意的。"
+    },
+    "requestFailed": "请求失败。",
+    "retryRequested": "请求重试此屏幕。",
+    "cancelledSuccess": "Player 更新部署已取消。",
+    "deploymentTitle": "部署",
+    "deploymentFallback": "Player部署",
+    "loading": "加载屏幕状态",
+    "statusesLoadError": "无法加载屏幕状态。",
+    "detail": {
+      "status": "状态",
+      "mode": "模式",
+      "rollout": "推出",
+      "started": "开始"
+    },
+    "rolloutCanary": "{{size}} 金丝雀第一·{{phase}}",
+    "rolloutAll": "所有屏幕同时显示",
+    "pausedTitle": "推出已暂停",
+    "pausedDetail": "{{reason}} 其余屏幕保持当前版本，直到取消并重新创建部署。",
+    "filterLabel": "屏幕状态过滤器",
+    "filter": {
+      "all": "全部 {{count}}",
+      "attention": "需要注意{{count}}",
+      "progress": "进行中 {{count}}",
+      "done": "成品{{count}}"
+    },
+    "searchScreens": "搜索屏幕",
+    "emptyFilter": "没有屏幕与此过滤器匹配。",
+    "emptyNone": "此部署不会到达您可以看到的任何屏幕。",
+    "cancelHint": "取消会停止所有未完成的屏幕。已更新的屏幕保留在新版本中。",
+    "cancel": "取消部署",
+    "canary": "金丝雀",
+    "firstInstall": "首次安装·{{version}}",
+    "downloadProgress": "{{percent}}% 的 {{size}}",
+    "stageTrail": "更新进度",
+    "noScreens": "没有屏幕",
+    "relativeNow": "刚才",
+    "relativeMinutes": "{{count}}分钟前",
+    "relativeHours": "{{count}}h 前",
+    "relativeDays": "{{count}}d 前",
+    "panel": {
+      "platformLabel": "Player平台",
+      "releasesTitle": "可用的 {{platform}} 版本",
+      "releasesHint": "直接上传签名版本或选择从 <repo>Gibsonmb71/tilecast</repo> 同步。",
+      "syncing": "正在同步...",
+      "sync": "从 GitHub 同步",
+      "uploadRelease": "上传发布",
+      "loadingReleases": "正在加载版本...",
+      "loadError": "无法加载版本。 {{error}}",
+      "emptyReleases": "尚未导入任何 {{platform}} Player 版本。 Tilecast 自动检查GitHub；使用 GitHub 中的同步立即重试。",
+      "releasesCaption": "可用的 {{platform}} Player 版本",
+      "version": "版本",
+      "source": "来源",
+      "published": "已发表",
+      "size": "尺寸",
+      "status": "状态",
+      "actionsColumn": "行动",
+      "code": "代码 {{code}}",
+      "channelBeta": "贝塔",
+      "channelStable": "稳定",
+      "sourceUpload": "直接上传",
+      "sourceGitHub": "GitHub",
+      "cachingLabel": "缓存{{version}}：下载的{{total}}的{{downloaded}}",
+      "downloadProgress": "{{total}}的{{downloaded}}",
+      "purgeDeleteTitle": "删除此版本并释放其缓存文件",
+      "purgeFreeTitle": "释放缓存文件并保留部署历史记录",
+      "rowDelete": "删除",
+      "rowFree": "免费文件",
+      "showing": "显示{{total}}发布的{{shown}}，最新的先。",
+      "showFewer": "显示较少的版本",
+      "showAll": "显示所有 {{total}} 版本",
+      "purgeDeleteHeading": "删除这个版本？",
+      "purgeFreeHeading": "释放这个缓存文件吗？",
+      "freesStorage": "{{version}} ({{code}}) 释放 {{size}} 的服务器存储。",
+      "neverDeployed": "它从未被部署过，因此版本及其缓存文件都被删除。",
+      "historyHint": "打开部署以读取其到达的每个屏幕的状态。等待批准意味着电视还需要有人接受安装人员；这并不是失败。",
+      "historyRefOne": "部署参考",
+      "historyRefOther": "部署参考",
+      "directTitle": "此版本是直接上传的。",
+      "directHint": "Tilecast无法再次下载。稍后部署它需要再次上传相同的签名版本。",
+      "confirmDelete": "删除发布",
+      "confirmFree": "免费缓存文件",
+      "purgeDeleted": "释放已删除并释放其缓存文件。",
+      "purgeFreed": "缓存文件已释放。该版本保留其部署历史记录列表。",
+      "githubTitle": "GitHub 连接",
+      "authorizedAs": "授权为@{{login}}",
+      "authorizedToken": "使用服务器管理的令牌进行授权",
+      "anonymous": "匿名API访问",
+      "connected": "已连接",
+      "notConnected": "未连接",
+      "disconnecting": "正在断开连接...",
+      "disconnect": "断开连接",
+      "starting": "开始…",
+      "connect": "连接 GitHub",
+      "oneTimeCode": "一次性代码",
+      "openGitHub": "打开 GitHub",
+      "waitingAuth": "等待授权...",
+      "setupHint": "使用启用设备流的 GitHub OAuth 应用程序配置 <clientId>TILECAST_GITHUB_CLIENT_ID</clientId> 以启用登录。",
+      "githubConnected": "以@{{login}} 连接到 GitHub。",
+      "defaultLogin": "授权用户",
+      "githubDeclined": "GitHub 授权被拒绝。",
+      "githubExpired": "GitHub 授权码已过期。重新开始获取新代码。",
+      "githubIncomplete": "GitHub授权无法完成。",
+      "githubDisconnected": "GitHub 帐户已断开连接。",
+      "verificationTitle": "Player 未配置更新验证。",
+      "verificationHint": "将 Tilecast 服务器上的 <key>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</key> 设置为 Player 发布工作流使用的公共 Ed25519 密钥，然后重新启动服务器。",
+      "syncErrorTitle": "GitHub 版本无法同步。",
+      "cacheErrorTitle": "无法缓存该版本。",
+      "removeErrorTitle": "该版本无法删除。",
+      "deployTitle": "新部署",
+      "deployHint": "选择缓存的、经过验证的版本和目标 {{platform}} 屏幕或显示组。",
+      "releaseLabel": "已验证版本",
+      "selectRelease": "选择一个版本",
+      "noRelease": "没有任何版本可供部署",
+      "modeLabel": "部署方式",
+      "modeDownloadOnly": "仅限下载",
+      "modeInstallNow": "下载并请求安装",
+      "modeMaintenanceWindow": "维护窗口",
+      "modeNameDownloadOnly": "仅限下载",
+      "modeNameInstallNow": "立即安装",
+      "modeNameMaintenanceWindow": "维护窗口",
+      "canaryLabel": "金丝雀屏风",
+      "canaryHint": "其余目标等待每只金丝雀重新连接。使用 0 一次部署到所有目标。",
+      "windowLabel": "维护窗口",
+      "windowTimeLabel": "维护窗口时间",
+      "windowHint": "玩家会在当地时间或之后在每个屏幕上进行安装。",
+      "targetsLabel": "目标屏幕和显示组",
+      "searchPlaceholder": "按名称搜索",
+      "targetsGroup": "部署目标",
+      "screensHeading": "{{platform}} 屏幕",
+      "groupsHeading": "显示组",
+      "groupSize": "{{count}} 屏幕",
+      "noScreenMatch": "没有屏幕与此搜索匹配。",
+      "noScreensEnrolled": "没有注册 {{platform}} 屏幕。",
+      "noGroupMatch": "没有显示组与此搜索匹配。",
+      "noGroups": "尚不存在显示组。",
+      "selectedOne": "{{count}} 屏幕已选择",
+      "selectedOther": "选择 {{count}} 屏幕",
+      "offlineCount": "{{count}}离线",
+      "clearSelection": "清除选择",
+      "creating": "创建部署...",
+      "deployAction": "部署更新",
+      "confirmTitle": "部署此 Player 更新吗？",
+      "confirmSummaryOne": "{{count}}屏幕将使用{{mode}}接收{{version}}。",
+      "confirmSummaryOther": "{{count}} 屏幕将使用 {{mode}} 接收 {{version}}。",
+      "versionFallback": "这个版本",
+      "androidNote": "Android 可能需要在每台电视上安装批准。",
+      "linuxNote": "每个 Linux 播放器都会重新启动进入新版本。",
+      "offlineNoteOne": "{{count}} 所选屏幕离线，重新连接后将更新。",
+      "offlineNoteOther": "{{count}} 所选屏幕处于离线状态，重新连接后将更新。",
+      "deployCreatedOne": "为 {{count}} 屏幕创建部署。",
+      "deployCreatedOther": "为 {{count}} 屏幕创建的部署。",
+      "historyTitle": "部署历史",
+      "historyLoadError": "无法加载部署历史记录。",
+      "historyCaption": "{{platform}} Player部署历史",
+      "colDeployment": "部署",
+      "colStatus": "状态",
+      "colScreens": "屏幕",
+      "colNeeds": "这需要什么",
+      "lastFailure": "最后一次失败：{{error}}",
+      "historyEmpty": "尚未创建 {{platform}} Player 部署。",
+      "rolloutCanary": "{{size}} 金丝雀 · {{phase}}",
+      "rolloutAll": "所有屏幕同时显示",
+      "phaseCanary": "金丝雀",
+      "updatedCount": "{{target}} 的 {{succeeded}} 已更新",
+      "statusActive": "活跃",
+      "statusPaused": "已暂停",
+      "statusCompleted": "已完成",
+      "statusCancelled": "取消",
+      "statusFailed": "失败",
+      "cacheTitle": "下载并验证此版本",
+      "cacheDownloading": "正在下载...",
+      "cacheDownload": "下载",
+      "readinessVerificationFailed": "验证失败",
+      "readinessVerifyAgain": "再次下载并验证。",
+      "readinessDownloadFailed": "下载失败",
+      "readinessCacheDetail": "清单已验证。无法缓存该工件。",
+      "readinessDownloading": "正在下载",
+      "readinessDownloadingDetail": "一旦工件被缓存，验证就会完成。",
+      "readinessNotCached": "未缓存",
+      "readinessManifestDetail": "清单签名已验证。下载进行部署。",
+      "readinessDeployableDetail": "下载以使此版本可部署。",
+      "readinessVerifying": "正在验证",
+      "readinessVerifyingDetail": "工件已缓存。全面验证尚未完成。",
+      "readinessReady": "准备部署",
+      "uploadTitle": "上传签名的 {{platform}} 版本",
+      "releaseUploaded": "已上传签名球员新闻稿。",
+      "uploadHint": "在 {{artifact}} 进入 Tilecast 的私有更新缓存之前，所有三个文件都会经过验证。",
+      "dropTitle": "将发布文件拖放到此处",
+      "dropHint": "或选择所有三个文件",
+      "validationLabel": "发布文件验证",
+      "fileRequired": "必填",
+      "unexpectedFile": "意外文件：{{name}}。仅选择三个已签名的发布文件。",
+      "manifestTooBig": "更新清单不得超过 128 KB。",
+      "sigTooBig": "清单签名不得超过 4 KB。",
+      "uploading": "正在上传...{{progress}}%",
+      "verifyingAndroid": "验证签名、APK 和包元数据...",
+      "verifyingLinux": "验证签名和 AppImage 哈希...",
+      "uploadComplete": "发布已验证并缓存",
+      "uploadedVersion": "版本 {{version}} · {{channel}} · {{size}}",
+      "importing": "正在导入版本...",
+      "uploadVerify": "上传并验证",
+      "clearFiles": "清除文件",
+      "edgeNote": "每个 Tilecast Edge 屏幕都会下载并验证版本，重新启动并在重新连接并显示内容后进行确认。无法确认的屏幕会自行返回到之前的版本。",
+      "verifyingEdge": "验证签名的信封和发布存档哈希......",
+      "architectureUnknown": "架构未报告",
+      "edgeArchive": "发布档案",
+      "windowsNote": "每个 Windows 播放器都会下载并验证该包、安装它，然后重新启动进入新版本。",
+      "verifyingWindows": "验证签名的信封和包哈希......"
+    },
+    "setup": {
+      "connect": "连接 GitHub",
+      "title": "设置 GitHub 连接",
+      "intro": "为此 Tilecast 安装创建一个 GitHub OAuth 应用程序。 Tilecast 只需要公共Client ID；不要创建或粘贴客户端密钥。",
+      "stepCreateTitle": "创建 OAuth 应用程序",
+      "stepCreateBody": "打开 GitHub 开发人员设置并注册一个新的 OAuth 应用程序。",
+      "openApps": "打开 GitHub OAuth 应用程序",
+      "stepValuesTitle": "输入这些精确值",
+      "stepValuesBody": "即使 Tilecast 通过设备流登录，GitHub 也需要回调 URL。",
+      "appName": "应用名称",
+      "homepageUrl": "首页 URL",
+      "callbackUrl": "授权回调URL",
+      "deviceFlowNote": "在注册应用程序之前打开 <deviceFlow>Enable Device Flow</deviceFlow>。",
+      "copyValue": "复制{{label}}",
+      "stepClientIdTitle": "粘贴客户端 ID",
+      "stepClientIdBody": "GitHub 注册应用程序后，复制其客户端 ID 并将其粘贴到下面。 Tilecast 将其保存在持久应用程序数据中，然后立即开始登录。",
+      "clientIdLabel": "GitHub 客户端 ID",
+      "saveError": "Tilecast 无法保存 GitHub 客户端 ID。",
+      "saveConnect": "保存并连接",
+      "connected": "以@{{login}} 连接到 GitHub。",
+      "defaultLogin": "授权用户",
+      "declined": "GitHub 授权被拒绝。",
+      "expired": "GitHub 授权码已过期。重新开始获取新代码。",
+      "incomplete": "GitHub授权无法完成。",
+      "authTitle": "GitHub上授权Tilecast",
+      "authBody": "打开 GitHub，输入此一次性代码，并批准 Tilecast OAuth 应用程序。该窗口将自动更新。",
+      "openGitHub": "打开 GitHub",
+      "waiting": "等待授权..."
+    }
+  },
+  "policies": {
+    "title": {
+      "screen": "屏幕行为",
+      "group": "Player政策"
+    },
+    "description": {
+      "group": "覆盖此显示组的组织默认值。",
+      "screen": "仅覆盖此屏幕继承的播放和设备行为。"
+    },
+    "searchPlaceholder": "搜索设置",
+    "searchLabel": "搜索播放器设置",
+    "overriddenOnly": "仅覆盖",
+    "overrides_other": "{{count}} 覆盖",
+    "resetAll": "重置所有覆盖",
+    "resetTitle": "重置每个玩家设置覆盖？",
+    "resetDescription": "这会清除该目标的每个玩家设置覆盖。此操作无法撤消。",
+    "keepOverrides": "保留覆盖",
+    "resetting": "正在重置...",
+    "saveErrorTitle": "无法保存设置",
+    "saveErrorDescription": "如果其他管理员更改了当前策略，请重新加载该策略。",
+    "saved": "Player 设置已保存。",
+    "groups": {
+      "playback": {
+        "title": "回放",
+        "description": "默认演示和音量行为。"
+      },
+      "storage": {
+        "title": "存储和下载",
+        "description": "本地缓存限制和内容交付行为。"
+      },
+      "sync": {
+        "title": "同步",
+        "description": "服务器协调、状态和诊断。"
+      },
+      "websites": {
+        "title": "网站",
+        "description": "超时、cookie 和本地网站数据行为。"
+      },
+      "reliability": {
+        "title": "可靠性和信息亭",
+        "description": "共享恢复加上特定于平台的 Android 和 Linux kiosk 行为。"
+      },
+      "power": {
+        "title": "活跃时间和电量",
+        "description": "工作时间、睡眠请求和黑屏后备。"
+      },
+      "accessibility": {
+        "title": "辅助功能控制",
+        "description": "自动返回行为和安全维护排除。"
+      },
+      "updates": {
+        "title": "Player 更新",
+        "description": "特定于屏幕的更新下载和安装行为。"
+      }
+    },
+    "emptySearch": "本节中没有匹配的设置。",
+    "emptySection": "本节中没有可用的屏幕级设置。",
+    "advancedDetails": "高级细节",
+    "effectiveRevision": "有效配置修改 {{revision}} ·",
+    "unsaved": "未保存的播放器设置更改",
+    "groupOverride": "组覆盖",
+    "screenOverride": "屏幕覆盖",
+    "organizationDefault": "组织默认",
+    "overrideSetting": "覆盖{{title}}",
+    "overrideOn": "覆盖",
+    "overrideOff": "覆盖",
+    "revert": "恢复",
+    "valueNone": "无",
+    "valueNoneAllowed": "不允许",
+    "valueNotSet": "未设置",
+    "allowedCount_other": "{{count}} 允许",
+    "duration": {
+      "hours_other": "{{count}}小时",
+      "minutes_other": "{{count}} 分钟",
+      "seconds_other": "{{count}}秒"
+    }
+  },
+  "networks": {
+    "saved": "演示网络已保存。",
+    "deleted": "演示网络已删除。",
+    "saveError": "无法保存演示网络。",
+    "manageOnly": "管理演示网络需要管理演示网络功能和对每个屏幕的访问权限。",
+    "title": "用于本地演示的临时 Wi-Fi",
+    "description": "仅当 AirPlay 会话需要 Wi-Fi 时，Presentation Networks 才允许受支持的 Linux 播放器加入 Wi-Fi。以太网仍然是 Tilecast 流量、下载和组视频扇出的正常路径。",
+    "credentialsUnavailable": "凭据在此服务器上不可用。",
+    "credentialsHint": "在保存网络之前配置演示网络加密密钥。",
+    "loadError": "无法加载演示网络。",
+    "listTitle": "演示网络",
+    "listHint": "凭证是只写的。在不输入新凭据的情况下编辑网络会保留已保存的凭据。",
+    "add": "添加网络",
+    "loading": "正在加载演示网络...",
+    "empty": "还没有演示网络",
+    "emptyHint": "当 AirPlay 发送器无法仅通过以太网到达播放器时，添加员工、访客或活动 Wi-Fi 网络。",
+    "addFirst": "添加第一个网络",
+    "credentialSaved": "凭证已保存",
+    "credentialMissing": "凭证缺失",
+    "screens_other": "{{count}} 屏幕",
+    "revision": "修订版{{revision}}",
+    "edit": "编辑",
+    "deleteTitle": "删除{{name}}？",
+    "deleteAssigned_other": "{{name}} 分配给 {{count}} 屏幕。删除它并删除那些分配？",
+    "deleteError": "无法删除演示网络。",
+    "addTitle": "添加演示网络",
+    "editTitle": "编辑演示网络",
+    "loadingDetail": "正在加载网络详细信息...",
+    "fields": {
+      "name": "显示名称",
+      "nameHint": "操作员将在 Studio 中识别的名称。",
+      "ssid": "SSID",
+      "ssidHint": "Wi-Fi 名称，而不是 Studio 显示名称。",
+      "security": "认证",
+      "hidden": "隐藏SSID",
+      "secretPsk": "Wi-Fi 密码/PSK",
+      "secretEnterprise": "企业密码",
+      "secretHintNew": "只写。它在存储之前会被加密。",
+      "secretHintSaved": "凭证已保存。将此留空以保留它，或输入一个新值以旋转它。",
+      "secretHintNone": "尚未保存任何凭证；输入 1 以启用配置。",
+      "identity": "企业形象",
+      "anonymousIdentity": "匿名身份",
+      "anonymousIdentityHint": "RADIUS 服务器的可选外部身份。",
+      "ca": "CA证书",
+      "caHint": "PEM 形式的可选公共 CA 证书。它用于验证 RADIUS 服务器。",
+      "domain": "期望的服务器域",
+      "domainHint": "设置时需要 CA 证书。"
+    },
+    "assignedTitle": "指定的 Linux 玩家",
+    "assignedHint": "在群组 AirPlay 会话期间，只有选定的网关才能加入此网络。追随者留在以太网上。",
+    "assignedSearchLabel": "搜索 Linux 玩家",
+    "assignedSearchPlaceholder": "按名称或位置搜索",
+    "assignedSelected": "{{total}} 中的 {{selected}} 已选中",
+    "assignedNoMatch": "没有 Linux 播放器与此搜索匹配。",
+    "loadingPlayers": "正在加载 Linux 播放器...",
+    "noLocation": "没有位置",
+    "noPlayers": "没有可供分配的 Linux 玩家。",
+    "detailError": "无法加载该网络。",
+    "retry": "再试一次。",
+    "save": "保存网络",
+    "leaveTitle": "放弃未保存的网络更改？"
+  },
+  "notifications": {
+    "categories": {
+      "incident": "屏幕问题",
+      "content_health": "内容问题",
+      "backup": "备份",
+      "update": "Player 更新"
+    },
+    "testSent": "测试消息发送至{{sentTo}}。",
+    "toasts": {
+      "webhookCreated": "已创建通知 Webhook。",
+      "webhookUpdated": "通知 Webhook 已更新。",
+      "webhookTestSent": "Webhook 测试已发送。",
+      "webhookRemoved": "通知 Webhook 已删除。"
+    },
+    "removeTitle": "删除网络钩子“{{name}}”？",
+    "removeBody": "它的签名秘密无法恢复，因此接收者需要一个新的。",
+    "remove": "删除",
+    "removeWebhook": "删除{{name}}",
+    "test": "测试",
+    "enable": "启用",
+    "disable": "禁用",
+    "checking": "正在检查通知发送...",
+    "statusLoadError": "无法检查电子邮件传送状态。",
+    "webhooksLoadError": "无法加载 Webhook。",
+    "deliveriesLoadError": "无法加载最近交付的货物。",
+    "available": "可用",
+    "configured": "SMTP 中继已配置。每个帐户都可以在“我的帐户”→“首选项”下选择接收的内容。",
+    "emailUnavailable": "电子邮件不可用。",
+    "smtpSetup": "在中继需要的地方设置 <smtpHost>TILECAST_SMTP_HOST</smtpHost> （和 <smtpPort>TILECAST_SMTP_PORT</smtpPort>、<smtpUsername>TILECAST_SMTP_USERNAME</smtpUsername>、<smtpPassword>TILECAST_SMTP_PASSWORD</smtpPassword>他们），然后重新启动服务器。",
+    "testHint": "测试将发送到您自己的通知地址，并忽略安静时间和订阅。",
+    "sending": "正在发送...",
+    "sendTest": "给自己发送一个测试",
+    "loadingDeliveries": "正在加载交货...",
+    "deliveriesEmpty": "没有送货",
+    "deliveriesEmptyHint": "尚未发送任何内容。当报告情况时，此处会显示交货情况。",
+    "afterAttempts": " {{count}} 尝试后",
+    "allCategories": "所有类别",
+    "lastDelivered": " · 最后交付{{date}}",
+    "neverDelivered": " · 从未交付",
+    "lastError": "最后错误：{{error}}",
+    "loadingWebhooks": "正在加载网络钩子...",
+    "webhooksEmpty": "没有网络钩子",
+    "webhooksEmptyHint": "未配置 Webhook。",
+    "email": {
+      "title": "电子邮件发送",
+      "description": "Tilecast 通过服务器上配置的 SMTP 中继发送，而不是通过 Studio 中的帐户发送。"
+    },
+    "deliveries": {
+      "title": "最近交货",
+      "description": "Tilecast 尝试发送什么，以及发生了什么。这里的失败意味着消息没有到达。"
+    },
+    "webhooks": {
+      "title": "网络钩子",
+      "description": "Tilecast 将签名的 JSON 发布到您控制的 URL。使用中继来访问聊天服务； Tilecast 没有每服务集成。"
+    },
+    "secretNotice": "<strong> 立即复制此签名密钥。</strong> Tilecast 不会再次显示它，并且无法读回它。",
+    "verifyHint": "通过计算 <hmac>HMAC-SHA256(secret, timestamp + \".\" + body)</hmac> 并将其与 <sigHeader>X-Tilecast-Signature</sigHeader> 标头进行比较来验证请求。拒绝 <tsHeader>X-Tilecast-Timestamp</tsHeader> 不是最近的请求。",
+    "form": {
+      "name": "名称",
+      "nameHint": "如何在传送日志中识别该接收者。",
+      "url": "URL",
+      "urlHint": "除非接收者位于本地网络上，否则需要 HTTPS。",
+      "categories": "类别",
+      "categoriesHint": "选择“无”即可接收每个类别。",
+      "adding": "添加...",
+      "add": "添加网络钩子"
+    }
+  },
+  "operations": {
+    "system": {
+      "ownerOnly": "需要所有者或管理员访问权限。",
+      "diagnosticsTitle": "诊断",
+      "diagnosticsHint": "没有秘密或敏感路径的运行时状态。",
+      "diagnosticsError": "无法加载系统诊断。 {{error}}",
+      "loadingDiagnostics": "正在加载诊断...",
+      "unknownValue": "未知",
+      "lessThanMinute": "不到一分钟",
+      "fieldTilecast": "Tilecast",
+      "fieldUptime": "正常运行时间",
+      "fieldDatabase": "数据库",
+      "fieldPostgres": "PostgreSQL",
+      "fieldMediaStorage": "媒体存储",
+      "fieldConnectedScreens": "连接的屏幕",
+      "fieldPendingCommands": "待处理的命令",
+      "fieldProcessingJobs": "加工作业",
+      "fieldServerTimezone": "服务器时区",
+      "maintenanceTitle": "维护保养",
+      "maintenanceHint": "运行批准的维护任务。",
+      "run": "运行",
+      "running": "正在运行...",
+      "runConfirmTitle": "{{label}}？",
+      "completed": "维护操作完成。",
+      "actions": {
+        "expired-upload-cleanup": {
+          "label": "清理过期上传",
+          "description": "根据保留策略删除过期的临时上传数据。"
+        },
+        "completed-command-cleanup": {
+          "label": "清理命令历史记录",
+          "description": "删除早于配置的保留期限的已完成命令。"
+        },
+        "retention-cleanup": {
+          "label": "运行保留清理",
+          "description": "将配置的保留策略应用于符合条件的操作记录。"
+        },
+        "reconcile-config": {
+          "label": "协调播放器配置",
+          "description": "要求连接的玩家检索他们当前的有效配置。"
+        },
+        "validate-media": {
+          "label": "验证媒体存储",
+          "description": "在不更改内容的情况下检查媒体存储和处理工具的可用性。"
+        }
+      }
+    },
+    "importExport": {
+      "ownerOnly": "只有所有者可以导入或导出设置。",
+      "exportTitle": "导出设置",
+      "exportHint": "下载组织设置和策略元数据，无需凭据、机密或媒体文件。",
+      "exportAction": "导出非秘密设置",
+      "importTitle": "导入设置",
+      "importHint": "Tilecast 验证文档并在任何更改之前显示预览。",
+      "fileLabel": "设置文件",
+      "validating": "正在验证...",
+      "validatePreview": "验证和预览",
+      "validKeys": "{{count}}设定键有效。",
+      "policiesPresent": "存在 {{group}} 组策略和 {{screen}} 屏幕策略。",
+      "applyTitle": "应用这个经过验证的设置文档吗？",
+      "apply": "申请",
+      "applyAction": "应用导入的设置",
+      "imported": "已导入设置。",
+      "noDocument": "在验证之前选择一个设置文件。",
+      "invalidDocument": "该文件不是 Tilecast 设置导出。"
+    }
+  },
+  "fonts": {
+    "addGoogle": "从Google Fonts添加",
+    "upload": "上传字体文件",
+    "loading": "正在加载字体...",
+    "empty": "还没有组织字体",
+    "emptyHint": "从 Google Fonts 添加系列或上传您自己的 TTF 或 OTF 文件。然后布局文本就可以使用它。",
+    "sourceGoogle": "Google Fonts",
+    "sourceUpload": "已上传",
+    "sample": "敏捷的棕色狐狸跳过了懒狗 0123456789",
+    "licenseAttested": "上传时确认的权利",
+    "files_other": "{{count}} 文件",
+    "deleteFamily": "删除{{family}}",
+    "deleteTitle": "删除{{family}}？",
+    "deleteDescription": "使用此字体的布局必须首先选择另一种字体。屏幕会保留其副本直到下次更新。",
+    "deleted": "{{family}} 已移除",
+    "added": "添加 {{family}}",
+    "offlineNote": "Tilecast 在此服务器上存储每种字体。玩家下载字体以及使用该字体的内容并将其保留以供离线播放。玩家和 Studio 都不会联系 Google。",
+    "categories": {
+      "all": "所有类别",
+      "sans-serif": "无衬线字体",
+      "serif": "衬线",
+      "display": "显示",
+      "handwriting": "手写",
+      "monospace": "等宽字体",
+      "icons": "图标"
+    },
+    "google": {
+      "title": "从Google Fonts添加",
+      "description": "选择一个家庭。该服务器复制文件一次；在那之后，一切都不依赖于谷歌了。",
+      "searchLabel": "搜索家庭",
+      "searchPlaceholder": "姓氏",
+      "categoryLabel": "类别",
+      "loading": "正在加载目录...",
+      "results_other": "{{count}}系列",
+      "more": "显示更多",
+      "variable": "变量",
+      "styles_other": "{{count}} 权重",
+      "back": "返回目录",
+      "license": "许可证：{{license}}",
+      "weightRange": "在一个文件中权重 {{min}}–{{max}}",
+      "subsets": "字符集",
+      "stylesLabel": "风格",
+      "style": {
+        "normal": "常规",
+        "italic": "斜体"
+      },
+      "weights": "重量",
+      "copyNote": "仅选择您的内容所需的字符集。每个都添加一个文件，每个使用此字体的屏幕都会下载该文件。",
+      "add": "添加到组织",
+      "adding": "添加..."
+    },
+    "uploadDialog": {
+      "title": "上传字体文件",
+      "description": "为每种样式（例如常规、粗体和斜体）上传一个 TrueType (.ttf) 或 OpenType (.otf) 文件。具有相同家族名称的文件加入一个家族。",
+      "filesLabel": "字体文件",
+      "filesHint": "每个最多 15 MB。不接受字体集和网络字体（WOFF、WOFF2）。",
+      "rights": "我的组织有权在其显示器上显示这些字体。",
+      "submit_other": "上传{{count}}文件",
+      "uploading": "正在上传...",
+      "stored": "添加到{{family}}。",
+      "restricted": "添加到{{family}}。该字体自己的许可标志表明它可能无法嵌入；确认您的许可证允许显示使用。"
+    },
+    "picker": {
+      "libraryGroup": "组织字体",
+      "builtInGroup": "内置字体",
+      "add": "添加字体",
+      "manage": "添加或删除组织字体",
+      "missing": "删除字体（使用后备）",
+      "loadingFont": "正在加载字体..."
+    }
+  }
+}

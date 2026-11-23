@@ -1,7 +1,17 @@
 // Languages Studio ships. Adding one here also requires a matching
 // `src/locales/<code>/` directory and an entry in the server's
 // `preference.language` allowed list.
-export const SUPPORTED_LANGUAGES = ["en", "es", "ru"] as const;
+export const SUPPORTED_LANGUAGES = [
+  "en",
+  "es",
+  "ru",
+  "fr",
+  "hi",
+  "pt",
+  "bn",
+  "zh",
+  "nl",
+] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export type LanguagePreference = "system" | SupportedLanguage;
@@ -15,6 +25,12 @@ export const NATIVE_LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   en: "English",
   es: "Español",
   ru: "Русский",
+  fr: "Français",
+  hi: "हिन्दी",
+  pt: "Português",
+  bn: "বাংলা",
+  zh: "简体中文",
+  nl: "Nederlands",
 };
 
 const cacheKey = "tilecast.language";

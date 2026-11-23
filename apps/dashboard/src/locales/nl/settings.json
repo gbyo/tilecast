@@ -1,0 +1,2084 @@
+{
+  "actionBar": {
+    "unsavedTitle": "Niet-opgeslagen wijzigingen",
+    "unsavedDescription": "Wijzigingen worden bewaard terwijl u door Instellingen bladert.",
+    "reload": "Instellingen opnieuw laden"
+  },
+  "definitions": {
+    "backups": {
+      "schedule_enabled": {
+        "title": "Geplande back-ups",
+        "description": "Maak automatisch volledige back-ups volgens een schema"
+      },
+      "schedule_frequency": {
+        "title": "Back-upfrequentie"
+      },
+      "schedule_day": {
+        "title": "Back-up dag",
+        "description": "Dag van de week voor wekelijkse back-ups"
+      },
+      "schedule_time": {
+        "title": "Back-uptijd"
+      },
+      "schedule_timezone": {
+        "title": "Maak een back-up van de tijdzone"
+      },
+      "retention_max_count": {
+        "title": "Geplande back-ups om te bewaren"
+      },
+      "retention_max_age_days": {
+        "title": "Maximale geplande back-upduur (dagen)"
+      }
+    },
+    "notifications": {
+      "enabled": {
+        "title": "Meldingen verzenden",
+        "description": "E-mail heeft TILECAST_SMTP_HOST op de server nodig. Zonder dit blijven meldingen uitgeschakeld en mislukt er niets."
+      },
+      "from_address": {
+        "title": "Van adres",
+        "description": "Adres waarvandaan de meldings-e-mail wordt verzonden"
+      },
+      "from_name": {
+        "title": "Van naam"
+      },
+      "minimum_severity": {
+        "title": "Minimale ernst",
+        "description": "Condities onder deze ernst worden geregistreerd in Activiteit, maar worden niet verzonden"
+      },
+      "digest_time": {
+        "title": "Dagelijkse verteringstijd"
+      },
+      "timezone": {
+        "title": "Melding tijdzone",
+        "description": "Geldt voor de verteertijd en voor rustige uren"
+      },
+      "quiet_hours_enabled": {
+        "title": "Rustige uren",
+        "description": "Houdt meldingen vast tot het einde van de stille uren. Kritieke omstandigheden worden altijd onmiddellijk verzonden."
+      },
+      "quiet_hours_start": {
+        "title": "Rustige uren beginnen"
+      },
+      "quiet_hours_end": {
+        "title": "Stille uren eindigen"
+      },
+      "retention_days": {
+        "title": "Bewaren van leveringslogboeken"
+      }
+    },
+    "content_health": {
+      "stale_source_hours": {
+        "title": "Verouderde gegevensbron na",
+        "description": "Uren zonder succesvolle vernieuwing voordat een gegevensbron als verouderd wordt beschouwd. Een weekkalender verdraagt ​​veel meer dan een weerfeed."
+      },
+      "expiring_media_days": {
+        "title": "Waarschuw voor verlopende media",
+        "description": "Hoe ver vooruit het inhoudsgezondheidsrapport de media vermeldt die op het punt staan te verlopen"
+      }
+    },
+    "snapshots": {
+      "enabled": {
+        "title": "Houd een momentopnamegeschiedenis bij",
+        "description": "Slaat periodieke schermafbeeldingen op, zodat u kunt zien wat een scherm eerder liet zien. Snapshots worden bewaard in de database en worden opgenomen in elke back-up."
+      },
+      "interval_minutes": {
+        "title": "Leg elke vast"
+      },
+      "retention_days": {
+        "title": "Bewaar momentopnamen voor"
+      },
+      "max_per_screen": {
+        "title": "Momentopnamen om per scherm te bewaren",
+        "description": "De oudste worden verwijderd zodra een scherm dit aantal bereikt, ongeacht de bewaartermijn"
+      }
+    },
+    "content": {
+      "approval_required": {
+        "title": "Verouderde goedkeuringsschakelaar",
+        "description": "Behouden voor compatibiliteit. Nieuwe installaties moeten het inhoudsbeoordelingsbeleid gebruiken."
+      },
+      "review_policy": {
+        "title": "Beleid voor inhoudsbeoordeling",
+        "description": "Kies of er geen inhoud, werk van de bijdrager of elke publicatie goedkeuring vereist."
+      },
+      "allow_self_approval": {
+        "title": "Zelfgoedkeuring toestaan",
+        "description": "Laat een reviewer zijn eigen inzending goedkeuren."
+      },
+      "auto_publish_on_approval": {
+        "title": "Publiceer automatisch goedgekeurde inzendingen",
+        "description": "Publiceer onmiddellijk of plan het gewenste tijdstip waarop een inzending is goedgekeurd."
+      }
+    },
+    "organization": {
+      "name": {
+        "title": "Naam van de organisatie",
+        "description": "Naam overal in Tilecast Studio"
+      },
+      "short_name": {
+        "title": "Korte naam",
+        "description": "Compacte organisatienaam"
+      },
+      "timezone": {
+        "title": "Standaard tijdzone"
+      },
+      "locale": {
+        "title": "Regionale locatie"
+      },
+      "first_day_of_week": {
+        "title": "Eerste dag van de week"
+      },
+      "date_format": {
+        "title": "Datumformaat"
+      },
+      "time_format": {
+        "title": "Tijdformaat"
+      },
+      "support_name": {
+        "title": "Ondersteuningscontact"
+      },
+      "support_email": {
+        "title": "Ondersteuning e-mail"
+      },
+      "support_message": {
+        "title": "Intern ondersteuningsbericht"
+      }
+    },
+    "security": {
+      "mfa_required_scope": {
+        "title": "Vereist meervoudige authenticatie",
+        "description": "Accounts binnen het bereik moeten een authenticator-app of een toegangssleutel registreren voordat ze Tilecast Studio kunnen gebruiken."
+      }
+    },
+    "branding": {
+      "logo_asset_id": {
+        "title": "Logo"
+      },
+      "icon_asset_id": {
+        "title": "Vierkant pictogram"
+      },
+      "primary_color": {
+        "title": "Primaire kleur"
+      },
+      "player_background_color": {
+        "title": "Player-achtergrond"
+      },
+      "player_text_color": {
+        "title": "Player-tekst"
+      },
+      "no_content_title": {
+        "title": "Titel zonder inhoud"
+      },
+      "no_content_message": {
+        "title": "Bericht zonder inhoud"
+      },
+      "disabled_title": {
+        "title": "Uitgeschakelde titel"
+      },
+      "disabled_message": {
+        "title": "Uitgeschakeld bericht"
+      },
+      "footer_text": {
+        "title": "Voettekst"
+      }
+    },
+    "player": {
+      "playback": {
+        "default_fit_mode": {
+          "title": "Standaard fit-modus"
+        },
+        "default_volume": {
+          "title": "Standaardvolume"
+        },
+        "default_image_duration_seconds": {
+          "title": "Standaard beeldduur"
+        },
+        "default_transition": {
+          "title": "Standaardovergang"
+        },
+        "default_audio_enabled": {
+          "title": "Standaardaudio ingeschakeld"
+        },
+        "resume_after_restart": {
+          "title": "Hervatten na opnieuw opstarten"
+        }
+      },
+      "cache": {
+        "max_bytes": {
+          "title": "Maximale cachebytes"
+        },
+        "minimum_free_bytes": {
+          "title": "Minimale vrije bytes"
+        }
+      },
+      "download": {
+        "concurrent_limit": {
+          "title": "Gelijktijdige downloads"
+        },
+        "automatic_threshold_bytes": {
+          "title": "Automatische leveringsdrempel"
+        }
+      },
+      "sync": {
+        "manifest_seconds": {
+          "title": "Duidelijk verzoeningsinterval"
+        },
+        "status_seconds": {
+          "title": "Interval statusrapport"
+        }
+      },
+      "website": {
+        "timeout_seconds": {
+          "title": "Time-out van website"
+        },
+        "cookie_policy": {
+          "title": "Cookiebeleid van de website"
+        },
+        "clear_on_restart": {
+          "title": "Wis websitegegevens bij opnieuw opstarten"
+        }
+      },
+      "identify": {
+        "show_location": {
+          "title": "Toon locatie bij identificatie"
+        }
+      },
+      "update": {
+        "channel": {
+          "title": "Player updatekanaal",
+          "description": "Stabiel is de strengere standaard. Bètareleases vereisen nog steeds een expliciete implementatie."
+        }
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "Betrouwbaarheidsmodus",
+        "description": "Beheerde kiosk wordt pas effectief wanneer Android de mogelijkheden voor apparaatbeleid bevestigt."
+      },
+      "launch_after_boot": {
+        "title": "Start na het opstarten",
+        "description": "Alleen Android. Linux-spelers beginnen bij het opstarten vanaf een systeemgebruikersservice, die per scherm wordt geïnstalleerd vanaf het tabblad Betrouwbaarheid van het scherm."
+      },
+      "immersive_mode": {
+        "title": "Meeslepend volledig scherm"
+      },
+      "foreground_watchdog_enabled": {
+        "title": "Voorgrond waakhond"
+      },
+      "playback_stall_seconds": {
+        "title": "Drempel voor afspeelblokkering"
+      },
+      "webview_stall_seconds": {
+        "title": "Drempeldrempel voor website"
+      },
+      "maximum_process_restarts": {
+        "title": "Maximaal procesherstel"
+      },
+      "restart_window_minutes": {
+        "title": "Herstelvenster"
+      },
+      "safe_mode_enabled": {
+        "title": "Crash-loop veilige modus"
+      }
+    },
+    "power": {
+      "active_hours_enabled": {
+        "title": "Actieve uren"
+      },
+      "active_hours_timezone": {
+        "title": "Tijdzone voor actieve uren"
+      },
+      "active_hours_days": {
+        "title": "Actieve dagen"
+      },
+      "active_hours_start": {
+        "title": "Begintijd"
+      },
+      "active_hours_end": {
+        "title": "Eindtijd"
+      },
+      "startup_grace_seconds": {
+        "title": "Genade van het opstarten",
+        "description": "Alleen Android Power Assist; Het opstarten en procesherstel van Linux worden beheerd door systemd."
+      },
+      "shutdown_prepare_seconds": {
+        "title": "Voorbereiding voor afsluiten",
+        "description": "Alleen Android Power Assist en statusrapportage; Linux maakt gebruik van de systemd/display-control-integratie."
+      },
+      "keep_screen_on": {
+        "title": "Houd het scherm wakker tijdens actieve uren",
+        "description": "Active-uren-wake-beleid voor Android; Linux gebruikt linux_kiosk.prevent_display_sleep voor de host display-sleep blocker."
+      },
+      "sleep_outside_active_hours": {
+        "title": "Vraag slaap buiten actieve uren aan",
+        "description": "Alleen Android Power Assist; Linux toont het geconfigureerde oppervlak buiten kantooruren en vraagt ​​niet om de slaapstand van het besturingssysteem."
+      },
+      "outside_active_hours_display": {
+        "title": "Buiten actieve uren",
+        "description": "Kies wat zichtbaar blijft als de speler zich buiten de actieve uren bevindt en het display niet in de slaapstand staat."
+      },
+      "outside_active_hours_text": {
+        "title": "Aangepaste tekst",
+        "description": "Gecentreerde tekst weergegeven buiten actieve uren. Als Tilecast leeg is, wordt de voettekst voor de branding gebruikt."
+      },
+      "outside_active_hours_wake_animation": {
+        "title": "Speel de opstartanimatie af wanneer de actieve uren beginnen",
+        "description": "Wanneer de speler terugkeert van het scherm buiten kantooruren, speel dan de Tilecast-opstartanimatie af voordat de inhoud wordt weergegeven. Geldt voor het stuiterende logo, aangepaste tekst en zwart scherm."
+      }
+    },
+    "managed_kiosk": {
+      "lock_task_enabled": {
+        "title": "Taak vergrendelen"
+      },
+      "block_overlays": {
+        "title": "Blokkeer overlays waar ondersteund"
+      },
+      "allow_settings_during_admin": {
+        "title": "Instellingen toestaan tijdens onderhoud"
+      },
+      "admin_session_minutes": {
+        "title": "Duur onderhoudssessie"
+      }
+    },
+    "linux_kiosk": {
+      "fullscreen_enabled": {
+        "title": "Kiosk op volledig scherm",
+        "description": "Bewaart Tilecast in een frameloos kioskvenster op volledig scherm op Linux. TILECAST_WINDOWED=1 blijft een lokale ontwikkelingsoverschrijving."
+      },
+      "prevent_display_sleep": {
+        "title": "Voorkom schermslaap",
+        "description": "Vraagt de Linux-desktopsessie om het beeldscherm wakker te houden terwijl Tilecast Player actief is."
+      }
+    },
+    "accessibility": {
+      "control_assist_enabled": {
+        "title": "Hulp bij toegankelijkheidscontrole",
+        "description": "Geharde spelers vragen standaard om dit gedrag, maar de Android-service vereist nog steeds opzettelijke lokale activering."
+      },
+      "return_delay_seconds": {
+        "title": "Vertraging bij terugkomst"
+      },
+      "allowed_packages": {
+        "title": "Onderhoudstoepassingen"
+      },
+      "pause_during_updates": {
+        "title": "Pauzeer tijdens spelerupdates"
+      },
+      "pause_during_admin_session": {
+        "title": "Pauze tijdens onderhoud"
+      },
+      "report_foreground_package": {
+        "title": "Rapporteer voorgrondpakket"
+      },
+      "maximum_returns": {
+        "title": "Maximaal automatisch rendement"
+      },
+      "return_window_minutes": {
+        "title": "Venster voor retourpoging"
+      }
+    },
+    "media": {
+      "upload": {
+        "max_bytes": {
+          "title": "Studio uploadlimiet"
+        }
+      },
+      "keep_originals": {
+        "title": "Bewaar originelen"
+      },
+      "video": {
+        "max_width": {
+          "title": "Maximale videobreedte"
+        },
+        "max_height": {
+          "title": "Maximale videohoogte"
+        },
+        "max_frame_rate": {
+          "title": "Maximale framesnelheid"
+        },
+        "default_delivery_policy": {
+          "title": "Standaard videolevering"
+        },
+        "default_fit_mode": {
+          "title": "Standaard videopasvorm"
+        }
+      },
+      "image": {
+        "default_fit_mode": {
+          "title": "Standaard afbeelding passend"
+        }
+      },
+      "processing": {
+        "retry_limit": {
+          "title": "Limiet voor opnieuw verwerken"
+        }
+      },
+      "temporary_upload_retention_hours": {
+        "title": "Tijdelijke uploadretentie"
+      },
+      "deleted_retention_days": {
+        "title": "Verwijderde mediaretentie"
+      }
+    },
+    "scheduling": {
+      "prefetch_days": {
+        "title": "Horizon vooraf ophalen"
+      },
+      "activation_grace_seconds": {
+        "title": "Activering genade"
+      },
+      "clock_skew_warning_seconds": {
+        "title": "Waarschuwing voor scheeftrekken van de klok"
+      },
+      "default_one_time_duration_minutes": {
+        "title": "Standaard eenmalige duur"
+      }
+    },
+    "website": {
+      "default_javascript": {
+        "title": "JavaScript-standaard"
+      },
+      "default_dom_storage": {
+        "title": "Standaard DOM-opslag"
+      },
+      "default_timeout_seconds": {
+        "title": "Standaard time-out voor website"
+      },
+      "default_cookie_policy": {
+        "title": "Standaard cookiebeleid"
+      },
+      "default_reload_policy": {
+        "title": "Standaard herlaadbeleid"
+      },
+      "minimum_refresh_seconds": {
+        "title": "Minimaal vernieuwingsinterval"
+      },
+      "default_failure_behavior": {
+        "title": "Standaard foutgedrag"
+      },
+      "default_zoom_percent": {
+        "title": "Standaardzoom"
+      },
+      "default_fallback_image_id": {
+        "title": "Standaard reserveafbeelding"
+      },
+      "clear_data_on_delete": {
+        "title": "Wis websitegegevens na verwijdering"
+      },
+      "private_http_enabled": {
+        "title": "Privé HTTP ingeschakeld"
+      }
+    },
+    "takeover": {
+      "default_duration_minutes": {
+        "title": "Standaard overnameduur"
+      },
+      "maximum_duration_minutes": {
+        "title": "Maximale overnameduur"
+      },
+      "confirmation_required": {
+        "title": "Overnamebevestiging nodig"
+      },
+      "reauthentication_required": {
+        "title": "Wachtwoordbevestiging vereisen"
+      }
+    },
+    "commands": {
+      "default_expiry_minutes": {
+        "title": "Verlopen opdracht"
+      },
+      "identify_duration_seconds": {
+        "title": "Identificeer de duur"
+      }
+    },
+    "retention": {
+      "command_history_days": {
+        "title": "Behoud van opdrachtgeschiedenis"
+      },
+      "audit_days": {
+        "title": "Auditretentie"
+      },
+      "player_status_days": {
+        "title": "Player statusbehoud"
+      },
+      "expired_pairing_days": {
+        "title": "Verlopen koppelingsretentie"
+      },
+      "failed_upload_days": {
+        "title": "Mislukt uploadbehoud"
+      },
+      "deleted_media_metadata_days": {
+        "title": "Behoud van verwijderde media-metagegevens"
+      },
+      "takeover_history_days": {
+        "title": "Behouden van de overnamegeschiedenis"
+      },
+      "max_diagnostic_events_per_screen": {
+        "title": "Diagnostische gebeurtenislimiet"
+      }
+    },
+    "preference": {
+      "appearance": {
+        "title": "Uiterlijk"
+      },
+      "language": {
+        "title": "Taal"
+      },
+      "density": {
+        "title": "Interfacedichtheid"
+      },
+      "reduced_motion": {
+        "title": "Verminderde beweging"
+      },
+      "time_format": {
+        "title": "Tijdformaat"
+      },
+      "content_view": {
+        "title": "Standaard inhoudsweergave"
+      },
+      "screens_view": {
+        "title": "Standaardschermweergave"
+      },
+      "table_page_size": {
+        "title": "Paginagrootte van tabel"
+      },
+      "remember_filters": {
+        "title": "Onthoud filters"
+      },
+      "hide_completed_uploads_minutes": {
+        "title": "Verberg voltooide uploads daarna"
+      },
+      "notifications": {
+        "mode": {
+          "title": "Breng mij op de hoogte",
+          "description": "Onmiddellijk verzendt elke voorwaarde zodra deze zich voordoet. Digest verzamelt ze in één dagelijks bericht."
+        },
+        "address": {
+          "title": "Verzenden naar",
+          "description": "Uw e-mailadres. Er worden pas meldingen verzonden als dit is ingesteld."
+        },
+        "incidents": {
+          "title": "Schermproblemen",
+          "description": "Een scherm stopt met rapporteren, het afspelen mislukt of een Player gaat naar de veilige modus"
+        },
+        "content_health": {
+          "title": "Inhoudelijke problemen",
+          "description": "Een gegevensbron levert verouderde gegevens, of er is niets beschikbaar om af te spelen in een afspeellijst"
+        },
+        "backups": {
+          "title": "Back-ups"
+        },
+        "updates": {
+          "title": "Player-updates"
+        }
+      }
+    }
+  },
+  "enumValues": {
+    "managed_kiosk": "Beheerde kiosk",
+    "standard": "Standaard betrouwbaarheid",
+    "first_party": "Cookies van eerste partijen",
+    "first_and_third_party": "Cookies van eerste en derde partijen",
+    "download_only": "Alleen downloaden",
+    "on_each_activation": "Herlaad bij elke activering",
+    "load_once": "Eén keer laden",
+    "fallback_image": "Terugval afbeelding",
+    "last_success": "Laatste succesvolle pagina",
+    "12-hour": "12 uur",
+    "24-hour": "24 uur per dag",
+    "en_US": "Engels (Verenigde Staten)",
+    "contain": "Bevat",
+    "cover": "Deksel",
+    "stretch": "Strek",
+    "disabled": "Uitgeschakeld",
+    "enabled": "Ingeschakeld",
+    "none": "Geen",
+    "fade": "Vervagen",
+    "automatic": "Automatisch",
+    "download": "Downloaden",
+    "stream": "Stroom",
+    "minimal": "Minimaal",
+    "detailed": "Gedetailleerd",
+    "system": "Systeem",
+    "light": "Licht",
+    "dark": "Donker",
+    "comfortable": "Comfortabel",
+    "compact": "Compact",
+    "grid": "Raster",
+    "list": "Lijst",
+    "groups": "Groepen",
+    "organization": "Standaardinstelling van de organisatie",
+    "sunday": "Zondag",
+    "monday": "Maandag",
+    "tuesday": "Dinsdag",
+    "wednesday": "Woensdag",
+    "thursday": "Donderdag",
+    "friday": "Vrijdag",
+    "saturday": "Zaterdag",
+    "locale": "Gebruik landinstelling",
+    "placeholder": "Tilecast tijdelijke aanduiding",
+    "skip": "Artikel overslaan",
+    "interval": "Herlaad met een interval",
+    "bouncing_logo": "Stuiterend Tilecast-logo",
+    "custom_text": "Aangepaste tekst",
+    "black": "Zwart scherm",
+    "daily": "Dagelijks",
+    "weekly": "Wekelijks",
+    "info": "Info",
+    "warning": "Waarschuwing",
+    "error": "Fout",
+    "critical": "Kritisch",
+    "administrators": "Beheerders",
+    "all": "Allemaal",
+    "contributors": "Bijdragers",
+    "everyone": "Iedereen",
+    "off": "Uit",
+    "beta": "Bèta",
+    "stable": "Stabiel",
+    "digest": "Verteren",
+    "immediate": "Onmiddellijk",
+    "crossfade": "Crossfaden"
+  },
+  "nav": {
+    "groups": {
+      "organization": "Organisatie",
+      "content": "Inhoud en afspelen",
+      "players": "Player-beheer",
+      "operations": "Operaties",
+      "tools": "Systeemhulpmiddelen"
+    },
+    "items": {
+      "general": "Algemeen",
+      "branding": "Branding",
+      "fonts": "Lettertypen",
+      "users": "Gebruikers",
+      "security": "Beveiliging bij inloggen",
+      "locations": "Locaties",
+      "playback": "Afspelen",
+      "media": "Media",
+      "websites": "Websites",
+      "scheduling": "Planning",
+      "reliability": "Betrouwbaarheid en kiosk",
+      "power": "Actieve uren en kracht",
+      "accessibility": "Toegankelijkheidscontrole",
+      "player-updates": "Player-updates",
+      "presentation-networks": "Presentatienetwerken",
+      "takeover": "Overnames en commando's",
+      "retention": "Gegevensretentie",
+      "backups": "Back-up en herstel",
+      "notifications": "Meldingen",
+      "system": "Systeem",
+      "content-review": "Inhoud beoordeling",
+      "snapshots": "Geschiedenis van momentopnamen",
+      "integrations": "Integratietokens",
+      "import-export": "Importeren en exporteren",
+      "dependency-graph": "Afhankelijkheidsverkenner",
+      "preferences": "Voorkeuren",
+      "roles": "Rollen"
+    },
+    "sections": {
+      "general": {
+        "title": "Algemeen",
+        "description": "Organisatie-identiteit, regionale formaten en ondersteuningsdetails."
+      },
+      "branding": {
+        "title": "Branding",
+        "description": "Organisatie-identiteit en het fallback-uiterlijk van spelers."
+      },
+      "fonts": {
+        "title": "Lettertypen",
+        "description": "Lettertypen die uw organisatie kan kiezen voor opmaaktekst. Spelers downloaden een lettertype alleen als gepubliceerde inhoud er gebruik van maakt."
+      },
+      "users": {
+        "title": "Gebruikers",
+        "description": "Geef elke persoon een individuele login en wijs alleen de machtigingen toe die hij of zij nodig heeft. Voorkeuren voor uiterlijk en dichtheid blijven voor elk account afzonderlijk."
+      },
+      "security": {
+        "title": "Beveiliging bij inloggen",
+        "description": "Bepaal wie een tweede factor moet gebruiken om in te loggen. Elke persoon beheert zijn eigen authenticator, toegangscodes en herstelcodes via Mijn account → Aanmeldingsbeveiliging."
+      },
+      "locations": {
+        "title": "Locaties",
+        "description": "Herbruikbare gebouwen en campussen toegewezen aan meerdere schermen, terwijl kamerdetails op elke speler blijven staan."
+      },
+      "playback": {
+        "title": "Afspelen",
+        "description": "Standaard afspelen, opslag, levering, synchronisatie en diagnostiek."
+      },
+      "media": {
+        "title": "Media",
+        "description": "Uploadlimieten, standaardleveringen en toekomstig mediaverwerkingsgedrag."
+      },
+      "websites": {
+        "title": "Websites",
+        "description": "Veilige standaardinstellingen voor het afspelen van websites, herladen, cookies en fouten."
+      },
+      "scheduling": {
+        "title": "Planning",
+        "description": "Standaardinstellingen voor planningsvoorbereiding, timing en klokwaarschuwing."
+      },
+      "reliability": {
+        "title": "Betrouwbaarheid en kiosk",
+        "description": "Gedeeld herstel met platformspecifieke Android- en Linux-kioskbesturingselementen."
+      },
+      "power": {
+        "title": "Actieve uren en kracht",
+        "description": "Player bedrijfsuren en best-effort Android slaap- en waakgedrag."
+      },
+      "accessibility": {
+        "title": "Toegankelijkheidscontrole",
+        "description": "Optionele hulp bij terugkeer op de voorgrond met expliciete veiligheidspauzes."
+      },
+      "player-updates": {
+        "title": "Player-updates",
+        "description": "Geverifieerde Tilecast Player-releases en update-implementaties."
+      },
+      "presentation-networks": {
+        "title": "Presentatienetwerken",
+        "description": "Verbind ondersteunde Linux-spelers tijdelijk met Wi-Fi voor AirPlay en andere lokale presentatiefuncties terwijl Ethernet hun primaire Tilecast-verbinding blijft."
+      },
+      "takeover": {
+        "title": "Overnames en commando's",
+        "description": "Standaardinstellingen voor een met de hand gestarte overname en voor spelersopdrachten. Automatische weerwaarschuwingen zijn de plug-in Noodwaarschuwingen."
+      },
+      "retention": {
+        "title": "Gegevensretentie",
+        "description": "Beperkte geschiedenis en opruimperioden voor operationele records."
+      },
+      "backups": {
+        "title": "Back-up en herstel",
+        "description": "Maak, verifieer, download, plan en herstel volledige installatieback-ups."
+      },
+      "notifications": {
+        "title": "Meldingen",
+        "description": "Stuur waarschuwingen per e-mail of webhook."
+      },
+      "system": {
+        "title": "Systeem",
+        "description": "Veilige diagnose en doordachte onderhoudsacties."
+      },
+      "content-review": {
+        "title": "Inhoud beoordeling",
+        "description": "Goedkeuring vereisen voordat een afspeellijst of lay-out aan een scherm kan worden toegewezen. Een bijdrager schrijft inhoud, maar kan deze niet publiceren of toewijzen."
+      },
+      "snapshots": {
+        "title": "Geschiedenis van momentopnamen",
+        "description": "Periodieke Player-screenshots met configureerbare retentie."
+      },
+      "integrations": {
+        "title": "Integratietokens",
+        "description": "Scoped-tokens voor handmatige tabellen en vlootgezondheid."
+      },
+      "import-export": {
+        "title": "Importeren en exporteren",
+        "description": "Draagbare, niet-geheime Tilecast-configuratie."
+      },
+      "dependency-graph": {
+        "title": "Afhankelijkheidsverkenner",
+        "description": "Volg inhoud en gegevens via presentaties, schema's, groepen en schermen."
+      },
+      "preferences": {
+        "title": "Voorkeuren",
+        "description": "Weergave- en workflowvoorkeuren voor uw Studio-account."
+      },
+      "roles": {
+        "title": "Rollen",
+        "description": "Bepaal wat mensen kunnen doen. Gebruik de ingebouwde rollen of maak uw eigen rollen en wijs ze vervolgens toe op de pagina Gebruikers."
+      }
+    }
+  },
+  "section": {
+    "futureOnly": "Geldt alleen voor toekomstige verwerking"
+  },
+  "fallback": {
+    "configureSetting": "Configureer {{title}} voor Tilecast."
+  },
+  "shell": {
+    "sectionsLabel": "Instellingen secties",
+    "sectionLabel": "Sectie Instellingen",
+    "unsavedBadge": "Niet opgeslagen",
+    "unsavedSuffix": " • Niet opgeslagen"
+  },
+  "dependencies": {
+    "customText": "Kies Aangepaste tekst om deze instelling te bewerken.",
+    "intervalReload": "Kies intervalherladen om een ​​vernieuwingsinterval in te stellen.",
+    "activeHours": "Schakel actieve uren in om deze instelling te bewerken.",
+    "managedKiosk": "Selecteer Beheerde kiosk om deze instelling te bewerken.",
+    "accessibilityAssist": "Schakel Hulp bij toegankelijkheidscontrole in om deze instelling te bewerken."
+  },
+  "controls": {
+    "bool": {
+      "on": "Aan",
+      "off": "Uit"
+    },
+    "weekdays": {
+      "label": "Actieve dagen",
+      "monday": "ma",
+      "tuesday": "di",
+      "wednesday": "wo",
+      "thursday": "Do",
+      "friday": "Vr",
+      "saturday": "Zat",
+      "sunday": "Zon"
+    },
+    "timezone": {
+      "search": "Zoek tijdzones",
+      "empty": "Geen overeenkomende IANA-tijdzones."
+    },
+    "locale": {
+      "hint": "Voer een BCP-47-taaltag in, zoals ja-JP. Er worden gemeenschappelijke keuzes voorgesteld.",
+      "invalid": "Voer een geldige BCP-47-taaltag in."
+    },
+    "packageList": {
+      "label": "Android-pakketnaam",
+      "add": "Toevoegen",
+      "invalid": "Voer een Android-pakketnaam in, zoals com.android.settings.",
+      "remove": "Verwijderen",
+      "removeItem": "Verwijder {{item}}"
+    },
+    "color": {
+      "picker": "Kleurkiezer",
+      "hex": "Hex-kleur",
+      "hint": "Gebruik een zescijferige hexadecimale kleur."
+    },
+    "durationUnits": {
+      "seconds": "seconden",
+      "minutes": "minuten",
+      "hours": "uur"
+    },
+    "timeUnits": {
+      "minutes": "minuten",
+      "hours": "uur",
+      "days": "dagen"
+    },
+    "unitLabel": "{{title}}-eenheid"
+  },
+  "groups": {
+    "playback": {
+      "defaults": {
+        "title": "Standaardinstellingen voor afspelen"
+      },
+      "storage": {
+        "title": "Opslag en levering"
+      },
+      "sync": {
+        "title": "Synchronisatie"
+      },
+      "identity": {
+        "title": "Identificatie en diagnostiek"
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "Betrouwbaarheidsmodus"
+      },
+      "startup": {
+        "title": "Opstarten en presenteren"
+      },
+      "watchdog": {
+        "title": "Waakhond en herstel"
+      },
+      "androidKiosk": {
+        "title": "Door Android beheerde kiosk",
+        "description": "Bedieningselementen die alleen voor Android beschikbaar zijn, worden van kracht wanneer het apparaat bevestigt dat de apparaateigenaar compatibel is."
+      },
+      "linuxKiosk": {
+        "title": "Linux-kiosk",
+        "description": "Gedrag van Linux-vensters en desktopsessies. Beginnen bij het opstarten en opnieuw opstarten na het afsluiten van het proces komen van de systeemservice van de speler, die per scherm wordt ingesteld vanaf het tabblad Betrouwbaarheid van het scherm in plaats van hier."
+      }
+    },
+    "power": {
+      "hours": {
+        "title": "Actieve uren"
+      },
+      "behavior": {
+        "title": "Actief uurgedrag"
+      },
+      "outside": {
+        "title": "Buiten actieve uren",
+        "description": "Kies de fallback die wordt weergegeven wanneer de speler buiten actieve uren is en Android of de televisie wakker blijft."
+      }
+    },
+    "accessibility": {
+      "return": {
+        "title": "Automatische terugkeer"
+      },
+      "safety": {
+        "title": "Veiligheid pauzeert"
+      },
+      "allowed": {
+        "title": "Toegestane onderhoudstoepassingen"
+      },
+      "diagnostics": {
+        "title": "Diagnostiek"
+      }
+    },
+    "branding": {
+      "fallback": {
+        "title": "Player terugvalscherm"
+      }
+    },
+    "general": {
+      "identity": {
+        "title": "Organisatie identiteit"
+      },
+      "regional": {
+        "title": "Regionale formaten"
+      },
+      "support": {
+        "title": "Ondersteuningsdetails"
+      }
+    },
+    "media": {
+      "uploads": {
+        "title": "Uploads en retentie"
+      },
+      "future": {
+        "title": "Toekomstige videoverwerking"
+      },
+      "delivery": {
+        "title": "Leveringsgebreken"
+      }
+    },
+    "websites": {
+      "capabilities": {
+        "title": "Paginamogelijkheden"
+      },
+      "loading": {
+        "title": "Laden en herladen"
+      },
+      "failure": {
+        "title": "Mislukkingsgedrag"
+      },
+      "overrides": {
+        "title": "Player overschrijft"
+      }
+    },
+    "scheduling": {
+      "defaults": {
+        "title": "Standaardinstellingen voor schema's"
+      }
+    },
+    "takeover": {
+      "takeover": {
+        "title": "Overname wanbetalingen"
+      },
+      "commands": {
+        "title": "Standaardwaarden voor de opdracht Player"
+      }
+    },
+    "retention": {
+      "security": {
+        "title": "Beveiliging en operationele geschiedenis"
+      },
+      "cleanup": {
+        "title": "Opruimperiodes"
+      },
+      "limits": {
+        "title": "Diagnostische grenzen"
+      }
+    },
+    "backups": {
+      "schedule": {
+        "title": "Automatisch back-upschema"
+      },
+      "retention": {
+        "title": "Geplande back-upretentie",
+        "description": "Bewaring is van toepassing op geplande back-ups. Handmatig gemaakte back-ups blijven behouden totdat een Eigenaar ze verwijdert."
+      }
+    },
+    "notifications": {
+      "delivery": {
+        "title": "Levering",
+        "description": "Voor e-mail is een SMTP-relay nodig die op de server is geconfigureerd. Webhooks werken zonder."
+      },
+      "timing": {
+        "title": "Tijdstip",
+        "description": "Een kritieke toestand wordt altijd onmiddellijk verzonden, wat deze ook zegt."
+      },
+      "history": {
+        "title": "Geschiedenis"
+      }
+    },
+    "preferences": {
+      "notifications": {
+        "title": "Meldingen",
+        "description": "Waar Tilecast u over vertelt als u niet naar Studio kijkt."
+      },
+      "appearance": {
+        "title": "Uiterlijk"
+      },
+      "dates": {
+        "title": "Datums en tabellen"
+      },
+      "views": {
+        "title": "Standaardweergaven"
+      }
+    },
+    "security": {
+      "mfa": {
+        "title": "Authenticatie met meerdere factoren"
+      }
+    },
+    "snapshots": {
+      "capture": {
+        "title": "Vastleggen",
+        "description": "Snapshots worden bewaard in de database en worden opgenomen in elke back-up. De onderstaande doppen zorgen ervoor dat dat begrensd blijft."
+      }
+    },
+    "content-review": {
+      "approval": {
+        "title": "Goedkeuring",
+        "description": "Er is geen verzendstap. Inhoud wacht op beoordeling wanneer de huidige revisie geen beslissing heeft, dus als u goedgekeurde inhoud bewerkt, wordt deze automatisch teruggestuurd."
+      }
+    },
+    "additional": {
+      "title": "Aanvullende instellingen"
+    }
+  },
+  "page": {
+    "loading": "Instellingen laden…",
+    "loadError": "Instellingen konden niet worden geladen.",
+    "leaveWarning": "Instellingen verlaten met niet-opgeslagen wijzigingen?",
+    "leaveSectionTitle": "Deze sectie bevat niet-opgeslagen wijzigingen. Bewaar ze en open een ander gedeelte Instellingen?",
+    "leaveSectionAction": "Wijzigingen negeren",
+    "saved": "Instellingen opgeslagen.",
+    "conflict": "Deze instellingen zijn elders gewijzigd. Laad de nieuwste instellingen opnieuw voordat u deze opslaat.",
+    "reviewQueue": {
+      "title": "De beoordelingswachtrij",
+      "description": "Inhoud die wacht op beoordeling wordt weergegeven onder Inhoudsbeoordeling in de hoofdnavigatie."
+    },
+    "takeoverAlert": {
+      "title": "Automatische weerwaarschuwingen verplaatst naar plug-ins.",
+      "description": "NWS-bewaking, waarschuwingsregels en actieve noodgevallen worden geconfigureerd in de plug-in <alertsLink>Emergency Alerts</alertsLink>. De onderstaande standaardwaarden zijn van toepassing op een met de hand gestarte overname en op spelersopdrachten."
+    },
+    "accessibilityAlert": {
+      "title": "Lokale configuratie is vereist voor elke speler.",
+      "description": "Toegankelijkheidscontrole-assistentie moet handmatig worden ingeschakeld in de Android-toegankelijkheidsinstellingen. Als u het beleid hier inschakelt, wordt Android geen toestemming verleend."
+    },
+    "powerAlert": {
+      "description": "Begin- en eindtijden zijn identiek. Kies voor een onderscheidend assortiment; een eerdere eindtijd wordt beschouwd als een nacht."
+    },
+    "mfa": {
+      "allRequired": "Elk account moet een tweede factor registreren.",
+      "adminsRequired": "Eigenaren en beheerders moeten een tweede factor registreren.",
+      "consequence": "Niemand is afgemeld. Een account binnen het bereik dat zich niet heeft ingeschreven, wordt bij de volgende aanmelding gevraagd een authenticator-app of een toegangssleutel in te stellen, en kan de rest van Studio pas gebruiken als dit wel het geval is. Een eigenaar of beheerder kan de factoren van een vergrendeld account wissen via Instellingen → Gebruikers.",
+      "passkeysUnavailable": "Er zijn geen toegangscodes beschikbaar voor deze installatie.",
+      "passkeysFallback": "{{reason}} Authenticator-apps en herstelcodes werken hoe dan ook."
+    },
+    "preview": {
+      "title": "Player-voorbeeld",
+      "noContentTitle": "Geen inhoud toegewezen",
+      "noContentMessage": "Dit scherm is klaar voor inhoud.",
+      "takeoverNote": "Overname behoudt de vaste contrastrijke behandeling van Tilecast, ongeacht aangepaste branding."
+    }
+  },
+  "retention": {
+    "saved": "Instellingen voor het bewaren van activiteiten opgeslagen.",
+    "title": "Behoud van activiteiten",
+    "description": "Het opschonen wordt uitgevoerd in begrensde achtergrondbatches en respecteert de harde limieten voor de implementatie.",
+    "save": "Bewaar retentie",
+    "loading": "Bewaarinstellingen laden...",
+    "loadError": "Bewaarinstellingen kunnen niet worden geladen.",
+    "retrying": "Opnieuw proberen…",
+    "retry": "Probeer het opnieuw",
+    "saveError": "Bewaarinstellingen kunnen niet worden opgeslagen.",
+    "rangeHint": "{{min}}–{{max}} dagen",
+    "fields": {
+      "rawEventDays": "Ruwe Player-activiteitsgebeurtenissen",
+      "playbackSessionDays": "Proof-of-play-sessies",
+      "screenStateDays": "Intervallen van de schermstatus",
+      "auditLogDays": "Auditlogboeken",
+      "diagnosticMetadataDays": "Gedetailleerde diagnostische metadata"
+    },
+    "validation": {
+      "required": "{{label}} is vereist.",
+      "wholeDays": "{{label}} moet een geheel aantal dagen zijn.",
+      "range": "{{label}} moet tussen {{min}} en {{max}} dagen liggen."
+    }
+  },
+  "branding": {
+    "loginBackgroundSaved": "Inlogachtergrond opgeslagen.",
+    "loginBackgroundRemoved": "Inlogachtergrond verwijderd.",
+    "title": "Organisatie afbeeldingen",
+    "description": "Upload afbeeldingen vanaf dit apparaat. Tilecast slaat het geselecteerde item intern op.",
+    "logo": {
+      "title": "Logo",
+      "description": "Een breed organisatielogo voor Tilecast Studio en ondersteunde spelerschermen."
+    },
+    "icon": {
+      "title": "Vierkant pictogram",
+      "description": "Een vierkante markering voor compacte branding en plaatsing op pictogramformaat."
+    },
+    "loginBackground": {
+      "title": "Achtergrond van inloggen",
+      "description": "De afbeelding op volledig scherm achter het Tilecast Studio-inlogpaneel."
+    },
+    "previewAlt": "{{title}}-voorbeeld",
+    "invalidType": "Kies een PNG-, JPEG-, WebP- of SVG-afbeelding.",
+    "uploadFailed": "Uploaden mislukt.",
+    "unavailable": "De geselecteerde afbeelding is niet beschikbaar. Upload een vervanging.",
+    "loadError": "Kan de geselecteerde afbeelding niet laden.",
+    "uploading": "{{progress}}% uploaden",
+    "replace": "Afbeelding vervangen",
+    "upload": "Afbeelding uploaden",
+    "remove": "Verwijderen"
+  },
+  "backups": {
+    "kinds": {
+      "manual": "Handmatig",
+      "scheduled": "Gepland",
+      "preRestore": "Vóór herstel",
+      "imported": "Geïmporteerd"
+    },
+    "verification": {
+      "unverified": "Niet geverifieerd",
+      "failed": "Verificatie mislukt"
+    },
+    "jobKinds": {
+      "backup": "Back-up",
+      "verify": "Verificatie",
+      "restore": "Herstellen"
+    },
+    "jobStatuses": {
+      "queued": "In de wachtrij",
+      "running": "Rennen",
+      "succeeded": "Geslaagd",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd"
+    },
+    "phases": {
+      "checking_disk_space": "Schijfruimte controleren",
+      "database_snapshot": "Database opslaan",
+      "pre_restore_backup": "Back-up vóór herstel maken",
+      "finalizing_archive": "Archief finaliseren",
+      "verifying": "Verifiëren",
+      "verifying_archive": "Archief verifiëren",
+      "staging_files": "Staging-bestanden",
+      "restoring_database": "Database herstellen",
+      "activating_files": "Bestanden activeren",
+      "validating": "Valideren",
+      "finalizing": "Finaliseren",
+      "complete": "Compleet"
+    },
+    "triggers": {
+      "manual": "Handmatig",
+      "scheduled": "Gepland",
+      "preRestore": "Vóór herstel"
+    },
+    "ownerOnly": "Alleen de Eigenaar mag back-ups beheren.",
+    "loading": "Back-ups laden…",
+    "loadError": "Back-ups konden niet worden geladen.",
+    "title": "Installatieback-ups",
+    "description": "Volledige back-ups omvatten de database, mediabestanden, miniaturen, varianten en in de cache opgeslagen spelerupdates.",
+    "queuing": "In de rij staan…",
+    "create": "Maak een back-up",
+    "lastSuccessful": "Laatste succesvolle back-up:",
+    "nextScheduled": "· Volgende gepland: {{date}}",
+    "available": "Beschikbare back-ups",
+    "availableHint": "Verifieer een archief voordat u erop vertrouwt of een herstelbewerking start.",
+    "empty": "Geen back-ups",
+    "emptyHint": "Er zijn nog geen back-ups gemaakt.",
+    "verified": "Geverifieerd",
+    "versionMeta": "· Tilecast {{tilecastVersion}} · schema {{schemaVersion}}",
+    "verify": "Verifieer",
+    "download": "Downloaden",
+    "restore": "Herstellen",
+    "deleteArchive": "{{fileName}} verwijderen",
+    "recent": "Recente back-upactiviteit",
+    "jobInProgress": "{{kind}} wordt uitgevoerd",
+    "restoreTitle": "{{fileName}} herstellen?",
+    "restoreBody": "Tilecast wordt tijdelijk niet beschikbaar en de huidige database- en mediastatus wordt vervangen. Er wordt eerst een back-up vóór herstel gemaakt.",
+    "restoreBodyMismatch": "Tilecast zal tijdelijk niet beschikbaar zijn en de huidige database- en mediastatus zal worden vervangen. Er wordt eerst een back-up vóór herstel gemaakt. WAARSCHUWING: Deze back-up behoort tot een andere installatie. Ingeschreven spelers moeten worden gereset en opnieuw worden gekoppeld.",
+    "restoreAction": "Herstellen",
+    "deleteTitle": "{{fileName}} verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "deleteLastTitle": "Dit is de laatste volledige back-up. Toch verwijderen?",
+    "deleteLastBody": "U zult geen goede back-up hebben om te herstellen."
+  },
+  "integrations": {
+    "ownerOnly": "Alleen de Eigenaar mag integratietokens beheren.",
+    "title": "Integratietokens",
+    "description": "Verleen geselecteerde integraties zonder een Studio-wachtwoord te delen.",
+    "secretNotice": "<strong>Kopieer dit token nu.</strong> Eén keer weergegeven.",
+    "copied": "Ik heb het gekopieerd",
+    "loading": "Tokens laden...",
+    "tokensLoadError": "Tokengegevens kunnen niet worden geladen.",
+    "empty": "Geen tokens",
+    "emptyHint": "Er bestaan geen integratietokens.",
+    "revokeTitle": "\"{{name}}\" intrekken?",
+    "revokeBody": "Alles wat er gebruik van maakt, stopt onmiddellijk met werken en een ingetrokken token kan niet opnieuw worden ingeschakeld.",
+    "revokeAction": "Intrekken",
+    "revoke": "Intrekken",
+    "revokeToken": "{{name}} intrekken",
+    "status": {
+      "revoked": "Ingetrokken",
+      "expired": "Verlopen",
+      "active": "Actief"
+    },
+    "expiry": "Vervaldatum {{date}}",
+    "lastUsed": "Laatst gebruikte {{date}}",
+    "neverUsed": "Nooit gebruikt",
+    "limited_one": "Beperkt tot gegevensbron {{count}}",
+    "limited_other": "Beperkt tot {{count}}-gegevensbronnen",
+    "scopes": {
+      "write": {
+        "title": "Handmatige tabelrijen schrijven",
+        "description": "Vervang rijen in geselecteerde handmatige tabelgegevensbronnen."
+      },
+      "read": {
+        "title": "Lees vlootgezondheid",
+        "description": "Lees het aantal schermen door de status, onopgeloste incidenten en inhoudsproblemen te rapporteren als JSON- of Prometheus-statistieken."
+      }
+    },
+    "createTitle": "Maak een token",
+    "nameLabel": "Naam",
+    "nameHint": "Geef het systeem dat er gebruik van gaat maken een naam, zodat uit de opleveringsgegevens en het auditlogboek blijkt wie wat heeft gedaan.",
+    "capabilities": "Mogelijkheden",
+    "expiresLabel": "Verloopt op",
+    "expiresHint": "Het token werkt aan het einde van deze dag niet meer. Laat het leeg voor een token dat nooit verloopt, en trek het in wanneer het systeem dat het gebruikt, buiten gebruik is gesteld.",
+    "limitLabel": "Beperk tot gegevensbronnen",
+    "limitHint": "Selecteer niets om elke handmatige tabelgegevensbron toe te staan. Het benoemen ervan is de veiligere standaard.",
+    "limitSearchLabel": "Zoek gegevensbronnen",
+    "limitSearchPlaceholder": "Zoek op naam",
+    "limitSelected": "{{count}} geselecteerd",
+    "limitNoMatch": "Er komt geen enkele gegevensbron overeen met deze zoekopdracht.",
+    "loadingSources": "Gegevensbronnen laden...",
+    "sourcesLoadError": "Gegevensbrongegevens kunnen niet worden geladen.",
+    "noSources": "Er bestaan ​​nog geen handmatige tabelgegevensbronnen.",
+    "creating": "Creëren…",
+    "createAction": "Token maken",
+    "created": "Integratietoken gemaakt.",
+    "revoked": "Integratietoken ingetrokken."
+  },
+  "locations": {
+    "searchLabel": "Zoek locaties",
+    "searchPlaceholder": "Zoek op naam of adres",
+    "add": "Locatie toevoegen",
+    "saved": "Locatie opgeslagen.",
+    "saveFailed": "De locatie kan niet worden opgeslagen.",
+    "deleted": "Locatie verwijderd.",
+    "deleteConflict": "Aan deze locatie zijn nog steeds schermen toegewezen. Wijs ze opnieuw toe of maak de toewijzing ongedaan voordat u ze verwijdert.",
+    "deleteFailed": "De locatie kan niet worden verwijderd.",
+    "loadError": "Locatiegegevens kunnen niet worden geladen.",
+    "loading": "Locaties laden…",
+    "noAddress": "Geen adres ingesteld",
+    "screens_one": "{{count}}-scherm",
+    "screens_other": "{{count}}-schermen",
+    "editLocation": "Bewerk {{name}}",
+    "deleteLocation": "{{name}} verwijderen",
+    "blockedTitle": "Aan {{name}} zijn nog steeds schermen toegewezen en deze kunnen niet worden verwijderd.",
+    "confirmOk": "Oké",
+    "deleteTitle": "{{name}} verwijderen?",
+    "emptySearch": "Er komen geen locaties overeen",
+    "empty": "Nog geen locaties",
+    "emptySearchHint": "Probeer een andere naam of adres.",
+    "emptyHint": "Voeg een gebouw of campus toe om deze aan schermen toe te wijzen.",
+    "addTitle": "Locatie toevoegen",
+    "editTitle": "Locatie bewerken",
+    "save": "Locatie opslaan",
+    "fields": {
+      "name": "Naam van locatie",
+      "address1": "Adresregel 1",
+      "address2": "Adresregel 2",
+      "city": "Stad/plaats",
+      "state": "Staat/provincie/regio",
+      "postal": "Postcode",
+      "country": "Land",
+      "latitude": "Breedtegraad",
+      "longitude": "Lengtegraad"
+    }
+  },
+  "updates": {
+    "console": {
+      "incompatibleTargets": "Incompatibele schermen: {{count}}.",
+      "playerFamily": "Player-familie",
+      "families": {
+        "android": "Android",
+        "linux": "Linux-erfenis",
+        "edge": "Tilecast Rand",
+        "windows": "Ramen"
+      },
+      "status": {
+        "active": "Actief",
+        "paused": "Gepauzeerd",
+        "completed": "Voltooid",
+        "cancelled": "Geannuleerd"
+      },
+      "deployments": "Implementaties",
+      "releases": "Releases",
+      "workspaceViews": "Player updateweergaven",
+      "fleetCount": "{{count}}-schermen",
+      "fleetCount_one": "{{count}}-scherm",
+      "fleetCount_other": "{{count}}-schermen",
+      "targetCount": "{{count}}-schermen",
+      "targetCount_one": "{{count}}-scherm",
+      "targetCount_other": "{{count}}-schermen",
+      "selectedCount": "{{count}}-schermen geselecteerd",
+      "selectedCount_one": "{{count}}-scherm geselecteerd",
+      "selectedCount_other": "{{count}}-schermen geselecteerd",
+      "activeDeployments": "Actieve inzet en aandacht",
+      "recentDeployments": "Recente implementaties",
+      "noHistory": "Geen voltooide implementaties",
+      "noHistoryHint": "Voltooide implementaties worden hier weergegeven.",
+      "viewRollout": "Uitrol bekijken",
+      "sync": "Synchroniseer releases",
+      "synced": "Releasecatalogus gesynchroniseerd.",
+      "more": "Meer opdrachten",
+      "continue": "Ga door",
+      "step": "{{stage}} van 3 — {{title}}",
+      "steps": {
+        "release": "Laat los",
+        "targets": "Doelstellingen",
+        "rollout": "Uitrol"
+      },
+      "stepHints": {
+        "release": "Kies één geverifieerd artefact. Stem de architectuur af op uw schermen.",
+        "targets": "Zoekschermen of weergavegroepen. Tilecast controleert elk opgelost scherm.",
+        "rollout": "Kies wanneer u de implementatie wilt installeren en controleer deze voordat u begint."
+      },
+      "noReadyRelease": "Bereid een release voor in de weergave Releases voordat u deze implementeert.",
+      "prepareFirst": "Voorbereiden en verifiëren vóór implementatie",
+      "screens": "Schermen",
+      "noTargetMatch": "Geen overeenkomende doelen",
+      "groupMembers": "{{count}}-leden · {{eligible}}-compatibel",
+      "checkingCompatibility": "Compatibiliteit controleren...",
+      "selectEligible": "Selecteer alles wat in aanmerking komt",
+      "removeTarget": "Verwijder {{name}}",
+      "modeHints": {
+        "install_now": "Download, verifieer en vraag nu de installatie aan.",
+        "download_only": "Bereid de update op elk scherm voor zonder te installeren.",
+        "maintenance_window": "Download nu en installeer op of na het gekozen tijdstip."
+      },
+      "windowHint": "De lokale tijd van deze browser. Spelers installeren op of na dit moment.",
+      "futureWindow": "Kies een toekomstige datum en tijd.",
+      "canaryRollout": "Uitrol van de kanarie",
+      "canaryHint": "Update eerst een klein cohort. Ga pas verder nadat elke kanarie slaagt.",
+      "invalidCanary": "Gebruik 1-50 kanarieschermen, minder dan de in aanmerking komende doelen. Verwijder reeds bestaande schermen voordat u kanaries gebruikt.",
+      "canarySummary": "{{count}} kanarieschermen",
+      "canarySummary_one": "{{count}} kanariescherm",
+      "canarySummary_other": "{{count}} kanarieschermen",
+      "canaryPhase": "Uitrolfase: {{phase}}",
+      "waitingCanary": "Wachten op kanarie",
+      "review": "Beoordeling van de implementatie",
+      "blockedTitle": "Geselecteerde schermen kunnen deze release niet ontvangen",
+      "offlineWarning": "{{count}}-schermen hebben geen recente hartslag. Hun updateopdrachten wachten tot er opnieuw verbinding wordt gemaakt en verlopen na zeven dagen.",
+      "offlineWarning_one": "{{count}}-scherm heeft geen recente hartslag. Het update-commando wacht op herverbinding en verloopt na zeven dagen.",
+      "offlineWarning_other": "{{count}}-schermen hebben geen recente hartslag. Hun updateopdrachten wachten tot er opnieuw verbinding wordt gemaakt en verlopen na zeven dagen.",
+      "currentWarning": "{{count}}-schermen hebben deze versie of nieuwer al. Ze ontvangen geen updateopdracht.",
+      "currentWarning_one": "Het {{count}}-scherm heeft deze versie of nieuwer al. Er wordt geen updateopdracht ontvangen.",
+      "currentWarning_other": "{{count}}-schermen hebben deze versie of nieuwer al. Ze ontvangen geen updateopdracht.",
+      "configureSource": "Bron configureren",
+      "sourceHint": "GitHub-toegang is optioneel. Ondertekende uploads werken ook zonder GitHub.",
+      "deviceFlowHint": "Schakel Device Flow in de OAuth-app in. GitHub vereist ook een callback URL; de Tilecast-repository URL is geschikt.",
+      "uploadHint": "Selecteer het artefact, het ondertekende manifest en de losse handtekening. Serververificatie is vereist.",
+      "fileTooLarge": "{{name}} mag {{size}} niet overschrijden.",
+      "verifyingRelease": "Ondertekende vrijgave verifiëren…",
+      "artifact": "Artefact",
+      "manifest": "Duidelijk",
+      "signature": "Handtekening",
+      "releaseLibrary": "Bibliotheek vrijgeven",
+      "checked": "{{time}} gecontroleerd",
+      "noReleases": "Geen releases beschikbaar",
+      "noReleasesHint": "Synchroniseer GitHub of upload een ondertekende release van More.",
+      "prepareRequested": "Artefactdownload aangevraagd.",
+      "prepareArtifact": "Bereid artefact voor",
+      "deployArtifact": "Implementeer {{architecture}}",
+      "releaseCommands": "Commando's voor {{version}} {{architecture}}",
+      "deploymentUsage": "{{count}}-implementaties · {{active}} actief",
+      "technicalDetails": "Technische details",
+      "versionCode": "Versiecode",
+      "sha256": "SHA-256",
+      "verification": "Verificatie",
+      "fullyVerified": "Artefact en manifest geverifieerd",
+      "manifestVerified": "Duidelijke handtekening geverifieerd",
+      "certificate": "Ondertekeningscertificaat SHA-256",
+      "releaseNotes": "Release-opmerkingen",
+      "noNotes": "Er zijn geen release-opmerkingen verstrekt.",
+      "trustedKeyMissing": "Configureer de openbare sleutel van het vertrouwde updatemanifest op de server voordat u releases importeert."
+    },
+    "states": {
+      "held": {
+        "label": "Gehouden voor kanarie",
+        "detail": "Start zodra elk kanariescherm een succesvolle update meldt."
+      },
+      "pending": {
+        "label": "In de wachtrij",
+        "detail": "De speler is verteld deze release op te halen."
+      },
+      "offline": {
+        "label": "Wachten op opnieuw verbinden",
+        "detail": "Het scherm is onbereikbaar en zal starten nadat het terugkomt."
+      },
+      "downloading": {
+        "label": "Downloaden"
+      },
+      "downloaded": {
+        "label": "Gedownload",
+        "detail": "Wachten op verificatie van het gedownloade bestand."
+      },
+      "verifying": {
+        "label": "Verifiëren",
+        "detail": "Het gedownloade bestand controleren aan de hand van de verwachte hash."
+      },
+      "ready": {
+        "label": "Klaar om te installeren",
+        "detail": "De installatie begint op het eerstvolgende moment dat deze modus dit toelaat."
+      },
+      "waiting_for_permission": {
+        "label": "Installatietoestemming vereist",
+        "detail": "Sta deze installatiebron toe op de tv, zodat de speler updates kan installeren."
+      },
+      "waiting_for_user": {
+        "label": "Heeft goedkeuring nodig op de tv",
+        "detail": "Iemand moet het installatieprogramma op de tv zelf goedkeuren. Dit is geen mislukking."
+      },
+      "installing": {
+        "label": "Installeren",
+        "detail": "De speler installeert de release nu."
+      },
+      "reconnecting": {
+        "label": "Opnieuw opstarten",
+        "detail": "De speler is opnieuw opgestart in de nieuwe versie en maakt opnieuw verbinding."
+      },
+      "succeeded": {
+        "label": "Bijgewerkt"
+      },
+      "already_current": {
+        "label": "Al actueel",
+        "detail": "Dit scherm stond op de geïmplementeerde versie voordat de uitrol begon."
+      },
+      "failed": {
+        "label": "Mislukt",
+        "detail": "De update is gestopt. Probeer het opnieuw zodra het scherm bereikbaar is."
+      },
+      "cancelled": {
+        "label": "Geannuleerd",
+        "detail": "Gestopt voordat het klaar was."
+      },
+      "incompatible": {
+        "label": "Incompatibel",
+        "detail": "Deze release is niet compatibel met de apparaatvereisten van dit scherm."
+      },
+      "unknown": {
+        "label": "Onbekend",
+        "detail": "Deze speler heeft een status gemeld die Studio niet herkent."
+      }
+    },
+    "stages": {
+      "queued": "In de wachtrij",
+      "downloading": "Downloaden",
+      "installing": "Installeren",
+      "updated": "Bijgewerkt"
+    },
+    "segments": {
+      "succeeded": "Bijgewerkt",
+      "attention": "Wachten op iemand",
+      "failed": "Mislukt",
+      "remaining": "In uitvoering"
+    },
+    "headline": {
+      "cancelled": "Geannuleerd.",
+      "retry_one": "Het {{count}}-scherm moet opnieuw worden geprobeerd.",
+      "retry_other": "{{count}}-schermen moeten opnieuw worden geprobeerd.",
+      "waiting_one": "Het {{count}}-scherm wacht op iemand bij de tv.",
+      "waiting_other": "{{count}}-schermen wachten op iemand bij de tv.",
+      "pausedFallback": "Gepauzeerd na een kanarie-mislukking.",
+      "complete": "Elk scherm staat op deze release.",
+      "rolling": "Uitrollen. Niets heeft aandacht nodig."
+    },
+    "requestFailed": "Het verzoek is mislukt.",
+    "retryRequested": "Opnieuw proberen gevraagd voor dit scherm.",
+    "cancelledSuccess": "Implementatie van Player-update geannuleerd.",
+    "deploymentTitle": "Implementatie",
+    "deploymentFallback": "Player-implementatie",
+    "loading": "Schermstatussen laden",
+    "statusesLoadError": "Schermstatussen konden niet worden geladen.",
+    "detail": {
+      "status": "Status",
+      "mode": "Modus",
+      "rollout": "Uitrol",
+      "started": "Gestart"
+    },
+    "rolloutCanary": "{{size}} kanarie eerst · {{phase}}",
+    "rolloutAll": "Alle schermen tegelijk",
+    "pausedTitle": "Uitrol onderbroken",
+    "pausedDetail": "{{reason}} De resterende schermen blijven in hun huidige versie totdat de implementatie wordt geannuleerd en opnieuw wordt gemaakt.",
+    "filterLabel": "Schermstatusfilter",
+    "filter": {
+      "all": "Alle {{count}}",
+      "attention": "Heeft aandacht nodig {{count}}",
+      "progress": "In uitvoering {{count}}",
+      "done": "{{count}} voltooid"
+    },
+    "searchScreens": "Zoekschermen",
+    "emptyFilter": "Geen enkel scherm komt overeen met dit filter.",
+    "emptyNone": "Deze implementatie bereikt geen schermen die u kunt zien.",
+    "cancelHint": "Annuleren stopt elk scherm dat nog niet is voltooid. Schermen die al zijn bijgewerkt, blijven op de nieuwe release.",
+    "cancel": "Implementatie annuleren",
+    "canary": "Kanarie",
+    "firstInstall": "Installeer eerst · {{version}}",
+    "downloadProgress": "{{percent}}% van {{size}}",
+    "stageTrail": "Voortgang bijwerken",
+    "noScreens": "Geen schermen",
+    "relativeNow": "Zojuist",
+    "relativeMinutes": "{{count}}m geleden",
+    "relativeHours": "{{count}}h geleden",
+    "relativeDays": "{{count}}d geleden",
+    "panel": {
+      "platformLabel": "Player-platform",
+      "releasesTitle": "Beschikbare {{platform}}-releases",
+      "releasesHint": "Upload een ondertekende release rechtstreeks of synchroniseer optioneel vanuit <repo>Gibsonmb71/tilecast</repo>.",
+      "syncing": "Synchroniseren…",
+      "sync": "Synchroniseren vanuit GitHub",
+      "uploadRelease": "Release uploaden",
+      "loadingReleases": "Releases laden…",
+      "loadError": "Releases konden niet worden geladen. {{error}}",
+      "emptyReleases": "Er zijn geen {{platform}} Player-releases geïmporteerd. Tilecast controleert GitHub automatisch; gebruik Sync vanuit GitHub om het onmiddellijk opnieuw te proberen.",
+      "releasesCaption": "Beschikbare {{platform}} Player-releases",
+      "version": "Versie",
+      "source": "Bron",
+      "published": "Gepubliceerd",
+      "size": "Grootte",
+      "status": "Status",
+      "actionsColumn": "Acties",
+      "code": "Code {{code}}",
+      "channelBeta": "Bèta",
+      "channelStable": "Stabiel",
+      "sourceUpload": "Direct uploaden",
+      "sourceGitHub": "GitHub",
+      "cachingLabel": "{{version}} cachen: {{downloaded}} van {{total}} gedownload",
+      "downloadProgress": "{{downloaded}} of {{total}}",
+      "purgeDeleteTitle": "Verwijder deze release en maak het cachebestand vrij",
+      "purgeFreeTitle": "Maak het bestand in de cache vrij en bewaar de implementatiegeschiedenis",
+      "rowDelete": "Verwijderen",
+      "rowFree": "Gratis bestand",
+      "showing": "{{shown}} van {{total}}-releases worden getoond, de nieuwste eerst.",
+      "showFewer": "Toon minder releases",
+      "showAll": "Toon alle {{total}}-releases",
+      "purgeDeleteHeading": "Deze release verwijderen?",
+      "purgeFreeHeading": "Dit cachebestand vrijmaken?",
+      "freesStorage": "{{version}} ({{code}}) maakt {{size}} serveropslag vrij.",
+      "neverDeployed": "Het is nooit geïmplementeerd, dus de release en het cachebestand zijn beide verwijderd.",
+      "historyHint": "Open een implementatie om de status te lezen van elk scherm dat wordt bereikt. Wachten op goedkeuring betekent dat de tv nog steeds iemand nodig heeft om het installatieprogramma te accepteren; het is geen mislukking.",
+      "historyRefOne": "implementatiereferenties",
+      "historyRefOther": "implementatiereferentie",
+      "directTitle": "Deze release is rechtstreeks geüpload.",
+      "directHint": "Tilecast kan het niet opnieuw downloaden. Als u het later wilt implementeren, moet u dezelfde ondertekende release nogmaals uploaden.",
+      "confirmDelete": "Vrijgave verwijderen",
+      "confirmFree": "Gratis cachebestand",
+      "purgeDeleted": "Release verwijderd en het cachebestand vrijgegeven.",
+      "purgeFreed": "Gecacht bestand vrijgegeven. De release blijft vermeld vanwege de implementatiegeschiedenis.",
+      "githubTitle": "GitHub-verbinding",
+      "authorizedAs": "Geautoriseerd als @{{login}}",
+      "authorizedToken": "Geautoriseerd met een door de server beheerd token",
+      "anonymous": "Anonieme API-toegang",
+      "connected": "Verbonden",
+      "notConnected": "Niet verbonden",
+      "disconnecting": "Verbinding verbreken…",
+      "disconnect": "Verbreek de verbinding",
+      "starting": "Beginnen…",
+      "connect": "Verbind GitHub",
+      "oneTimeCode": "Eenmalige code",
+      "openGitHub": "Open GitHub",
+      "waitingAuth": "Wachten op toestemming…",
+      "setupHint": "Configureer <clientId>TILECAST_GITHUB_CLIENT_ID</clientId> met een voor apparaatstroom geschikte GitHub OAuth-app om inloggen mogelijk te maken.",
+      "githubConnected": "Verbonden met GitHub als @{{login}}.",
+      "defaultLogin": "geautoriseerde gebruiker",
+      "githubDeclined": "GitHub-autorisatie is geweigerd.",
+      "githubExpired": "De GitHub-autorisatiecode is verlopen. Begin opnieuw voor een nieuwe code.",
+      "githubIncomplete": "GitHub-autorisatie kan niet worden voltooid.",
+      "githubDisconnected": "GitHub-account ontkoppeld.",
+      "verificationTitle": "Player-updateverificatie is niet geconfigureerd.",
+      "verificationHint": "Stel <key>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</key> op de Tilecast-server in op de openbare Ed25519-sleutel die wordt gebruikt door de Player-releaseworkflow en start vervolgens de server opnieuw op.",
+      "syncErrorTitle": "GitHub-releases kunnen niet worden gesynchroniseerd.",
+      "cacheErrorTitle": "De release kan niet in de cache worden opgeslagen.",
+      "removeErrorTitle": "De release kon niet worden verwijderd.",
+      "deployTitle": "Nieuwe implementatie",
+      "deployHint": "Kies een in de cache opgeslagen, geverifieerde release en target {{platform}}-schermen of weergavegroepen.",
+      "releaseLabel": "Geverifieerde uitgave",
+      "selectRelease": "Selecteer een vrijgave",
+      "noRelease": "Geen enkele release is gereed voor implementatie",
+      "modeLabel": "Implementatiemodus",
+      "modeDownloadOnly": "Alleen downloaden",
+      "modeInstallNow": "Download en vraag installatie aan",
+      "modeMaintenanceWindow": "Onderhoudsvenster",
+      "modeNameDownloadOnly": "Alleen downloaden",
+      "modeNameInstallNow": "Installeer nu",
+      "modeNameMaintenanceWindow": "Onderhoudsvenster",
+      "canaryLabel": "Kanarie schermen",
+      "canaryHint": "De overige doelwitten wachten totdat elke kanarie opnieuw verbinding heeft gemaakt. Gebruik 0 om in één keer op alle doelen in te zetten.",
+      "windowLabel": "Onderhoudsvenster",
+      "windowTimeLabel": "Tijd voor onderhoudsvenster",
+      "windowHint": "Spelers installeren op of na deze lokale tijd op elk scherm.",
+      "targetsLabel": "Doelschermen en weergavegroepen",
+      "searchPlaceholder": "Zoek op naam",
+      "targetsGroup": "Implementatiedoelstellingen",
+      "screensHeading": "{{platform}}-schermen",
+      "groupsHeading": "Groepen weergeven",
+      "groupSize": "{{count}}-schermen",
+      "noScreenMatch": "Geen enkel scherm komt overeen met deze zoekopdracht.",
+      "noScreensEnrolled": "Er zijn geen {{platform}}-schermen geregistreerd.",
+      "noGroupMatch": "Geen enkele weergavegroep komt overeen met deze zoekopdracht.",
+      "noGroups": "Er bestaan ​​nog geen weergavegroepen.",
+      "selectedOne": "{{count}}-scherm geselecteerd",
+      "selectedOther": "{{count}}-schermen geselecteerd",
+      "offlineCount": "{{count}} offline",
+      "clearSelection": "Duidelijke selectie",
+      "creating": "Implementatie maken…",
+      "deployAction": "Update implementeren",
+      "confirmTitle": "Deze Player-update implementeren?",
+      "confirmSummaryOne": "Het {{count}}-scherm ontvangt {{version}} met behulp van {{mode}}.",
+      "confirmSummaryOther": "{{count}}-schermen ontvangen {{version}} met behulp van {{mode}}.",
+      "versionFallback": "deze uitgave",
+      "androidNote": "Android vereist mogelijk installatiegoedkeuring op elke tv.",
+      "linuxNote": "Elke Linux-speler start opnieuw op in de nieuwe versie.",
+      "offlineNoteOne": "Het geselecteerde {{count}}-scherm is offline en wordt bijgewerkt nadat er opnieuw verbinding is gemaakt.",
+      "offlineNoteOther": "{{count}} geselecteerde schermen zijn offline en worden bijgewerkt nadat er opnieuw verbinding is gemaakt.",
+      "deployCreatedOne": "Implementatie gemaakt voor het {{count}}-scherm.",
+      "deployCreatedOther": "Implementatie gemaakt voor {{count}}-schermen.",
+      "historyTitle": "Implementatiegeschiedenis",
+      "historyLoadError": "Implementatiegeschiedenis kan niet worden geladen.",
+      "historyCaption": "{{platform}} Player implementatiegeschiedenis",
+      "colDeployment": "Implementatie",
+      "colStatus": "Status",
+      "colScreens": "Schermen",
+      "colNeeds": "Wat dit nodig heeft",
+      "lastFailure": "Laatste mislukking: {{error}}",
+      "historyEmpty": "Er zijn geen {{platform}} Player-implementaties gemaakt.",
+      "rolloutCanary": "{{size}} kanaries · {{phase}}",
+      "rolloutAll": "Alle schermen tegelijk",
+      "phaseCanary": "Kanarie",
+      "updatedCount": "{{succeeded}} of {{target}} bijgewerkt",
+      "statusActive": "Actief",
+      "statusPaused": "Gepauzeerd",
+      "statusCompleted": "Voltooid",
+      "statusCancelled": "Geannuleerd",
+      "statusFailed": "Mislukt",
+      "cacheTitle": "Download en verifieer deze release",
+      "cacheDownloading": "Downloaden…",
+      "cacheDownload": "Downloaden",
+      "readinessVerificationFailed": "Verificatie mislukt",
+      "readinessVerifyAgain": "Download en verifieer opnieuw.",
+      "readinessDownloadFailed": "Downloaden mislukt",
+      "readinessCacheDetail": "Duidelijk geverifieerd. Het artefact kan niet in de cache worden opgeslagen.",
+      "readinessDownloading": "Downloaden",
+      "readinessDownloadingDetail": "De verificatie eindigt zodra het artefact in de cache is opgeslagen.",
+      "readinessNotCached": "Niet in de cache opgeslagen",
+      "readinessManifestDetail": "Duidelijke handtekening geverifieerd. Downloaden om te implementeren.",
+      "readinessDeployableDetail": "Download om deze release inzetbaar te maken.",
+      "readinessVerifying": "Verifiëren",
+      "readinessVerifyingDetail": "Artefact in cache opgeslagen. De volledige verificatie is nog niet voltooid.",
+      "readinessReady": "Klaar om te implementeren",
+      "uploadTitle": "Upload de ondertekende {{platform}}-release",
+      "releaseUploaded": "Ondertekende spelerrelease geüpload.",
+      "uploadHint": "Alle drie de bestanden worden geverifieerd voordat de {{artifact}} de privé-updatecache van Tilecast binnengaat.",
+      "dropTitle": "Zet de releasebestanden hier neer",
+      "dropHint": "of kies alle drie de bestanden",
+      "validationLabel": "Validatie van vrijgavebestanden",
+      "fileRequired": "Vereist",
+      "unexpectedFile": "Onverwacht bestand: {{name}}. Kies alleen de drie ondertekende releasebestanden.",
+      "manifestTooBig": "Het updatemanifest mag niet groter zijn dan 128 KB.",
+      "sigTooBig": "De manifesthandtekening mag niet groter zijn dan 4 KB.",
+      "uploading": "Uploaden… {{progress}}%",
+      "verifyingAndroid": "Metagegevens van handtekening, APK en pakket verifiëren...",
+      "verifyingLinux": "Handtekening en AppImage-hash verifiëren...",
+      "uploadComplete": "Release geverifieerd en in de cache opgeslagen",
+      "uploadedVersion": "Versie {{version}} · {{channel}} · {{size}}",
+      "importing": "Release importeren…",
+      "uploadVerify": "Uploaden en verifiëren",
+      "clearFiles": "Bestanden wissen",
+      "edgeNote": "Elk Tilecast Edge-scherm downloadt en verifieert de release, start opnieuw op en bevestigt deze nadat er opnieuw verbinding is gemaakt en inhoud wordt weergegeven. Een scherm dat niet kan bevestigen, keert vanzelf terug naar de vorige release.",
+      "verifyingEdge": "De ondertekende envelop en de hash van het vrijgavearchief verifiëren...",
+      "architectureUnknown": "architectuur niet gerapporteerd",
+      "edgeArchive": "archief vrijgeven",
+      "windowsNote": "Elke Windows-speler downloadt en verifieert het pakket, installeert het en start opnieuw op naar de nieuwe versie.",
+      "verifyingWindows": "De ondertekende envelop en de pakkethash verifiëren..."
+    },
+    "setup": {
+      "connect": "Verbind GitHub",
+      "title": "GitHub-verbinding instellen",
+      "intro": "Maak één GitHub OAuth-app voor deze Tilecast-installatie. Tilecast heeft alleen de openbare client-ID nodig; maak of plak geen clientgeheim.",
+      "stepCreateTitle": "Maak de OAuth-app",
+      "stepCreateBody": "Open GitHub Developer-instellingen en registreer een nieuwe OAuth-app.",
+      "openApps": "Open GitHub OAuth-apps",
+      "stepValuesTitle": "Voer deze exacte waarden in",
+      "stepValuesBody": "GitHub vereist een callback URL, ook al meldt Tilecast zich aan via Device Flow.",
+      "appName": "Naam van applicatie",
+      "homepageUrl": "Startpagina URL",
+      "callbackUrl": "Autorisatie terugbellen URL",
+      "deviceFlowNote": "Schakel <deviceFlow>enable Device Flow</deviceFlow> in voordat u de applicatie registreert.",
+      "copyValue": "Kopieer {{label}}",
+      "stepClientIdTitle": "Plak de klant-ID",
+      "stepClientIdBody": "Nadat GitHub de app heeft geregistreerd, kopieert u de client-ID en plakt u deze hieronder. Tilecast slaat het op in permanente applicatiegegevens en begint vervolgens onmiddellijk met inloggen.",
+      "clientIdLabel": "GitHub-client-ID",
+      "saveError": "Tilecast kan de GitHub-client-ID niet opslaan.",
+      "saveConnect": "Opslaan en verbinden",
+      "connected": "Verbonden met GitHub als @{{login}}.",
+      "defaultLogin": "geautoriseerde gebruiker",
+      "declined": "GitHub-autorisatie is geweigerd.",
+      "expired": "De GitHub-autorisatiecode is verlopen. Begin opnieuw voor een nieuwe code.",
+      "incomplete": "GitHub-autorisatie kan niet worden voltooid.",
+      "authTitle": "Autoriseer Tilecast op GitHub",
+      "authBody": "Open GitHub, voer deze eenmalige code in en keur de Tilecast OAuth-app goed. Dit venster wordt automatisch bijgewerkt.",
+      "openGitHub": "Open GitHub",
+      "waiting": "Wachten op toestemming…"
+    }
+  },
+  "policies": {
+    "title": {
+      "screen": "Schermgedrag",
+      "group": "Player-beleid"
+    },
+    "description": {
+      "group": "Overschrijf de standaardinstellingen van de organisatie voor deze weergavegroep.",
+      "screen": "Overschrijf overgenomen afspeel- en apparaatgedrag alleen voor dit scherm."
+    },
+    "searchPlaceholder": "Zoekinstellingen",
+    "searchLabel": "Zoek spelerinstellingen",
+    "overriddenOnly": "Alleen overschreven",
+    "overrides_one": "{{count}} overschrijven",
+    "overrides_other": "{{count}} overschrijft",
+    "resetAll": "Reset alle overschrijvingen",
+    "resetTitle": "Elke overschrijving van de spelerinstellingen resetten?",
+    "resetDescription": "Hiermee wordt elke overschrijving van de spelersinstelling voor dit doel gewist. Dit kan niet ongedaan worden gemaakt.",
+    "keepOverrides": "Overschrijvingen behouden",
+    "resetting": "Resetten…",
+    "saveErrorTitle": "Instellingen konden niet worden opgeslagen",
+    "saveErrorDescription": "Laad het huidige beleid opnieuw als een andere beheerder het heeft gewijzigd.",
+    "saved": "Player-instellingen opgeslagen.",
+    "groups": {
+      "playback": {
+        "title": "Afspelen",
+        "description": "Standaardpresentatie en volumegedrag."
+      },
+      "storage": {
+        "title": "Opslag en downloads",
+        "description": "Lokale cachelimieten en gedrag bij het leveren van inhoud."
+      },
+      "sync": {
+        "title": "Synchronisatie",
+        "description": "Serverafstemming, status en diagnostiek."
+      },
+      "websites": {
+        "title": "Websites",
+        "description": "Time-out, cookies en gedrag van lokale websitegegevens."
+      },
+      "reliability": {
+        "title": "Betrouwbaarheid en kiosk",
+        "description": "Gedeeld herstel plus platformspecifiek Android- en Linux-kioskgedrag."
+      },
+      "power": {
+        "title": "Actieve uren en kracht",
+        "description": "Bedrijfsuren, slaapverzoeken en terugval op zwart scherm."
+      },
+      "accessibility": {
+        "title": "Toegankelijkheidscontrole",
+        "description": "Automatisch retourgedrag en veilige onderhoudsuitsluitingen."
+      },
+      "updates": {
+        "title": "Player-updates",
+        "description": "Schermspecifiek download- en installatiegedrag van updates."
+      }
+    },
+    "emptySearch": "Geen overeenkomende instellingen in deze sectie.",
+    "emptySection": "Er zijn geen instellingen op schermniveau beschikbaar in deze sectie.",
+    "advancedDetails": "Geavanceerde details",
+    "effectiveRevision": "Effectieve configuratierevisie {{revision}} ·",
+    "unsaved": "Niet-opgeslagen wijzigingen in de spelerinstellingen",
+    "groupOverride": "Groep overschrijven",
+    "screenOverride": "Scherm overschrijven",
+    "organizationDefault": "Standaardinstelling van de organisatie",
+    "overrideSetting": "{{title}} overschrijven",
+    "overrideOn": "Overschrijven ingeschakeld",
+    "overrideOff": "Overschrijven",
+    "revert": "Terugkeren",
+    "valueNone": "Geen",
+    "valueNoneAllowed": "Geen toegestaan",
+    "valueNotSet": "Niet ingesteld",
+    "allowedCount_one": "{{count}} toegestaan",
+    "allowedCount_other": "{{count}} toegestaan",
+    "duration": {
+      "hours_one": "{{count}} uur",
+      "hours_other": "{{count}} uur",
+      "minutes_one": "{{count}} minuut",
+      "minutes_other": "{{count}} minuten",
+      "seconds_one": "{{count}} seconde",
+      "seconds_other": "{{count}} seconden"
+    }
+  },
+  "networks": {
+    "saved": "Presentatienetwerk opgeslagen.",
+    "deleted": "Presentatienetwerk verwijderd.",
+    "saveError": "Het Presentatienetwerk kan niet worden opgeslagen.",
+    "manageOnly": "Voor het beheren van presentatienetwerken zijn de mogelijkheden voor het beheren van presentatienetwerken en toegang tot elk scherm nodig.",
+    "title": "Tijdelijke Wi-Fi voor lokale presentatie",
+    "description": "Met Presentatienetwerken kunnen ondersteunde Linux-spelers alleen verbinding maken met Wi-Fi wanneer een AirPlay-sessie dit nodig heeft. Ethernet blijft het normale pad voor Tilecast-verkeer, downloads en fan-out van groepsvideo.",
+    "credentialsUnavailable": "Er zijn geen inloggegevens beschikbaar op deze server.",
+    "credentialsHint": "Configureer de coderingssleutel van het Presentatienetwerk voordat u een netwerk opslaat.",
+    "loadError": "Kan Presentatienetwerken niet laden.",
+    "listTitle": "Presentatienetwerken",
+    "listHint": "Referenties zijn alleen-schrijven. Als u een netwerk bewerkt zonder een nieuwe inloggegevens in te voeren, blijft de opgeslagen gegevens behouden.",
+    "add": "Netwerk toevoegen",
+    "loading": "Presentatienetwerken laden...",
+    "empty": "Nog geen presentatienetwerken",
+    "emptyHint": "Voeg een wifi-netwerk voor medewerkers, gasten of evenementen toe als AirPlay-zenders een speler niet alleen via Ethernet kunnen bereiken.",
+    "addFirst": "Voeg het eerste netwerk toe",
+    "credentialSaved": "Referentie opgeslagen",
+    "credentialMissing": "Referentie ontbreekt",
+    "screens_one": "{{count}}-scherm",
+    "screens_other": "{{count}}-schermen",
+    "revision": "revisie {{revision}}",
+    "edit": "Bewerken",
+    "deleteTitle": "{{name}} verwijderen?",
+    "deleteAssigned_one": "{{name}} is toegewezen aan het {{count}}-scherm. Verwijderen en die toewijzingen verwijderen?",
+    "deleteAssigned_other": "{{name}} is toegewezen aan {{count}}-schermen. Verwijderen en die toewijzingen verwijderen?",
+    "deleteError": "Het presentatienetwerk kan niet worden verwijderd.",
+    "addTitle": "Presentatienetwerk toevoegen",
+    "editTitle": "Presentatienetwerk bewerken",
+    "loadingDetail": "Netwerkgegevens laden…",
+    "fields": {
+      "name": "Weergavenaam",
+      "nameHint": "Een naam die operators zullen herkennen in Studio.",
+      "ssid": "SSID",
+      "ssidHint": "De Wi-Fi-naam, niet de Studio-weergavenaam.",
+      "security": "Authenticatie",
+      "hidden": "Verborgen SSID",
+      "secretPsk": "Wi-Fi-wachtwoord / PSK",
+      "secretEnterprise": "Enterprise-wachtwoord",
+      "secretHintNew": "Alleen schrijven. Het wordt gecodeerd voordat het wordt opgeslagen.",
+      "secretHintSaved": "Er wordt een referentie opgeslagen. Laat dit veld leeg om het te behouden, of voer een nieuw veld in om het te roteren.",
+      "secretHintNone": "Er is nog geen inloggegevens opgeslagen; voer er één in om inrichting in te schakelen.",
+      "identity": "Bedrijfsidentiteit",
+      "anonymousIdentity": "Anonieme identiteit",
+      "anonymousIdentityHint": "Optionele externe identiteit voor de RADIUS-server.",
+      "ca": "CA-certificaat",
+      "caHint": "Optioneel openbaar CA-certificaat in PEM-vorm. Het wordt gebruikt om de RADIUS-server te valideren.",
+      "domain": "Verwacht serverdomein",
+      "domainHint": "Vereist een CA-certificaat indien ingesteld."
+    },
+    "assignedTitle": "Toegewezen Linux-spelers",
+    "assignedHint": "Alleen de geselecteerde gateway maakt verbinding met dit netwerk tijdens een AirPlay-groepssessie. Volgers blijven op Ethernet.",
+    "assignedSearchLabel": "Zoek Linux-spelers",
+    "assignedSearchPlaceholder": "Zoek op naam of locatie",
+    "assignedSelected": "{{selected}} of {{total}} geselecteerd",
+    "assignedNoMatch": "Geen enkele Linux-speler komt overeen met deze zoekopdracht.",
+    "loadingPlayers": "Linux-spelers laden...",
+    "noLocation": "Geen locatie",
+    "noPlayers": "Er zijn geen Linux-spelers beschikbaar voor toewijzing.",
+    "detailError": "Kan dit netwerk niet laden.",
+    "retry": "Probeer het opnieuw.",
+    "save": "Netwerk opslaan",
+    "leaveTitle": "Niet-opgeslagen netwerkwijzigingen negeren?"
+  },
+  "notifications": {
+    "categories": {
+      "incident": "Schermproblemen",
+      "content_health": "Inhoudelijke problemen",
+      "backup": "Back-ups",
+      "update": "Player-updates"
+    },
+    "testSent": "Testbericht verzonden naar {{sentTo}}.",
+    "toasts": {
+      "webhookCreated": "Meldingswebhook gemaakt.",
+      "webhookUpdated": "Meldingswebhook bijgewerkt.",
+      "webhookTestSent": "Webhook-test verzonden.",
+      "webhookRemoved": "Meldingswebhook verwijderd."
+    },
+    "removeTitle": "De webhook \"{{name}}\" verwijderen?",
+    "removeBody": "Het ondertekeningsgeheim kan niet worden hersteld, dus de ontvanger heeft een nieuw geheim nodig.",
+    "remove": "Verwijderen",
+    "removeWebhook": "Verwijder {{name}}",
+    "test": "Testen",
+    "enable": "Inschakelen",
+    "disable": "Uitschakelen",
+    "checking": "Levering van meldingen controleren...",
+    "statusLoadError": "De status van de e-mailbezorging kan niet worden gecontroleerd.",
+    "webhooksLoadError": "Webhooks konden niet worden geladen.",
+    "deliveriesLoadError": "Recente leveringen konden niet worden geladen.",
+    "available": "Beschikbaar",
+    "configured": "Er is een SMTP-relay geconfigureerd. Elk account kiest wat het ontvangt onder Mijn account → Voorkeuren.",
+    "emailUnavailable": "E-mail is niet beschikbaar.",
+    "smtpSetup": "<smtpHost>TILECAST_SMTP_HOST</smtpHost> instellen (en <smtpPort>TILECAST_SMTP_PORT</smtpPort>, <smtpUsername>TILECAST_SMTP_USERNAME</smtpUsername>, <smtpPassword>TILECAST_SMTP_PASSWORD</smtpPassword> waar het relais ze nodig heeft), start vervolgens de server opnieuw op.",
+    "testHint": "Een test gaat naar je eigen meldingsadres en negeert rustige uren en abonnementen.",
+    "sending": "Verzenden…",
+    "sendTest": "Stuur een test naar mezelf",
+    "loadingDeliveries": "Leveringen laden…",
+    "deliveriesEmpty": "Geen leveringen",
+    "deliveriesEmptyHint": "Er is nog niets verzonden. Leveringen verschijnen hier wanneer er een toestand wordt gemeld.",
+    "afterAttempts": " na {{count}}-pogingen",
+    "allCategories": "Alle categorieën",
+    "lastDelivered": " · Laatst geleverde {{date}}",
+    "neverDelivered": " · Nooit geleverd",
+    "lastError": "Laatste fout: {{error}}",
+    "loadingWebhooks": "Webhooks laden…",
+    "webhooksEmpty": "Geen webhooks",
+    "webhooksEmptyHint": "Er zijn geen webhooks geconfigureerd.",
+    "email": {
+      "title": "E-mailbezorging",
+      "description": "Tilecast verzendt via een SMTP-relay die op de server is geconfigureerd, niet via een account in Studio."
+    },
+    "deliveries": {
+      "title": "Recente leveringen",
+      "description": "Wat Tilecast probeerde te verzenden en wat er gebeurde. Een fout hier betekent dat het bericht niet is aangekomen."
+    },
+    "webhooks": {
+      "title": "Webhaken",
+      "description": "Tilecast plaatst ondertekende JSON op een URL die u beheert. Gebruik een relay om een ​​chatdienst te bereiken; Tilecast heeft geen integraties per service."
+    },
+    "secretNotice": "<strong>Kopieer dit ondertekeningsgeheim nu.</strong> Tilecast laat het niet nog een keer zien en er is geen manier om het terug te lezen.",
+    "verifyHint": "Verifieer een verzoek door <hmac>HMAC-SHA256 (geheim, tijdstempel + \".\" + body) </hmac> te berekenen en te vergelijken met de <sigHeader>X-Tilecast-Signature</sigHeader> header. Een verzoek afwijzen waarvan de <tsHeader>X-Tilecast-Timestamp</tsHeader> niet recent is.",
+    "form": {
+      "name": "Naam",
+      "nameHint": "Hoe deze ontvanger wordt geïdentificeerd in het leveringslogboek.",
+      "url": "URL",
+      "urlHint": "HTTPS is vereist tenzij de ontvanger zich op het lokale netwerk bevindt.",
+      "categories": "Categorieën",
+      "categoriesHint": "Selecteer geen om elke categorie te ontvangen.",
+      "adding": "Toevoegen…",
+      "add": "Webhook toevoegen"
+    }
+  },
+  "operations": {
+    "system": {
+      "ownerOnly": "Eigenaar- of beheerderstoegang is vereist.",
+      "diagnosticsTitle": "Diagnostiek",
+      "diagnosticsHint": "Runtimestatus zonder geheimen of gevoelige paden.",
+      "diagnosticsError": "Systeemdiagnostiek kan niet worden geladen. {{error}}",
+      "loadingDiagnostics": "Diagnostische gegevens laden...",
+      "unknownValue": "onbekend",
+      "lessThanMinute": "Minder dan een minuut",
+      "fieldTilecast": "Tilecast",
+      "fieldUptime": "Uptime",
+      "fieldDatabase": "Database",
+      "fieldPostgres": "PostgreSQL",
+      "fieldMediaStorage": "Media-opslag",
+      "fieldConnectedScreens": "Verbonden schermen",
+      "fieldPendingCommands": "Wachtende opdrachten",
+      "fieldProcessingJobs": "Verwerken van opdrachten",
+      "fieldServerTimezone": "Servertijdzone",
+      "maintenanceTitle": "Onderhoud",
+      "maintenanceHint": "Voer goedgekeurde onderhoudstaken uit.",
+      "run": "Rennen",
+      "running": "Hardlopen…",
+      "runConfirmTitle": "{{label}}?",
+      "completed": "Onderhoudsactie voltooid.",
+      "actions": {
+        "expired-upload-cleanup": {
+          "label": "Ruim verlopen uploads op",
+          "description": "Verwijdert verlopen tijdelijke uploadgegevens volgens het bewaarbeleid."
+        },
+        "completed-command-cleanup": {
+          "label": "Opdrachtgeschiedenis opschonen",
+          "description": "Verwijdert voltooide opdrachten die ouder zijn dan de geconfigureerde bewaarperiode."
+        },
+        "retention-cleanup": {
+          "label": "Voer retentieopschoning uit",
+          "description": "Past geconfigureerd bewaarbeleid toe op in aanmerking komende operationele records."
+        },
+        "reconcile-config": {
+          "label": "Stem de spelersconfiguratie af",
+          "description": "Vraagt aangesloten spelers om hun huidige effectieve configuratie op te halen."
+        },
+        "validate-media": {
+          "label": "Valideer mediaopslag",
+          "description": "Controleert de beschikbaarheid van mediaopslag en verwerkingstools zonder de inhoud te wijzigen."
+        }
+      }
+    },
+    "importExport": {
+      "ownerOnly": "Alleen de Eigenaar mag instellingen importeren of exporteren.",
+      "exportTitle": "Instellingen exporteren",
+      "exportHint": "Download organisatie-instellingen en beleidsmetagegevens zonder inloggegevens, geheimen of mediabestanden.",
+      "exportAction": "Niet-geheime instellingen exporteren",
+      "importTitle": "Instellingen importeren",
+      "importHint": "Tilecast valideert het document en toont een voorbeeld voordat er iets verandert.",
+      "fileLabel": "Instellingenbestand",
+      "validating": "Valideren…",
+      "validatePreview": "Valideer en bekijk een voorbeeld",
+      "validKeys": "{{count}}-insteltoetsen zijn geldig.",
+      "policiesPresent": "{{group}}-groepsbeleid en {{screen}}-schermbeleid zijn aanwezig.",
+      "applyTitle": "Dit gevalideerde instellingendocument toepassen?",
+      "apply": "Toepassen",
+      "applyAction": "Geïmporteerde instellingen toepassen",
+      "imported": "Instellingen geïmporteerd.",
+      "noDocument": "Kies een instellingenbestand voordat u valideert.",
+      "invalidDocument": "Dat bestand is geen Tilecast-instellingenexport."
+    }
+  },
+  "fonts": {
+    "addGoogle": "Toevoegen uit Google Fonts",
+    "upload": "Lettertypebestanden uploaden",
+    "loading": "Lettertypen laden…",
+    "empty": "Nog geen organisatielettertypen",
+    "emptyHint": "Voeg een familie toe uit Google Fonts of upload uw eigen TTF- of OTF-bestanden. Lay-outtekst kan het vervolgens gebruiken.",
+    "sourceGoogle": "Google Fonts",
+    "sourceUpload": "Geüpload",
+    "sample": "De snelle bruine vos springt over de luie hond 0123456789",
+    "licenseAttested": "Rechten bevestigd bij het uploaden",
+    "files_one": "{{count}}-bestand",
+    "files_other": "{{count}}-bestanden",
+    "deleteFamily": "Verwijder {{family}}",
+    "deleteTitle": "{{family}} verwijderen?",
+    "deleteDescription": "Lay-outs die dit lettertype gebruiken, moeten eerst een ander lettertype kiezen. Schermen behouden hun kopie tot hun volgende update.",
+    "deleted": "{{family}} verwijderd",
+    "added": "{{family}} toegevoegd",
+    "offlineNote": "Tilecast slaat elk lettertype op deze server op. Spelers downloaden een lettertype met de inhoud die dit gebruikt en bewaren dit voor offline afspelen. Noch spelers, noch Studio nemen contact op met Google.",
+    "categories": {
+      "all": "Alle categorieën",
+      "sans-serif": "Schreefloos",
+      "serif": "Serif",
+      "display": "Weergave",
+      "handwriting": "Handschrift",
+      "monospace": "Monoruimte",
+      "icons": "Pictogrammen"
+    },
+    "google": {
+      "title": "Toevoegen vanuit Google Fonts",
+      "description": "Kies een gezin. Deze server kopieert de bestanden één keer; daarna hangt niets meer af van Google.",
+      "searchLabel": "Zoek gezinnen",
+      "searchPlaceholder": "Familienaam",
+      "categoryLabel": "Categorie",
+      "loading": "Catalogus laden...",
+      "results_one": "{{count}}-familie",
+      "results_other": "{{count}}-families",
+      "more": "Laat meer zien",
+      "variable": "Variabel",
+      "styles_one": "{{count}}-gewicht",
+      "styles_other": "{{count}}-gewichten",
+      "back": "Terug naar de catalogus",
+      "license": "Licentie: {{license}}",
+      "weightRange": "Weegt {{min}}–{{max}} in één bestand",
+      "subsets": "Tekensets",
+      "stylesLabel": "Stijlen",
+      "style": {
+        "normal": "Regelmatig",
+        "italic": "Cursief"
+      },
+      "weights": "Gewichten",
+      "copyNote": "Kies alleen de tekensets die uw inhoud nodig heeft. Elk voegt een bestand toe dat elk scherm met dit lettertype downloadt.",
+      "add": "Toevoegen aan organisatie",
+      "adding": "Toevoegen…"
+    },
+    "uploadDialog": {
+      "title": "Lettertypebestanden uploaden",
+      "description": "Upload één TrueType-bestand (.ttf) of OpenType-bestand (.otf) voor elke stijl, zoals Normaal, Vet en Cursief. Bestanden met dezelfde familienaam worden samengevoegd tot één familie.",
+      "filesLabel": "Lettertypebestanden",
+      "filesHint": "Maximaal 15 MB per stuk. Lettertypecollecties en weblettertypen (WOFF, WOFF2) worden niet geaccepteerd.",
+      "rights": "Mijn organisatie heeft het recht om deze lettertypen op haar beeldschermen te tonen.",
+      "submit_one": "Upload het {{count}}-bestand",
+      "submit_other": "Upload {{count}}-bestanden",
+      "uploading": "Uploaden…",
+      "stored": "Toegevoegd aan {{family}}.",
+      "restricted": "Toegevoegd aan {{family}}. De eigen licentievlaggen van het lettertype geven aan dat het niet mag zijn ingesloten; bevestig dat uw licentie weergavegebruik toestaat."
+    },
+    "picker": {
+      "libraryGroup": "Organisatielettertypen",
+      "builtInGroup": "Ingebouwde lettertypen",
+      "add": "Lettertypen toevoegen",
+      "manage": "Organisatielettertypen toevoegen of verwijderen",
+      "missing": "Lettertype verwijderd (gebruikt de fallback)",
+      "loadingFont": "Lettertype laden…"
+    }
+  }
+}

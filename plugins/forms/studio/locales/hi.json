@@ -1,0 +1,717 @@
+{
+  "access": {
+    "roles": {
+      "owner": "मालिक",
+      "administrator": "प्रशासक",
+      "editor": "संपादक",
+      "contributor": "योगदानकर्ता",
+      "viewer": "दर्शक"
+    },
+    "capabilities": {
+      "manage": {
+        "label": "प्रबंधित करें",
+        "implies": "पूर्ण नियंत्रण - इसमें नीचे दी गई प्रत्येक क्षमता शामिल है।"
+      },
+      "approve": {
+        "label": "स्वीकृत करें",
+        "implies": "स्वीकृत करें या अस्वीकार करें - इसमें समीक्षा और सभी देखें शामिल हैं।"
+      },
+      "review": {
+        "label": "समीक्षा",
+        "implies": "परिवर्तन का अनुरोध करें - इसमें सभी देखें शामिल हैं।"
+      },
+      "viewAll": {
+        "label": "सभी प्रतिक्रियाएँ देखें",
+        "implies": "स्वयं का दृश्य शामिल है."
+      },
+      "viewOwn": {
+        "label": "स्वयं की प्रतिक्रियाएँ देखें"
+      },
+      "submit": {
+        "label": "प्रतिक्रियाएँ सबमिट करें"
+      }
+    },
+    "loading": "एक्सेस लोड हो रहा है...",
+    "loadError": "पहुंच लोड नहीं की जा सकी",
+    "loadRetry": "कृपया पुनः प्रयास करें.",
+    "updateError": "पहुंच अद्यतन नहीं की जा सकी.",
+    "changeFailed": "पहुंच परिवर्तन विफल रहा",
+    "table": {
+      "user": "उपयोगकर्ता",
+      "globalRole": "वैश्विक भूमिका",
+      "access": "पहुंच",
+      "actions": "क्रियाएँ"
+    },
+    "managerCreator": "प्रबंधक (निर्माता)",
+    "managerOwner": "प्रबंधक (मालिक)",
+    "alwaysManager": "हमेशा एक प्रबंधक",
+    "editAccess": "पहुंच संपादित करें",
+    "grant": {
+      "title": "पहुंच प्रदान करें",
+      "findUser": "एक उपयोगकर्ता खोजें",
+      "searchPlaceholder": "उपयोगकर्ता खोजें",
+      "searchHint": "नाम या उपयोगकर्ता नाम से खोजें.",
+      "grantingTo": "तक पहुंच प्रदान करना",
+      "searching": "खोज रहे हैं...",
+      "noMatch": "कोई मेल खाता उपयोगकर्ता नहीं",
+      "noMatchHint": "भिन्न खोज का प्रयास करें.",
+      "searchError": "उपयोगकर्ता खोज विफल रही"
+    },
+    "includedByBroader": "व्यापक क्षमता द्वारा शामिल।",
+    "saveAccess": "पहुंच सहेजें"
+  },
+  "builder": {
+    "actions": {
+      "moveUp": "ऊपर बढ़ो",
+      "moveDown": "नीचे जाएँ",
+      "moveTop": "शीर्ष पर जाएँ",
+      "moveBottom": "नीचे की ओर ले जाएँ",
+      "deleteField": "फ़ील्ड हटाएँ"
+    },
+    "row": {
+      "editField": "{{name}} संपादित करें",
+      "actionsFor": "{{name}} के लिए क्रियाएँ"
+    },
+    "fieldsPanel": "प्रपत्र फ़ील्ड",
+    "emptyFields": "अभी तक कोई फ़ील्ड नहीं. नीचे पहला जोड़ें.",
+    "previewPanel": "प्रपत्र पूर्वावलोकन",
+    "formTitle": "प्रपत्र शीर्षक",
+    "formDescription": "प्रपत्र विवरण",
+    "inspectorPanel": "फ़ील्ड सेटिंग",
+    "inspectorEyebrow": "इंस्पेक्टर",
+    "inspectorEmpty": "किसी फ़ील्ड की सेटिंग संपादित करने के लिए उसका चयन करें.",
+    "status": {
+      "saving": "सहेजा जा रहा है...",
+      "saveFailed": "सहेजना विफल",
+      "unsaved": "सहेजे न गए परिवर्तन",
+      "saved": "सहेजा गया"
+    },
+    "saveDraft": "ड्राफ्ट सहेजें",
+    "publish": "प्रकाशित करें",
+    "leave": {
+      "title": "बिना सहेजे छोड़ें?",
+      "body": "इस फ़ॉर्म में आपके परिवर्तन सहेजे नहीं गए हैं. अभी छोड़ने से उन्हें त्याग दिया जाएगा।"
+    },
+    "draftError": "ड्राफ्ट सहेजा नहीं गया",
+    "draftFallback": "ड्राफ्ट सहेजा नहीं जा सका.",
+    "publishTitle": "एक नया संशोधन प्रकाशित करें?",
+    "publishBody": "प्रकाशन एक नया अपरिवर्तनीय संशोधन बनाता है। मौजूदा प्रस्तुतियाँ उस संशोधन से जुड़ी रहती हैं जिसके विरुद्ध उन्हें बनाया गया था।",
+    "publishConfirm": "पुनरीक्षण प्रकाशित करें",
+    "publishConflict": "अन्यत्र रूप बदल गया। पुनः लोड करें और पुनः प्रयास करें।",
+    "publishFallback": "प्रकाशित नहीं हो सका.",
+    "layout": {
+      "group": "प्रपत्र फ़ील्ड, पूर्वावलोकन और निरीक्षक",
+      "fields": "प्रपत्र फ़ील्ड",
+      "resizeFieldsPreview": "फ़ील्ड और पूर्वावलोकन फलक का आकार बदलें",
+      "preview": "प्रपत्र पूर्वावलोकन",
+      "resizePreviewInspector": "पूर्वावलोकन और इंस्पेक्टर पैन का आकार बदलें",
+      "inspector": "फ़ील्ड सेटिंग"
+    }
+  },
+  "fieldEditor": {
+    "publishedTitle": "प्रकाशित फ़ील्ड",
+    "publishedWithType": "यह फ़ील्ड प्रकाशित प्रपत्र का हिस्सा है, इसलिए Widgets और सहेजे गए दृश्यों को चालू रखने के लिए इसकी कुंजी और आउटपुट प्रकार लॉक हैं। आप अभी भी इसका लेबल, सहायता टेक्स्ट, सत्यापन और ऑर्डर संपादित कर सकते हैं।",
+    "publishedBase": "यह फ़ील्ड प्रकाशित प्रपत्र का हिस्सा है, इसलिए Widgets और सहेजे गए दृश्यों को चालू रखने के लिए इसकी कुंजी लॉक की गई है। आप अभी भी इसका लेबल, सहायता टेक्स्ट, सत्यापन और ऑर्डर संपादित कर सकते हैं।",
+    "label": "लेबल",
+    "key": "फ़ील्ड कुंजी",
+    "keyHint": "Widgets और दृश्यों द्वारा उपयोग किया जाने वाला स्थिर पहचानकर्ता।",
+    "type": "फ़ील्ड प्रकार",
+    "help": "सहायता पाठ",
+    "helpHint": "मैदान के नीचे दिखाया गया है.",
+    "required": "आवश्यक",
+    "defaultValue": "डिफ़ॉल्ट मान",
+    "minimum": "न्यूनतम",
+    "maximum": "अधिकतम",
+    "minLength": "न्यूनतम लंबाई",
+    "maxLength": "अधिकतम लंबाई",
+    "options": "विकल्प",
+    "remove": "हटाओ",
+    "addOption": "विकल्प जोड़ें",
+    "optionLabel": "विकल्प {{n}} लेबल",
+    "optionValue": "विकल्प {{n}} मान",
+    "newOptionLabel": "विकल्प {{index}}"
+  },
+  "palette": {
+    "title": "एक फ़ील्ड जोड़ें"
+  },
+  "controls": {
+    "shortText": {
+      "label": "लघु पाठ",
+      "description": "पाठ की एक पंक्ति."
+    },
+    "longText": {
+      "label": "लंबा पाठ",
+      "description": "एक बहु-पंक्ति अनुच्छेद."
+    },
+    "number": {
+      "label": "संख्या",
+      "description": "एक दशमलव संख्या."
+    },
+    "integer": {
+      "label": "पूर्णांक",
+      "description": "एक पूर्ण संख्या."
+    },
+    "boolean": {
+      "label": "हाँ/नहीं",
+      "description": "एक चेकबॉक्स टॉगल."
+    },
+    "select": {
+      "label": "चयन करें",
+      "description": "एक विकल्प चुनें."
+    },
+    "multiSelect": {
+      "label": "बहु-चयन",
+      "description": "एक या अधिक विकल्प चुनें."
+    },
+    "date": {
+      "label": "दिनांक",
+      "description": "एक कैलेंडर तिथि."
+    },
+    "datetime": {
+      "label": "दिनांक एवं समय",
+      "description": "एक तारीख एक समय के साथ."
+    },
+    "url": {
+      "label": "URL",
+      "description": "एक वेब लिंक."
+    },
+    "image": {
+      "label": "छवि अपलोड करें",
+      "description": "एक अपलोड की गई छवि."
+    },
+    "section": {
+      "label": "अनुभाग शीर्षक",
+      "description": "समूह फ़ील्ड की ओर एक शीर्षक."
+    },
+    "helpText": {
+      "label": "सहायता पाठ",
+      "description": "प्रस्तुतकर्ताओं को मार्गदर्शन दिखाया गया।"
+    }
+  },
+  "defaults": {
+    "sectionLabel": "धारा",
+    "helpTextLabel": "सहायता पाठ",
+    "optionLabel": "विकल्प {{n}}",
+    "titleLabel": "शीर्षक"
+  },
+  "renderer": {
+    "empty": "इस फॉर्म में अभी तक कोई फ़ील्ड नहीं है.",
+    "charLimitReached": "वर्ण सीमा पूरी हो गई ({{max}})",
+    "charsLeft": "{{max}} में से {{remaining}} अक्षर बचे हैं",
+    "selectPlaceholder": "चुनें…",
+    "imageNoteSubmit": "सबमिट करते समय छवि अपलोड उपलब्ध हैं।",
+    "imageAttention": "छवि पर ध्यान देने की जरूरत है.",
+    "pendingUpload": "जब आप सहेजते हैं तो अपलोड होता है.",
+    "uploading": "अपलोड हो रहा है...",
+    "imageAttached": "छवि संलग्न.",
+    "replaceImage": "छवि बदलें",
+    "chooseImage": "छवि चुनें",
+    "replaceLabel": "{{label}} बदलें",
+    "chooseLabel": "{{label}} चुनें",
+    "imageAlt": "{{label}} अनुलग्नक",
+    "removeImage": "हटाओ",
+    "noImage": "कोई छवि प्रदान नहीं की गई."
+  },
+  "outputs": {
+    "loading": "आउटपुट लोड हो रहा है...",
+    "loadError": "आउटपुट लोड नहीं किया जा सका",
+    "retry": "कृपया पुनः प्रयास करें.",
+    "projectionError": "प्रक्षेपण त्रुटि",
+    "staleCache": "बासी कैश",
+    "upToDate": "अप टू डेट",
+    "lastProjection": "अंतिम प्रक्षेपण: {{value}}",
+    "never": "कभी नहीं",
+    "nextRefresh": "अगला रिफ्रेश: {{value}}",
+    "onChange": "परिवर्तन पर",
+    "rebuild": "आउटपुट का पुनर्निर्माण करें",
+    "rebuildError": "पुनर्निर्माण विफल रहा",
+    "lastReport": "अंतिम प्रक्षेपण रिपोर्ट किया गया: {{code}}",
+    "noViews": "कोई सहेजा गया दृश्य नहीं",
+    "noViewsHint": "आउटपुट डेटासेट जेनरेट करने के लिए व्यू टैब में एक व्यू बनाएं।",
+    "viewLabel": "आउटपुट {{name}}",
+    "recordCount_one": "{{count}} रिकॉर्ड",
+    "recordCount_other": "{{count}} रिकॉर्ड",
+    "usedByWidgets_one": "{{count}} विजेट द्वारा उपयोग किया जाता है",
+    "usedByWidgets_other": "{{count}} विजेट द्वारा उपयोग किया जाता है",
+    "referencedBy": "द्वारा संदर्भित: {{names}}",
+    "noRecords": "अभी तक कोई रिकॉर्ड इस दृश्य से मेल नहीं खाता."
+  },
+  "review": {
+    "loading": "सबमिशन लोड हो रहा है...",
+    "unavailable": "सबमिशन अनुपलब्ध",
+    "unavailableBody": "यह सबमिशन लोड नहीं किया जा सका या अब आपके पास इस तक पहुंच नहीं है।",
+    "decisionRecorded": "निर्णय दर्ज किया गया।",
+    "untitled": "शीर्षक रहित प्रस्तुतिकरण",
+    "submittedBy": "{{name}} द्वारा सबमिट किया गया",
+    "unknownSubmitter": "अज्ञात",
+    "revision": "· संशोधन {{number}}",
+    "actionFailed": "कार्रवाई विफल रही",
+    "displaySection": "मेटाडेटा प्रदर्शित करें",
+    "displayTitle": "सेटिंग्स प्रदर्शित करें",
+    "titleLabel": "शीर्षक प्रदर्शित करें",
+    "priorityLabel": "प्राथमिकता",
+    "fromLabel": "से प्रदर्शित करें",
+    "expiresLabel": "पर समाप्त होता है",
+    "displayTime": "समय प्रदर्शित करें",
+    "expiryTime": "समाप्ति समय",
+    "decisionSection": "निर्णय",
+    "decisionTitle": "{{label}} यह सबमिशन",
+    "decisionFallback": "एक निर्णय रिकार्ड करें",
+    "noteRequired": "{{label}} के लिए एक नोट आवश्यक है।",
+    "noteLabel": "नोट",
+    "notePlaceholder": "क्या बदला या लेखक को क्या ठीक करना चाहिए?",
+    "noteHint": "निर्णय के साथ दर्ज किया गया और इतिहास में दिखाया गया।",
+    "commentsSection": "टिप्पणियाँ",
+    "noComments": "अभी तक कोई टिप्पणी नहीं.",
+    "addComment": "एक टिप्पणी जोड़ें",
+    "commentButton": "टिप्पणी करें",
+    "historySection": "इतिहास",
+    "applyFallback": "परिवर्तन लागू नहीं किया जा सका.",
+    "commentFallback": "टिप्पणी नहीं जोड़ी जा सकी.",
+    "refreshedConflict": "आपके द्वारा इसे खोलने के बाद से यह सबमिशन बदल गया है। इसे ताज़ा कर दिया गया है - नवीनतम संस्करण की समीक्षा करें और पुनः प्रयास करें।",
+    "events": {
+      "created": "बनाया गया",
+      "createdBy": "{{name}} द्वारा बनाया गया",
+      "edited": "संपादित",
+      "editedBy": "{{name}} द्वारा संपादित",
+      "moved": "{{from}} → {{to}} ले जाया गया",
+      "movedBy": "{{name}} द्वारा {{from}} → {{to}} स्थानांतरित किया गया",
+      "commented": "टिप्पणी की",
+      "commentedBy": "{{name}} द्वारा टिप्पणी की गई",
+      "attachmentAdded": "एक अनुलग्नक जोड़ा गया",
+      "attachmentAddedBy": "{{name}} द्वारा एक अनुलग्नक जोड़ा गया",
+      "attachmentRemoved": "एक अनुलग्नक हटा दिया गया",
+      "attachmentRemovedBy": "{{name}} द्वारा एक अनुलग्नक हटाया गया",
+      "unknown": "{{type}}{{actor}}",
+      "byActor": " {{name}} द्वारा"
+    },
+    "leaveTitle": "बिना सहेजे छोड़ें?",
+    "leaveBody": "इस समीक्षा में सहेजे नहीं गए परिवर्तन हैं."
+  },
+  "editor": {
+    "leaveTitle": "बिना सहेजे छोड़ें?",
+    "leaveBody": "इस सबमिशन में आपके परिवर्तन सहेजे नहीं गए हैं. अभी छोड़ने से उन्हें त्याग दिया जाएगा।",
+    "changesRequested": "परिवर्तन का अनुरोध किया गया",
+    "anonymousReviewer": "समीक्षक",
+    "saveFailed": "सहेजा नहीं जा सका",
+    "saveDraft": "ड्राफ्ट सहेजें",
+    "submitFallback": "सबमिट करें",
+    "completedTitle": "यह सबमिशन {{state}} है",
+    "completedBody": "इसे अब संपादित नहीं किया जा सकता. यदि परिवर्तन की आवश्यकता होगी तो एक समीक्षक अनुवर्ती कार्रवाई करेगा।",
+    "commentsSection": "टिप्पणियाँ",
+    "fixFields_one": "जारी रखने से पहले {{count}} फ़ील्ड को ठीक करें",
+    "fixFields_other": "जारी रखने से पहले {{count}} फ़ील्ड ठीक करें",
+    "cannotSubmit": "यह फ़ॉर्म अपनी वर्तमान स्थिति से सबमिट नहीं किया जा सकता."
+  },
+  "views": {
+    "newView": "नया दृश्य",
+    "viewInUse": "उपयोग में देखें",
+    "deleteFallback": "दृश्य हटाया नहीं जा सका.",
+    "noViews": "कोई सहेजा गया दृश्य नहीं",
+    "noViewsHint": "Widgets के लिए नामित डेटासेट प्रकाशित करने के लिए एक दृश्य बनाएं।",
+    "tableName": "नाम",
+    "tableKey": "डेटासेट कुंजी",
+    "tableStates": "राज्य",
+    "tableActions": "क्रियाएँ",
+    "duplicate": "डुप्लिकेट",
+    "leaveTitle": "बिना सहेजे छोड़ें?",
+    "leaveBody": "इस दृश्य में सहेजे न गए परिवर्तन हैं.",
+    "notSaved": "दृश्य सहेजा नहीं गया",
+    "saveFallback": "दृश्य सहेजा नहीं जा सका.",
+    "previewFallback": "दृश्य का पूर्वावलोकन नहीं किया जा सका.",
+    "nameLabel": "नाम देखें",
+    "keyLabel": "डेटासेट कुंजी",
+    "newKeyHint": "लोअरकेस कुंजी; सहेजे जाने के बाद ठीक कर दिया गया।",
+    "lockedKeyHint": "कुंजियाँ अपरिवर्तनीय हैं.",
+    "limitLabel": "रिकॉर्ड सीमा",
+    "orderLabel": "आदेश",
+    "statesLegend": "शामिल राज्य",
+    "fieldsLegend": "आउटपुट फ़ील्ड और ऑर्डर",
+    "addFieldLabel": "एक आउटपुट फ़ील्ड जोड़ें",
+    "addFieldPlaceholder": "एक फ़ील्ड जोड़ें...",
+    "noneSelected": "सभी उपलब्ध फ़ील्ड (कोई भी चयनित नहीं).",
+    "filtersLegend": "फ़ील्ड फ़िल्टर",
+    "filterFieldLabel": "फ़िल्टर फ़ील्ड",
+    "fieldPlaceholder": "फ़ील्ड…",
+    "operatorLabel": "फ़िल्टर ऑपरेटर",
+    "removeItem": "हटाओ",
+    "addFilter": "फ़िल्टर जोड़ें",
+    "sortLegend": "क्रमबद्ध करें",
+    "sortFieldLabel": "फ़ील्ड क्रमबद्ध करें",
+    "sortDirectionLabel": "दिशा क्रमबद्ध करें",
+    "ascending": "आरोही",
+    "descending": "उतरता हुआ",
+    "addSort": "सॉर्ट नियम जोड़ें",
+    "timeLegend": "समय खिड़की",
+    "timeEnabled": "सापेक्ष समय विंडो द्वारा फ़िल्टर करें",
+    "startField": "प्रारंभ फ़ील्ड",
+    "noneOption": "कोई नहीं",
+    "endField": "अंत क्षेत्र",
+    "startBeforeNow": "प्रारंभ अब से पहले है",
+    "endAfterNow": "अंत अब के बाद है",
+    "previewButton": "पूर्वावलोकन",
+    "saveButton": "दृश्य सहेजें",
+    "previewTitle": "पूर्वावलोकन",
+    "previewCount_one": "{{count}} रिकॉर्ड",
+    "previewCount_other": "{{count}} रिकॉर्ड",
+    "previewEmpty": "कोई भी रिकॉर्ड इस दृश्य से मेल नहीं खाता.",
+    "moveUp": "{{label}} को ऊपर ले जाएँ",
+    "moveDown": "{{label}} को नीचे ले जाएँ",
+    "removeLabel": "{{label}} हटाएं",
+    "copyName": "{{name}} (कॉपी)"
+  },
+  "workflow": {
+    "capabilities": {
+      "submit": {
+        "label": "सबमिट करें"
+      },
+      "review": {
+        "label": "समीक्षा"
+      },
+      "approve": {
+        "label": "स्वीकृत करें"
+      },
+      "manage": {
+        "label": "प्रबंधित करें"
+      },
+      "viewAll": {
+        "label": "सभी देखें"
+      },
+      "viewOwn": {
+        "label": "अपना देखें"
+      }
+    },
+    "leaveTitle": "बिना सहेजे छोड़ें?",
+    "leaveBody": "वर्कफ़्लो में सहेजे न गए परिवर्तन हैं.",
+    "notSaved": "वर्कफ़्लो सहेजा नहीं गया",
+    "saveFallback": "वर्कफ़्लो सहेजा नहीं जा सका.",
+    "fixBefore": "सहेजने से पहले इन्हें ठीक करें",
+    "statesSection": "राज्य",
+    "statesTitle": "राज्य",
+    "addState": "राज्य जोड़ें",
+    "stateLabel": "लेबल",
+    "stateKey": "कुंजी",
+    "lockedHint": "उपयोग में - लॉक किया गया",
+    "keyHint": "लोअरकेस, स्थिर",
+    "stateRecords_one": "{{count}} रिकॉर्ड",
+    "stateRecords_other": "{{count}} रिकॉर्ड",
+    "initialOption": "प्रारंभिक",
+    "eligibleOption": "आउटपुट-योग्य",
+    "terminalOption": "टर्मिनल",
+    "moveUp": "{{label}} को ऊपर ले जाएं",
+    "moveDown": "{{label}} को नीचे ले जाएँ",
+    "deleteState": "{{label}} हटाएं",
+    "deleteLockedTitle": "अभिलेखों द्वारा संदर्भित",
+    "deleteTitle": "राज्य हटाएँ",
+    "newStateLabel": "नया राज्य",
+    "transitionsSection": "संक्रमण",
+    "transitionsTitle": "संक्रमण",
+    "addTransition": "संक्रमण जोड़ें",
+    "colFrom": "से",
+    "colTo": "को",
+    "colLabel": "लेबल",
+    "colCapability": "आवश्यक क्षमता",
+    "fromStateLabel": "राज्य से",
+    "toStateLabel": "बताना",
+    "capabilityLabel": "आवश्यक क्षमता",
+    "moveTransitionUp": "संक्रमण को ऊपर ले जाएँ",
+    "moveTransitionDown": "संक्रमण को नीचे ले जाएँ",
+    "removeTransition": "संक्रमण {{label}} हटाएँ",
+    "newTransitionLabel": "नया संक्रमण",
+    "impactTitle": "यह परिवर्तन आउटपुट या सबमिशन पथ को प्रभावित करता है",
+    "reviewAgain": "पुनः समीक्षा करें",
+    "saveAnyway": "फिर भी बचा लो",
+    "saveWorkflow": "वर्कफ़्लो सहेजें",
+    "validation": {
+      "noStates": "कम से कम एक राज्य जोड़ें.",
+      "invalidStateKey": "राज्य कुंजी \"{{key}}\" अमान्य है (छोटे अक्षर, अंक, अंडरस्कोर)।",
+      "emptyKey": "(खाली)",
+      "duplicateStateKey": "डुप्लिकेट राज्य कुंजी \"{{key}}\"।",
+      "stateNeedsLabel": "प्रत्येक राज्य को एक लेबल की आवश्यकता होती है।",
+      "exactlyOneInitial": "बिल्कुल एक अवस्था प्रारंभिक अवस्था होनी चाहिए।",
+      "needEligible": "कम से कम एक राज्य आउटपुट-योग्य होना चाहिए।",
+      "badReference": "प्रत्येक संक्रमण को मौजूदा स्थितियों का संदर्भ देना चाहिए।",
+      "duplicateTransition": "डुप्लिकेट संक्रमण {{from}} → {{to}}।"
+    },
+    "warnings": {
+      "lostEligible": "राज्य \"{{key}}\" अब आउटपुट-योग्य नहीं है; इसके रिकॉर्ड साइनेज छोड़ देंगे।",
+      "gainedEligible": "राज्य \"{{key}}\" अब आउटपुट-योग्य है; इसके रिकॉर्ड साइनेज पर दिखाई दे सकते हैं।",
+      "submissionPaths": "सबमिशन पथ बदल गए; इससे यह प्रभावित होता है कि जमाकर्ता रिकॉर्ड कैसे स्थानांतरित करते हैं।"
+    }
+  },
+  "validation": {
+    "imageRequired": "{{label}} को एक छवि की आवश्यकता है।",
+    "required": "{{label}} आवश्यक है.",
+    "maxLength": "{{label}} अधिकतम {{max}} वर्ण होना चाहिए।",
+    "minLength": "{{label}} कम से कम {{min}} अक्षर होना चाहिए।",
+    "notNumber": "{{label}} एक संख्या होनी चाहिए.",
+    "notInteger": "{{label}} एक पूर्ण संख्या होनी चाहिए.",
+    "minValue": "{{label}} कम से कम {{minimum}} होना चाहिए।",
+    "maxValue": "{{label}} अधिकतम {{maximum}} होना चाहिए।",
+    "urlProtocol": "{{label}} एक http(s) URL होना चाहिए।",
+    "urlInvalid": "{{label}} एक वैध URL होना चाहिए।",
+    "dateInvalid": "{{label}} एक तारीख होनी चाहिए।",
+    "keyPattern": "कुंजियाँ एक अक्षर से शुरू होनी चाहिए और केवल अक्षरों, संख्याओं और अंडरस्कोर का उपयोग करना चाहिए।",
+    "keyReserved": "\"{{key}}\" एक आरक्षित कुंजी है।",
+    "keyTaken": "कोई अन्य फ़ील्ड पहले से ही इस कुंजी का उपयोग करता है."
+  },
+  "outputFields": {
+    "synthetic": {
+      "state": "कार्यप्रवाह स्थिति",
+      "displayTitle": "शीर्षक प्रदर्शित करें",
+      "priority": "प्राथमिकता",
+      "submittedAt": "प्रस्तुत समय",
+      "displayAt": "से प्रदर्शित करें",
+      "expiresAt": "पर समाप्त होता है"
+    },
+    "operators": {
+      "equals": "बराबर",
+      "notEquals": "बराबर नहीं है",
+      "empty": "खाली है",
+      "notEmpty": "खाली नहीं है",
+      "greaterThan": "से भी बड़ा",
+      "lessThan": "से कम",
+      "contains": "शामिल है"
+    }
+  },
+  "plugin": {
+    "breadcrumb": "प्लगइन्स",
+    "title": "प्रपत्र",
+    "subtitle": "फॉर्म बनाएं, प्रतिक्रियाएं प्रबंधित करें, और स्वीकृत रिकॉर्ड साइनेज के लिए उपलब्ध कराएं।",
+    "create": "फॉर्म बनाएं",
+    "loadError": "प्रपत्र लोड नहीं हो सके",
+    "loadFallback": "फॉर्म लोड नहीं किये जा सके.",
+    "empty": "अभी तक कोई फॉर्म नहीं",
+    "emptyCreate": "सबमिशन एकत्र करना शुरू करने के लिए एक फॉर्म बनाएं।",
+    "emptyDenied": "आपके पास किसी भी फॉर्म तक पहुंच नहीं है.",
+    "publishedRevision": "प्रकाशित संशोधन {{number}}",
+    "draft": "ड्राफ्ट",
+    "noDescription": "कोई विवरण नहीं",
+    "manage": "प्रपत्र प्रबंधित करें"
+  },
+  "detail": {
+    "tabs": {
+      "responses": "प्रतिक्रियाएँ",
+      "form": "प्रपत्र",
+      "workflow": "कार्यप्रवाह",
+      "views": "दृश्य",
+      "outputs": "आउटपुट",
+      "access": "पहुंच"
+    },
+    "loading": "फॉर्म लोड हो रहा है...",
+    "unavailable": "फॉर्म अनुपलब्ध है",
+    "unavailableBody": "यह फॉर्म लोड नहीं किया जा सका.",
+    "pluginEyebrow": "फॉर्म प्लगइन",
+    "sectionsLabel": "प्रपत्र अनुभाग",
+    "filters": {
+      "needsReview": "समीक्षा की जरूरत है",
+      "allStates": "सभी राज्य",
+      "state": "राज्य",
+      "search": "खोजें",
+      "searchPlaceholder": "शीर्षक या प्रस्तुतकर्ता",
+      "sort": "क्रमबद्ध करें"
+    },
+    "sort": {
+      "updated": "हाल ही में अद्यतन किया गया",
+      "newest": "नवीनतम",
+      "oldest": "सबसे पुराना",
+      "priority": "प्राथमिकता"
+    },
+    "loadResponsesError": "प्रतिक्रियाएँ लोड नहीं की जा सकीं",
+    "retry": "कृपया पुनः प्रयास करें.",
+    "loadingResponses": "प्रतिक्रियाएँ लोड हो रही हैं...",
+    "noResponses": "कोई प्रतिक्रिया नहीं",
+    "emptyNeedsReview": "अभी कुछ भी समीक्षा की प्रतीक्षा नहीं कर रहा है।",
+    "emptyFiltered": "अभी तक कोई भी सबमिशन इन फ़िल्टर से मेल नहीं खाता है।",
+    "table": {
+      "submission": "समर्पण",
+      "submitter": "जमाकर्ता",
+      "state": "राज्य",
+      "priority": "प्राथमिकता",
+      "updated": "अद्यतन किया गया",
+      "window": "प्रदर्शन विंडो",
+      "reviewAction": "समीक्षा"
+    },
+    "untitled": "शीर्षक रहित प्रस्तुतिकरण",
+    "unknown": "अज्ञात",
+    "reviewLink": "{{title}} की समीक्षा करें",
+    "untitledLink": "शीर्षक रहित प्रस्तुतिकरण",
+    "pagination": "{{totalPages}} का पेज {{page}} · कुल {{total}}",
+    "pagesLabel": "प्रतिक्रिया पृष्ठ",
+    "sheetLabel": "प्रतिक्रिया विवरण",
+    "sheetEyebrow": "प्रतिक्रिया",
+    "sheetTitle": "सबमिशन की समीक्षा करें",
+    "sheetBody": "सूची इस पैनल के पीछे यथावत रहती है; समापन उस पर वापस आ जाता है।",
+    "backToResponses": "← प्रतिक्रियाओं पर वापस जाएँ",
+    "displayWindowRange": "{{start}} → {{end}}",
+    "displayWindowEmpty": "—",
+    "displayWindowNow": "अभी",
+    "editDetails": "विवरण संपादित करें",
+    "detailsError": "विवरण सहेजा नहीं गया",
+    "detailsFallback": "विवरण अद्यतन नहीं किया जा सका.",
+    "nameLabel": "फॉर्म का नाम",
+    "descriptionLabel": "विवरण",
+    "saveDetails": "विवरण सहेजें",
+    "readOnlyTitle": "केवल पढ़ने योग्य",
+    "readOnlyBody": "आप इस फॉर्म को देख सकते हैं लेकिन इसे संपादित करने की अनुमति नहीं है।",
+    "publishedMeta": "प्रकाशित संशोधन {{revision}} · {{date}}"
+  },
+  "create": {
+    "questions": {
+      "name": {
+        "title": "यह फॉर्म किस लिए है?",
+        "description": "फॉर्म प्लगइन में दिखाया गया नाम और Widgets में फॉर्म आउटपुट का चयन करते समय।",
+        "label": "फ़ार्म का नाम"
+      },
+      "description": {
+        "title": "उद्देश्य का वर्णन करें",
+        "description": "वैकल्पिक. यह फ़ॉर्म क्या एकत्रित करता है, इसके बारे में अन्य Studio लेखकों के लिए एक संक्षिप्त टिप्पणी।",
+        "label": "प्रपत्र विवरण"
+      },
+      "formTitle": {
+        "title": "सबमिट करने वाले सबसे पहले क्या देखते हैं?",
+        "description": "वैकल्पिक। फॉर्म भरने वाले व्यक्ति को फॉर्म के ऊपर शीर्षक दिखाया जाता है।",
+        "label": "प्रस्तुतकर्ता-सामना करने वाला शीर्षक"
+      },
+      "formDescription": {
+        "title": "सबमिट करने वालों के लिए मार्गदर्शन जोड़ें",
+        "description": "वैकल्पिक. प्रपत्र पर शीर्षक के अंतर्गत संक्षिप्त निर्देश दिखाए गए हैं।",
+        "label": "प्रस्तुतकर्ता-सामना करने वाला विवरण"
+      }
+    },
+    "phasePurpose": "प्रयोजन",
+    "phaseDisplay": "प्रदर्शन",
+    "phaseReview": "समीक्षा",
+    "starterFieldLabel": "शीर्षक",
+    "createFallback": "प्रपत्र नहीं बनाया जा सका.",
+    "nameRequired": "एक नाम आवश्यक है.",
+    "deniedTitle": "अपर्याप्त पहुंच",
+    "deniedBody": "आपके पास प्रपत्र बनाने की अनुमति नहीं है.",
+    "reviewEyebrow": "फ़ॉर्म प्लगइन · 3 में से चरण 3 · समीक्षा",
+    "reviewTitle": "समीक्षा करें और बनाएं",
+    "reviewBody": "इस फॉर्म को बनाने से पहले विवरण जांच लें।",
+    "createErrorTitle": "प्रपत्र नहीं बनाया जा सका",
+    "summaryName": "फॉर्म का नाम",
+    "summaryPurpose": "प्रयोजन",
+    "summarySubmitterTitle": "प्रस्तुतकर्ता शीर्षक",
+    "summaryGuidance": "प्रस्तुतकर्ता मार्गदर्शन",
+    "starterTitle": "एक स्टार्टर फ़ील्ड शामिल है",
+    "starterBody": "आपका फॉर्म आवश्यक \"{{starterLabel}}\" फ़ील्ड से शुरू होता है और तुरंत प्रकाशित हो जाता है। आप फ़ील्ड जोड़ सकते हैं और बिल्डर से नए संशोधन प्रकाशित कर सकते हैं। कौन सबमिट कर सकता है और समीक्षा नियम निर्माण के बाद बिल्डर के एक्सेस और वर्कफ़्लो टैब में कॉन्फ़िगर किए गए हैं।",
+    "createButton": "फॉर्म बनाएं",
+    "backToQuestions": "प्रश्नों पर वापस जाएँ",
+    "backHint": "आपके उत्तर खोए बिना निर्देशित रचना पर वापस लौटता है।",
+    "stepHeader": "फॉर्म प्लगइन · चरण {{step}} 3 · {{phase}}",
+    "createTitle": "एक फॉर्म बनाएं",
+    "createSubtitle": "सबमिशन एकत्र करें, उन्हें स्वीकृत करें, और Widgets पर रिकॉर्ड प्रकाशित करें।",
+    "progress": "{{total}} का प्रश्न {{index}}",
+    "navPrevious": "पिछला",
+    "navSkip": "छोड़ें",
+    "navNext": "अगला",
+    "navReview": "समीक्षा"
+  },
+  "portal": {
+    "loadingIcon": "लोड हो रहा है",
+    "shell": {
+      "homeLabel": "मेरे प्रपत्र",
+      "formsLabel": "प्रपत्र",
+      "studioLink": "Studio पर वापस जाएँ",
+      "signOut": "साइन आउट करें"
+    },
+    "list": {
+      "loading": "आपके फॉर्म लोड हो रहे हैं...",
+      "error": "प्रपत्र लोड नहीं हो सके",
+      "retry": "कृपया पुनः प्रयास करें.",
+      "eyebrow": "प्रपत्र",
+      "title": "मेरे प्रपत्र",
+      "description": "वे फॉर्म जिन्हें आप सबमिट कर सकते हैं या समीक्षा में सहायता कर सकते हैं।",
+      "empty": "अभी तक कोई फॉर्म नहीं",
+      "emptyBody": "आपके पास किसी भी फॉर्म तक पहुंच नहीं है. किसी व्यवस्थापक से आपको पहुंच प्रदान करने के लिए कहें.",
+      "draftOnly": "केवल ड्राफ्ट",
+      "drafts": "ड्राफ्ट",
+      "submitted": "प्रस्तुत किया गया",
+      "changesRequested": "परिवर्तन का अनुरोध किया गया"
+    },
+    "detail": {
+      "loading": "फॉर्म लोड हो रहा है...",
+      "unavailable": "फॉर्म अनुपलब्ध है",
+      "unavailableBody": "हो सकता है कि आपके पास इस फॉर्म तक पहुंच न हो, या यह अब मौजूद नहीं है।",
+      "backToForms": "मेरे प्रपत्र पर वापस जाएँ",
+      "eyebrow": "प्रपत्र",
+      "start": "सबमिशन प्रारंभ करें",
+      "sentTitle": "सबमिशन भेजा गया",
+      "sentBody": "आपका सबमिशन अब समीक्षकों के पास है। आप नीचे इसकी स्थिति का अनुसरण कर सकते हैं।",
+      "notOpen": "अभी तक सबमिशन के लिए खुला नहीं है",
+      "notOpenBody": "इस फ़ॉर्म का कोई ऐसा संस्करण प्रकाशित नहीं हुआ है जिसे आप सबमिट कर सकें।",
+      "viewOnly": "केवल देखें",
+      "viewOnlyBody": "आप इस फ़ॉर्म में सबमिशन की समीक्षा कर सकते हैं लेकिन अपना स्वयं का फॉर्म नहीं बना सकते।",
+      "submissionsLabel": "आपकी प्रस्तुतियाँ",
+      "submissionsTitle": "आपकी प्रस्तुतियाँ",
+      "submissionsLoading": "सबमिशन लोड हो रहा है...",
+      "submissionsEmpty": "अभी तक कोई सबमिशन नहीं",
+      "submissionsError": "हम आपके सबमिशन लोड नहीं कर सके. बाद में पुन: प्रयास।",
+      "submissionsEmptySubmit": "इसे यहां देखने के लिए सबमिशन प्रारंभ करें।",
+      "submissionsEmptyNone": "आपने यह फॉर्म सबमिट नहीं किया है.",
+      "submissionsPages": "आपके सबमिशन पृष्ठ",
+      "pagination": "{{totalPages}} का पेज {{page}} · कुल {{total}}",
+      "updatedAt": "अद्यतन {{date}}",
+      "untitled": "शीर्षक रहित प्रस्तुतिकरण"
+    },
+    "submission": {
+      "loading": "लोड हो रहा है...",
+      "unavailable": "फॉर्म अनुपलब्ध है",
+      "backToForms": "मेरे प्रपत्र पर वापस जाएँ",
+      "recordUnavailable": "सबमिशन अनुपलब्ध",
+      "recordDenied": "हो सकता है कि आपके पास इस सबमिशन तक पहुंच न हो.",
+      "backToForm": "फॉर्म पर वापस जाएँ",
+      "newTitle": "नया सबमिशन",
+      "editTitle": "सबमिशन संपादित करें"
+    },
+    "previous": "पिछला",
+    "next": "अगला"
+  },
+  "nav": {
+    "approvals": "स्वीकृतियाँ"
+  },
+  "approvals": {
+    "eyebrow": "प्रपत्र",
+    "title": "स्वीकृतियाँ",
+    "description": "आपके सभी फ़ॉर्म में प्रस्तुतियाँ समीक्षा निर्णय की प्रतीक्षा कर रही हैं।",
+    "table": {
+      "form": "प्रपत्र",
+      "submission": "समर्पण",
+      "submitter": "जमाकर्ता",
+      "state": "राज्य",
+      "submitted": "प्रस्तुत किया गया",
+      "displayWindow": "प्रदर्शन विंडो",
+      "reviewAction": "समीक्षा"
+    },
+    "untitledSubmission": "शीर्षक रहित प्रस्तुतिकरण",
+    "untitledSubmissionInline": "शीर्षक रहित प्रस्तुतिकरण",
+    "unknownSubmitter": "अज्ञात",
+    "reviewActionLabel": "{{formName}} से {{title}} की समीक्षा करें",
+    "loadErrorTitle": "स्वीकृतियाँ लोड नहीं की जा सकीं",
+    "loadErrorFallback": "कृपया पुनः प्रयास करें.",
+    "loading": "स्वीकृतियाँ लोड हो रही हैं",
+    "emptyTitle": "समीक्षा करने के लिए कुछ भी नहीं",
+    "emptyDescription": "अभी आपके निर्णय की प्रतीक्षा में कोई सबमिशन नहीं है।",
+    "paginationLabel": "अनुमोदन पृष्ठ",
+    "paginationStatus": "{{totalPages}} का पेज {{page}} · {{total}} लंबित",
+    "displayWindow": {
+      "now": "अभी",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "toasts": {
+    "formCreated": "फॉर्म बनाया गया.",
+    "accessUpdated": "फॉर्म एक्सेस अपडेट किया गया.",
+    "draftSaved": "फॉर्म ड्राफ्ट सहेजा गया.",
+    "published": "प्रपत्र प्रकाशित.",
+    "outputsRebuilt": "फॉर्म आउटपुट का पुनर्निर्माण किया गया।",
+    "submissionUpdated": "सबमिशन अपडेट किया गया.",
+    "commentAdded": "टिप्पणी जोड़ी गई.",
+    "attachmentUploaded": "अनुलग्नक अपलोड किया गया.",
+    "attachmentRemoved": "अनुलग्नक हटा दिया गया.",
+    "viewSaved": "प्रपत्र दृश्य सहेजा गया.",
+    "workflowSaved": "प्रपत्र वर्कफ़्लो सहेजा गया."
+  }
+}

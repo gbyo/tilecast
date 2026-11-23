@@ -1,0 +1,2105 @@
+{
+  "actionBar": {
+    "unsavedTitle": "Alterações não salvas",
+    "unsavedDescription": "As alterações são mantidas enquanto você navega nas Configurações.",
+    "reload": "Recarregar configurações"
+  },
+  "definitions": {
+    "backups": {
+      "schedule_enabled": {
+        "title": "Backups agendados",
+        "description": "Crie backups completos automaticamente de acordo com uma programação"
+      },
+      "schedule_frequency": {
+        "title": "Frequência de backup"
+      },
+      "schedule_day": {
+        "title": "Dia de backup",
+        "description": "Dia da semana para backups semanais"
+      },
+      "schedule_time": {
+        "title": "Tempo de backup"
+      },
+      "schedule_timezone": {
+        "title": "Fuso horário de backup"
+      },
+      "retention_max_count": {
+        "title": "Backups agendados para manter"
+      },
+      "retention_max_age_days": {
+        "title": "Duração máxima do backup agendado (dias)"
+      }
+    },
+    "notifications": {
+      "enabled": {
+        "title": "Enviar notificações",
+        "description": "O e-mail precisa de TILECAST_SMTP_HOST no servidor. Sem ele, as notificações ficam desativadas e nada falha."
+      },
+      "from_address": {
+        "title": "Do endereço",
+        "description": "Endereço de onde o e-mail de notificação é enviado"
+      },
+      "from_name": {
+        "title": "Do nome"
+      },
+      "minimum_severity": {
+        "title": "Gravidade mínima",
+        "description": "Condições abaixo desta gravidade são registradas em Atividade, mas não são enviadas"
+      },
+      "digest_time": {
+        "title": "Tempo de digestão diário"
+      },
+      "timezone": {
+        "title": "Fuso horário de notificação",
+        "description": "Aplica-se ao horário de resumo e às horas de silêncio"
+      },
+      "quiet_hours_enabled": {
+        "title": "Horas tranquilas",
+        "description": "Mantém notificações até o final do horário de silêncio. As condições críticas são sempre enviadas imediatamente."
+      },
+      "quiet_hours_start": {
+        "title": "Horário de silêncio começa"
+      },
+      "quiet_hours_end": {
+        "title": "Fim do horário de silêncio"
+      },
+      "retention_days": {
+        "title": "Retenção de log de entrega"
+      }
+    },
+    "content_health": {
+      "stale_source_hours": {
+        "title": "Fonte de dados obsoleta depois",
+        "description": "Horas sem uma atualização bem-sucedida antes de uma fonte de dados serem consideradas obsoletas. Um calendário semanal tolera muito mais do que um feed meteorológico."
+      },
+      "expiring_media_days": {
+        "title": "Avisar sobre mídia expirada",
+        "description": "Com que antecedência o relatório de integridade do conteúdo lista a mídia que está prestes a expirar"
+      }
+    },
+    "snapshots": {
+      "enabled": {
+        "title": "Mantenha um histórico de instantâneos",
+        "description": "Armazena imagens de tela periódicas para que você possa ver o que a tela mostrou anteriormente. Os instantâneos são mantidos no banco de dados e incluídos em cada backup."
+      },
+      "interval_minutes": {
+        "title": "Capture cada"
+      },
+      "retention_days": {
+        "title": "Mantenha instantâneos para"
+      },
+      "max_per_screen": {
+        "title": "Instantâneos para manter por tela",
+        "description": "Os mais antigos são removidos quando uma tela atinge esse número, independentemente do período de retenção"
+      }
+    },
+    "content": {
+      "approval_required": {
+        "title": "Chave de aprovação legada",
+        "description": "Retido para compatibilidade. Novas instalações devem usar a política de revisão de conteúdo."
+      },
+      "review_policy": {
+        "title": "Política de revisão de conteúdo",
+        "description": "Escolha se nenhum conteúdo, trabalho do Colaborador ou todas as publicações requerem aprovação."
+      },
+      "allow_self_approval": {
+        "title": "Permitir autoaprovação",
+        "description": "Permita que um revisor aprove seu próprio envio."
+      },
+      "auto_publish_on_approval": {
+        "title": "Publicar automaticamente envios aprovados",
+        "description": "Publique imediatamente ou agende o horário solicitado quando um envio for aprovado."
+      }
+    },
+    "organization": {
+      "name": {
+        "title": "Nome da organização",
+        "description": "Nome mostrado em Tilecast Studio"
+      },
+      "short_name": {
+        "title": "Nome curto",
+        "description": "Nome compacto da organização"
+      },
+      "timezone": {
+        "title": "Fuso horário padrão"
+      },
+      "locale": {
+        "title": "Localidade regional"
+      },
+      "first_day_of_week": {
+        "title": "Primeiro dia da semana"
+      },
+      "date_format": {
+        "title": "Formato de data"
+      },
+      "time_format": {
+        "title": "Formato de hora"
+      },
+      "support_name": {
+        "title": "Contato de suporte"
+      },
+      "support_email": {
+        "title": "E-mail de suporte"
+      },
+      "support_message": {
+        "title": "Mensagem de suporte interno"
+      }
+    },
+    "security": {
+      "mfa_required_scope": {
+        "title": "Exigir autenticação multifator",
+        "description": "As contas no escopo devem registrar um aplicativo autenticador ou uma chave de acesso antes de poderem usar Tilecast Studio."
+      }
+    },
+    "branding": {
+      "logo_asset_id": {
+        "title": "Logotipo"
+      },
+      "icon_asset_id": {
+        "title": "Ícone quadrado"
+      },
+      "primary_color": {
+        "title": "Cor primária"
+      },
+      "player_background_color": {
+        "title": "Plano de fundo Player"
+      },
+      "player_text_color": {
+        "title": "Texto Player"
+      },
+      "no_content_title": {
+        "title": "Título sem conteúdo"
+      },
+      "no_content_message": {
+        "title": "Mensagem sem conteúdo"
+      },
+      "disabled_title": {
+        "title": "Título desativado"
+      },
+      "disabled_message": {
+        "title": "Mensagem desativada"
+      },
+      "footer_text": {
+        "title": "Texto do rodapé"
+      }
+    },
+    "player": {
+      "playback": {
+        "default_fit_mode": {
+          "title": "Modo de ajuste padrão"
+        },
+        "default_volume": {
+          "title": "Volume padrão"
+        },
+        "default_image_duration_seconds": {
+          "title": "Duração da imagem padrão"
+        },
+        "default_transition": {
+          "title": "Transição padrão"
+        },
+        "default_audio_enabled": {
+          "title": "Áudio padrão ativado"
+        },
+        "resume_after_restart": {
+          "title": "Retomar após reiniciar"
+        }
+      },
+      "cache": {
+        "max_bytes": {
+          "title": "Máximo de bytes de cache"
+        },
+        "minimum_free_bytes": {
+          "title": "Bytes livres mínimos"
+        }
+      },
+      "download": {
+        "concurrent_limit": {
+          "title": "Downloads simultâneos"
+        },
+        "automatic_threshold_bytes": {
+          "title": "Limite de entrega automática"
+        }
+      },
+      "sync": {
+        "manifest_seconds": {
+          "title": "Intervalo de reconciliação manifesta"
+        },
+        "status_seconds": {
+          "title": "Intervalo do relatório de status"
+        }
+      },
+      "website": {
+        "timeout_seconds": {
+          "title": "Tempo limite do site"
+        },
+        "cookie_policy": {
+          "title": "Política de cookies do site"
+        },
+        "clear_on_restart": {
+          "title": "Limpe os dados do site ao reiniciar"
+        }
+      },
+      "identify": {
+        "show_location": {
+          "title": "Mostrar localização ao identificar"
+        }
+      },
+      "update": {
+        "channel": {
+          "title": "Canal de atualização Player",
+          "description": "Estável é o padrão reforçado. As versões beta ainda exigem uma implantação explícita."
+        }
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "Modo de confiabilidade",
+        "description": "O quiosque gerenciado só entra em vigor quando o Android confirma a capacidade da política do dispositivo."
+      },
+      "launch_after_boot": {
+        "title": "Iniciar após a inicialização",
+        "description": "Somente Android. Os players Linux iniciam na inicialização a partir de um serviço de usuário do systemd, instalado por tela na guia Confiabilidade da tela."
+      },
+      "immersive_mode": {
+        "title": "Tela cheia envolvente"
+      },
+      "foreground_watchdog_enabled": {
+        "title": "Cão de guarda em primeiro plano"
+      },
+      "playback_stall_seconds": {
+        "title": "Limite de parada de reprodução"
+      },
+      "webview_stall_seconds": {
+        "title": "Limite de paralisação do site"
+      },
+      "maximum_process_restarts": {
+        "title": "Recuperações máximas de processos"
+      },
+      "restart_window_minutes": {
+        "title": "Janela de recuperação"
+      },
+      "safe_mode_enabled": {
+        "title": "Modo de segurança Crash Loop"
+      }
+    },
+    "power": {
+      "active_hours_enabled": {
+        "title": "Horário ativo"
+      },
+      "active_hours_timezone": {
+        "title": "Fuso horário do horário ativo"
+      },
+      "active_hours_days": {
+        "title": "Dias ativos"
+      },
+      "active_hours_start": {
+        "title": "Hora de início"
+      },
+      "active_hours_end": {
+        "title": "Hora de término"
+      },
+      "startup_grace_seconds": {
+        "title": "Graça de inicialização",
+        "description": "Somente Android Power Assist; A inicialização do Linux e a recuperação de processos são gerenciadas pelo systemd."
+      },
+      "shutdown_prepare_seconds": {
+        "title": "Preparação para desligamento",
+        "description": "Somente Android Power Assist e relatórios de status; O Linux usa sua integração systemd/controle de exibição."
+      },
+      "keep_screen_on": {
+        "title": "Mantenha a tela ativa durante o horário ativo",
+        "description": "Política de ativação de horário ativo do Android; O Linux usa linux_kiosk.prevent_display_sleep para o bloqueador de suspensão de exibição do host."
+      },
+      "sleep_outside_active_hours": {
+        "title": "Solicitar sono fora do horário ativo",
+        "description": "Somente Android Power Assist; O Linux mostra sua superfície configurada fora do horário comercial e não solicita suspensão do sistema operacional."
+      },
+      "outside_active_hours_display": {
+        "title": "Fora do horário ativo",
+        "description": "Escolha o que permanece visível quando o player está fora do horário ativo e a tela não dorme."
+      },
+      "outside_active_hours_text": {
+        "title": "Texto personalizado",
+        "description": "Texto centralizado mostrado fora do horário ativo. Quando vazio, Tilecast usa o texto do rodapé da marca."
+      },
+      "outside_active_hours_wake_animation": {
+        "title": "Reproduza a animação de inicialização quando o horário ativo começar",
+        "description": "Quando o player retornar da tela fora do horário comercial, reproduza a animação de inicialização Tilecast antes de mostrar o conteúdo. Aplica-se ao logotipo saltitante, texto personalizado e tela preta."
+      }
+    },
+    "managed_kiosk": {
+      "lock_task_enabled": {
+        "title": "Bloquear tarefa"
+      },
+      "block_overlays": {
+        "title": "Bloquear sobreposições onde houver suporte"
+      },
+      "allow_settings_during_admin": {
+        "title": "Permitir configurações durante a manutenção"
+      },
+      "admin_session_minutes": {
+        "title": "Duração da sessão de manutenção"
+      }
+    },
+    "linux_kiosk": {
+      "fullscreen_enabled": {
+        "title": "Quiosque em tela cheia",
+        "description": "Mantém Tilecast em uma janela de quiosque de tela cheia sem moldura no Linux. TILECAST_WINDOWED=1 continua sendo uma substituição de desenvolvimento local."
+      },
+      "prevent_display_sleep": {
+        "title": "Evitar suspensão da tela",
+        "description": "Solicita à sessão de desktop Linux para manter a tela ativa enquanto Tilecast Player está em execução."
+      }
+    },
+    "accessibility": {
+      "control_assist_enabled": {
+        "title": "Assistente de controle de acessibilidade",
+        "description": "Jogadores experientes solicitam esse comportamento por padrão, mas o serviço Android ainda requer ativação local deliberada."
+      },
+      "return_delay_seconds": {
+        "title": "Atraso de retorno"
+      },
+      "allowed_packages": {
+        "title": "Aplicações de manutenção"
+      },
+      "pause_during_updates": {
+        "title": "Pausa durante atualizações do jogador"
+      },
+      "pause_during_admin_session": {
+        "title": "Pausa durante a manutenção"
+      },
+      "report_foreground_package": {
+        "title": "Pacote de primeiro plano do relatório"
+      },
+      "maximum_returns": {
+        "title": "Retornos automáticos máximos"
+      },
+      "return_window_minutes": {
+        "title": "Janela de tentativa de devolução"
+      }
+    },
+    "media": {
+      "upload": {
+        "max_bytes": {
+          "title": "Limite de upload Studio"
+        }
+      },
+      "keep_originals": {
+        "title": "Mantenha os originais"
+      },
+      "video": {
+        "max_width": {
+          "title": "Largura máxima do vídeo"
+        },
+        "max_height": {
+          "title": "Altura máxima do vídeo"
+        },
+        "max_frame_rate": {
+          "title": "Taxa máxima de quadros"
+        },
+        "default_delivery_policy": {
+          "title": "Entrega de vídeo padrão"
+        },
+        "default_fit_mode": {
+          "title": "Ajuste de vídeo padrão"
+        }
+      },
+      "image": {
+        "default_fit_mode": {
+          "title": "Ajuste de imagem padrão"
+        }
+      },
+      "processing": {
+        "retry_limit": {
+          "title": "Limite de novas tentativas de processamento"
+        }
+      },
+      "temporary_upload_retention_hours": {
+        "title": "Retenção temporária de upload"
+      },
+      "deleted_retention_days": {
+        "title": "Retenção de mídia excluída"
+      }
+    },
+    "scheduling": {
+      "prefetch_days": {
+        "title": "Horizonte de pré-busca"
+      },
+      "activation_grace_seconds": {
+        "title": "Graça de ativação"
+      },
+      "clock_skew_warning_seconds": {
+        "title": "Aviso de distorção do relógio"
+      },
+      "default_one_time_duration_minutes": {
+        "title": "Duração única padrão"
+      }
+    },
+    "website": {
+      "default_javascript": {
+        "title": "Padrão JavaScript"
+      },
+      "default_dom_storage": {
+        "title": "Padrão de armazenamento DOM"
+      },
+      "default_timeout_seconds": {
+        "title": "Padrão de tempo limite do site"
+      },
+      "default_cookie_policy": {
+        "title": "Política de cookies padrão"
+      },
+      "default_reload_policy": {
+        "title": "Política de recarga padrão"
+      },
+      "minimum_refresh_seconds": {
+        "title": "Intervalo mínimo de atualização"
+      },
+      "default_failure_behavior": {
+        "title": "Comportamento de falha padrão"
+      },
+      "default_zoom_percent": {
+        "title": "Zoom padrão"
+      },
+      "default_fallback_image_id": {
+        "title": "Imagem substituta padrão"
+      },
+      "clear_data_on_delete": {
+        "title": "Limpar dados do site após exclusão"
+      },
+      "private_http_enabled": {
+        "title": "HTTP privado ativado"
+      }
+    },
+    "takeover": {
+      "default_duration_minutes": {
+        "title": "Duração padrão do takeover"
+      },
+      "maximum_duration_minutes": {
+        "title": "Duração máxima de aquisição"
+      },
+      "confirmation_required": {
+        "title": "Exigir confirmação de aquisição"
+      },
+      "reauthentication_required": {
+        "title": "Exigir confirmação de senha"
+      }
+    },
+    "commands": {
+      "default_expiry_minutes": {
+        "title": "Expiração do comando"
+      },
+      "identify_duration_seconds": {
+        "title": "Identificar a duração"
+      }
+    },
+    "retention": {
+      "command_history_days": {
+        "title": "Retenção do histórico de comandos"
+      },
+      "audit_days": {
+        "title": "Retenção de auditoria"
+      },
+      "player_status_days": {
+        "title": "Retenção de status Player"
+      },
+      "expired_pairing_days": {
+        "title": "Retenção de emparelhamento expirada"
+      },
+      "failed_upload_days": {
+        "title": "Falha na retenção de upload"
+      },
+      "deleted_media_metadata_days": {
+        "title": "Retenção de metadados de mídia excluída"
+      },
+      "takeover_history_days": {
+        "title": "Retenção do histórico de aquisição"
+      },
+      "max_diagnostic_events_per_screen": {
+        "title": "Limite de eventos de diagnóstico"
+      }
+    },
+    "preference": {
+      "appearance": {
+        "title": "Aparência"
+      },
+      "language": {
+        "title": "Idioma"
+      },
+      "density": {
+        "title": "Densidade de interface"
+      },
+      "reduced_motion": {
+        "title": "Movimento reduzido"
+      },
+      "time_format": {
+        "title": "Formato de hora"
+      },
+      "content_view": {
+        "title": "Visualização de conteúdo padrão"
+      },
+      "screens_view": {
+        "title": "Visualização de telas padrão"
+      },
+      "table_page_size": {
+        "title": "Tamanho da página da tabela"
+      },
+      "remember_filters": {
+        "title": "Lembre-se dos filtros"
+      },
+      "hide_completed_uploads_minutes": {
+        "title": "Ocultar uploads concluídos depois"
+      },
+      "notifications": {
+        "mode": {
+          "title": "Avise-me",
+          "description": "Imediato envia cada condição conforme ela acontece. O Digest os reúne em uma mensagem diária."
+        },
+        "address": {
+          "title": "Enviar para",
+          "description": "Seu endereço de e-mail. As notificações não são enviadas até que isso seja definido."
+        },
+        "incidents": {
+          "title": "Problemas de tela",
+          "description": "Uma tela interrompe o relatório, a reprodução falha ou um Player entra no modo de segurança"
+        },
+        "content_health": {
+          "title": "Problemas de conteúdo",
+          "description": "Uma fonte de dados está exibindo dados desatualizados ou uma playlist não tem nada disponível para reprodução"
+        },
+        "backups": {
+          "title": "Cópias de segurança"
+        },
+        "updates": {
+          "title": "Atualizações Player"
+        }
+      }
+    }
+  },
+  "enumValues": {
+    "managed_kiosk": "Quiosque gerenciado",
+    "standard": "Confiabilidade padrão",
+    "first_party": "Cookies primários",
+    "first_and_third_party": "Cookies próprios e de terceiros",
+    "download_only": "Baixar apenas",
+    "on_each_activation": "Recarregue em cada ativação",
+    "load_once": "Carregar uma vez",
+    "fallback_image": "Imagem substituta",
+    "last_success": "Última página bem-sucedida",
+    "12-hour": "12 horas",
+    "24-hour": "24 horas",
+    "en_US": "Inglês (Estados Unidos)",
+    "contain": "Conter",
+    "cover": "Capa",
+    "stretch": "Esticar",
+    "disabled": "Desativado",
+    "enabled": "Habilitado",
+    "none": "Nenhum",
+    "fade": "Desaparecer",
+    "automatic": "Automático",
+    "download": "Baixar",
+    "stream": "Transmitir",
+    "minimal": "Mínimo",
+    "detailed": "Detalhado",
+    "system": "Sistema",
+    "light": "Luz",
+    "dark": "Escuro",
+    "comfortable": "Confortável",
+    "compact": "Compacto",
+    "grid": "Grade",
+    "list": "Lista",
+    "groups": "Grupos",
+    "organization": "Padrão da organização",
+    "sunday": "Domingo",
+    "monday": "Segunda-feira",
+    "tuesday": "Terça-feira",
+    "wednesday": "Quarta-feira",
+    "thursday": "Quinta-feira",
+    "friday": "Sexta-feira",
+    "saturday": "Sábado",
+    "locale": "Usar localidade",
+    "placeholder": "Espaço reservado Tilecast",
+    "skip": "Pular item",
+    "interval": "Recarregar em um intervalo",
+    "bouncing_logo": "Logotipo Tilecast saltando",
+    "custom_text": "Texto personalizado",
+    "black": "Tela preta",
+    "daily": "Diariamente",
+    "weekly": "Semanalmente",
+    "info": "Informações",
+    "warning": "Aviso",
+    "error": "Erro",
+    "critical": "Crítico",
+    "administrators": "Administradores",
+    "all": "Todos",
+    "contributors": "Colaboradores",
+    "everyone": "Todos",
+    "off": "Desligado",
+    "beta": "Beta",
+    "stable": "Estável",
+    "digest": "Resumo",
+    "immediate": "Imediato",
+    "crossfade": "Crossfade"
+  },
+  "nav": {
+    "groups": {
+      "organization": "Organização",
+      "content": "Conteúdo e reprodução",
+      "players": "Gerenciamento Player",
+      "operations": "Operações",
+      "tools": "Ferramentas do sistema"
+    },
+    "items": {
+      "general": "Geral",
+      "branding": "Marca",
+      "fonts": "Fontes",
+      "users": "Usuários",
+      "security": "Segurança de login",
+      "locations": "Locais",
+      "playback": "Reprodução",
+      "media": "Mídia",
+      "websites": "Sites",
+      "scheduling": "Agendamento",
+      "reliability": "Confiabilidade e quiosque",
+      "power": "Horas ativas e energia",
+      "accessibility": "Controle de acessibilidade",
+      "player-updates": "Atualizações Player",
+      "presentation-networks": "Redes de Apresentação",
+      "takeover": "Aquisições e comandos",
+      "retention": "Retenção de dados",
+      "backups": "Backup e restauração",
+      "notifications": "Notificações",
+      "system": "Sistema",
+      "content-review": "Revisão de conteúdo",
+      "snapshots": "Histórico de instantâneos",
+      "integrations": "Tokens de integração",
+      "import-export": "Importar e exportar",
+      "dependency-graph": "Explorador de Dependências",
+      "preferences": "Preferências",
+      "roles": "Funções"
+    },
+    "sections": {
+      "general": {
+        "title": "Geral",
+        "description": "Identidade da organização, formatos regionais e detalhes de suporte."
+      },
+      "branding": {
+        "title": "Marca",
+        "description": "Identidade da organização e aparência substituta mostrada pelos jogadores."
+      },
+      "fonts": {
+        "title": "Fontes",
+        "description": "Tipos de letra que sua organização pode escolher para texto de layout. Os jogadores baixam uma fonte somente quando o conteúdo publicado a utiliza."
+      },
+      "users": {
+        "title": "Usuários",
+        "description": "Dê a cada pessoa um login individual e atribua apenas as permissões necessárias. As preferências de aparência e densidade permanecem separadas para cada conta."
+      },
+      "security": {
+        "title": "Segurança de login",
+        "description": "Decida quem deve usar um segundo fator para fazer login. Cada pessoa gerencia seu próprio autenticador, chaves de acesso e códigos de recuperação em Minha conta → Segurança de login."
+      },
+      "locations": {
+        "title": "Locais",
+        "description": "Edifícios e campi reutilizáveis ​​atribuídos a várias telas, enquanto os detalhes das salas permanecem em cada jogador."
+      },
+      "playback": {
+        "title": "Reprodução",
+        "description": "Reprodução, armazenamento, entrega, sincronização e diagnóstico padrão."
+      },
+      "media": {
+        "title": "Mídia",
+        "description": "Limites de upload, padrões de entrega e comportamento futuro de processamento de mídia."
+      },
+      "websites": {
+        "title": "Sites",
+        "description": "Padrões seguros para reprodução de sites, recargas, cookies e falhas."
+      },
+      "scheduling": {
+        "title": "Agendamento",
+        "description": "Preparação do cronograma, cronometragem e padrões de aviso do relógio."
+      },
+      "reliability": {
+        "title": "Confiabilidade e quiosque",
+        "description": "Recuperação compartilhada com controles de quiosque Android e Linux específicos da plataforma."
+      },
+      "power": {
+        "title": "Horas ativas e energia",
+        "description": "Horário de funcionamento do Player e comportamento de suspensão e ativação do Android de melhor esforço."
+      },
+      "accessibility": {
+        "title": "Controle de acessibilidade",
+        "description": "Assistência opcional de retorno ao primeiro plano com pausas de segurança explícitas."
+      },
+      "player-updates": {
+        "title": "Atualizações Player",
+        "description": "Lançamentos Tilecast Player verificados e implantações de atualização."
+      },
+      "presentation-networks": {
+        "title": "Redes de Apresentação",
+        "description": "Conecte temporariamente players Linux suportados ao Wi-Fi para AirPlay e outros recursos de apresentação local, mantendo a Ethernet como sua conexão Tilecast principal."
+      },
+      "takeover": {
+        "title": "Aquisições e comandos",
+        "description": "Padrões para um Takeover iniciado manualmente e para comandos do jogador. Alertas meteorológicos automáticos são o plugin Alertas de Emergência."
+      },
+      "retention": {
+        "title": "Retenção de dados",
+        "description": "Histórico limitado e períodos de limpeza para registros operacionais."
+      },
+      "backups": {
+        "title": "Backup e restauração",
+        "description": "Crie, verifique, baixe, agende e restaure backups completos de instalação."
+      },
+      "notifications": {
+        "title": "Notificações",
+        "description": "Envie alertas por e-mail ou webhook."
+      },
+      "system": {
+        "title": "Sistema",
+        "description": "Diagnósticos seguros e ações de manutenção deliberadas."
+      },
+      "content-review": {
+        "title": "Revisão de conteúdo",
+        "description": "Exigir aprovação antes que uma lista de reprodução ou layout possa ser atribuído a uma tela. Um Colaborador cria conteúdo, mas não pode publicá-lo ou atribuí-lo."
+      },
+      "snapshots": {
+        "title": "Histórico de instantâneos",
+        "description": "Capturas de tela Player periódicas com retenção configurável."
+      },
+      "integrations": {
+        "title": "Tokens de integração",
+        "description": "Tokens com escopo para tabelas manuais e integridade da frota."
+      },
+      "import-export": {
+        "title": "Importar e exportar",
+        "description": "Configuração Tilecast portátil e não secreta."
+      },
+      "dependency-graph": {
+        "title": "Explorador de Dependências",
+        "description": "Acompanhe o conteúdo e os dados por meio de apresentações, programações, grupos e telas."
+      },
+      "preferences": {
+        "title": "Preferências",
+        "description": "Preferências de aparência e fluxo de trabalho para sua conta Studio."
+      },
+      "roles": {
+        "title": "Funções",
+        "description": "Decida o que as pessoas podem fazer. Use as funções integradas ou crie as suas próprias e atribua-as na página Usuários."
+      }
+    }
+  },
+  "section": {
+    "futureOnly": "Aplica-se apenas ao processamento futuro"
+  },
+  "fallback": {
+    "configureSetting": "Configure {{title}} para Tilecast."
+  },
+  "shell": {
+    "sectionsLabel": "Seções de configurações",
+    "sectionLabel": "Seção de configurações",
+    "unsavedBadge": "Não salvo",
+    "unsavedSuffix": " • Não salvo"
+  },
+  "dependencies": {
+    "customText": "Escolha Texto personalizado para editar esta configuração.",
+    "intervalReload": "Escolha recargas de intervalo para definir um intervalo de atualização.",
+    "activeHours": "Ative o horário ativo para editar esta configuração.",
+    "managedKiosk": "Selecione Quiosque Gerenciado para editar esta configuração.",
+    "accessibilityAssist": "Ative o Assistente de controle de acessibilidade para editar esta configuração."
+  },
+  "controls": {
+    "bool": {
+      "on": "Ligado",
+      "off": "Desligado"
+    },
+    "weekdays": {
+      "label": "Dias ativos",
+      "monday": "segunda-feira",
+      "tuesday": "Terça",
+      "wednesday": "Quarta",
+      "thursday": "Qui",
+      "friday": "Sexta-feira",
+      "saturday": "Sábado",
+      "sunday": "Sol"
+    },
+    "timezone": {
+      "search": "Pesquisar fusos horários",
+      "empty": "Nenhum fuso horário IANA correspondente."
+    },
+    "locale": {
+      "hint": "Insira uma tag de idioma BCP-47, como ja-JP. Escolhas comuns são sugeridas.",
+      "invalid": "Insira uma tag de idioma BCP-47 válida."
+    },
+    "packageList": {
+      "label": "Nome do pacote Android",
+      "add": "Adicionar",
+      "invalid": "Insira um nome de pacote Android, como com.android.settings.",
+      "remove": "Remover",
+      "removeItem": "Remover {{item}}"
+    },
+    "color": {
+      "picker": "Seletor de cores",
+      "hex": "Cor hexadecimal",
+      "hint": "Use uma cor hexadecimal de seis dígitos."
+    },
+    "durationUnits": {
+      "seconds": "segundos",
+      "minutes": "minutos",
+      "hours": "horas"
+    },
+    "timeUnits": {
+      "minutes": "minutos",
+      "hours": "horas",
+      "days": "dias"
+    },
+    "unitLabel": "Unidade {{title}}"
+  },
+  "groups": {
+    "playback": {
+      "defaults": {
+        "title": "Padrões de reprodução"
+      },
+      "storage": {
+        "title": "Armazenamento e entrega"
+      },
+      "sync": {
+        "title": "Sincronização"
+      },
+      "identity": {
+        "title": "Identificação e diagnóstico"
+      }
+    },
+    "reliability": {
+      "mode": {
+        "title": "Modo de confiabilidade"
+      },
+      "startup": {
+        "title": "Inicialização e apresentação"
+      },
+      "watchdog": {
+        "title": "Cão de guarda e recuperação"
+      },
+      "androidKiosk": {
+        "title": "Quiosque gerenciado Android",
+        "description": "Controles somente para Android que entram em vigor quando o dispositivo confirma a compatibilidade do proprietário do dispositivo."
+      },
+      "linuxKiosk": {
+        "title": "Quiosque Linux",
+        "description": "Comportamento da janela do Linux e da sessão de desktop. Iniciar na inicialização e reiniciar após a saída do processo vem do serviço systemd do player, que é configurado por tela na guia Confiabilidade da tela, e não aqui."
+      }
+    },
+    "power": {
+      "hours": {
+        "title": "Horário ativo"
+      },
+      "behavior": {
+        "title": "Comportamento no horário ativo"
+      },
+      "outside": {
+        "title": "Fora do horário ativo",
+        "description": "Escolha o substituto mostrado quando o player está fora do horário ativo e o Android ou a televisão permanece ativo."
+      }
+    },
+    "accessibility": {
+      "return": {
+        "title": "Retorno automático"
+      },
+      "safety": {
+        "title": "Pausas de segurança"
+      },
+      "allowed": {
+        "title": "Aplicações de manutenção permitidas"
+      },
+      "diagnostics": {
+        "title": "Diagnóstico"
+      }
+    },
+    "branding": {
+      "fallback": {
+        "title": "Tela de retorno Player"
+      }
+    },
+    "general": {
+      "identity": {
+        "title": "Identidade da organização"
+      },
+      "regional": {
+        "title": "Formatos regionais"
+      },
+      "support": {
+        "title": "Detalhes de suporte"
+      }
+    },
+    "media": {
+      "uploads": {
+        "title": "Carregamentos e retenção"
+      },
+      "future": {
+        "title": "Processamento de vídeo futuro"
+      },
+      "delivery": {
+        "title": "Padrões de entrega"
+      }
+    },
+    "websites": {
+      "capabilities": {
+        "title": "Capacidades de página"
+      },
+      "loading": {
+        "title": "Carregando e recarregando"
+      },
+      "failure": {
+        "title": "Comportamento de falha"
+      },
+      "overrides": {
+        "title": "Substituições Player"
+      }
+    },
+    "scheduling": {
+      "defaults": {
+        "title": "Padrões de agendamento"
+      }
+    },
+    "takeover": {
+      "takeover": {
+        "title": "Padrões de aquisição"
+      },
+      "commands": {
+        "title": "Padrões do comando Player"
+      }
+    },
+    "retention": {
+      "security": {
+        "title": "Segurança e histórico operacional"
+      },
+      "cleanup": {
+        "title": "Períodos de limpeza"
+      },
+      "limits": {
+        "title": "Limites de diagnóstico"
+      }
+    },
+    "backups": {
+      "schedule": {
+        "title": "Agendamento de backup automático"
+      },
+      "retention": {
+        "title": "Retenção de backup agendada",
+        "description": "A retenção se aplica a backups agendados. Os backups criados manualmente permanecem até que um proprietário os exclua."
+      }
+    },
+    "notifications": {
+      "delivery": {
+        "title": "Entrega",
+        "description": "O e-mail precisa de uma retransmissão SMTP configurada no servidor. Webhooks funcionam sem um."
+      },
+      "timing": {
+        "title": "Tempo",
+        "description": "Uma condição crítica é sempre enviada imediatamente, independentemente do que digam."
+      },
+      "history": {
+        "title": "História"
+      }
+    },
+    "preferences": {
+      "notifications": {
+        "title": "Notificações",
+        "description": "O que Tilecast lhe diz quando você não está olhando para Studio."
+      },
+      "appearance": {
+        "title": "Aparência"
+      },
+      "dates": {
+        "title": "Datas e tabelas"
+      },
+      "views": {
+        "title": "Visualizações padrão"
+      }
+    },
+    "security": {
+      "mfa": {
+        "title": "Autenticação multifator"
+      }
+    },
+    "snapshots": {
+      "capture": {
+        "title": "Capturar",
+        "description": "Os instantâneos são mantidos no banco de dados e incluídos em cada backup. Os limites abaixo são o que mantêm isso limitado."
+      }
+    },
+    "content-review": {
+      "approval": {
+        "title": "Aprovação",
+        "description": "Não há etapa de envio. O conteúdo fica aguardando revisão sempre que sua revisão atual não tem decisão, portanto, a edição do conteúdo aprovado o envia de volta automaticamente."
+      }
+    },
+    "additional": {
+      "title": "Configurações adicionais"
+    }
+  },
+  "page": {
+    "loading": "Carregando configurações…",
+    "loadError": "Não foi possível carregar as configurações.",
+    "leaveWarning": "Sair das configurações com alterações não salvas?",
+    "leaveSectionTitle": "Esta seção contém alterações não salvas. Mantê-los e abrir outra seção de configurações?",
+    "leaveSectionAction": "Descartar alterações",
+    "saved": "Configurações salvas.",
+    "conflict": "Essas configurações foram alteradas em outro lugar. Recarregue as configurações mais recentes antes de salvar.",
+    "reviewQueue": {
+      "title": "A fila de revisão",
+      "description": "O conteúdo aguardando revisão está listado em Revisão de conteúdo na navegação principal."
+    },
+    "takeoverAlert": {
+      "title": "Alertas meteorológicos automáticos movidos para plug-ins.",
+      "description": "O monitoramento NWS, regras de alerta e emergências ativas são configurados no plug-in <alertsLink>Emergency Alerts</alertsLink>. Os padrões abaixo se aplicam a um Takeover iniciado manualmente e aos comandos do jogador."
+    },
+    "accessibilityAlert": {
+      "title": "A configuração local é necessária em todos os jogadores.",
+      "description": "O Assistente de controle de acessibilidade deve ser ativado manualmente nas configurações de acessibilidade do Android. A ativação da política aqui não concede permissão ao Android."
+    },
+    "powerAlert": {
+      "description": "Os horários de início e término são idênticos. Escolha um intervalo distinto; um horário de término anterior é tratado como durante a noite."
+    },
+    "mfa": {
+      "allRequired": "Cada conta deve registrar um segundo fator.",
+      "adminsRequired": "Proprietários e Administradores devem cadastrar um segundo fator.",
+      "consequence": "Ninguém está desconectado. Uma conta no escopo que não foi inscrita será solicitada a configurar um aplicativo autenticador ou uma chave de acesso em seu próximo login e não poderá usar o restante do Studio até que isso seja feito. Um proprietário ou administrador pode limpar os fatores de uma conta bloqueada em Configurações → Usuários.",
+      "passkeysUnavailable": "As chaves de acesso não estão disponíveis nesta instalação.",
+      "passkeysFallback": "Os aplicativos autenticadores {{reason}} e os códigos de recuperação funcionam independentemente."
+    },
+    "preview": {
+      "title": "Visualização Player",
+      "noContentTitle": "Nenhum conteúdo atribuído",
+      "noContentMessage": "Esta tela está pronta para conteúdo.",
+      "takeoverNote": "A aquisição mantém o tratamento fixo de alto contraste do Tilecast, independentemente da marca personalizada."
+    }
+  },
+  "retention": {
+    "saved": "Configurações de retenção de atividades salvas.",
+    "title": "Retenção de atividade",
+    "description": "A limpeza é executada em lotes em segundo plano limitados e respeita limites rígidos de implantação.",
+    "save": "Salvar retenção",
+    "loading": "Carregando configurações de retenção…",
+    "loadError": "Não foi possível carregar as configurações de retenção.",
+    "retrying": "Tentando novamente…",
+    "retry": "Tente novamente",
+    "saveError": "Não foi possível salvar as configurações de retenção.",
+    "rangeHint": "{{min}}–{{max}} dias",
+    "fields": {
+      "rawEventDays": "Eventos de atividade Player brutos",
+      "playbackSessionDays": "Sessões de prova de jogo",
+      "screenStateDays": "Intervalos de estado da tela",
+      "auditLogDays": "Registros de auditoria",
+      "diagnosticMetadataDays": "Metadados de diagnóstico detalhados"
+    },
+    "validation": {
+      "required": "{{label}} é obrigatório.",
+      "wholeDays": "{{label}} deve ser um número inteiro de dias.",
+      "range": "{{label}} deve estar entre os dias {{min}} e {{max}}."
+    }
+  },
+  "branding": {
+    "loginBackgroundSaved": "Plano de fundo de login salvo.",
+    "loginBackgroundRemoved": "Plano de fundo de login removido.",
+    "title": "Imagens da organização",
+    "description": "Faça upload de imagens deste dispositivo. Tilecast armazena o ativo selecionado internamente.",
+    "logo": {
+      "title": "Logotipo",
+      "description": "Um amplo logotipo de organização para Tilecast Studio e telas de jogadores compatíveis."
+    },
+    "icon": {
+      "title": "Ícone quadrado",
+      "description": "Uma marca quadrada para branding compacto e posicionamentos do tamanho de ícones."
+    },
+    "loginBackground": {
+      "title": "Plano de fundo de login",
+      "description": "A imagem em tela inteira atrás do painel de login Tilecast Studio."
+    },
+    "previewAlt": "Visualização {{title}}",
+    "invalidType": "Escolha uma imagem PNG, JPEG, WebP ou SVG.",
+    "uploadFailed": "Falha no upload.",
+    "unavailable": "A imagem selecionada não está disponível. Carregue um substituto.",
+    "loadError": "Não foi possível carregar a imagem selecionada.",
+    "uploading": "Enviando {{progress}}%",
+    "replace": "Substituir imagem",
+    "upload": "Carregar imagem",
+    "remove": "Remover"
+  },
+  "backups": {
+    "kinds": {
+      "manual": "Manuais",
+      "scheduled": "Agendado",
+      "preRestore": "Antes de restaurar",
+      "imported": "Importado"
+    },
+    "verification": {
+      "unverified": "Não verificado",
+      "failed": "Falha na verificação"
+    },
+    "jobKinds": {
+      "backup": "Backup",
+      "verify": "Verificação",
+      "restore": "Restaurar"
+    },
+    "jobStatuses": {
+      "queued": "Na fila",
+      "running": "Correndo",
+      "succeeded": "Sucesso",
+      "failed": "Falha",
+      "cancelled": "Cancelado"
+    },
+    "phases": {
+      "checking_disk_space": "Verificando espaço em disco",
+      "database_snapshot": "Salvando banco de dados",
+      "pre_restore_backup": "Criando backup pré-restauração",
+      "finalizing_archive": "Finalizando arquivo",
+      "verifying": "Verificando",
+      "verifying_archive": "Verificando arquivo",
+      "staging_files": "Preparando arquivos",
+      "restoring_database": "Restaurando banco de dados",
+      "activating_files": "Ativando arquivos",
+      "validating": "Validando",
+      "finalizing": "Finalizando",
+      "complete": "Completo"
+    },
+    "triggers": {
+      "manual": "Manuais",
+      "scheduled": "Agendado",
+      "preRestore": "Antes de restaurar"
+    },
+    "ownerOnly": "Somente o Proprietário pode gerenciar backups.",
+    "loading": "Carregando backups…",
+    "loadError": "Não foi possível carregar os backups.",
+    "title": "Backups de instalação",
+    "description": "Os backups completos incluem banco de dados, arquivos de mídia, miniaturas, variantes e atualizações do player em cache.",
+    "queuing": "Na fila…",
+    "create": "Criar backup",
+    "lastSuccessful": "Último backup bem-sucedido:",
+    "nextScheduled": "· Próximo agendado: {{date}}",
+    "available": "Backups disponíveis",
+    "availableHint": "Verifique um arquivo antes de confiar nele ou iniciar uma restauração.",
+    "empty": "Sem backups",
+    "emptyHint": "Nenhum backup foi criado ainda.",
+    "verified": "Verificado",
+    "versionMeta": "· Tilecast {{tilecastVersion}} · esquema {{schemaVersion}}",
+    "verify": "Verifique",
+    "download": "Baixar",
+    "restore": "Restaurar",
+    "deleteArchive": "Excluir {{fileName}}",
+    "recent": "Atividade de backup recente",
+    "jobInProgress": "{{kind}} em andamento",
+    "restoreTitle": "Restaurar {{fileName}}?",
+    "restoreBody": "Tilecast ficará temporariamente indisponível e o banco de dados atual e o estado da mídia serão substituídos. Um backup de pré-restauração será criado primeiro.",
+    "restoreBodyMismatch": "Tilecast ficará temporariamente indisponível e o banco de dados atual e o estado da mídia serão substituídos. Um backup de pré-restauração será criado primeiro. AVISO: Este backup pertence a uma instalação diferente. Os jogadores inscritos precisarão ser redefinidos e emparelhados novamente.",
+    "restoreAction": "Restaurar",
+    "deleteTitle": "Excluir {{fileName}}? Isto não pode ser desfeito.",
+    "deleteLastTitle": "Este é o último backup completo. Excluir mesmo assim?",
+    "deleteLastBody": "Você não terá nenhum backup em bom estado para restaurar."
+  },
+  "integrations": {
+    "ownerOnly": "Somente o Proprietário pode gerenciar tokens de integração.",
+    "title": "Tokens de integração",
+    "description": "Conceda integrações selecionadas sem compartilhar uma senha Studio.",
+    "secretNotice": "<strong>Copie este token agora.</strong> Exibido uma vez.",
+    "copied": "eu copiei",
+    "loading": "Carregando tokens…",
+    "tokensLoadError": "Os dados do token não foram carregados.",
+    "empty": "Sem fichas",
+    "emptyHint": "Não existem tokens de integração.",
+    "revokeTitle": "Revogar \"{{name}}\"?",
+    "revokeBody": "Qualquer coisa que o utilize para de funcionar imediatamente e um token revogado não pode ser reativado.",
+    "revokeAction": "Revogar",
+    "revoke": "Revogar",
+    "revokeToken": "Revogar {{name}}",
+    "status": {
+      "revoked": "Revogado",
+      "expired": "Expirado",
+      "active": "Ativo"
+    },
+    "expiry": "Expiração {{date}}",
+    "lastUsed": "{{date}} usado pela última vez",
+    "neverUsed": "Nunca usado",
+    "limited_one": "Limitado à fonte de dados {{count}}",
+    "limited_other": "Limitado às fontes de dados {{count}}",
+    "scopes": {
+      "write": {
+        "title": "Escrever linhas manuais da tabela",
+        "description": "Substitua linhas nas fontes de dados de tabela manual selecionadas."
+      },
+      "read": {
+        "title": "Leia a saúde da frota",
+        "description": "Leia contagens de telas relatando estado, incidentes não resolvidos e problemas de conteúdo, como métricas JSON ou Prometheus."
+      }
+    },
+    "createTitle": "Crie um token",
+    "nameLabel": "Nome",
+    "nameHint": "Nomeie o sistema que irá utilizá-lo, para que o registro de entrega e o registro de auditoria digam quem fez o quê.",
+    "capabilities": "Capacidades",
+    "expiresLabel": "Expira em",
+    "expiresHint": "O token para de funcionar no final deste dia. Deixe-o vazio para um token que nunca expira e revogue-o quando o sistema que o utiliza for desativado.",
+    "limitLabel": "Limite às fontes de dados",
+    "limitHint": "Selecione nenhum para permitir todas as fontes de dados de tabela manual. Nomeá-los é o padrão mais seguro.",
+    "limitSearchLabel": "Pesquisar fontes de dados",
+    "limitSearchPlaceholder": "Pesquisar por nome",
+    "limitSelected": "{{count}} selecionado",
+    "limitNoMatch": "Nenhuma fonte de dados corresponde a esta pesquisa.",
+    "loadingSources": "Carregando fontes de dados…",
+    "sourcesLoadError": "Os dados da fonte de dados não foram carregados.",
+    "noSources": "Ainda não existem fontes de dados de tabela manual.",
+    "creating": "Criando…",
+    "createAction": "Criar token",
+    "created": "Token de integração criado.",
+    "revoked": "Token de integração revogado.",
+    "limited_many": "Limitado às fontes de dados {{count}}"
+  },
+  "locations": {
+    "searchLabel": "Locais de pesquisa",
+    "searchPlaceholder": "Pesquise por nome ou endereço",
+    "add": "Adicionar local",
+    "saved": "Localização salva.",
+    "saveFailed": "Não foi possível salvar o local.",
+    "deleted": "Local excluído.",
+    "deleteConflict": "Este local ainda possui telas atribuídas. Reatribua ou cancele a atribuição deles antes de excluí-los.",
+    "deleteFailed": "Não foi possível excluir o local.",
+    "loadError": "Os dados de localização não foram carregados.",
+    "loading": "Carregando locais…",
+    "noAddress": "Nenhum endereço definido",
+    "screens_one": "Tela {{count}}",
+    "screens_other": "Telas {{count}}",
+    "editLocation": "Editar {{name}}",
+    "deleteLocation": "Excluir {{name}}",
+    "blockedTitle": "{{name}} ainda possui telas atribuídas e não pode ser excluída.",
+    "confirmOk": "OK",
+    "deleteTitle": "Excluir {{name}}?",
+    "emptySearch": "Nenhum local corresponde",
+    "empty": "Ainda não há locais",
+    "emptySearchHint": "Tente um nome ou endereço diferente.",
+    "emptyHint": "Adicione um prédio ou campus para atribuí-lo às telas.",
+    "addTitle": "Adicionar local",
+    "editTitle": "Editar local",
+    "save": "Salvar localização",
+    "fields": {
+      "name": "Nome do local",
+      "address1": "Linha de endereço 1",
+      "address2": "Linha de endereço 2",
+      "city": "Cidade/localidade",
+      "state": "Estado/província/região",
+      "postal": "Código postal",
+      "country": "País",
+      "latitude": "Latitude",
+      "longitude": "Longitude"
+    },
+    "screens_many": "Telas {{count}}"
+  },
+  "updates": {
+    "console": {
+      "incompatibleTargets": "Telas incompatíveis: {{count}}.",
+      "playerFamily": "Família Player",
+      "families": {
+        "android": "Android",
+        "linux": "Legado Linux",
+        "edge": "Borda Tilecast",
+        "windows": "Janelas"
+      },
+      "status": {
+        "active": "Ativo",
+        "paused": "Pausado",
+        "completed": "Concluído",
+        "cancelled": "Cancelado"
+      },
+      "deployments": "Implantações",
+      "releases": "Lançamentos",
+      "workspaceViews": "Visualizações de atualização Player",
+      "fleetCount": "Telas {{count}}",
+      "fleetCount_one": "Tela {{count}}",
+      "fleetCount_other": "Telas {{count}}",
+      "targetCount": "Telas {{count}}",
+      "targetCount_one": "Tela {{count}}",
+      "targetCount_other": "Telas {{count}}",
+      "selectedCount": "Telas {{count}} selecionadas",
+      "selectedCount_one": "Tela {{count}} selecionada",
+      "selectedCount_other": "Telas {{count}} selecionadas",
+      "activeDeployments": "Implantações ativas e atenção",
+      "recentDeployments": "Implantações recentes",
+      "noHistory": "Nenhuma implantação concluída",
+      "noHistoryHint": "As implementações concluídas aparecem aqui.",
+      "viewRollout": "Ver lançamento",
+      "sync": "Sincronizar versões",
+      "synced": "Catálogo de lançamento sincronizado.",
+      "more": "Mais comandos",
+      "continue": "Continuar",
+      "step": "{{stage}} de 3 — {{title}}",
+      "steps": {
+        "release": "Liberar",
+        "targets": "Alvos",
+        "rollout": "Implementação"
+      },
+      "stepHints": {
+        "release": "Escolha um artefato verificado. Combine sua arquitetura com suas telas.",
+        "targets": "Telas de pesquisa ou grupos de exibição. Tilecast verifica todas as telas resolvidas.",
+        "rollout": "Escolha quando instalar e revise a implantação antes de começar."
+      },
+      "noReadyRelease": "Prepare uma versão na visualização Versões antes de implementar.",
+      "prepareFirst": "Prepare e verifique antes de implantar",
+      "screens": "Telas",
+      "noTargetMatch": "Nenhuma meta correspondente",
+      "groupMembers": "Membros {{count}} · Compatível com {{eligible}}",
+      "checkingCompatibility": "Verificando compatibilidade…",
+      "selectEligible": "Selecione todos os elegíveis",
+      "removeTarget": "Remover {{name}}",
+      "modeHints": {
+        "install_now": "Baixe, verifique e solicite a instalação agora.",
+        "download_only": "Prepare a atualização em cada tela sem instalar.",
+        "maintenance_window": "Baixe agora e instale no horário escolhido ou após."
+      },
+      "windowHint": "A hora local deste navegador. Os jogadores são instalados neste instante ou após esse instante.",
+      "futureWindow": "Escolha uma data e hora futuras.",
+      "canaryRollout": "Lançamento canário",
+      "canaryHint": "Atualize primeiro um pequeno grupo. Continue somente depois que cada canário for bem-sucedido.",
+      "invalidCanary": "Use de 1 a 50 telas canário, menos do que os alvos elegíveis. Remova as telas já atuais antes de usar canários.",
+      "canarySummary": "Telas canário {{count}}",
+      "canarySummary_one": "Tela canário {{count}}",
+      "canarySummary_other": "Telas canário {{count}}",
+      "canaryPhase": "Estágio de implementação: {{phase}}",
+      "waitingCanary": "Esperando pelo canário",
+      "review": "Revisão de implantação",
+      "blockedTitle": "As telas selecionadas não podem receber esta versão",
+      "offlineWarning": "As telas {{count}} não têm pulsação recente. Seus comandos de atualização aguardam a reconexão e expiram após sete dias.",
+      "offlineWarning_one": "A tela {{count}} não tem pulsação recente. Seu comando de atualização aguarda reconexão e expira após sete dias.",
+      "offlineWarning_other": "As telas {{count}} não têm pulsação recente. Seus comandos de atualização aguardam a reconexão e expiram após sete dias.",
+      "currentWarning": "As telas {{count}} já possuem esta versão ou mais recente. Eles não recebem nenhum comando de atualização.",
+      "currentWarning_one": "A tela {{count}} já possui esta versão ou mais recente. Ele não recebe nenhum comando de atualização.",
+      "currentWarning_other": "As telas {{count}} já possuem esta versão ou mais recente. Eles não recebem nenhum comando de atualização.",
+      "configureSource": "Configurar fonte",
+      "sourceHint": "O acesso ao GitHub é opcional. Uploads assinados também funcionam sem GitHub.",
+      "deviceFlowHint": "Habilite o fluxo do dispositivo no aplicativo OAuth. O GitHub também requer um retorno de chamada URL; o repositório Tilecast URL é adequado.",
+      "uploadHint": "Selecione o artefato, seu manifesto assinado e a assinatura desanexada. A verificação do servidor é necessária.",
+      "fileTooLarge": "{{name}} não deve exceder {{size}}.",
+      "verifyingRelease": "Verificando a liberação assinada…",
+      "artifact": "Artefato",
+      "manifest": "Manifesto",
+      "signature": "Assinatura",
+      "releaseLibrary": "Biblioteca de lançamento",
+      "checked": "Verificado {{time}}",
+      "noReleases": "Não há lançamentos disponíveis",
+      "noReleasesHint": "Sincronize o GitHub ou carregue uma versão assinada em Mais.",
+      "prepareRequested": "Download do artefato solicitado.",
+      "prepareArtifact": "Preparar artefato",
+      "deployArtifact": "Implantar {{architecture}}",
+      "releaseCommands": "Comandos para {{version}} {{architecture}}",
+      "deploymentUsage": "Implantações {{count}} · {{active}} ativo",
+      "technicalDetails": "Detalhes técnicos",
+      "versionCode": "Código da versão",
+      "sha256": "SHA-256",
+      "verification": "Verificação",
+      "fullyVerified": "Artefato e manifesto verificados",
+      "manifestVerified": "Assinatura do manifesto verificada",
+      "certificate": "Certificado de assinatura SHA-256",
+      "releaseNotes": "Notas de lançamento",
+      "noNotes": "Nenhuma nota de lançamento fornecida.",
+      "trustedKeyMissing": "Configure a chave pública do manifesto de atualização confiável no servidor antes de importar versões.",
+      "fleetCount_many": "Telas {{count}}",
+      "targetCount_many": "Telas {{count}}",
+      "selectedCount_many": "Telas {{count}} selecionadas",
+      "canarySummary_many": "Telas canário {{count}}",
+      "offlineWarning_many": "As telas {{count}} não têm pulsação recente. Seus comandos de atualização aguardam a reconexão e expiram após sete dias.",
+      "currentWarning_many": "As telas {{count}} já possuem esta versão ou mais recente. Eles não recebem nenhum comando de atualização."
+    },
+    "states": {
+      "held": {
+        "label": "Realizado para canário",
+        "detail": "Inicia assim que cada tela canário relata uma atualização bem-sucedida."
+      },
+      "pending": {
+        "label": "Na fila",
+        "detail": "O jogador foi instruído a buscar esta versão."
+      },
+      "offline": {
+        "label": "Esperando para reconectar",
+        "detail": "A tela está inacessível e será iniciada depois que ela voltar."
+      },
+      "downloading": {
+        "label": "Baixando"
+      },
+      "downloaded": {
+        "label": "Baixado",
+        "detail": "Aguardando para verificar o arquivo baixado."
+      },
+      "verifying": {
+        "label": "Verificando",
+        "detail": "Verificando o arquivo baixado em relação ao hash esperado."
+      },
+      "ready": {
+        "label": "Pronto para instalar",
+        "detail": "A instalação começa no momento seguinte que este modo permitir."
+      },
+      "waiting_for_permission": {
+        "label": "Precisa de permissão de instalação",
+        "detail": "Permita esta fonte de instalação na TV para que o player possa instalar atualizações."
+      },
+      "waiting_for_user": {
+        "label": "Precisa de aprovação na TV",
+        "detail": "Alguém tem que aprovar o instalador da própria TV. Isto não é um fracasso."
+      },
+      "installing": {
+        "label": "Instalando",
+        "detail": "O player está instalando a versão agora."
+      },
+      "reconnecting": {
+        "label": "Reiniciando",
+        "detail": "O player reiniciou na nova versão e está se reconectando."
+      },
+      "succeeded": {
+        "label": "Atualizado"
+      },
+      "already_current": {
+        "label": "Já atual",
+        "detail": "Essa tela estava na versão implantada antes do início da implementação."
+      },
+      "failed": {
+        "label": "Falha",
+        "detail": "A atualização parou. Tente novamente quando a tela estiver acessível."
+      },
+      "cancelled": {
+        "label": "Cancelado",
+        "detail": "Parou antes de terminar."
+      },
+      "incompatible": {
+        "label": "Incompatível",
+        "detail": "Esta versão é incompatível com os requisitos de dispositivo desta tela."
+      },
+      "unknown": {
+        "label": "Desconhecido",
+        "detail": "Este jogador relatou um estado que Studio não reconhece."
+      }
+    },
+    "stages": {
+      "queued": "Na fila",
+      "downloading": "Baixando",
+      "installing": "Instalando",
+      "updated": "Atualizado"
+    },
+    "segments": {
+      "succeeded": "Atualizado",
+      "attention": "Esperando por alguém",
+      "failed": "Falha",
+      "remaining": "Em andamento"
+    },
+    "headline": {
+      "cancelled": "Cancelado.",
+      "retry_one": "A tela {{count}} precisa de uma nova tentativa.",
+      "retry_other": "As telas {{count}} precisam de uma nova tentativa.",
+      "waiting_one": "A tela {{count}} está aguardando alguém na TV.",
+      "waiting_other": "As telas {{count}} estão esperando por alguém na TV.",
+      "pausedFallback": "Pausado após uma falha canário.",
+      "complete": "Cada tela está nesta versão.",
+      "rolling": "Rolando. Nada precisa de atenção.",
+      "retry_many": "As telas {{count}} precisam de uma nova tentativa.",
+      "waiting_many": "As telas {{count}} estão esperando por alguém na TV."
+    },
+    "requestFailed": "A solicitação falhou.",
+    "retryRequested": "Nova tentativa solicitada para esta tela.",
+    "cancelledSuccess": "Implantação da atualização Player cancelada.",
+    "deploymentTitle": "Implantação",
+    "deploymentFallback": "Implantação Player",
+    "loading": "Carregando status da tela",
+    "statusesLoadError": "Não foi possível carregar os status da tela.",
+    "detail": {
+      "status": "Estado",
+      "mode": "Modo",
+      "rollout": "Implementação",
+      "started": "Iniciado"
+    },
+    "rolloutCanary": "{{size}} canário primeiro · {{phase}}",
+    "rolloutAll": "Todas as telas de uma vez",
+    "pausedTitle": "Lançamento pausado",
+    "pausedDetail": "{{reason}} As telas restantes permanecem em sua versão atual até que a implantação seja cancelada e recriada.",
+    "filterLabel": "Filtro de status da tela",
+    "filter": {
+      "all": "Todos {{count}}",
+      "attention": "Precisa de atenção {{count}}",
+      "progress": "Em andamento {{count}}",
+      "done": "Finalizado {{count}}"
+    },
+    "searchScreens": "Telas de pesquisa",
+    "emptyFilter": "Nenhuma tela corresponde a este filtro.",
+    "emptyNone": "Esta implantação não atinge nenhuma tela que você possa ver.",
+    "cancelHint": "O cancelamento interrompe todas as telas que não foram concluídas. As telas já atualizadas ficam no novo lançamento.",
+    "cancel": "Cancelar implantação",
+    "canary": "Canário",
+    "firstInstall": "Primeira instalação · {{version}}",
+    "downloadProgress": "{{percent}}% de {{size}}",
+    "stageTrail": "Atualizar progresso",
+    "noScreens": "Sem telas",
+    "relativeNow": "Agora mesmo",
+    "relativeMinutes": "{{count}}m atrás",
+    "relativeHours": "{{count}}h atrás",
+    "relativeDays": "{{count}}d atrás",
+    "panel": {
+      "platformLabel": "Plataforma Player",
+      "releasesTitle": "Versões {{platform}} disponíveis",
+      "releasesHint": "Carregue uma versão assinada diretamente ou, opcionalmente, sincronize de <repo>Gibsonmb71/tilecast</repo>.",
+      "syncing": "Sincronizando…",
+      "sync": "Sincronizar do GitHub",
+      "uploadRelease": "Enviar versão",
+      "loadingReleases": "Carregando lançamentos…",
+      "loadError": "Não foi possível carregar as versões. {{error}}",
+      "emptyReleases": "Nenhuma versão {{platform}} Player foi importada. Tilecast verifica o GitHub automaticamente; use o Sync do GitHub para tentar novamente imediatamente.",
+      "releasesCaption": "Versões {{platform}} Player disponíveis",
+      "version": "Versão",
+      "source": "Fonte",
+      "published": "Publicado",
+      "size": "Tamanho",
+      "status": "Estado",
+      "actionsColumn": "Ações",
+      "code": "Código {{code}}",
+      "channelBeta": "Beta",
+      "channelStable": "Estável",
+      "sourceUpload": "Upload direto",
+      "sourceGitHub": "GitHub",
+      "cachingLabel": "Cache {{version}}: {{downloaded}} de {{total}} baixado",
+      "downloadProgress": "{{downloaded}} de {{total}}",
+      "purgeDeleteTitle": "Exclua esta versão e libere seu arquivo em cache",
+      "purgeFreeTitle": "Libere o arquivo em cache e mantenha o histórico de implantação",
+      "rowDelete": "Excluir",
+      "rowFree": "Arquivo grátis",
+      "showing": "Mostrando {{shown}} dos lançamentos {{total}}, os mais novos primeiro.",
+      "showFewer": "Mostrar menos lançamentos",
+      "showAll": "Mostrar todos os lançamentos {{total}}",
+      "purgeDeleteHeading": "Excluir esta versão?",
+      "purgeFreeHeading": "Liberar este arquivo em cache?",
+      "freesStorage": "{{version}} ({{code}}) libera {{size}} do armazenamento do servidor.",
+      "neverDeployed": "Ele nunca foi implantado, portanto, a versão e seu arquivo em cache foram removidos.",
+      "historyHint": "Abra uma implantação para ler o status de cada tela que ela alcança. Aguardar aprovação significa que a TV ainda precisa de alguém que aceite o instalador; não é um fracasso.",
+      "historyRefOne": "referências de implantação",
+      "historyRefOther": "referência de implantações",
+      "directTitle": "Esta versão foi carregada diretamente.",
+      "directHint": "Tilecast não pode baixá-lo novamente. A implantação posterior requer o upload da mesma versão assinada mais uma vez.",
+      "confirmDelete": "Excluir lançamento",
+      "confirmFree": "Arquivo em cache gratuito",
+      "purgeDeleted": "Versão excluída e seu arquivo em cache liberado.",
+      "purgeFreed": "Arquivo em cache liberado. A versão permanece listada em seu histórico de implantação.",
+      "githubTitle": "Conexão GitHub",
+      "authorizedAs": "Autorizado como @{{login}}",
+      "authorizedToken": "Autorizado com um token gerenciado pelo servidor",
+      "anonymous": "Acesso anônimo API",
+      "connected": "Conectado",
+      "notConnected": "Não conectado",
+      "disconnecting": "Desconectando…",
+      "disconnect": "Desconectar",
+      "starting": "Começando…",
+      "connect": "Conecte o GitHub",
+      "oneTimeCode": "Código único",
+      "openGitHub": "Abra o GitHub",
+      "waitingAuth": "Aguardando autorização…",
+      "setupHint": "Configure <clientId>TILECAST_GITHUB_CLIENT_ID</clientId> com um aplicativo GitHub OAuth habilitado para fluxo de dispositivo para habilitar o login.",
+      "githubConnected": "Conectado ao GitHub como @{{login}}.",
+      "defaultLogin": "usuário autorizado",
+      "githubDeclined": "A autorização do GitHub foi recusada.",
+      "githubExpired": "O código de autorização do GitHub expirou. Comece novamente para um novo código.",
+      "githubIncomplete": "A autorização do GitHub não pôde ser concluída.",
+      "githubDisconnected": "Conta GitHub desconectada.",
+      "verificationTitle": "A verificação de atualização Player não está configurada.",
+      "verificationHint": "Defina <key>TILECAST_UPDATE_MANIFEST_PUBLIC_KEY</key> no servidor Tilecast para a chave pública Ed25519 usada pelo fluxo de trabalho de liberação Player e reinicie o servidor.",
+      "syncErrorTitle": "As versões do GitHub não puderam ser sincronizadas.",
+      "cacheErrorTitle": "A versão não pôde ser armazenada em cache.",
+      "removeErrorTitle": "A versão não pôde ser removida.",
+      "deployTitle": "Nova implantação",
+      "deployHint": "Escolha uma versão verificada e em cache e direcione as telas {{platform}} ou grupos de exibição.",
+      "releaseLabel": "Versão verificada",
+      "selectRelease": "Selecione um lançamento",
+      "noRelease": "Nenhuma versão está pronta para implantação",
+      "modeLabel": "Modo de implantação",
+      "modeDownloadOnly": "Baixar apenas",
+      "modeInstallNow": "Baixe e solicite a instalação",
+      "modeMaintenanceWindow": "Janela de manutenção",
+      "modeNameDownloadOnly": "Baixar apenas",
+      "modeNameInstallNow": "Instale agora",
+      "modeNameMaintenanceWindow": "Janela de manutenção",
+      "canaryLabel": "Telas canário",
+      "canaryHint": "Os alvos restantes esperam até que cada canário se reconecte. Use 0 para implantar em todos os destinos de uma só vez.",
+      "windowLabel": "Janela de manutenção",
+      "windowTimeLabel": "Tempo da janela de manutenção",
+      "windowHint": "Os jogadores são instalados nesse horário local ou após esse horário em cada tela.",
+      "targetsLabel": "Telas de destino e grupos de exibição",
+      "searchPlaceholder": "Pesquisar por nome",
+      "targetsGroup": "Metas de implantação",
+      "screensHeading": "Telas {{platform}}",
+      "groupsHeading": "Exibir grupos",
+      "groupSize": "Telas {{count}}",
+      "noScreenMatch": "Nenhuma tela corresponde a esta pesquisa.",
+      "noScreensEnrolled": "Nenhuma tela {{platform}} está registrada.",
+      "noGroupMatch": "Nenhum grupo de exibição corresponde a esta pesquisa.",
+      "noGroups": "Ainda não existe nenhum grupo de exibição.",
+      "selectedOne": "Tela {{count}} selecionada",
+      "selectedOther": "Telas {{count}} selecionadas",
+      "offlineCount": "{{count}} off-line",
+      "clearSelection": "Limpar seleção",
+      "creating": "Criando implantação…",
+      "deployAction": "Implantar atualização",
+      "confirmTitle": "Implantar esta atualização Player?",
+      "confirmSummaryOne": "A tela {{count}} receberá {{version}} usando {{mode}}.",
+      "confirmSummaryOther": "As telas {{count}} receberão {{version}} usando {{mode}}.",
+      "versionFallback": "este lançamento",
+      "androidNote": "O Android pode exigir aprovação de instalação em cada TV.",
+      "linuxNote": "Cada player Linux é reiniciado na nova versão.",
+      "offlineNoteOne": "A tela selecionada do {{count}} está off-line e será atualizada após a reconexão.",
+      "offlineNoteOther": "As telas selecionadas do {{count}} estão off-line e serão atualizadas após a reconexão.",
+      "deployCreatedOne": "Implantação criada para tela {{count}}.",
+      "deployCreatedOther": "Implantação criada para telas {{count}}.",
+      "historyTitle": "Histórico de implantação",
+      "historyLoadError": "Não foi possível carregar o histórico de implantação.",
+      "historyCaption": "Histórico de implantação {{platform}} Player",
+      "colDeployment": "Implantação",
+      "colStatus": "Estado",
+      "colScreens": "Telas",
+      "colNeeds": "O que isso precisa",
+      "lastFailure": "Última falha: {{error}}",
+      "historyEmpty": "Nenhuma implantação {{platform}} Player foi criada.",
+      "rolloutCanary": "Canários {{size}} · {{phase}}",
+      "rolloutAll": "Todas as telas de uma vez",
+      "phaseCanary": "Canário",
+      "updatedCount": "{{succeeded}} de {{target}} atualizado",
+      "statusActive": "Ativo",
+      "statusPaused": "Pausado",
+      "statusCompleted": "Concluído",
+      "statusCancelled": "Cancelado",
+      "statusFailed": "Falha",
+      "cacheTitle": "Baixe e verifique esta versão",
+      "cacheDownloading": "Baixando…",
+      "cacheDownload": "Baixar",
+      "readinessVerificationFailed": "Falha na verificação",
+      "readinessVerifyAgain": "Baixe e verifique novamente.",
+      "readinessDownloadFailed": "Falha no download",
+      "readinessCacheDetail": "Manifesto verificado. O artefato não pôde ser armazenado em cache.",
+      "readinessDownloading": "Baixando",
+      "readinessDownloadingDetail": "A verificação termina quando o artefato é armazenado em cache.",
+      "readinessNotCached": "Não armazenado em cache",
+      "readinessManifestDetail": "Assinatura do manifesto verificada. Baixe para implantar.",
+      "readinessDeployableDetail": "Baixe para tornar esta versão implantável.",
+      "readinessVerifying": "Verificando",
+      "readinessVerifyingDetail": "Artefato armazenado em cache. A verificação completa não foi concluída.",
+      "readinessReady": "Pronto para implantar",
+      "uploadTitle": "Carregar versão {{platform}} assinada",
+      "releaseUploaded": "Liberação assinada do jogador carregada.",
+      "uploadHint": "Todos os três arquivos são verificados antes que {{artifact}} entre no cache de atualização privado de Tilecast.",
+      "dropTitle": "Solte os arquivos de lançamento aqui",
+      "dropHint": "ou escolha todos os três arquivos",
+      "validationLabel": "Liberar validação de arquivo",
+      "fileRequired": "Obrigatório",
+      "unexpectedFile": "Arquivo inesperado: {{name}}. Escolha apenas os três arquivos de liberação assinados.",
+      "manifestTooBig": "O manifesto de atualização não deve exceder 128 KB.",
+      "sigTooBig": "A assinatura do manifesto não deve exceder 4 KB.",
+      "uploading": "Enviando… {{progress}}%",
+      "verifyingAndroid": "Verificando assinatura, APK e metadados de pacote…",
+      "verifyingLinux": "Verificando assinatura e hash AppImage…",
+      "uploadComplete": "Versão verificada e armazenada em cache",
+      "uploadedVersion": "Versão {{version}} · {{channel}} · {{size}}",
+      "importing": "Importando versão…",
+      "uploadVerify": "Carregar e verificar",
+      "clearFiles": "Limpar arquivos",
+      "edgeNote": "Cada tela do Tilecast Edge baixa e verifica a versão, reinicia nela e a confirma após reconectar e mostrar o conteúdo. Uma tela que não consegue confirmar retorna sozinha à versão anterior.",
+      "verifyingEdge": "Verificando o envelope assinado e o hash do arquivo de lançamento…",
+      "architectureUnknown": "arquitetura não relatada",
+      "edgeArchive": "arquivo de lançamento",
+      "windowsNote": "Cada player do Windows baixa e verifica o pacote, instala-o e reinicia na nova versão.",
+      "verifyingWindows": "Verificando o envelope assinado e o hash do pacote…"
+    },
+    "setup": {
+      "connect": "Conecte o GitHub",
+      "title": "Configurar conexão GitHub",
+      "intro": "Crie um aplicativo GitHub OAuth para esta instalação Tilecast. Tilecast precisa apenas do ID do cliente público; não crie ou cole um segredo do cliente.",
+      "stepCreateTitle": "Crie o aplicativo OAuth",
+      "stepCreateBody": "Abra as configurações do desenvolvedor GitHub e registre um novo aplicativo OAuth.",
+      "openApps": "Abra aplicativos GitHub OAuth",
+      "stepValuesTitle": "Insira esses valores exatos",
+      "stepValuesBody": "O GitHub requer um retorno de chamada URL mesmo que Tilecast faça login por meio do Device Flow.",
+      "appName": "Nome do aplicativo",
+      "homepageUrl": "Página inicial URL",
+      "callbackUrl": "Retorno de chamada de autorização URL",
+      "deviceFlowNote": "Ative <deviceFlow>Ative Device Flow</deviceFlow> antes de registrar o aplicativo.",
+      "copyValue": "Copiar {{label}}",
+      "stepClientIdTitle": "Cole o ID do cliente",
+      "stepClientIdBody": "Depois que o GitHub registrar o aplicativo, copie seu ID de cliente e cole-o abaixo. Tilecast salva-o em dados persistentes do aplicativo e inicia o login imediatamente.",
+      "clientIdLabel": "ID do cliente GitHub",
+      "saveError": "Tilecast não pôde salvar o ID do cliente GitHub.",
+      "saveConnect": "Salvar e conectar",
+      "connected": "Conectado ao GitHub como @{{login}}.",
+      "defaultLogin": "usuário autorizado",
+      "declined": "A autorização do GitHub foi recusada.",
+      "expired": "O código de autorização do GitHub expirou. Comece novamente para um novo código.",
+      "incomplete": "A autorização do GitHub não pôde ser concluída.",
+      "authTitle": "Autorizar Tilecast no GitHub",
+      "authBody": "Abra o GitHub, insira este código único e aprove o aplicativo Tilecast OAuth. Esta janela será atualizada automaticamente.",
+      "openGitHub": "Abra o GitHub",
+      "waiting": "Aguardando autorização…"
+    }
+  },
+  "policies": {
+    "title": {
+      "screen": "Comportamento da tela",
+      "group": "Política Player"
+    },
+    "description": {
+      "group": "Substitua os padrões da organização para este grupo de exibição.",
+      "screen": "Substitua a reprodução herdada e o comportamento do dispositivo somente nesta tela."
+    },
+    "searchPlaceholder": "Configurações de pesquisa",
+    "searchLabel": "Pesquisar configurações do jogador",
+    "overriddenOnly": "Somente substituído",
+    "overrides_one": "Substituição de {{count}}",
+    "overrides_other": "Substituições {{count}}",
+    "resetAll": "Redefinir todas as substituições",
+    "resetTitle": "Redefinir todas as substituições de configuração do player?",
+    "resetDescription": "Isso limpa todas as substituições de configuração do jogador para este alvo. Isto não pode ser desfeito.",
+    "keepOverrides": "Manter substituições",
+    "resetting": "Redefinindo…",
+    "saveErrorTitle": "Não foi possível salvar as configurações",
+    "saveErrorDescription": "Recarregue a política atual se outro administrador a tiver alterado.",
+    "saved": "Configurações Player salvas.",
+    "groups": {
+      "playback": {
+        "title": "Reprodução",
+        "description": "Apresentação padrão e comportamento de volume."
+      },
+      "storage": {
+        "title": "Armazenamento e downloads",
+        "description": "Limites de cache local e comportamento de entrega de conteúdo."
+      },
+      "sync": {
+        "title": "Sincronização",
+        "description": "Reconciliação, status e diagnóstico do servidor."
+      },
+      "websites": {
+        "title": "Sites",
+        "description": "Tempo limite, cookies e comportamento de dados do site local."
+      },
+      "reliability": {
+        "title": "Confiabilidade e quiosque",
+        "description": "Recuperação compartilhada, além de comportamento de quiosque Android e Linux específico da plataforma."
+      },
+      "power": {
+        "title": "Horas ativas e energia",
+        "description": "Horário de funcionamento, solicitações de suspensão e reserva de tela preta."
+      },
+      "accessibility": {
+        "title": "Controle de acessibilidade",
+        "description": "Comportamento de retorno automático e exclusões de manutenção segura."
+      },
+      "updates": {
+        "title": "Atualizações Player",
+        "description": "Comportamento de download e instalação de atualização específico da tela."
+      }
+    },
+    "emptySearch": "Nenhuma configuração correspondente nesta seção.",
+    "emptySection": "Nenhuma configuração de nível de tela está disponível nesta seção.",
+    "advancedDetails": "Detalhes avançados",
+    "effectiveRevision": "Revisão de configuração efetiva {{revision}} ·",
+    "unsaved": "Alterações não salvas nas configurações do player",
+    "groupOverride": "Substituição de grupo",
+    "screenOverride": "Substituição de tela",
+    "organizationDefault": "Padrão da organização",
+    "overrideSetting": "Substituir {{title}}",
+    "overrideOn": "Substituir ativado",
+    "overrideOff": "Substituir",
+    "revert": "Reverter",
+    "valueNone": "Nenhum",
+    "valueNoneAllowed": "Nenhum permitido",
+    "valueNotSet": "Não definido",
+    "allowedCount_one": "{{count}} permitido",
+    "allowedCount_other": "{{count}} permitido",
+    "duration": {
+      "hours_one": "Hora {{count}}",
+      "hours_other": "{{count}} horas",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "seconds_one": "{{count}} segundo",
+      "seconds_other": "{{count}} segundos",
+      "hours_many": "{{count}} horas",
+      "minutes_many": "{{count}} minutos",
+      "seconds_many": "{{count}} segundos"
+    },
+    "overrides_many": "Substituições {{count}}",
+    "allowedCount_many": "{{count}} permitido"
+  },
+  "networks": {
+    "saved": "Rede de apresentação salva.",
+    "deleted": "Rede de apresentação excluída.",
+    "saveError": "A Rede de Apresentação não pôde ser salva.",
+    "manageOnly": "O gerenciamento de redes de apresentação precisa do recurso Gerenciar redes de apresentação e do acesso a todas as telas.",
+    "title": "Wi-Fi temporário para apresentação local",
+    "description": "As redes de apresentação permitem que jogadores Linux compatíveis conectem-se ao Wi-Fi apenas enquanto uma sessão AirPlay precisar. A Ethernet continua sendo o caminho normal para tráfego Tilecast, downloads e distribuição de vídeo em grupo.",
+    "credentialsUnavailable": "As credenciais não estão disponíveis neste servidor.",
+    "credentialsHint": "Configure a chave de criptografia da Presentation Network antes de salvar uma rede.",
+    "loadError": "Não foi possível carregar redes de apresentação.",
+    "listTitle": "Redes de Apresentação",
+    "listHint": "As credenciais são somente para gravação. Editar uma rede sem inserir uma nova credencial mantém a credencial salva.",
+    "add": "Adicionar rede",
+    "loading": "Carregando redes de apresentação…",
+    "empty": "Ainda não há redes de apresentação",
+    "emptyHint": "Adicione uma rede Wi-Fi para funcionários, convidados ou eventos quando os remetentes do AirPlay não conseguirem alcançar um jogador apenas pela Ethernet.",
+    "addFirst": "Adicione a primeira rede",
+    "credentialSaved": "Credencial salva",
+    "credentialMissing": "Credencial ausente",
+    "screens_one": "Tela {{count}}",
+    "screens_other": "Telas {{count}}",
+    "revision": "revisão {{revision}}",
+    "edit": "Editar",
+    "deleteTitle": "Excluir {{name}}?",
+    "deleteAssigned_one": "{{name}} é atribuído à tela {{count}}. Excluí-lo e remover essas atribuições?",
+    "deleteAssigned_other": "{{name}} é atribuído às telas {{count}}. Excluí-lo e remover essas atribuições?",
+    "deleteError": "A Rede de Apresentação não pôde ser excluída.",
+    "addTitle": "Adicionar rede de apresentação",
+    "editTitle": "Editar rede de apresentação",
+    "loadingDetail": "Carregando detalhes da rede…",
+    "fields": {
+      "name": "Nome de exibição",
+      "nameHint": "Um nome que os operadores reconhecerão em Studio.",
+      "ssid": "SSID",
+      "ssidHint": "O nome do Wi-Fi, não o nome de exibição Studio.",
+      "security": "Autenticação",
+      "hidden": "SSID oculto",
+      "secretPsk": "Senha Wi-Fi/PSK",
+      "secretEnterprise": "Senha corporativa",
+      "secretHintNew": "Somente gravação. Ele é criptografado antes de ser armazenado.",
+      "secretHintSaved": "Uma credencial é salva. Deixe em branco para mantê-lo ou insira um novo para girá-lo.",
+      "secretHintNone": "Nenhuma credencial foi salva ainda; insira um para ativar o provisionamento.",
+      "identity": "Identidade empresarial",
+      "anonymousIdentity": "Identidade anônima",
+      "anonymousIdentityHint": "Identidade externa opcional para o servidor RADIUS.",
+      "ca": "Certificado CA",
+      "caHint": "Certificado CA público opcional em formato PEM. É usado para validar o servidor RADIUS.",
+      "domain": "Domínio de servidor esperado",
+      "domainHint": "Requer um certificado CA quando definido."
+    },
+    "assignedTitle": "Jogadores Linux atribuídos",
+    "assignedHint": "Somente o gateway selecionado ingressa nesta rede durante uma sessão AirPlay em grupo. Os seguidores permanecem na Ethernet.",
+    "assignedSearchLabel": "Pesquise jogadores Linux",
+    "assignedSearchPlaceholder": "Pesquise por nome ou localização",
+    "assignedSelected": "{{selected}} de {{total}} selecionado",
+    "assignedNoMatch": "Nenhum player Linux corresponde a esta pesquisa.",
+    "loadingPlayers": "Carregando players Linux…",
+    "noLocation": "Sem localização",
+    "noPlayers": "Nenhum player Linux está disponível para atribuição.",
+    "detailError": "Não foi possível carregar esta rede.",
+    "retry": "Tente novamente.",
+    "save": "Salvar rede",
+    "leaveTitle": "Descartar alterações de rede não salvas?",
+    "screens_many": "Telas {{count}}",
+    "deleteAssigned_many": "{{name}} é atribuído às telas {{count}}. Excluí-lo e remover essas atribuições?"
+  },
+  "notifications": {
+    "categories": {
+      "incident": "Problemas de tela",
+      "content_health": "Problemas de conteúdo",
+      "backup": "Cópias de segurança",
+      "update": "Atualizações Player"
+    },
+    "testSent": "Mensagem de teste enviada para {{sentTo}}.",
+    "toasts": {
+      "webhookCreated": "Webhook de notificação criado.",
+      "webhookUpdated": "Webhook de notificação atualizado.",
+      "webhookTestSent": "Teste de webhook enviado.",
+      "webhookRemoved": "Webhook de notificação removido."
+    },
+    "removeTitle": "Remover o webhook \"{{name}}\"?",
+    "removeBody": "Seu segredo de assinatura não pode ser recuperado, portanto o destinatário precisará de um novo.",
+    "remove": "Remover",
+    "removeWebhook": "Remover {{name}}",
+    "test": "Teste",
+    "enable": "Habilitar",
+    "disable": "Desativar",
+    "checking": "Verificando entrega de notificação…",
+    "statusLoadError": "Não foi possível verificar o status de entrega do e-mail.",
+    "webhooksLoadError": "Não foi possível carregar os webhooks.",
+    "deliveriesLoadError": "Não foi possível carregar entregas recentes.",
+    "available": "Disponível",
+    "configured": "Uma retransmissão SMTP está configurada. Cada conta escolhe o que recebe em Minha conta → Preferências.",
+    "emailUnavailable": "O e-mail não está disponível.",
+    "smtpSetup": "Defina <smtpHost>TILECAST_SMTP_HOST</smtpHost> (e <smtpPort>TILECAST_SMTP_PORT</smtpPort>, <smtpUsername>TILECAST_SMTP_USERNAME</smtpUsername>, <smtpPassword>TILECAST_SMTP_PASSWORD</smtpPassword> onde o o relé precisa deles) e reinicie o servidor.",
+    "testHint": "Um teste vai para seu próprio endereço de notificação e ignora horários de silêncio e assinaturas.",
+    "sending": "Enviando…",
+    "sendTest": "Envie um teste para mim mesmo",
+    "loadingDeliveries": "Carregando entregas…",
+    "deliveriesEmpty": "Sem entregas",
+    "deliveriesEmptyHint": "Nada foi enviado ainda. As entregas aparecem aqui quando uma condição é relatada.",
+    "afterAttempts": " após tentativas de {{count}}",
+    "allCategories": "Todas as categorias",
+    "lastDelivered": " · Última entrega {{date}}",
+    "neverDelivered": " · Nunca entregue",
+    "lastError": "Último erro: {{error}}",
+    "loadingWebhooks": "Carregando webhooks…",
+    "webhooksEmpty": "Sem webhooks",
+    "webhooksEmptyHint": "Nenhum webhooks está configurado.",
+    "email": {
+      "title": "Entrega de e-mail",
+      "description": "Tilecast envia por meio de uma retransmissão SMTP configurada no servidor, não por meio de uma conta em Studio."
+    },
+    "deliveries": {
+      "title": "Entregas recentes",
+      "description": "O que Tilecast tentou enviar e o que aconteceu. Uma falha aqui significa que a mensagem não chegou."
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "Tilecast posta JSON assinado em um URL que você controla. Use um retransmissor para acessar um serviço de chat; Tilecast não possui integrações por serviço."
+    },
+    "secretNotice": "<strong>Copie este segredo de assinatura agora.</strong> Tilecast não o mostra novamente e não há como lê-lo novamente.",
+    "verifyHint": "Verifique uma solicitação computando <hmac>HMAC-SHA256(secret, timestamp + \".\" + body)</hmac> e comparando-a com o cabeçalho <sigHeader>X-Tilecast-Signature</sigHeader>. Rejeite uma solicitação cujo <tsHeader>X-Tilecast-Timestamp</tsHeader> não seja recente.",
+    "form": {
+      "name": "Nome",
+      "nameHint": "Como esse destinatário é identificado no log de entrega.",
+      "url": "URL",
+      "urlHint": "HTTPS é necessário, a menos que o receptor esteja na rede local.",
+      "categories": "Categorias",
+      "categoriesHint": "Selecione nenhum para receber todas as categorias.",
+      "adding": "Adicionando…",
+      "add": "Adicionar webhook"
+    }
+  },
+  "operations": {
+    "system": {
+      "ownerOnly": "É necessário acesso de proprietário ou administrador.",
+      "diagnosticsTitle": "Diagnóstico",
+      "diagnosticsHint": "Status de tempo de execução sem segredos ou caminhos confidenciais.",
+      "diagnosticsError": "Não foi possível carregar o diagnóstico do sistema. {{error}}",
+      "loadingDiagnostics": "Carregando diagnóstico…",
+      "unknownValue": "desconhecido",
+      "lessThanMinute": "Menos de um minuto",
+      "fieldTilecast": "Tilecast",
+      "fieldUptime": "Tempo de atividade",
+      "fieldDatabase": "Banco de dados",
+      "fieldPostgres": "PostgreSQL",
+      "fieldMediaStorage": "Armazenamento de mídia",
+      "fieldConnectedScreens": "Telas conectadas",
+      "fieldPendingCommands": "Comandos pendentes",
+      "fieldProcessingJobs": "Processando trabalhos",
+      "fieldServerTimezone": "Fuso horário do servidor",
+      "maintenanceTitle": "Manutenção",
+      "maintenanceHint": "Execute tarefas de manutenção aprovadas.",
+      "run": "Corre",
+      "running": "Correndo…",
+      "runConfirmTitle": "{{label}}?",
+      "completed": "Ação de manutenção concluída.",
+      "actions": {
+        "expired-upload-cleanup": {
+          "label": "Limpar uploads expirados",
+          "description": "Remove dados de upload temporário expirados de acordo com a política de retenção."
+        },
+        "completed-command-cleanup": {
+          "label": "Limpe o histórico de comandos",
+          "description": "Remove comandos concluídos anteriores ao período de retenção configurado."
+        },
+        "retention-cleanup": {
+          "label": "Execute a limpeza de retenção",
+          "description": "Aplica políticas de retenção configuradas a registros operacionais elegíveis."
+        },
+        "reconcile-config": {
+          "label": "Reconciliar configuração do player",
+          "description": "Solicita aos jogadores conectados que recuperem sua configuração efetiva atual."
+        },
+        "validate-media": {
+          "label": "Validar armazenamento de mídia",
+          "description": "Verifica o armazenamento de mídia e a disponibilidade da ferramenta de processamento sem alterar o conteúdo."
+        }
+      }
+    },
+    "importExport": {
+      "ownerOnly": "Somente o Proprietário pode importar ou exportar configurações.",
+      "exportTitle": "Exportar configurações",
+      "exportHint": "Baixe configurações da organização e metadados de políticas sem credenciais, segredos ou arquivos de mídia.",
+      "exportAction": "Exportar configurações não secretas",
+      "importTitle": "Importar configurações",
+      "importHint": "Tilecast valida o documento e mostra uma visualização antes de qualquer alteração.",
+      "fileLabel": "Arquivo de configurações",
+      "validating": "Validando…",
+      "validatePreview": "Validar e visualizar",
+      "validKeys": "As chaves de configuração {{count}} são válidas.",
+      "policiesPresent": "As políticas de grupo {{group}} e as políticas de tela {{screen}} estão presentes.",
+      "applyTitle": "Aplicar este documento de configurações validadas?",
+      "apply": "Aplicar",
+      "applyAction": "Aplicar configurações importadas",
+      "imported": "Configurações importadas.",
+      "noDocument": "Escolha um arquivo de configurações antes de validar.",
+      "invalidDocument": "Esse arquivo não é uma exportação de configurações Tilecast."
+    }
+  },
+  "fonts": {
+    "addGoogle": "Adicionar de Google Fonts",
+    "upload": "Carregar arquivos de fonte",
+    "loading": "Carregando fontes…",
+    "empty": "Ainda não há fontes de organização",
+    "emptyHint": "Adicione uma família de Google Fonts ou carregue seus próprios arquivos TTF ou OTF. O texto do layout pode então usá-lo.",
+    "sourceGoogle": "Google Fonts",
+    "sourceUpload": "Enviado",
+    "sample": "A rápida raposa marrom salta sobre o cachorro preguiçoso 0123456789",
+    "licenseAttested": "Direitos confirmados no upload",
+    "files_one": "Arquivo {{count}}",
+    "files_other": "Arquivos {{count}}",
+    "deleteFamily": "Remover {{family}}",
+    "deleteTitle": "Remover {{family}}?",
+    "deleteDescription": "Layouts que utilizam esta fonte devem escolher outra primeiro. As telas mantêm sua cópia até a próxima atualização.",
+    "deleted": "{{family}} removido",
+    "added": "{{family}} adicionado",
+    "offlineNote": "Tilecast armazena todas as fontes neste servidor. Os jogadores baixam uma fonte com o conteúdo que a utiliza e a guardam para reprodução offline. Nem os jogadores nem Studio entram em contato com o Google.",
+    "categories": {
+      "all": "Todas as categorias",
+      "sans-serif": "Sem serifa",
+      "serif": "Serif",
+      "display": "Exibição",
+      "handwriting": "Caligrafia",
+      "monospace": "Monoespaçado",
+      "icons": "Ícones"
+    },
+    "google": {
+      "title": "Adicionar de Google Fonts",
+      "description": "Escolha uma família. Este servidor copia os arquivos uma vez; depois disso nada depende do Google.",
+      "searchLabel": "Pesquisar famílias",
+      "searchPlaceholder": "Nome de família",
+      "categoryLabel": "Categoria",
+      "loading": "Carregando o catálogo…",
+      "results_one": "Família {{count}}",
+      "results_other": "Famílias {{count}}",
+      "more": "Mostrar mais",
+      "variable": "Variável",
+      "styles_one": "Peso {{count}}",
+      "styles_other": "Pesos {{count}}",
+      "back": "Voltar ao catálogo",
+      "license": "Licença: {{license}}",
+      "weightRange": "Pondera {{min}}–{{max}} em um arquivo",
+      "subsets": "Conjuntos de caracteres",
+      "stylesLabel": "Estilos",
+      "style": {
+        "normal": "Normal",
+        "italic": "Itálico"
+      },
+      "weights": "Pesos",
+      "copyNote": "Escolha apenas os conjuntos de caracteres que seu conteúdo precisa. Cada um adiciona um arquivo que é baixado em cada tela que usa essa fonte.",
+      "add": "Adicionar à organização",
+      "adding": "Adicionando…",
+      "results_many": "Famílias {{count}}",
+      "styles_many": "Pesos {{count}}"
+    },
+    "uploadDialog": {
+      "title": "Carregar arquivos de fonte",
+      "description": "Carregue um arquivo TrueType (.ttf) ou OpenType (.otf) para cada estilo, como Regular, Negrito e Itálico. Arquivos com o mesmo nome de família unem-se a uma família.",
+      "filesLabel": "Arquivos de fonte",
+      "filesHint": "Até 15 MB cada. Coleções de fontes e fontes da web (WOFF, WOFF2) não são aceitas.",
+      "rights": "Minha organização tem o direito de exibir essas fontes em seus displays.",
+      "submit_one": "Carregar arquivo {{count}}",
+      "submit_other": "Carregar arquivos {{count}}",
+      "uploading": "Fazendo upload…",
+      "stored": "Adicionado a {{family}}.",
+      "restricted": "Adicionado a {{family}}. Os próprios sinalizadores de licença da fonte dizem que ela não pode ser incorporada; confirme se sua licença permite o uso de exibição.",
+      "submit_many": "Carregar arquivos {{count}}"
+    },
+    "picker": {
+      "libraryGroup": "Fontes de organização",
+      "builtInGroup": "Fontes integradas",
+      "add": "Adicionar fontes",
+      "manage": "Adicionar ou remover fontes da organização",
+      "missing": "Fonte removida (usa o substituto)",
+      "loadingFont": "Carregando fonte…"
+    },
+    "files_many": "Arquivos {{count}}"
+  }
+}

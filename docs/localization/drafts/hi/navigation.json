@@ -1,0 +1,120 @@
+{
+  "brand": {
+    "home": "Tilecast अवलोकन"
+  },
+  "groups": {
+    "screens": "स्क्रीन",
+    "content": "कंटेंट",
+    "presentations": "प्रस्तुतियाँ",
+    "operations": "संचालन"
+  },
+  "overview": "अवलोकन",
+  "userMenu": {
+    "openLabel": "{{name}} के लिए खाता मेनू खोलें",
+    "myForms": "मेरे फ़ॉर्म",
+    "myAccount": "मेरा खाता",
+    "signOut": "साइन आउट करें"
+  },
+  "items": {
+    "fleet": "स्क्रीन",
+    "displayGroups": "डिस्प्ले समूह",
+    "archive": "आर्काइव",
+    "media": "मीडिया",
+    "widgets": "Widgets",
+    "dataSources": "डेटा स्रोत",
+    "playlists": "प्लेलिस्ट",
+    "layouts": "लेआउट",
+    "campaigns": "अभियान",
+    "schedules": "शेड्यूल",
+    "plugins": "प्लगइन",
+    "activity": "गतिविधि",
+    "settings": "सेटिंग"
+  },
+  "header": {
+    "toggleNavigation": "नेविगेशन टॉगल करें",
+    "search": "Tilecast में खोजें",
+    "notifications": "सूचनाएँ",
+    "notificationsWithCount_one": "सूचनाएँ, {{count}} सक्रिय",
+    "notificationsWithCount_other": "सूचनाएँ, {{count}} सक्रिय",
+    "activeCount_one": "{{count}} सक्रिय",
+    "activeCount_other": "{{count}} सक्रिय",
+    "noneActive": "कोई सक्रिय नहीं",
+    "caughtUp": "आप सभी अपडेट देख चुके हैं।",
+    "groups": {
+      "critical": "गंभीर",
+      "warning": "ध्यान दें",
+      "info": "जानकारी"
+    }
+  },
+  "palette": {
+    "title": "Tilecast में खोजें",
+    "description": "वर्कस्पेस, स्क्रीन या त्वरित कार्रवाई खोजें।",
+    "label": "Tilecast में खोजें",
+    "placeholder": "स्क्रीन, मीडिया, प्लेलिस्ट खोजें…",
+    "resultsLabel": "खोज परिणाम",
+    "noResults": "“{{query}}” के लिए कोई परिणाम नहीं।",
+    "noDestinations": "कोई गंतव्य उपलब्ध नहीं है।",
+    "groups": {
+      "quickActions": "त्वरित कार्रवाइयाँ",
+      "screens": "स्क्रीन",
+      "content": "कंटेंट",
+      "presentations": "प्रस्तुतियाँ",
+      "scheduling": "शेड्यूलिंग",
+      "administration": "प्रशासन",
+      "navigation": "नेविगेशन"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "स्क्रीन पेयर करें",
+        "description": "नया डिजिटल साइनेज प्लेयर कनेक्ट करें"
+      },
+      "uploadMedia": {
+        "label": "मीडिया अपलोड करें",
+        "description": "चित्र, वीडियो या दस्तावेज़ जोड़ें"
+      },
+      "createPlaylist": {
+        "label": "प्लेलिस्ट बनाएँ",
+        "description": "नई फ़ुलस्क्रीन प्रस्तुति बनाएँ"
+      },
+      "createLayout": {
+        "label": "लेआउट बनाएँ",
+        "description": "प्रस्तुति कैनवास पर कंटेंट व्यवस्थित करें"
+      },
+      "createSchedule": {
+        "label": "शेड्यूल बनाएँ",
+        "description": "योजना बनाएँ कि कंटेंट कहाँ और कब चलेगा"
+      }
+    },
+    "plugin": "प्लगइन",
+    "pluginNotInstalled": "प्लगइन · इंस्टॉल नहीं है",
+    "hints": {
+      "move": "आगे बढ़ें",
+      "open": "खोलें",
+      "close": "बंद करें"
+    },
+    "screenStatus": {
+      "online": "ऑनलाइन",
+      "recent": "हाल ही में ऑनलाइन",
+      "stale": "पुराना",
+      "offline": "ऑफ़लाइन",
+      "disabled": "अक्षम",
+      "revoked": "पेयरिंग रद्द",
+      "awaiting_player": "प्लेयर की प्रतीक्षा"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "कंटेंट, प्रस्तुतियों, शेड्यूल, समूहों और स्क्रीन का पता लगाएँ",
+      "sectionFallback": "{{label}} सेटिंग"
+    }
+  },
+  "error": {
+    "title": "यह पेज नहीं दिखाया जा सका।",
+    "fallback": "यह पेज दिखाते समय एक अनपेक्षित त्रुटि हुई।",
+    "retry": "फिर कोशिश करें"
+  },
+  "access": {
+    "deniedTitle": "यह क्षेत्र आपकी भूमिका में शामिल नहीं है",
+    "deniedDescription": "आपकी भूमिका में इस पेज का एक्सेस नहीं है। ज़रूरत पड़ने पर किसी एडमिनिस्ट्रेटर से एक्सेस माँगें।",
+    "goTo": "{{destination}} पर जाएँ",
+    "goToAccount": "मेरे खाते पर जाएँ"
+  }
+}

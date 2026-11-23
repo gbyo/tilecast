@@ -1,0 +1,64 @@
+{
+  "a11y": {
+    "loading": "Carregando",
+    "more": "Mais",
+    "sidebarDescription": "Exibe a barra lateral no celular.",
+    "sidebarTitle": "Barra lateral",
+    "toggleSidebar": "Alternar barra lateral"
+  },
+  "actions": {
+    "back": "Voltar",
+    "cancel": "Cancelar",
+    "clear": "Limpar",
+    "clearAll": "Limpar tudo",
+    "close": "Fechar",
+    "closeToast": "Fechar notificação",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "discardChanges": "Descartar alterações",
+    "edit": "Editar",
+    "loadMore": "Carregar mais",
+    "next": "Próximo",
+    "nextSlide": "Próximo slide",
+    "previous": "Anterior",
+    "previousSlide": "Slide anterior",
+    "refresh": "Atualizar",
+    "refreshing": "Atualizando…",
+    "remove": "Remover",
+    "retry": "Tentar novamente",
+    "save": "Salvar",
+    "saveChanges": "Salvar alterações",
+    "saving": "Salvando…",
+    "skip": "Pular",
+    "submit": "Enviar",
+    "toggleOptions": "Alternar opções"
+  },
+  "status": {
+    "loading": "Carregando…"
+  },
+  "count": {
+    "items_one": "{{count}} item",
+    "items_many": "{{count}} itens",
+    "items_other": "{{count}} itens"
+  },
+  "clipboard": {
+    "copied": "{{label}} copiado.",
+    "copyFailed": "Não foi possível copiar {{label}}."
+  },
+  "filters": {
+    "active": "Filtros ativos",
+    "remove": "Remover filtro {{label}}: {{value}}",
+    "title": "Filtros"
+  },
+  "planned": {
+    "eyebrow": "MARCO {{milestone}}",
+    "title": "{{feature}} ainda não estão ativados.",
+    "body": "Esta instalação inclui atualmente a base do Marco 1. {{feature}} serão implementados e testados no Marco {{milestone}}.",
+    "backLink": "Voltar ao status da instalação"
+  },
+  "demo": {
+    "title": "Modo de demonstração",
+    "description": "Esta instalação contém dados de exemplo e pode ser redefinida automaticamente.",
+    "badge": "Demonstração"
+  }
+}

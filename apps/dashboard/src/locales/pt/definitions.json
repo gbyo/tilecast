@@ -1,0 +1,278 @@
+{
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Fonte de dados",
+        "description": "Conecte um calendário ou outra fonte de registros."
+      },
+      "titleField": {
+        "label": "Campo de título"
+      },
+      "startField": {
+        "label": "Campo inicial"
+      },
+      "endField": {
+        "label": "Campo final"
+      },
+      "locationField": {
+        "label": "Campo de localização"
+      },
+      "categoryField": {
+        "label": "Campo de categoria"
+      },
+      "heading": {
+        "label": "Título"
+      },
+      "maximumItems": {
+        "label": "Máximo de eventos"
+      },
+      "hideEnded": {
+        "label": "Ocultar eventos passados",
+        "description": "Os eventos finalizados saem do tabuleiro usando o relógio Player. Eventos sem fim permanecem durante o dia local."
+      },
+      "showWeekday": {
+        "label": "Mostrar dia da semana"
+      },
+      "showDate": {
+        "label": "Mostrar data"
+      },
+      "showTime": {
+        "label": "Hora do show"
+      },
+      "showLocation": {
+        "label": "Mostrar localização"
+      },
+      "showCategory": {
+        "label": "Mostrar categoria"
+      },
+      "showDividers": {
+        "label": "Mostrar divisórias"
+      },
+      "dateStyle": {
+        "label": "Estilo de data",
+        "options": {
+          "short": "Mês e dia curtos",
+          "day": "Dia do mês",
+          "numeric": "Mês e dia numérico"
+        }
+      },
+      "emptyText": {
+        "label": "Mensagem vazia",
+        "description": "Deixe em branco para usar a mensagem vazia padrão."
+      },
+      "flow": {
+        "label": "Fluxo",
+        "options": {
+          "auto": "Automático",
+          "vertical": "Verticais",
+          "horizontal": "Horizontais"
+        }
+      },
+      "verticalDirection": {
+        "label": "Direção vertical",
+        "options": {
+          "up": "Acima",
+          "down": "Para baixo"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Direção horizontal",
+        "options": {
+          "left": "Esquerda",
+          "right": "Certo"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Velocidade de rolagem",
+        "description": "1 é lento, 10 é rápido. O ritmo de leitura permanece consistente à medida que você adiciona eventos."
+      },
+      "scrolling": {
+        "label": "Rolagem ativada"
+      },
+      "textScale": {
+        "label": "Tamanho do texto (%)",
+        "description": "100 usa o tamanho automático. Aumente-o para texto de evento maior."
+      },
+      "headingScale": {
+        "label": "Tamanho do título (%)",
+        "description": "Redimensione o título independentemente do texto do evento."
+      },
+      "rowLayout": {
+        "label": "Layout de linha",
+        "description": "O espaçamento natural mantém as linhas juntas. Listas curtas podem deixar espaço após o último evento.",
+        "options": {
+          "fill": "Preencher a janela de visualização",
+          "natural": "Espaçamento natural"
+        }
+      },
+      "rowSpacing": {
+        "label": "Espaçamento entre linhas (%)",
+        "description": "Ajuste o espaço acima e abaixo do texto do evento. Escolha Espaçamento natural para remover o espaço extra usado para preencher a viewport."
+      },
+      "contentPadding": {
+        "label": "Preenchimento externo (%)",
+        "description": "Ajuste o espaço ao redor do tabuleiro. 0 remove; 100 usa o preenchimento automático."
+      },
+      "headingSpacing": {
+        "label": "Espaçamento entre títulos (%)",
+        "description": "Ajuste o espaço abaixo do título e ao redor de sua divisória."
+      },
+      "density": {
+        "label": "Densidade",
+        "options": {
+          "compact": "Compacto",
+          "comfortable": "Confortável",
+          "spacious": "Espaçoso"
+        }
+      },
+      "backgroundColor": {
+        "label": "Plano de fundo"
+      },
+      "foregroundColor": {
+        "label": "Primeiro plano"
+      },
+      "accentColor": {
+        "label": "Sotaque"
+      }
+    }
+  },
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Link de design do Canva",
+        "description": "Cole um link de visualização de design público, link de incorporação inteligente, iframe src URL ou link curto canva.link. Publique primeiro uma incorporação pública no Canva."
+      },
+      "slideshow": {
+        "label": "Apresentação de slides",
+        "description": "Abra o design no modo de apresentação/observação do Canva. O Canva ainda pode exigir que a reprodução seja iniciada."
+      },
+      "refreshIntervalSeconds": {
+        "label": "Intervalo de recarga"
+      }
+    }
+  },
+  "website": {
+    "fields": {
+      "url": {
+        "label": "Endereço da web",
+        "description": "A página pública a ser exibida. Utilizar HTTPS; plain HTTP funciona apenas para endereços privados quando esta instalação permite."
+      },
+      "backgroundColor": {
+        "label": "Cor de fundo",
+        "description": "Mostrado atrás da página enquanto ela carrega."
+      },
+      "zoomPercent": {
+        "label": "Zoom (%)"
+      },
+      "scrollX": {
+        "label": "Rolagem horizontal (px)"
+      },
+      "scrollY": {
+        "label": "Rolagem vertical (px)"
+      },
+      "reloadPolicy": {
+        "label": "Recarregar",
+        "options": {
+          "load_once": "Carregar uma vez enquanto estiver ativo",
+          "on_each_activation": "Recarregue cada vez que aparecer",
+          "interval": "Recarregar em um intervalo"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "Recarregar a cada (segundos)"
+      },
+      "failureBehavior": {
+        "label": "Se a página não puder carregar",
+        "options": {
+          "placeholder": "Mostrar o espaço reservado Tilecast",
+          "last_success": "Manter a última página carregada",
+          "fallback_image": "Mostrar uma imagem substituta",
+          "skip": "Ignorar este item"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Imagem substituta"
+      },
+      "loadTimeoutSeconds": {
+        "label": "Tempo limite de carregamento (segundos)"
+      },
+      "allowedHosts": {
+        "label": "Hosts permitidos",
+        "description": "Nomes de host exatos para os quais a página pode navegar. O próprio host da página é sempre permitido. Isso limita a navegação de nível superior, e não todos os recursos de terceiros."
+      },
+      "javascriptEnabled": {
+        "label": "Execute JavaScript"
+      },
+      "domStorageEnabled": {
+        "label": "Permitir armazenamento DOM"
+      },
+      "cookiePolicy": {
+        "label": "Biscoitos",
+        "options": {
+          "disabled": "Desativado",
+          "first_party": "Apenas primário",
+          "first_and_third_party": "Primeiro e terceiro"
+        }
+      },
+      "customUserAgent": {
+        "label": "Agente de usuário personalizado",
+        "description": "Deixe em branco para o agente de usuário padrão do Player. As substituições podem quebrar sites."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "Vídeo ou lista de reprodução do YouTube URL",
+        "description": "Tilecast detecta se este é um vídeo ou uma lista de reprodução. Nenhuma chave API do YouTube é necessária."
+      },
+      "startSeconds": {
+        "label": "Começar em (segundos)"
+      },
+      "endSeconds": {
+        "label": "Termina em (segundos)",
+        "description": "Deixe em branco para jogar até o fim."
+      },
+      "captions": {
+        "label": "Mostrar legendas"
+      },
+      "captionLanguage": {
+        "label": "Idioma da legenda",
+        "description": "Um código de idioma como en ou es. Deixe em branco para o padrão do YouTube."
+      },
+      "muted": {
+        "label": "Silenciar áudio"
+      },
+      "volume": {
+        "label": "Volume (%)"
+      },
+      "loop": {
+        "label": "Reprodução em loop"
+      },
+      "controls": {
+        "label": "Mostrar controles do YouTube"
+      },
+      "playlistPlaybackMode": {
+        "label": "Comprimento do item da lista de reprodução",
+        "options": {
+          "until_end": "Reproduza até o vídeo terminar",
+          "fixed_duration": "Jogue por um período fixo"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "Duração fixa (segundos)"
+      },
+      "failureBehavior": {
+        "label": "Se o vídeo não puder ser reproduzido",
+        "options": {
+          "placeholder": "Mostrar o espaço reservado Tilecast",
+          "fallback_image": "Mostrar uma imagem substituta",
+          "skip": "Ignorar este item"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Imagem substituta"
+      }
+    }
+  }
+}

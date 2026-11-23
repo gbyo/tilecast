@@ -1,0 +1,63 @@
+{
+  "a11y": {
+    "loading": "लोड हो रहा है",
+    "more": "और",
+    "sidebarDescription": "मोबाइल साइडबार दिखाता है।",
+    "sidebarTitle": "साइडबार",
+    "toggleSidebar": "साइडबार टॉगल करें"
+  },
+  "actions": {
+    "back": "वापस",
+    "cancel": "रद्द करें",
+    "clear": "साफ़ करें",
+    "clearAll": "सब साफ़ करें",
+    "close": "बंद करें",
+    "closeToast": "सूचना बंद करें",
+    "confirm": "पुष्टि करें",
+    "delete": "हटाएँ",
+    "discardChanges": "बदलाव छोड़ें",
+    "edit": "संपादित करें",
+    "loadMore": "और लोड करें",
+    "next": "अगला",
+    "nextSlide": "अगली स्लाइड",
+    "previous": "पिछला",
+    "previousSlide": "पिछली स्लाइड",
+    "refresh": "रीफ़्रेश करें",
+    "refreshing": "रीफ़्रेश हो रहा है…",
+    "remove": "निकालें",
+    "retry": "फिर कोशिश करें",
+    "save": "सहेजें",
+    "saveChanges": "बदलाव सहेजें",
+    "saving": "सहेजा जा रहा है…",
+    "skip": "छोड़ें",
+    "submit": "जमा करें",
+    "toggleOptions": "विकल्प टॉगल करें"
+  },
+  "status": {
+    "loading": "लोड हो रहा है…"
+  },
+  "count": {
+    "items_one": "{{count}} आइटम",
+    "items_other": "{{count}} आइटम"
+  },
+  "clipboard": {
+    "copied": "{{label}} कॉपी किया गया।",
+    "copyFailed": "{{label}} कॉपी नहीं किया जा सका।"
+  },
+  "filters": {
+    "active": "सक्रिय फ़िल्टर",
+    "remove": "फ़िल्टर हटाएँ {{label}}: {{value}}",
+    "title": "फ़िल्टर"
+  },
+  "planned": {
+    "eyebrow": "माइलस्टोन {{milestone}}",
+    "title": "{{feature}} अभी सक्षम नहीं हैं।",
+    "body": "इस इंस्टॉलेशन में अभी माइलस्टोन 1 का आधार शामिल है। {{feature}} को माइलस्टोन {{milestone}} में लागू और परीक्षण किया जाएगा।",
+    "backLink": "इंस्टॉलेशन स्थिति पर लौटें"
+  },
+  "demo": {
+    "title": "डेमो मोड",
+    "description": "इस इंस्टॉलेशन में नमूना डेटा है और यह अपने आप रीसेट हो सकता है।",
+    "badge": "डेमो"
+  }
+}

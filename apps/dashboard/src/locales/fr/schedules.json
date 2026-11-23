@@ -1,0 +1,491 @@
+{
+  "notifications": {
+    "created": "Calendrier créé.",
+    "updated": "Calendrier mis à jour.",
+    "deleted": "Calendrier supprimé."
+  },
+  "page": {
+    "title": "Horaires",
+    "create": "Créer un planning",
+    "createShort": "Créer",
+    "count_one": "Calendrier {{count}}",
+    "count_other": "Horaires {{count}}",
+    "loading": "Chargement des plannings",
+    "loadError": "Impossible de charger les plannings.",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "priorityValue": "Priorité {{priority}}",
+    "emptyTitle": "Pas encore d'horaires",
+    "emptyDescription": "Les planifications permettent au contenu ou aux actions d'affichage de s'exécuter sur les écrans sélectionnés à des moments précis.",
+    "filteredEmptyTitle": "Aucun horaire ne correspond",
+    "filteredEmptyDescription": "Essayez une autre recherche ou modifiez vos filtres.",
+    "clearSearchAndFilters": "Effacer la recherche et les filtres",
+    "deleteFailed": "Impossible de supprimer le planning.",
+    "noTargets": "Aucune cible",
+    "targetsMore": "{{names}} +{{count}}",
+    "priorityHelp": "Une priorité plus élevée l'emporte lorsque les horaires éligibles se chevauchent.",
+    "priorityHelpLabel": "À propos de la priorité",
+    "targetsHelpLabel": "Toutes les cibles : {{names}}",
+    "columns": {
+      "schedule": "Calendrier",
+      "status": "Statut",
+      "when": "Quand",
+      "presentation": "Présentation",
+      "targets": "Cibles",
+      "priority": "Priorité",
+      "updated": "Mis à jour",
+      "actions": "Actions"
+    },
+    "timing": {
+      "everyDay": "Chaque jour",
+      "overnight": "{{range}} le lendemain",
+      "from": "De {{date}}",
+      "until": "Jusqu'à {{date}}"
+    },
+    "actions": {
+      "edit": "Modifier le calendrier",
+      "open": "Horaire ouvert",
+      "delete": "Supprimer le planning",
+      "actionsFor": "Actions pour {{name}}"
+    },
+    "count_many": "Horaires {{count}}"
+  },
+  "agenda": {
+    "listTab": "Liste des horaires",
+    "title": "Agenda de lecture",
+    "chooseTarget": "Choisissez un écran ou un groupe",
+    "groups": "Groupes d'affichage",
+    "screens": "Écrans",
+    "weekNavigation": "Navigation hebdomadaire",
+    "previousWeek": "La semaine précédente",
+    "nextWeek": "La semaine prochaine",
+    "today": "Aujourd'hui",
+    "days": "Jours à l'ordre du jour",
+    "dayWithOverlap": "{{day}}, chevauchements",
+    "timezone": "Horaires affichés dans {{timezone}}",
+    "emptyTitle": "Choisissez où chercher",
+    "emptyDescription": "Sélectionnez un écran ou un groupe d'affichage pour voir sa lecture attendue.",
+    "noMembers": "Aucun écran à afficher",
+    "noMembersDescription": "Ce groupe ne comporte aucun écran que vous pouvez visualiser.",
+    "loading": "Chargement de l'agenda pour {{screen}}",
+    "loadError": "Impossible de charger l'agenda pour {{screen}}.",
+    "tooManyChanges": "Il y a trop de changements d’horaire à afficher cette semaine pour {{screen}}.",
+    "midnight": "minuit",
+    "allDay": "Toute la journée",
+    "timeRange": "{{from}} – {{to}}",
+    "unnamedContent": "Présentation indisponible",
+    "noContent": "Aucun contenu sélectionné",
+    "unnamedSchedule": "Calendrier",
+    "fallback": "Repli",
+    "groupScreen": "Écran en groupe",
+    "calendarFor": "Calendrier de lecture pour {{screen}}",
+    "clockChange": "Changement d'heure",
+    "expectedPlayback": "Lecture attendue",
+    "overlap": "Chevauchement des horaires"
+  },
+  "toolbar": {
+    "groupLabel": "Rechercher et filtrer les horaires",
+    "search": "Rechercher des horaires",
+    "filters": "Filtres",
+    "filtersActive": "Filtres, {{count}} actifs",
+    "filtersTitle": "Filtres",
+    "filtersDescription": "Affinez les horaires affichés dans cette liste.",
+    "filtersReset": "Réinitialiser les filtres",
+    "filtersDone": "Terminé",
+    "clearFilters": "Effacer les filtres",
+    "filterAny": "N'importe lequel",
+    "facets": {
+      "status": "Statut",
+      "type": "Type d'horaire",
+      "presentation": "Présentation"
+    },
+    "sortShort": "Trier",
+    "sortButtonLabel": "Horaires de tri : {{value}}",
+    "sortMenuTitle": "Trier par",
+    "sort": {
+      "updated": "Récemment mis à jour",
+      "name": "Nom",
+      "priority": "Priorité la plus élevée"
+    }
+  },
+  "options": {
+    "type": {
+      "weekly": "Hebdomadaire",
+      "oneTime": "Une fois"
+    },
+    "presentation": {
+      "playlist": "Liste de lecture",
+      "layout": "Disposition",
+      "displayControl": "Contrôle de l'affichage"
+    }
+  },
+  "editor": {
+    "heading": "Editeur de planning : {{name}}",
+    "formLabel": "Paramètres de planification",
+    "newName": "Nouvel horaire",
+    "loading": "Calendrier de chargement",
+    "discard": {
+      "title": "Supprimer les modifications non enregistrées ?",
+      "body": "Vos modifications apportées à « {{name}} » n'ont pas été enregistrées.",
+      "keepEditing": "Continuer à éditer"
+    },
+    "details": {
+      "title": "Calendrier",
+      "name": "Nom",
+      "namePlaceholder": "Annonces du matin",
+      "enabled": "Activé",
+      "enabledHint": "Une fois enregistrée, cette programmation peut affecter la lecture aux heures programmées.",
+      "description": "Description (facultatif)",
+      "descriptionHint": "Une note interne, visible uniquement dans Studio."
+    },
+    "presentation": {
+      "title": "Présentation",
+      "description": "Que devrait-il se passer lorsque ce calendrier l'emporte ?",
+      "modeLabel": "Type de présentation",
+      "content": "Contenu",
+      "contentHint": "Jouez une liste de lecture ou une mise en page publiée.",
+      "displayControl": "Contrôle de l'affichage",
+      "displayControlHint": "Modifiez l'alimentation, l'entrée, le volume, la sourdine ou la luminosité.",
+      "choose": "Choisissez une liste de lecture ou une mise en page",
+      "change": "Changement",
+      "use": "Utilisez cette présentation",
+      "playlistKind": "Liste de lecture",
+      "layoutKind": "Disposition",
+      "playlistMeta_one": "Liste de lecture · Article {{count}} · {{duration}}",
+      "playlistMeta_other": "Liste de lecture · Articles {{count}} · {{duration}}",
+      "playlistEmpty": "Liste de lecture · Aucun élément pour l'instant",
+      "layoutMeta": "Mise en page · Révision publiée {{revision}}",
+      "durationVaries": "la durée varie",
+      "playlistMeta_many": "Liste de lecture · Articles {{count}} · {{duration}}"
+    },
+    "header": {
+      "back": "Retour aux horaires",
+      "save": "Enregistrer les modifications",
+      "create": "Créer un planning",
+      "saveShort": "Enregistrer",
+      "review": "Examen",
+      "reviewIssues_one": "Examen : l'élément {{count}} nécessite une attention particulière",
+      "reviewIssues_other": "Examen, les éléments {{count}} nécessitent une attention particulière",
+      "discard": "Supprimer les modifications non enregistrées",
+      "delete": "Supprimer le planning",
+      "more": "Plus de propositions",
+      "reviewIssues_many": "Examen, les éléments {{count}} nécessitent une attention particulière"
+    },
+    "status": {
+      "saved": "Enregistré",
+      "unsaved": "Non enregistré",
+      "saving": "Sauvegarde…",
+      "failed": "Échec de l'enregistrement",
+      "viewOnly": "Visualisation uniquement"
+    },
+    "delete": {
+      "title": "Supprimer « {{name}} » ?",
+      "body": "Cette programmation cessera de jouer. Ses écrans utiliseront un autre horaire applicable, ou leur contenu de secours normal.",
+      "keep": "Respecter l'horaire",
+      "confirm": "Supprimer le planning",
+      "failed": "Le planning n'a pas pu être supprimé."
+    },
+    "notFound": {
+      "title": "Horaire introuvable",
+      "body": "Il a peut-être été supprimé ou vous n'y avez peut-être pas accès.",
+      "back": "Retour aux horaires"
+    },
+    "cannotCreate": {
+      "title": "Vous ne pouvez pas créer d'horaires",
+      "body": "Les propriétaires et les administrateurs gèrent les plannings. Vous pouvez toujours ouvrir ceux qui existent."
+    },
+    "loadFailed": {
+      "title": "Le planning n'a pas pu être chargé",
+      "retry": "Réessayez"
+    },
+    "deleteTitle": "Supprimer {{name}} ?"
+  },
+  "displayAction": {
+    "actionLabel": "Action",
+    "inputLabel": "Identifiant d'entrée",
+    "inputHint": "Pour HDMI-CEC, utilisez une adresse physique telle que 1.0.0.0.",
+    "volumeLabel": "Volume",
+    "brightnessLabel": "Luminosité",
+    "notSet": "pas réglé",
+    "note": "L’action utilise la même synchronisation, la même priorité et les mêmes cibles que les planifications de contenu. Les joueurs signalent si l’état du panneau est confirmé.",
+    "options": {
+      "powerOn": "Allumer",
+      "powerOff": "Éteindre",
+      "setInput": "Définir l'entrée",
+      "setVolume": "Régler le volume",
+      "mute": "Muet",
+      "unmute": "Activer le son",
+      "setBrightness": "Régler la luminosité"
+    },
+    "summary": {
+      "powerOn": "Affichage de mise sous tension",
+      "powerOff": "Affichage hors tension",
+      "setInput": "Définir l’entrée d’affichage sur {{value}}",
+      "setVolume": "Réglez le volume d'affichage sur {{value}}",
+      "mute": "Affichage muet",
+      "unmute": "Activer l'affichage",
+      "setBrightness": "Réglez la luminosité de l'écran sur {{value}}"
+    }
+  },
+  "weekdays": {
+    "monday": {
+      "short": "lundi",
+      "long": "lundi"
+    },
+    "tuesday": {
+      "short": "mar.",
+      "long": "mardi"
+    },
+    "wednesday": {
+      "short": "mer",
+      "long": "mercredi"
+    },
+    "thursday": {
+      "short": "jeu.",
+      "long": "jeudi"
+    },
+    "friday": {
+      "short": "vendredi",
+      "long": "vendredi"
+    },
+    "saturday": {
+      "short": "Samedi",
+      "long": "samedi"
+    },
+    "sunday": {
+      "short": "Soleil",
+      "long": "dimanche"
+    }
+  },
+  "timing": {
+    "weekdaysLabel": "Jours de semaine actifs",
+    "starts": "Commence",
+    "ends": "Se termine",
+    "startsTimeLabel": "Heure de début",
+    "endsTimeLabel": "Heure de fin",
+    "removeDateRange": "Supprimer la plage de dates",
+    "timezoneLabel": "Fuseau horaire",
+    "timezoneSearch": "Rechercher une ville ou une région",
+    "timezoneEmpty": "Aucun fuseau horaire ne correspond à cette recherche.",
+    "clockNotSet": "Non défini",
+    "daysSummary": {
+      "none": "aucun jour sélectionné",
+      "everyDayShort": "Chaque jour"
+    },
+    "summary": {
+      "oneTimeRange": "{{start}} – {{end}}",
+      "chooseOneTime": "Choisissez une heure de début et de fin",
+      "nextDaySuffix": " (le lendemain)",
+      "rangeBetween": "{{start}} – {{end}}",
+      "rangeFrom": "de {{start}}",
+      "rangeUntil": "jusqu'à {{end}}"
+    },
+    "title": "Calendrier",
+    "description": "Lorsque ce planning s'exécute, dans son propre fuseau horaire.",
+    "typeLabel": "Type d'horaire",
+    "typeWeekly": "Hebdomadaire",
+    "typeWeeklyHint": "Répétez les jours et heures sélectionnés.",
+    "typeOneTime": "Une fois",
+    "typeOneTimeHint": "Exécutez une fois entre deux dates et heures.",
+    "overnightNote": "Se termine le lendemain.",
+    "fullDayNote": "Fonctionne pendant 24 heures.",
+    "limitDateRange": "Limiter à une plage de dates",
+    "startsOn": "Commence le",
+    "endsOn": "Se termine le",
+    "organizationDefault": "Valeur par défaut de l'organisation",
+    "timezoneHint": "Les heures utilisent ce fuseau horaire, où que vous éditiez.",
+    "timezoneHintOther": "Les heures utilisent ce fuseau horaire, où que vous éditiez. La valeur par défaut de votre organisation est {{timezone}}."
+  },
+  "duration": {
+    "days_one": "Jour {{count}}",
+    "days_other": "Jours {{count}}",
+    "hours": "{{count}} heures",
+    "minutes": "{{count}} min",
+    "seconds": "{{count}} sec",
+    "unavailable": "Durée indisponible",
+    "invalidOrder": "La fin doit être après le début",
+    "days_many": "Jours {{count}}"
+  },
+  "targets": {
+    "title": "Cibles",
+    "description": "Où cet horaire s’applique.",
+    "add": "Ajouter des cibles",
+    "search": "Écrans de recherche et groupes d'affichage",
+    "loading": "Chargement des écrans et des groupes…",
+    "loadError": "Les écrans et les groupes d'affichage n'ont pas pu être chargés.",
+    "retry": "Réessayez",
+    "empty": "Aucun écran ou groupe d'affichage ne correspond.",
+    "groupedHint": "Un écran dans un groupe d'affichage est ajouté via son groupe.",
+    "selectedLabel_one": "{{count}} cible sélectionnée",
+    "selectedLabel_other": "{{count}} cibles sélectionnées",
+    "remove": "Supprimer {{name}}",
+    "groups": "Groupes d'affichage",
+    "screens": "Écrans",
+    "groupDetail_one": "Groupe d'affichage · Écran {{count}}",
+    "groupDetail_other": "Groupe d'affichage · Écrans {{count}}",
+    "screenDetail": "Écran · {{location}}",
+    "kindGroup": "Groupe d'affichage",
+    "kindScreen": "Écran",
+    "none": "Pas encore de cibles.",
+    "sharedNote": "Les écrans d'un groupe d'affichage partagent toujours une programmation et son contenu de secours.",
+    "unknown": "Cible sélectionnée",
+    "selectedLabel_many": "{{count}} cibles sélectionnées",
+    "groupDetail_many": "Groupe d'affichage · Écrans {{count}}"
+  },
+  "priority": {
+    "customValue": "Personnalisé ({{priority}})",
+    "presets": {
+      "normal": "Normale",
+      "important": "Important",
+      "special": "Événement spécial",
+      "custom": "Personnalisé"
+    }
+  },
+  "validation": {
+    "nameRequired": "Saisissez un nom de planification.",
+    "contentRequired": "Choisissez du contenu ou une action de contrôle d'affichage.",
+    "inputRequired": "Entrez un identifiant d'entrée pour l'action Contrôle d'affichage.",
+    "volumeRange": "Le volume doit être compris entre 0 et 100.",
+    "brightnessRange": "La luminosité doit être comprise entre 0 et 100.",
+    "timezoneRequired": "Choisissez un fuseau horaire.",
+    "targetsRequired": "Sélectionnez au moins un écran ou un groupe.",
+    "priorityRange": "La priorité doit être un nombre entier compris entre -999 et 999.",
+    "daysRequired": "Sélectionnez au moins un jour de la semaine.",
+    "timeRequired": "Choisissez les heures de début et de fin.",
+    "dateRangeInvalid": "La date de fin ne doit pas être antérieure à la date de début.",
+    "oneTimeRequired": "Choisissez le début et la fin de l'événement.",
+    "oneTimeOrder": "La fin de l'événement doit être postérieure à son début."
+  },
+  "range": {
+    "label": "Plage de dates",
+    "from": "De",
+    "to": "À",
+    "presets": {
+      "day": "Dernières 24 heures",
+      "week": "7 derniers jours",
+      "month": "30 derniers jours",
+      "custom": "Gamme personnalisée"
+    }
+  },
+  "datePicker": {
+    "pickDate": "Choisissez une date",
+    "clear": "Effacer la date",
+    "time": "Temps",
+    "timeFor": "Heure {{label}}",
+    "previewTime": "Aperçu de l'heure de la journée",
+    "fromTime": "Du temps",
+    "toTime": "Au temps"
+  },
+  "conflict": {
+    "title": "Gestion des conflits",
+    "hint": "Une priorité plus élevée est préférable lorsque les horaires sont en concurrence pour un écran. La vérification suivante montre le résultat.",
+    "groupLabel": "Priorité",
+    "presets": {
+      "normal": "Priorité standard.",
+      "important": "Préféré aux horaires normaux.",
+      "special": "Pour un contenu exceptionnel qui devrait prendre le relais.",
+      "custom": "Choisissez une priorité exacte entre −999 et 999."
+    },
+    "customLabel": "Valeur prioritaire",
+    "customHint": "Un nombre entier compris entre −999 et 999. Un nombre supérieur est préférable.",
+    "overlapBadge_one": "Chevauchement {{count}}",
+    "overlapBadge_other": "Chevauchements {{count}}",
+    "overlapBadge_many": "Chevauchements {{count}}"
+  },
+  "outcome": {
+    "title": "Résultat du calendrier",
+    "description": "Ce que fera ce brouillon une fois enregistré.",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "viewOnly": "Visualisation uniquement",
+    "what": "Quoi",
+    "when": "Quand",
+    "where": "Où",
+    "priority": "Priorité",
+    "priorityInvalid": "Non défini",
+    "noPresentation": "Rien de choisi pour l'instant",
+    "noTargets": "Pas encore de cibles",
+    "targetCount_one": "Cible {{count}}",
+    "targetCount_other": "Cibles {{count}}",
+    "screenCount_one": "Écran {{count}}",
+    "screenCount_other": "Écrans {{count}}",
+    "viaTargets_one": "via la cible {{count}}",
+    "viaTargets_other": "via les cibles {{count}}",
+    "checkTitle": "Vérification de la prochaine exécution",
+    "checking": "Vérification…",
+    "checkFailed": "Le contrôle n'a pas pu être exécuté",
+    "checkFailedSave": "Vous pouvez toujours enregistrer ce planning.",
+    "retry": "Réessayez",
+    "incompleteBoth": "Choisissez une présentation et au moins une cible pour vérifier ce planning.",
+    "incompletePresentation": "Choisissez une présentation pour consulter cet horaire.",
+    "incompleteTargets": "Choisissez au moins une cible pour vérifier ce planning.",
+    "incompleteTiming": "Terminez le chronométrage pour vérifier ce planning.",
+    "simulatedEnabled": "La vérification ci-dessous simule ce calendrier comme activé.",
+    "unsupportedTitle_one": "L'écran ciblé {{count}} ne peut pas exécuter le contrôle d'affichage",
+    "unsupportedTitle_other": "Les écrans ciblés {{count}} ne peuvent pas exécuter le contrôle d'affichage",
+    "unsupportedBody": "Seuls les lecteurs Linux exécutent le contrôle d'affichage. Supprimez ces écrans ou choisissez plutôt le contenu.",
+    "noRunTitle": "Aucune exécution à venir",
+    "noRunBody": "Cette planification ne s'exécutera pas comme prévu, il n'y a donc rien à vérifier.",
+    "checkedAt": "Vérifié pour {{when}}",
+    "checkedNow": "En cours d'exécution actuellement · vérifié à partir de {{when}}",
+    "winsAll_one": "Ce planning gagne sur l'écran ciblé.",
+    "winsAll_other": "Ce planning gagne sur tous les écrans ciblés {{count}}.",
+    "winsNone_one": "Ce planning perd sur l'écran ciblé.",
+    "winsNone_other": "Ce planning est perdant sur tous les écrans ciblés {{count}}.",
+    "winsAllRunnable_one": "Ce planning gagne sur l'écran qui permet de l'exécuter.",
+    "winsAllRunnable_other": "Ce planning gagne sur tous les écrans {{count}} qui peuvent l'exécuter.",
+    "winsSome_one": "Ce programme gagne sur l'écran {{wins}} de {{count}}.",
+    "winsSome_other": "Ce planning gagne sur les écrans {{wins}} des {{count}}.",
+    "competitors": "Des horaires qui se chevauchent",
+    "moreCompetitors": "Les horaires qui se chevauchent ne sont pas répertoriés.",
+    "otherScreens": "Des écrans qui montrent autre chose",
+    "showsInstead": "Affiche {{name}} à la place",
+    "andMore_one": "et {{count}} plus d'écran",
+    "andMore_other": "et {{count}} plus d'écrans",
+    "scopeNote": "Vérifie uniquement la prochaine exécution. Les exécutions ultérieures peuvent différer.",
+    "competitor": {
+      "mixed_one": "Surclasse ce calendrier sur l'écran {{outranks}} de {{count}}",
+      "mixed_other": "Surclasse ce calendrier sur les écrans {{outranks}} des {{count}}",
+      "outranks": {
+        "priority_one": "Priorité plus élevée · Écran {{count}}",
+        "priority_other": "Priorité plus élevée · Écrans {{count}}",
+        "specific_one": "Cible directement l'écran · Écran {{count}}",
+        "specific_other": "Cible directement les écrans · Écrans {{count}}",
+        "start_one": "Démarré plus tard · Écran {{count}}",
+        "start_other": "Démarré plus tard · Écrans {{count}}",
+        "tie_one": "Gagne une égalité complète · Écran {{count}}",
+        "tie_other": "Gagne une égalité complète · Écrans {{count}}",
+        "priority_many": "Priorité plus élevée · Écrans {{count}}",
+        "specific_many": "Cible directement les écrans · Écrans {{count}}",
+        "start_many": "Démarré plus tard · Écrans {{count}}",
+        "tie_many": "Gagne une égalité complète · Écrans {{count}}"
+      },
+      "yields": {
+        "priority_one": "Priorité inférieure · ce programme gagne sur l'écran {{count}}",
+        "priority_other": "Priorité inférieure · ce programme gagne sur les écrans {{count}}",
+        "specific_one": "Moins spécifique · ce planning gagne sur l'écran {{count}}",
+        "specific_other": "Moins spécifique · ce planning gagne sur les écrans {{count}}",
+        "start_one": "Commencé plus tôt · ce programme gagne sur l'écran {{count}}",
+        "start_other": "Commencé plus tôt · ce programme gagne sur les écrans {{count}}",
+        "tie_one": "Perd une égalité complète · Écran {{count}}",
+        "tie_other": "Perd une égalité complète · Écrans {{count}}",
+        "priority_many": "Priorité inférieure · ce programme gagne sur les écrans {{count}}",
+        "specific_many": "Moins spécifique · ce planning gagne sur les écrans {{count}}",
+        "start_many": "Commencé plus tôt · ce programme gagne sur les écrans {{count}}",
+        "tie_many": "Perd une égalité complète · Écrans {{count}}"
+      },
+      "mixed_many": "Surclasse ce calendrier sur les écrans {{outranks}} des {{count}}"
+    },
+    "hiddenSchedule": "Un autre horaire",
+    "showsOther": "Affiche un autre horaire à la place",
+    "targetCount_many": "Cibles {{count}}",
+    "screenCount_many": "Écrans {{count}}",
+    "viaTargets_many": "via les cibles {{count}}",
+    "unsupportedTitle_many": "Les écrans ciblés {{count}} ne peuvent pas exécuter le contrôle d'affichage",
+    "winsAll_many": "Ce planning gagne sur tous les écrans ciblés {{count}}.",
+    "winsNone_many": "Ce planning est perdant sur tous les écrans ciblés {{count}}.",
+    "winsAllRunnable_many": "Ce planning gagne sur tous les écrans {{count}} qui peuvent l'exécuter.",
+    "winsSome_many": "Ce planning gagne sur les écrans {{wins}} des {{count}}.",
+    "andMore_many": "et {{count}} plus d'écrans"
+  }
+}

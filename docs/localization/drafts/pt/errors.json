@@ -1,0 +1,42 @@
+{
+  "generic": "Ocorreu um erro. Tente novamente.",
+  "fallback": {
+    "somethingWentWrong": "Ocorreu um erro.",
+    "requestFailed": "A solicitação falhou.",
+    "uploadFailed": "O envio falhou."
+  },
+  "codes": {
+    "invalid_playback_plan_instant": "Use um instante RFC 3339 com fuso horário ou omita at para usar o horário do servidor.",
+    "playback_expectation_ambiguous": "As expectativas de reprodução registradas se sobrepõem nesse instante.",
+    "forbidden": "Sua função não permite esta ação.",
+    "rate_limited": "Muitas tentativas. Aguarde um momento e tente novamente.",
+    "authentication_required": "É necessário se autenticar.",
+    "unauthenticated": "Entre para continuar.",
+    "internal_error": "O Tilecast não conseguiu concluir a solicitação.",
+    "unknown_error": "O Tilecast não conseguiu concluir a solicitação.",
+    "database_unavailable": "O banco de dados não está pronto.",
+    "csrf_failed": "Não foi possível verificar a solicitação.",
+    "conflict": "Outra pessoa modificou este registro. Atualize a página e tente novamente.",
+    "file_read_failed": "Não foi possível ler o arquivo selecionado.",
+    "content_scope_restricted": "Esta ação exige acesso a toda a biblioteca.",
+    "upload_folder_required": "Escolha uma pasta para o envio. Sua conta só pode adicionar mídia às pastas às quais tem acesso.",
+    "tag_not_assignable": "Sua conta não pode aplicar uma ou mais destas etiquetas.",
+    "role_delegation": "Você só pode conceder a uma função as permissões que possui. Apenas um proprietário pode permitir o gerenciamento de pessoas ou funções.",
+    "role_protected": "As funções padrão não podem ser alteradas nem excluídas.",
+    "role_in_use": "Ainda há pessoas com esta função. Primeiro, atribua outra função a elas.",
+    "role_name_taken": "Já existe uma função com esse nome.",
+    "content_access_delegation": "Você só pode conceder acesso a pastas e etiquetas que sua conta pode acessar.",
+    "cannot_change_own_role": "Você não pode alterar sua própria função.",
+    "cannot_scope_self": "Você não pode alterar seu próprio acesso a conteúdo ou telas.",
+    "last_owner_required": "O Tilecast precisa de pelo menos um proprietário ativo.",
+    "font_not_found": "A fonte não foi encontrada.",
+    "font_exists": "Já existe uma família de fontes com esse nome na biblioteca.",
+    "font_in_use": "Primeiro, escolha outra fonte nos layouts que usam esta fonte.",
+    "font_rights_required": "Confirme que sua organização pode usar esta fonte nas telas.",
+    "font_too_large": "Os arquivos de fonte excedem o limite de tamanho.",
+    "font_unsupported": "O arquivo não é uma fonte compatível. Envie um arquivo TTF ou OTF.",
+    "font_invalid": "Essa seleção não está disponível para esta família de fontes.",
+    "font_catalog_disabled": "O catálogo Google Fonts está desativado neste servidor. Envie arquivos de fonte.",
+    "font_catalog_unavailable": "O Tilecast não conseguiu acessar o catálogo Google Fonts. Verifique o acesso do servidor à internet ou envie arquivos de fonte."
+  }
+}

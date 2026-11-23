@@ -18,6 +18,13 @@ const pluginFiles = import.meta.glob<Record<string, unknown>>(
 
 const pluginLocales = pluginLocalePaths(pluginFiles);
 
+// Draft catalogs are not shipped. Check each completed draft namespace while
+// translations are being prepared, so source changes cannot silently stale it.
+const draftFiles = import.meta.glob<Record<string, unknown>>(
+  "../../../../docs/localization/drafts/*/*.json",
+  { eager: true, import: "default" },
+);
+
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
 function locale(language: string, namespace: string) {
@@ -76,6 +83,50 @@ function expectedKeys(english: Map<string, unknown>, language: string) {
   return expected;
 }
 
+function catalogProblems(
+  english: Map<string, unknown>,
+  translated: Map<string, unknown>,
+  language: string,
+) {
+  const expected = expectedKeys(english, language);
+  const problems: string[] = [];
+
+  for (const key of expected.keys()) {
+    if (!translated.has(key)) problems.push(`missing ${key}`);
+  }
+  for (const [key, value] of translated) {
+    const source = expected.get(key);
+    if (!source) {
+      problems.push(`unexpected ${key}`);
+      continue;
+    }
+    if (typeof value !== "string" || value.trim() === "") {
+      problems.push(`empty or non-string ${key}`);
+      continue;
+    }
+    const sourceText = String(english.get(source));
+    const want = placeholders(sourceText);
+    const have = placeholders(value);
+    const plural = key !== source || PLURAL_SUFFIX.test(key);
+    // A singular form may drop {{count}}, but no form may introduce a
+    // placeholder the code does not pass.
+    const unknown = [...have].filter((name) => !want.has(name));
+    const dropped = [...want].filter(
+      (name) => !have.has(name) && !(plural && name === "count"),
+    );
+    if (unknown.length) {
+      problems.push(`${key} uses unknown {{${unknown.join("}}, {{")}}}`);
+    }
+    if (dropped.length) {
+      problems.push(`${key} drops {{${dropped.join("}}, {{")}}}`);
+    }
+    if (tags(value).join() !== tags(sourceText).join()) {
+      problems.push(`${key} changes markup tags`);
+    }
+  }
+  return problems;
+}
+
 describe("locale files", () => {
   const directories = new Set(
     Object.keys(files).map((path) => path.split("/")[2]),
@@ -112,44 +163,28 @@ describe("locale files", () => {
     for (const language of SUPPORTED_LANGUAGES) {
       it(`${language}/${namespace}.json matches English`, () => {
         const translated = flatten(locale(language, namespace));
-        const expected = expectedKeys(english, language);
-        const problems: string[] = [];
-
-        for (const key of expected.keys()) {
-          if (!translated.has(key)) problems.push(`missing ${key}`);
-        }
-        for (const [key, value] of translated) {
-          const source = expected.get(key);
-          if (!source) {
-            problems.push(`unexpected ${key}`);
-            continue;
-          }
-          if (typeof value !== "string" || value.trim() === "") {
-            problems.push(`empty or non-string ${key}`);
-            continue;
-          }
-          const sourceText = String(english.get(source));
-          const want = placeholders(sourceText);
-          const have = placeholders(value);
-          const plural = key !== source || PLURAL_SUFFIX.test(key);
-          // A singular form may drop {{count}} ("one item"), but no form may
-          // introduce a placeholder the code does not pass.
-          const unknown = [...have].filter((name) => !want.has(name));
-          const dropped = [...want].filter(
-            (name) => !have.has(name) && !(plural && name === "count"),
-          );
-          if (unknown.length) {
-            problems.push(`${key} uses unknown {{${unknown.join("}}, {{")}}}`);
-          }
-          if (dropped.length) {
-            problems.push(`${key} drops {{${dropped.join("}}, {{")}}}`);
-          }
-          if (tags(value).join() !== tags(sourceText).join()) {
-            problems.push(`${key} changes markup tags`);
-          }
-        }
-        expect(problems).toEqual([]);
+        expect(catalogProblems(english, translated, language)).toEqual([]);
       });
     }
+  }
+});
+
+describe("draft locale files", () => {
+  for (const [path, catalog] of Object.entries(draftFiles)) {
+    const parts = path.split("/");
+    const language = parts.at(-2)!;
+    const namespace = parts.at(-1)!.replace(/\.json$/, "");
+    it(`${language}/${namespace}.json matches English`, () => {
+      expect(NAMESPACES, "draft namespace must exist in Studio").toContain(
+        namespace,
+      );
+      expect(
+        catalogProblems(
+          flatten(locale("en", namespace)),
+          flatten(catalog),
+          language,
+        ),
+      ).toEqual([]);
+    });
   }
 });

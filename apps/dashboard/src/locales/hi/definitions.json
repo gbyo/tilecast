@@ -1,0 +1,278 @@
+{
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "डेटा स्रोत",
+        "description": "एक कैलेंडर या अन्य रिकॉर्ड स्रोत कनेक्ट करें."
+      },
+      "titleField": {
+        "label": "शीर्षक फ़ील्ड"
+      },
+      "startField": {
+        "label": "प्रारंभ फ़ील्ड"
+      },
+      "endField": {
+        "label": "अंत क्षेत्र"
+      },
+      "locationField": {
+        "label": "स्थान फ़ील्ड"
+      },
+      "categoryField": {
+        "label": "श्रेणी क्षेत्र"
+      },
+      "heading": {
+        "label": "शीर्षक"
+      },
+      "maximumItems": {
+        "label": "अधिकतम घटनाएँ"
+      },
+      "hideEnded": {
+        "label": "पिछली घटनाओं को छिपाएँ",
+        "description": "समाप्त इवेंट Player घड़ी का उपयोग करके बोर्ड छोड़ देते हैं। घटनाएँ बिना किसी अंत के अपने स्थानीय दिन तक बनी रहती हैं।"
+      },
+      "showWeekday": {
+        "label": "कार्यदिवस दिखाएँ"
+      },
+      "showDate": {
+        "label": "दिनांक दिखाएँ"
+      },
+      "showTime": {
+        "label": "समय दिखाओ"
+      },
+      "showLocation": {
+        "label": "स्थान दिखाएँ"
+      },
+      "showCategory": {
+        "label": "श्रेणी दिखाएँ"
+      },
+      "showDividers": {
+        "label": "डिवाइडर दिखाएँ"
+      },
+      "dateStyle": {
+        "label": "दिनांक शैली",
+        "options": {
+          "short": "छोटा महीना और दिन",
+          "day": "महीने का दिन",
+          "numeric": "संख्यात्मक महीना और दिन"
+        }
+      },
+      "emptyText": {
+        "label": "खाली संदेश",
+        "description": "मानक खाली संदेश का उपयोग करने के लिए खाली छोड़ दें।"
+      },
+      "flow": {
+        "label": "प्रवाह",
+        "options": {
+          "auto": "ऑटो",
+          "vertical": "लंबवत",
+          "horizontal": "क्षैतिज"
+        }
+      },
+      "verticalDirection": {
+        "label": "ऊर्ध्वाधर दिशा",
+        "options": {
+          "up": "ऊपर",
+          "down": "नीचे"
+        }
+      },
+      "horizontalDirection": {
+        "label": "क्षैतिज दिशा",
+        "options": {
+          "left": "वाम",
+          "right": "ठीक है"
+        }
+      },
+      "scrollSpeed": {
+        "label": "स्क्रॉल गति",
+        "description": "1 धीमा है, 10 तेज़ है। जैसे-जैसे आप ईवेंट जोड़ते हैं, पढ़ने की गति लगातार बनी रहती है।"
+      },
+      "scrolling": {
+        "label": "स्क्रॉलिंग सक्षम"
+      },
+      "textScale": {
+        "label": "पाठ का आकार (%)",
+        "description": "100 स्वचालित आकार का उपयोग करता है। बड़े इवेंट टेक्स्ट के लिए इसे बढ़ाएँ।"
+      },
+      "headingScale": {
+        "label": "शीर्षक का आकार (%)",
+        "description": "इवेंट टेक्स्ट से स्वतंत्र रूप से शीर्षक का आकार बदलें."
+      },
+      "rowLayout": {
+        "label": "पंक्ति लेआउट",
+        "description": "प्राकृतिक दूरी पंक्तियों को एक साथ रखती है। अंतिम ईवेंट के बाद छोटी सूचियाँ स्थान छोड़ सकती हैं।",
+        "options": {
+          "fill": "व्यूपोर्ट भरें",
+          "natural": "प्राकृतिक अंतर"
+        }
+      },
+      "rowSpacing": {
+        "label": "पंक्ति रिक्ति (%)",
+        "description": "ईवेंट टेक्स्ट के ऊपर और नीचे स्थान समायोजित करें। व्यूपोर्ट को भरने के लिए उपयोग की जाने वाली अतिरिक्त जगह को हटाने के लिए प्राकृतिक रिक्ति चुनें।"
+      },
+      "contentPadding": {
+        "label": "बाहरी गद्दी (%)",
+        "description": "बोर्ड के चारों ओर की जगह को समायोजित करें। 0 इसे हटा देता है; 100 स्वचालित पैडिंग का उपयोग करता है।"
+      },
+      "headingSpacing": {
+        "label": "शीर्षक रिक्ति (%)",
+        "description": "शीर्षक के नीचे और उसके विभाजक के आसपास के स्थान को समायोजित करें।"
+      },
+      "density": {
+        "label": "घनत्व",
+        "options": {
+          "compact": "सघन",
+          "comfortable": "आरामदायक",
+          "spacious": "विशाल"
+        }
+      },
+      "backgroundColor": {
+        "label": "पृष्ठभूमि"
+      },
+      "foregroundColor": {
+        "label": "अग्रभूमि"
+      },
+      "accentColor": {
+        "label": "उच्चारण"
+      }
+    }
+  },
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "कैनवा डिज़ाइन लिंक",
+        "description": "एक सार्वजनिक डिज़ाइन दृश्य लिंक, स्मार्ट एंबेड लिंक, iframe src URL, या canva.link छोटा लिंक चिपकाएँ। पहले कैनवा में एक सार्वजनिक एंबेड प्रकाशित करें।"
+      },
+      "slideshow": {
+        "label": "स्लाइड शो",
+        "description": "कैनवा के प्रेजेंटेशन/वॉच मोड में डिज़ाइन खोलें। Canva को प्रारंभ करने के लिए अभी भी प्लेबैक की आवश्यकता हो सकती है।"
+      },
+      "refreshIntervalSeconds": {
+        "label": "अंतराल पुनः लोड करें"
+      }
+    }
+  },
+  "website": {
+    "fields": {
+      "url": {
+        "label": "वेब पता",
+        "description": "दिखाने के लिए सार्वजनिक पृष्ठ. HTTPS का प्रयोग करें; सादा HTTP केवल निजी पतों के लिए काम करता है जब यह इंस्टॉलेशन इसकी अनुमति देता है।"
+      },
+      "backgroundColor": {
+        "label": "पृष्ठभूमि का रंग",
+        "description": "लोड होने पर पृष्ठ के पीछे दिखाया जाता है।"
+      },
+      "zoomPercent": {
+        "label": "ज़ूम (%)"
+      },
+      "scrollX": {
+        "label": "क्षैतिज स्क्रॉल (px)"
+      },
+      "scrollY": {
+        "label": "लंबवत स्क्रॉल (पीएक्स)"
+      },
+      "reloadPolicy": {
+        "label": "पुनः लोड करें",
+        "options": {
+          "load_once": "सक्रिय रहते हुए एक बार लोड करें",
+          "on_each_activation": "हर बार प्रकट होने पर पुनः लोड करें",
+          "interval": "एक अंतराल पर पुनः लोड करें"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "प्रत्येक को पुनः लोड करें (सेकंड)"
+      },
+      "failureBehavior": {
+        "label": "यदि पेज लोड नहीं हो पा रहा है",
+        "options": {
+          "placeholder": "Tilecast प्लेसहोल्डर दिखाएँ",
+          "last_success": "अंतिम पृष्ठ को लोड करके रखें",
+          "fallback_image": "फ़ॉलबैक छवि दिखाएँ",
+          "skip": "इस आइटम को छोड़ें"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "फ़ॉलबैक छवि"
+      },
+      "loadTimeoutSeconds": {
+        "label": "लोड टाइमआउट (सेकंड)"
+      },
+      "allowedHosts": {
+        "label": "अनुमत मेज़बान",
+        "description": "सटीक होस्ट नाम जिस पर पेज नेविगेट हो सकता है। पेज के स्वयं के होस्ट को हमेशा अनुमति दी जाती है। यह शीर्ष-स्तरीय नेविगेशन को सीमित करता है, प्रत्येक तृतीय-पक्ष संसाधन को नहीं।"
+      },
+      "javascriptEnabled": {
+        "label": "जावास्क्रिप्ट चलाएँ"
+      },
+      "domStorageEnabled": {
+        "label": "DOM संग्रहण की अनुमति दें"
+      },
+      "cookiePolicy": {
+        "label": "कुकीज़",
+        "options": {
+          "disabled": "विकलांग",
+          "first_party": "केवल प्रथम-पक्ष",
+          "first_and_third_party": "प्रथम- और तृतीय-पक्ष"
+        }
+      },
+      "customUserAgent": {
+        "label": "कस्टम उपयोगकर्ता एजेंट",
+        "description": "Player के मानक उपयोगकर्ता एजेंट के लिए खाली छोड़ें। ओवरराइड से साइटें टूट सकती हैं."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "यूट्यूब वीडियो या प्लेलिस्ट URL",
+        "description": "Tilecast यह पता लगाता है कि यह वीडियो है या प्लेलिस्ट। किसी YouTube API कुंजी की आवश्यकता नहीं है।"
+      },
+      "startSeconds": {
+        "label": "प्रारंभ करें (सेकंड)"
+      },
+      "endSeconds": {
+        "label": "(सेकंड) पर समाप्त करें",
+        "description": "अंत तक खेलने के लिए खाली छोड़ें."
+      },
+      "captions": {
+        "label": "कैप्शन दिखाएँ"
+      },
+      "captionLanguage": {
+        "label": "कैप्शन भाषा",
+        "description": "एक भाषा कोड जैसे en या es. YouTube के डिफ़ॉल्ट के लिए खाली छोड़ दें."
+      },
+      "muted": {
+        "label": "ऑडियो म्यूट करें"
+      },
+      "volume": {
+        "label": "आयतन (%)"
+      },
+      "loop": {
+        "label": "लूप प्लेबैक"
+      },
+      "controls": {
+        "label": "YouTube नियंत्रण दिखाएं"
+      },
+      "playlistPlaybackMode": {
+        "label": "प्लेलिस्ट आइटम की लंबाई",
+        "options": {
+          "until_end": "वीडियो ख़त्म होने तक चलाएं",
+          "fixed_duration": "एक निश्चित अवधि के लिए खेलें"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "निश्चित अवधि (सेकंड)"
+      },
+      "failureBehavior": {
+        "label": "यदि वीडियो नहीं चल पाता है",
+        "options": {
+          "placeholder": "Tilecast प्लेसहोल्डर दिखाएँ",
+          "fallback_image": "फ़ॉलबैक छवि दिखाएँ",
+          "skip": "इस आइटम को छोड़ें"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "फ़ॉलबैक छवि"
+      }
+    }
+  }
+}

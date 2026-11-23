@@ -1,0 +1,546 @@
+{
+  "myAccount": {
+    "title": "Mon compte",
+    "subtitle": "Des paramètres qui vous appartiennent plutôt qu'à l'organisation.",
+    "navLabel": "Sections du compte",
+    "signedInAs": "Connecté en tant que",
+    "sections": {
+      "preferences": {
+        "title": "Préférences",
+        "description": "Paramètres d'apparence et de flux de travail, stockés avec votre compte plutôt que ce navigateur."
+      },
+      "security": {
+        "title": "Sécurité de connexion",
+        "description": "La nécessité ou non d’un deuxième facteur dépend du contexte organisationnel. Ce que vous utilisez pour le satisfaire est votre choix."
+      }
+    }
+  },
+  "roles": {
+    "owner": "Propriétaire",
+    "administrator": "Administrateur",
+    "editor": "Éditeur",
+    "contributor": "Contributeur",
+    "viewer": "Visionneuse",
+    "descriptions": {
+      "owner": "Tout, y compris les sauvegardes et les jetons d'intégration.",
+      "administrator": "Tout sauf les opérations système réservées au propriétaire.",
+      "editor": "Crée du contenu, le publie et gère les écrans et la lecture.",
+      "contributor": "Crée et modifie du contenu, mais ne peut pas publier de mise en page, supprimer quoi que ce soit ou placer du contenu sur un écran.",
+      "viewer": "Lit uniquement."
+    }
+  },
+  "users": {
+    "accessDenied": "Votre rôle n'inclut pas la gestion des personnes.",
+    "addForm": {
+      "title": "Ajouter un utilisateur",
+      "passwordHint": "Les mots de passe doivent contenir au moins 12 caractères.",
+      "nameLabel": "Nom",
+      "usernameLabel": "Nom d'utilisateur",
+      "passwordLabel": "Mot de passe temporaire",
+      "roleLabel": "Rôle",
+      "submit": "Ajouter un utilisateur",
+      "submitting": "Ajout…"
+    },
+    "list": {
+      "loading": "Chargement des utilisateurs…",
+      "status": {
+        "active": "Actif",
+        "inactive": "Inactif"
+      },
+      "lastSignedIn": "Dernière connexion {{date}}",
+      "neverSignedIn": "Jamais connecté",
+      "mfa": {
+        "on": "Vérification en deux étapes sur",
+        "required": "Vérification en deux étapes requise, pas encore inscrit",
+        "off": "Pas de vérification en deux étapes"
+      }
+    },
+    "editDialog": {
+      "title": "Modifier {{name}}",
+      "nameLabel": "Nom",
+      "usernameLabel": "Nom d'utilisateur",
+      "roleLabel": "Rôle",
+      "passwordLabel": "Nouveau mot de passe",
+      "passwordPlaceholder": "Laisser inchangé",
+      "passwordHint": "Au moins 12 caractères.",
+      "activeLabel": "Compte actif",
+      "mfaTitle": "Vérification en deux étapes",
+      "mfaEnrolled": "Ce compte dispose d'une application d'authentification ou d'un mot de passe enregistré.",
+      "mfaNotEnrolled": "Ce compte n'a pas de deuxième facteur inscrit.",
+      "resetConfirmTitle": "Effacer tous les authentifiants, clés d'accès et codes de récupération pour {{name}} ?",
+      "resetConfirmBody": "Ils seront déconnectés partout et devront se réinscrire.",
+      "resetAction": "Réinitialiser",
+      "resetting": "Réinitialisation…",
+      "scopeTitle": "Portée de l'écran",
+      "deactivateTitle": "Désactiver {{name}} ?",
+      "deactivateAction": "Désactiver",
+      "deactivating": "Désactivation…",
+      "deleteTitle": "Supprimer définitivement {{name}} ?",
+      "deleteBody": "Cela supprime leurs identifiants de connexion, leurs préférences et leurs informations de sécurité. Cela ne peut pas être annulé.",
+      "deleteAction": "Supprimer définitivement",
+      "deleting": "Suppression…",
+      "tabsLabel": "Paramètres du compte",
+      "tabs": {
+        "account": "Compte",
+        "role": "Rôle",
+        "content": "Accès au contenu",
+        "screens": "Accès à l'écran"
+      }
+    },
+    "toasts": {
+      "created": "Utilisateur créé.",
+      "updated": "Utilisateur mis à jour.",
+      "disabled": "Utilisateur désactivé.",
+      "deleted": "Utilisateur définitivement supprimé.",
+      "securityReset": "Les facteurs de connexion des utilisateurs sont réinitialisés."
+    },
+    "errors": {
+      "requestFailed": "Tilecast n'a pas pu mettre à jour ce compte."
+    },
+    "roleSelect": {
+      "builtin": "Rôles intégrés",
+      "custom": "Rôles personnalisés"
+    },
+    "access": {
+      "roleTitle": "Rôle",
+      "roleDescription": "Ce que cette personne peut faire dans Studio.",
+      "contentTitle": "Accès au contenu",
+      "contentDescription": "Quels médias cette personne peut atteindre et quels tags elle peut appliquer.",
+      "screensDescription": "Quels écrans cette personne peut atteindre.",
+      "selfNote": "Vous ne pouvez pas modifier votre propre accès. Demandez à un autre administrateur.",
+      "screensTitle": "Accès à l'écran",
+      "screensCreateDescription": "Quels écrans cette personne peut atteindre. Choisissez tous les écrans, ou les emplacements et les groupes d'affichage dans lesquels ils travaillent."
+    }
+  },
+  "security": {
+    "loading": "Chargement de la sécurité de connexion…",
+    "loadError": "La sécurité de connexion n'a pas pu être chargée.",
+    "authenticator": {
+      "title": "Application d'authentification",
+      "description": "Un code à six chiffres provenant d'une application telle que Aegis, Google Authenticator ou 1Password.",
+      "setup": "Configurer",
+      "enrolled": "Inscrit",
+      "notEnrolled": "Non inscrit",
+      "addedOn": "Ajouté {{date}}",
+      "enrollInstruction": "Scannez le code avec votre application d'authentification, puis saisissez le code à six chiffres affiché.",
+      "manualKeyLabel": "Vous ne parvenez pas à numériser ? Saisissez cette clé à la main :",
+      "codeLabel": "Code à six chiffres",
+      "removeTitle": "Supprimer l'authentificateur",
+      "removeDescription": "Confirmez votre mot de passe pour supprimer l'authentificateur de ce compte."
+    },
+    "passkeys": {
+      "title": "Mots-clés",
+      "description": "Connectez-vous avec une empreinte digitale, un visage, un verrouillage d'écran ou une clé de sécurité. Un mot de passe vous connecte seul et compte comme une vérification en deux étapes.",
+      "add": "Ajouter un mot de passe",
+      "unavailableTitle": "Les clés d'accès ne sont pas disponibles sur cette installation.",
+      "browserUnsupported": "Ce navigateur ne prend pas en charge les mots de passe.",
+      "empty": "Pas de mot de passe",
+      "addedOn": "Ajouté {{date}}",
+      "lastUsed": "Dernière utilisation {{date}}",
+      "neverUsed": "Jamais utilisé",
+      "rename": "Renommer",
+      "renameTitle": "Renommer « {{name}} »",
+      "renameHint": "Tilecast l'a nommé d'après l'authentificateur qui l'a créé.",
+      "removeTitle": "Supprimer « {{name}} »",
+      "removeFallbackTitle": "Supprimer le mot de passe",
+      "removeDescription": "Confirmez votre mot de passe pour supprimer ce mot de passe de ce compte.",
+      "notCreated": "Aucun mot de passe n'a été créé.",
+      "selectToRename": "Sélectionnez un mot de passe à renommer.",
+      "selectToRemove": "Sélectionnez un mot de passe à supprimer."
+    },
+    "recovery": {
+      "title": "Codes de récupération",
+      "description": "Codes à usage unique qui vous permettent de vous connecter lorsque vous ne pouvez pas accéder à votre authentifiant ou à votre mot de passe.",
+      "regenerate": "Régénérer",
+      "generate": "Générer",
+      "remaining_one": "{{count}} code inutilisé restant",
+      "remaining_other": "{{count}} codes inutilisés restants",
+      "empty": "Aucun code de récupération",
+      "dialogTitle": "Générer des codes de récupération",
+      "dialogDescription": "Confirmez votre mot de passe pour générer de nouveaux codes. Tous les codes de récupération existants cessent de fonctionner.",
+      "shownOnceTitle": "Ces codes sont affichés une fois.",
+      "shownOnceDescription": "Enregistrez-les dans un endroit sûr maintenant. Tilecast stocke uniquement leurs hachages et ne peut pas les afficher à nouveau.",
+      "copyAll": "Copier tout",
+      "savedConfirm": "je les ai sauvés",
+      "remaining_many": "{{count}} codes inutilisés restants"
+    },
+    "passwordDialog": {
+      "passwordLabel": "Mot de passe du compte"
+    },
+    "errors": {
+      "requestFailed": "Tilecast n'a pas pu terminer la demande."
+    },
+    "qr": {
+      "failed": "Le code QR n'a pas pu être affiché. Entrez plutôt la clé ci-dessous à la main.",
+      "alt": "Code QR de configuration de l'authentificateur"
+    }
+  },
+  "preferences": {
+    "loading": "Chargement des préférences…",
+    "loadError": "Les préférences n'ont pas pu être chargées.",
+    "saved": "Préférences enregistrées.",
+    "leaveWarning": "Quitter mon compte avec des modifications de préférences non enregistrées ?",
+    "conflict": "Ces préférences ont changé ailleurs. Rechargez les dernières préférences avant de sauvegarder.",
+    "appearance": {
+      "title": "Apparence",
+      "description": "Suivez ce navigateur ou forcez Studio à être clair ou sombre.",
+      "system": "Système",
+      "light": "Lumière",
+      "dark": "Sombre"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "La langue que Studio utilise pour vous. Les noms, le contenu et les messages des joueurs ne sont pas traduits.",
+      "system": "Par défaut du navigateur ({{language}})"
+    }
+  },
+  "oauth": {
+    "loading": "Demande d’autorisation de chargement…",
+    "invalidTitle": "La demande d'autorisation n'est pas valide",
+    "invalidDescription": "La demande d'autorisation n'est pas valide.",
+    "title": "Autoriser l'accès",
+    "intro": "« {{client}} » demande à agir dans Tilecast comme vous. Vérifiez l'accès ci-dessous avant d'approuver.",
+    "redirectTitle": "La réponse revient à",
+    "decisionError": "Tilecast n'a pas pu enregistrer la décision.",
+    "approve": "Autoriser",
+    "deny": "Refuser",
+    "grantsLoading": "Chargement des autorisations accordées…",
+    "grantsTitle": "Opérateurs agréés",
+    "grantsDescription": "Opérateurs de bouclage pouvant faire office de compte. La révocation prend effet immédiatement.",
+    "grantsError": "Les autorisations n'ont pas pu être chargées.",
+    "grantsEmpty": "Aucun opérateur n'est autorisé.",
+    "revoked": "Révoqué",
+    "grantedOn": "Accordé {{date}}",
+    "lastUsed": "Dernière utilisation {{date}}",
+    "revoke": "Révoquer",
+    "revokeError": "Tilecast n'a pas pu révoquer la subvention."
+  },
+  "pat": {
+    "title": "Jetons d'accès personnels",
+    "description": "Jetons nommés pour les scripts et l'automatisation. Les jetons expirent toujours ; le secret est révélé une fois lors de la création et plus jamais.",
+    "loading": "Chargement des jetons d'accès personnels…",
+    "error": "Les jetons d'accès personnels n'ont pas pu être chargés.",
+    "empty": "Pas encore de jetons d'accès personnels.",
+    "searchPlaceholder": "Rechercher des jetons par nom…",
+    "nameLabel": "Nom du jeton",
+    "namePlaceholder": "ci-déploiement",
+    "scopesLabel": "Portées",
+    "scope": {
+      "read": "Lire",
+      "write": "Écrire",
+      "admin": "Administrateur"
+    },
+    "lifetimeLabel": "Expire après",
+    "lifetimeDays": "Jours {{count}}",
+    "create": "Créer un jeton",
+    "creating": "Création…",
+    "createError": "Tilecast n'a pas pu créer le jeton.",
+    "createdTitle": "Jeton créé",
+    "createdWarning": "Copiez-le maintenant. Ce secret ne sera plus jamais dévoilé.",
+    "tokenLabel": "Nouveau jeton d'accès personnel",
+    "copy": "Copier",
+    "copied": "Copié",
+    "done": "Terminé",
+    "createdOn": "Créé {{date}}",
+    "expiresIn": "Expire {{date}} · {{count}}d gauche",
+    "expired": "Expiré",
+    "lastUsed": "Dernière utilisation {{date}}",
+    "revoked": "Révoqué",
+    "revoke": "Révoquer",
+    "revokeError": "Tilecast n'a pas pu révoquer le jeton."
+  },
+  "roleAdmin": {
+    "groups": {
+      "media": "Médias",
+      "widgets": "Widgets",
+      "dataSources": "Sources de données",
+      "playlists": "Listes de lecture",
+      "layouts": "Mises en page",
+      "campaigns": "Campagnes",
+      "review": "Révision du contenu",
+      "screens": "Écrans",
+      "schedules": "Horaires",
+      "activity": "Activité",
+      "plugins": "Plugins",
+      "administration": "Administration"
+    },
+    "capabilities": {
+      "media_read": {
+        "label": "Afficher les médias",
+        "description": "Voir les médias de la bibliothèque et leurs détails."
+      },
+      "media_upload": {
+        "label": "Télécharger des médias",
+        "description": "Ajoutez des images et des vidéos."
+      },
+      "media_edit": {
+        "label": "Modifier les détails du média",
+        "description": "Renommez, décrivez, définissez la disponibilité et réessayez le traitement."
+      },
+      "media_organize": {
+        "label": "Déplacer et collecter des médias",
+        "description": "Déplacez les médias entre les dossiers et dans ou hors des collections."
+      },
+      "media_tags_assign": {
+        "label": "Appliquer des balises",
+        "description": "Ajoutez et supprimez des balises sur les médias. L'accès au contenu peut limiter les balises."
+      },
+      "media_archive": {
+        "label": "Archiver et restaurer des médias",
+        "description": "Retirez le média de la rotation et ramenez-le."
+      },
+      "media_delete": {
+        "label": "Supprimer le média",
+        "description": "Supprimez définitivement les médias et supprimez les dossiers, balises ou collections gérés par le rôle."
+      },
+      "media_folders_manage": {
+        "label": "Gérer les dossiers",
+        "description": "Créez, renommez et déplacez des dossiers. A besoin de toute la bibliothèque."
+      },
+      "media_tags_manage": {
+        "label": "Gérer les balises",
+        "description": "Créez et renommez des balises. A besoin de chaque balise."
+      },
+      "media_collections_manage": {
+        "label": "Gérer les collections",
+        "description": "Créez et renommez des collections. A besoin de toute la bibliothèque."
+      },
+      "widget_read": {
+        "label": "Voir Widgets",
+        "description": "Voir Widgets et les sites Web."
+      },
+      "widget_edit": {
+        "label": "Créer et modifier Widgets",
+        "description": "Créez et modifiez Widgets et des sites Web."
+      },
+      "widget_delete": {
+        "label": "Archiver et supprimer Widgets",
+        "description": "Retirez les Widgets de la rotation ou supprimez-les."
+      },
+      "datasource_read": {
+        "label": "Afficher les sources de données",
+        "description": "Voir Sources de données et leurs données."
+      },
+      "datasource_edit": {
+        "label": "Créer et modifier des sources de données",
+        "description": "Connectez des flux, des calendriers, des feuilles de calcul et des données manuelles."
+      },
+      "datasource_manage": {
+        "label": "Gérer les sources de données",
+        "description": "Supprimez les sources de données et créez des formulaires qui collectent les réponses."
+      },
+      "playlist_read": {
+        "label": "Afficher les listes de lecture",
+        "description": "Consultez les playlists et leur historique."
+      },
+      "playlist_edit": {
+        "label": "Modifier les listes de lecture",
+        "description": "Créez des listes de lecture et modifiez les brouillons. Sans publication, les modifications sont soumises à révision."
+      },
+      "playlist_publish": {
+        "label": "Publier des listes de lecture",
+        "description": "Mettez les modifications de la playlist en ligne et restaurez les versions antérieures."
+      },
+      "playlist_delete": {
+        "label": "Supprimer des listes de lecture",
+        "description": "Supprimez les listes de lecture."
+      },
+      "layout_read": {
+        "label": "Afficher les mises en page",
+        "description": "Voir les mises en page et leur historique."
+      },
+      "layout_edit": {
+        "label": "Modifier les mises en page",
+        "description": "Créez des mises en page et modifiez les brouillons. Sans publication, les modifications sont soumises à révision."
+      },
+      "layout_publish": {
+        "label": "Publier des mises en page",
+        "description": "Mettez en ligne les modifications de mise en page et restaurez les versions antérieures."
+      },
+      "layout_delete": {
+        "label": "Supprimer des mises en page",
+        "description": "Supprimer les mises en page."
+      },
+      "campaign_read": {
+        "label": "Afficher les campagnes",
+        "description": "Voir les campagnes et leurs sorties."
+      },
+      "campaign_edit": {
+        "label": "Modifier les campagnes",
+        "description": "Créez des campagnes, modifiez les brouillons et archivez-les."
+      },
+      "campaign_publish": {
+        "label": "Publier des campagnes",
+        "description": "Diffusez les campagnes sur les écrans."
+      },
+      "content_review": {
+        "label": "Examiner les soumissions",
+        "description": "Approuvez, demandez des modifications, planifiez et annulez le contenu soumis."
+      },
+      "screen_read": {
+        "label": "Afficher les écrans",
+        "description": "Consultez les écrans, les groupes d'affichage, l'état, l'affichage en direct et la lecture."
+      },
+      "screen_manage": {
+        "label": "Gérer les écrans",
+        "description": "Modifiez les paramètres d'écran, les groupes, les emplacements, les commandes et les mises à jour Player."
+      },
+      "screen_pair": {
+        "label": "Associer et révoquer les écrans",
+        "description": "Approuvez les nouveaux joueurs et révoquez leurs informations d'identification."
+      },
+      "screen_assign": {
+        "label": "Attribuer du contenu aux écrans",
+        "description": "Choisissez ce qui est diffusé, lancez les prises de contrôle et présentez-le avec AirPlay."
+      },
+      "screen_locations_manage": {
+        "label": "Gérer les emplacements",
+        "description": "Créez, renommez et supprimez des emplacements. Nécessite d’accéder à tous les écrans."
+      },
+      "screen_networks_manage": {
+        "label": "Gérer les réseaux de présentation",
+        "description": "Créez, modifiez et supprimez des définitions de Presentation Network. Nécessite d’accéder à tous les écrans."
+      },
+      "schedule_read": {
+        "label": "Afficher les horaires",
+        "description": "Voir les horaires et ce qu'ils joueront."
+      },
+      "schedule_edit": {
+        "label": "Modifier les horaires",
+        "description": "Créez, modifiez, activez ou désactivez et supprimez des programmes."
+      },
+      "activity_read": {
+        "label": "Afficher l'activité",
+        "description": "Consultez l’état de la flotte, les preuves de jeu, les incidents et les chronologies des écrans."
+      },
+      "activity_audit": {
+        "label": "Afficher l'historique du contenu",
+        "description": "Consultez le journal d’audit des modifications de contenu."
+      },
+      "activity_manage": {
+        "label": "Gérer l'activité",
+        "description": "Consultez le journal d’audit complet, exportez les rapports et mettez à jour les incidents et la conservation."
+      },
+      "plugins_use": {
+        "label": "Utiliser des plugins",
+        "description": "Ouvrez les pages du plugin et parcourez le Plugin Store."
+      },
+      "plugins_manage": {
+        "label": "Gérer les plugins",
+        "description": "Installez, mettez à jour, configurez et supprimez des plugins."
+      },
+      "users_manage": {
+        "label": "Gérer les personnes",
+        "description": "Ajoutez des comptes et définissez leur rôle, leur accès au contenu et leur accès à l'écran."
+      },
+      "roles_manage": {
+        "label": "Gérer les rôles",
+        "description": "Créez et modifiez des rôles personnalisés."
+      },
+      "settings_manage": {
+        "label": "Modifier les paramètres d'installation",
+        "description": "Modifiez les paramètres de l'organisation, la marque et les notifications."
+      },
+      "system_manage": {
+        "label": "Exécuter la maintenance du système",
+        "description": "Consultez l’état du système et effectuez la maintenance."
+      },
+      "system_backups": {
+        "label": "Sauvegardes et restauration",
+        "description": "Créez, téléchargez et restaurez des sauvegardes."
+      },
+      "integrations_manage": {
+        "label": "Jetons d'intégration",
+        "description": "Créez et révoquez des jetons d'intégration."
+      },
+      "player_releases": {
+        "label": "Sorties Player",
+        "description": "Vérifiez, mettez en cache et supprimez les versions de Player."
+      }
+    },
+    "summary": {
+      "none": "Ce rôle n’apporte encore rien."
+    },
+    "page": {
+      "intro": "Un rôle est ce que quelqu'un peut faire. Les rôles intégrés sont fixes ; ajoutez le vôtre pour donner aux gens exactement l'accès dont ils ont besoin au travail.",
+      "createAction": "Créer un rôle",
+      "loading": "Chargement des rôles…",
+      "builtin": "Intégré",
+      "custom": "Personnalisé",
+      "people_one": "Personne {{count}}",
+      "people_other": "Personnes {{count}}",
+      "capabilityCount_one": "Capacité {{count}}",
+      "capabilityCount_other": "Capacités {{count}}",
+      "viewAction": "Voir",
+      "duplicateAction": "Dupliquer",
+      "duplicateLabel": "Dupliquer {{name}} en tant que nouveau rôle",
+      "deleteTitle": "Supprimer le rôle {{name}} ?",
+      "deleteBody": "Personne ne tient ce rôle. Sa suppression est irréversible.",
+      "deleteInUse_one": "La personne {{count}} occupe toujours ce rôle. Déplacez-les d'abord vers un autre rôle.",
+      "deleteInUse_other": "Les personnes de {{count}} occupent toujours ce rôle. Déplacez-les d'abord vers un autre rôle.",
+      "people_many": "Personnes {{count}}",
+      "capabilityCount_many": "Capacités {{count}}",
+      "deleteInUse_many": "Les personnes de {{count}} occupent toujours ce rôle. Déplacez-les d'abord vers un autre rôle."
+    },
+    "toasts": {
+      "created": "Rôle créé.",
+      "updated": "Rôle mis à jour.",
+      "deleted": "Rôle supprimé."
+    },
+    "editor": {
+      "createTitle": "Créer un rôle",
+      "editTitle": "Modifier {{name}}",
+      "description": "Choisissez ce que les personnes occupant ce rôle peuvent faire. L'accès au contenu et à l'écran, défini par personne sur la page Utilisateurs, restreint les endroits où ils peuvent le faire.",
+      "builtinDescription": "Les rôles intégrés ne peuvent pas être modifiés. Dupliquez-en un pour créer un rôle personnalisé à partir de celui-ci.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Par exemple, Médias de classe",
+      "descriptionLabel": "Descriptif",
+      "descriptionPlaceholder": "À qui s'adresse ce rôle",
+      "capabilitiesTitle": "Ce que ce rôle peut faire",
+      "capabilitiesHint": "L'activation d'une action active également ce dont elle a besoin, comme l'affichage avant le téléchargement.",
+      "capabilitiesViewHint": "Tout ce que ce rôle permet, par domaine.",
+      "groupCount": "{{count}} ou {{total}}",
+      "ownerReserved": "Réservé au rôle Propriétaire.",
+      "ownerOnly": "Seul un propriétaire peut l'accorder.",
+      "notYours": "Votre propre rôle n’inclut pas cela.",
+      "createAction": "Créer un rôle",
+      "copyName": "Copie {{name}}"
+    }
+  },
+  "contentAccess": {
+    "ownerNote": "Les propriétaires accèdent toujours à l’ensemble de la bibliothèque et peuvent appliquer chaque balise.",
+    "loadError": "L'accès au contenu n'a pas pu être chargé.",
+    "loading": "Chargement de l'accès au contenu",
+    "roleHasNoMedia": "Le rôle de cette personne n'inclut pas Media ou Widgets, donc l'accès au contenu n'a aucun effet jusqu'à ce que son rôle le fasse.",
+    "notConfigured": "Ce compte n'a pas encore accès au contenu, il ne peut donc voir aucun média. Choisissez l’accès et enregistrez.",
+    "saved": "Accès au contenu enregistré.",
+    "saveAction": "Enregistrer l'accès au contenu",
+    "library": {
+      "legend": "Médiathèque",
+      "description": "Un dossier contient tout ce qu'il contient.",
+      "all": "Bibliothèque entière",
+      "allHint": "Chaque dossier, ainsi que les médias qui ne se trouvent pas dans un dossier.",
+      "restricted": "Uniquement les dossiers sélectionnés",
+      "restrictedHint_one": "Dossier {{count}} sélectionné. Les médias extérieurs, y compris les médias non archivés, restent cachés.",
+      "restrictedHint_other": "Dossiers {{count}} sélectionnés. Les médias extérieurs, y compris les médias non archivés, restent cachés.",
+      "searchLabel": "Rechercher des dossiers",
+      "searchPlaceholder": "Rechercher des dossiers",
+      "noFolders": "Il n'y a pas encore de dossiers. Créez d'abord des dossiers dans Media.",
+      "noMatch": "Aucun dossier ne correspond.",
+      "included": "Inclus",
+      "subtreeNote": "Les téléchargements de cette personne atterrissent dans l'un de ces dossiers.",
+      "emptyNote": "Si aucun dossier n'est sélectionné, cette personne ne peut ni voir ni télécharger aucun média.",
+      "restrictedHint_many": "Dossiers {{count}} sélectionnés. Les médias extérieurs, y compris les médias non archivés, restent cachés."
+    },
+    "tags": {
+      "legend": "Balises qu'ils peuvent appliquer",
+      "description": "Les balises étiquettent les médias, par exemple pour alimenter une liste de lecture basée sur des balises. Ils ne rendent jamais les médias visibles.",
+      "all": "N'importe quelle balise",
+      "restricted": "Seules les balises sélectionnées",
+      "restrictedHint_one": "Balise {{count}} sélectionnée.",
+      "restrictedHint_other": "Balises {{count}} sélectionnées.",
+      "noTags": "Il n'y a pas encore de balises.",
+      "restrictedHint_many": "Balises {{count}} sélectionnées."
+    }
+  }
+}

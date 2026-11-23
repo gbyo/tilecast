@@ -1,0 +1,513 @@
+{
+  "playerRuntime": {
+    "title": "Player सतहें",
+    "allowedSurfaces": "अनुमत सतहें: {{surfaces}}",
+    "priority": "प्राथमिकता स्तर: {{tier}}",
+    "surfaces": {
+      "strip": {
+        "top": "शीर्ष पट्टी",
+        "bottom": "नीचे की पट्टी"
+      },
+      "corner": {
+        "top-left": "शीर्ष बाएँ कोने",
+        "top-right": "शीर्ष दायां कोना",
+        "bottom-left": "निचला बायां कोना",
+        "bottom-right": "निचला दायां कोना"
+      },
+      "overlay": "फ़ुल-स्क्रीन ओवरले"
+    },
+    "tiers": {
+      "emergency": "आपातकाल",
+      "live": "जियो",
+      "scheduled": "अनुसूचित",
+      "ambient": "परिवेश"
+    }
+  },
+  "list": {
+    "title": "प्लगइन्स",
+    "subtitle": "इस इंस्टॉलेशन में वैकल्पिक Tilecast सुविधाएँ और एकीकरण जोड़ें।",
+    "addAction": "प्लगइन जोड़ें",
+    "browseAction": "प्लगइन्स ब्राउज़ करें",
+    "loadError": "प्लगइन्स लोड नहीं किये जा सके.",
+    "unsupportedTitle": "नए Tilecast रिलीज़ से प्लगइन्स",
+    "unsupportedBody_one": "{{ids}} को स्थापित के रूप में रिकॉर्ड किया गया है लेकिन यह इस रिलीज़ का हिस्सा नहीं है। यह नहीं चलेगा, और इसका डेटा नई रिलीज़ के वापस आने तक के लिए रखा जाता है।",
+    "unsupportedBody_other": "{{ids}} स्थापित के रूप में रिकॉर्ड किया गया है लेकिन इस रिलीज़ का हिस्सा नहीं है। वे नहीं चलेंगे और उनका डेटा नई रिलीज़ के वापस आने तक के लिए रखा जाएगा।",
+    "retiredTitle": "प्लगइन्स Tilecast से हटा दिए गए",
+    "retiredBody_one": "{{ids}} को स्थापित के रूप में दर्ज किया गया है लेकिन Tilecast से हटा दिया गया है। यह अब नहीं चलता है, और इसका डेटा रखा जाता है।",
+    "retiredBody_other": "{{ids}} को स्थापित के रूप में रिकॉर्ड किया गया है लेकिन Tilecast से हटा दिया गया है। वे अब नहीं चलते, और उनका डेटा रखा जाता है।",
+    "loading": "प्लगइन लोड हो रहा है",
+    "installedLabel": "स्थापित प्लगइन्स",
+    "emptyTitle": "कोई प्लगइन्स स्थापित नहीं है",
+    "emptyDescription": "केवल वे वैकल्पिक सुविधाएँ जोड़ें जिनकी इस Tilecast स्थापना को आवश्यकता है।",
+    "openAction": "खुला",
+    "openLabel": "{{name}} खोलें"
+  },
+  "status": {
+    "attention": "ध्यान दें",
+    "active": "सक्रिय",
+    "configured": "विन्यस्त",
+    "needsSetup": "सेटअप की आवश्यकता है"
+  },
+  "tabs": {
+    "installed": "स्थापित",
+    "explore": "अन्वेषण करें",
+    "viewsLabel": "प्लगइन दृश्य"
+  },
+  "store": {
+    "title": "प्लगइन्स का अन्वेषण करें",
+    "description": "प्लगइन्स Tilecast और आधिकारिक Tilecast मार्केटप्लेस की लिस्टिंग के साथ शामिल हैं।",
+    "sourceLabel": "स्रोत",
+    "loadError": "यह प्लगइन लोड नहीं किया जा सका.",
+    "emptyTitle": "कोई प्लगइन्स उपलब्ध नहीं है",
+    "emptyDescription": "इन स्रोतों से कोई प्लगइन्स उपलब्ध नहीं हैं।",
+    "sources": {
+      "all": "सभी स्रोत",
+      "included": "Tilecast के साथ शामिल है",
+      "marketplace": "बाज़ार",
+      "custom": "कस्टम"
+    },
+    "featured": {
+      "title": "विशेष रुप से प्रदर्शित",
+      "label": "विशेष रुप से प्रदर्शित प्लगइन्स"
+    },
+    "allPlugins": "सभी प्लगइन्स",
+    "card": {
+      "incompatible": "असंगत",
+      "moreCategories": "+{{count}}"
+    },
+    "notFoundTitle": "प्लगइन नहीं मिला",
+    "notFoundDescription": "यह स्टोर प्रविष्टि इन स्रोतों से उपलब्ध नहीं है।",
+    "backToExplore": "अन्वेषण पर वापस जाएँ",
+    "marketplace": {
+      "staleTitle": "मार्केटप्लेस कैटलॉग पुराना हो सकता है",
+      "staleDescription": "अंतिम उपलब्ध कैटलॉग दिखा रहा है.",
+      "errorTitle": "बाज़ार को ताज़ा नहीं किया जा सका",
+      "refresh": "कैटलॉग ताज़ा करें",
+      "refreshing": "ताज़ा…"
+    },
+    "detail": {
+      "version": "संस्करण {{version}}",
+      "installedVersion": "स्थापित {{version}}",
+      "updateAvailable": "अपडेट उपलब्ध है",
+      "requires": "Tilecast {{range}} की आवश्यकता है",
+      "incompatible": "इस सूची के लिए Tilecast {{range}} की आवश्यकता है, जिसे यह रिलीज़ संतुष्ट नहीं करती है।",
+      "publisher": "प्रकाशक",
+      "license": "लाइसेंस",
+      "links": "कड़ियाँ",
+      "repository": "भण्डार",
+      "documentation": "दस्तावेज़ीकरण",
+      "issues": "अंक ट्रैकर",
+      "officialCatalog": "आधिकारिक Tilecast बाज़ार में सूचीबद्ध।",
+      "featuredLabel": "स्पॉटलाइट",
+      "featured": "विशेष सूची",
+      "categoriesLabel": "श्रेणियाँ",
+      "versionLabel": "संस्करण",
+      "requiresLabel": "आवश्यकता है",
+      "digestLabel": "पाचन",
+      "customNote": "आपके द्वारा चुने गए भंडार से जोड़ा गया। Tilecast इंस्टॉल करने से पहले इसकी रिलीज़ उत्पत्ति की पुष्टि करता है।",
+      "incompatiblePackage": "इस पैकेज के लिए Tilecast {{range}} की आवश्यकता है, जिसे यह रिलीज़ संतुष्ट नहीं करता है।"
+    },
+    "add": {
+      "action": "GitHub से जोड़ें",
+      "title": "एक कस्टम रिपोजिटरी जोड़ें",
+      "description": "सार्वजनिक GitHub रिपॉजिटरी देखें और इंस्टॉल करने से पहले इसकी नवीनतम प्रकाशित रिलीज़ की समीक्षा करें।",
+      "urlLabel": "रिपॉजिटरी URL",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "ऊपर देखो",
+      "resolving": "ऊपर देख रहे हैं...",
+      "install": "पैकेज स्थापित करें",
+      "installing": "इंस्टाल किया जा रहा है..."
+    },
+    "review": {
+      "release": "रिहाई",
+      "published": "प्रकाशित",
+      "provenance": "उद्गम",
+      "signedBy": "{{signer}} द्वारा हस्ताक्षरित",
+      "verified": "सत्यापित",
+      "unsigned": "अहस्ताक्षरित - केवल विकास स्थापित होता है",
+      "contributions": "योगदान",
+      "noContributions": "कोई सूचीबद्ध नहीं",
+      "runtime": "सर्वर मॉड्यूल",
+      "networkHosts": "आउटबाउंड HTTPS होस्ट",
+      "backgroundJobs": "पृष्ठभूमि नौकरियाँ",
+      "jobSchedule": "{{id}} · प्रत्येक {{minutes}} मिनट",
+      "storage": "निजी भंडारण",
+      "storageGranted": "मान लिया",
+      "studioInterface": "Studio इंटरफ़ेस",
+      "installNote": "इंस्टालेशन इस रिपॉजिटरी को पैकेज से बांधता है, इसलिए अपडेट चेक इसे फिर से हल करता है।",
+      "catalogInstallNote": "मार्केटप्लेस सूची अद्यतन स्तर पर बनी रहती है, इसलिए अद्यतन जांच इसे दोबारा पढ़ती है।"
+    }
+  },
+  "catalog": {
+    "back": "सभी प्लगइन्स",
+    "reviewDescription": "इसे स्थापित करने से पहले {{name}} की समीक्षा करें।",
+    "installed": "स्थापित",
+    "install": "स्थापित करें",
+    "reviewInstall": "समीक्षा करें और इंस्टॉल करें",
+    "installNote": "कोई स्वामी या व्यवस्थापक प्लगइन्स इंस्टॉल कर सकता है.",
+    "title": "एक प्लगइन जोड़ें",
+    "description": "इस Tilecast रिलीज़ में वैकल्पिक सुविधाएँ निर्मित हैं। किसी को इंस्टॉल करने से कभी भी कोड डाउनलोड नहीं होता।",
+    "searchLabel": "प्लगइन्स खोजें",
+    "searchPlaceholder": "प्लगइन्स खोजें…",
+    "categoryLabel": "प्लगइन श्रेणी",
+    "categories": {
+      "all": "सब",
+      "display": "प्रदर्शन",
+      "automation": "स्वचालन",
+      "workflow": "कार्यप्रवाह",
+      "hardware": "हार्डवेयर"
+    },
+    "emptySearchTitle": "कोई मेल खाता प्लगइन नहीं",
+    "emptyInstalledTitle": "प्रत्येक प्लगइन स्थापित है",
+    "emptySearchDescription": "कोई अन्य खोज या श्रेणी आज़माएँ.",
+    "emptyInstalledDescription": "यह इंस्टॉलेशन पहले से ही इस रिलीज़ द्वारा ऑफ़र किए गए प्रत्येक प्लगइन का उपयोग करता है।",
+    "requires": "{{list}} की आवश्यकता है"
+  },
+  "detail": {
+    "builtIn": "Tilecast में निर्मित",
+    "requirements": "आवश्यकताएँ",
+    "noRequirements": "कोई Player या नेटवर्क आवश्यकताएँ नहीं।",
+    "uses": "उपयोग"
+  },
+  "actionsMenu": {
+    "menuLabel": "{{name}} प्लगइन क्रियाएँ",
+    "remove": "प्लगइन हटाएँ",
+    "blockedTitle": "{{name}} को हटाया नहीं जा सकता",
+    "viewLabel": "{{label}} देखें",
+    "removeTitle": "{{name}} हटाएं?",
+    "removeDescription": "{{name}} इस इंस्टॉलेशन की प्लगइन्स सूची को छोड़ देता है और स्क्रीन को प्रभावित करना बंद कर देता है। आप इसे किसी भी समय दोबारा जोड़ सकते हैं.",
+    "blockedEmpty": "यह प्लगइन अभी भी उपयोग में है.",
+    "blockedSentence_one": "{{list}} अभी भी इस प्लगइन का उपयोग करता है।",
+    "blockedSentence_other": "{{list}} अभी भी इस प्लगइन का उपयोग करता है।",
+    "blockedWait": "{{labels}} के साफ़ होने तक प्रतीक्षा करें, फिर प्लगइन हटा दें।",
+    "blockedDisable": "इस पेज पर {{disable}} को बंद करें, फिर प्लगइन हटा दें।",
+    "blockedDelete": "इस पृष्ठ पर शेष {{labels}} हटाएं, फिर प्लगइन हटा दें।",
+    "blockedDisableDelete": "{{disable}} को बंद करें और इस पृष्ठ पर शेष {{labels}} को हटा दें, फिर प्लगइन को हटा दें।"
+  },
+  "gate": {
+    "notInstalled": "{{name}} स्थापित नहीं है",
+    "installDescription": "इसका उपयोग शुरू करने के लिए {{name}} इंस्टॉल करें। {{description}}",
+    "lockedDescription": "{{description}} कोई स्वामी या प्रशासक इसे स्थापित कर सकता है।",
+    "installAction": "{{name}} स्थापित करें",
+    "backToPlugins": "प्लगइन्स पर वापस जाएँ"
+  },
+  "shared": {
+    "scope": {
+      "all": "सभी स्क्रीन",
+      "screens": "व्यक्तिगत स्क्रीन",
+      "syncGroups": "प्रदर्शन समूह",
+      "locations": "स्थान"
+    },
+    "targetType": "लक्ष्य प्रकार",
+    "chooseTargets": "लक्ष्य चुनें",
+    "available": "उपलब्ध {{noun}}",
+    "selectedCount": "{{total}} में से {{chosen}} चयनित",
+    "nouns": {
+      "screens": "स्क्रीन",
+      "syncGroups": "प्रदर्शन समूह",
+      "locations": "स्थान"
+    },
+    "empty": {
+      "screens": "अभी तक कोई स्क्रीन नामांकित नहीं है.",
+      "syncGroups": "अभी तक कोई प्रदर्शन समूह मौजूद नहीं है.",
+      "locations": "अभी तक कोई स्थान मौजूद नहीं है."
+    },
+    "loadingNoun": "{{noun}} लोड हो रहा है...",
+    "loadErrorNoun": "{{noun}} लोड नहीं किया जा सका.",
+    "backToPlugins": "प्लगइन्स",
+    "manageNote": "परिवर्तन करने के लिए स्वामी या प्रशासक की पहुंच आवश्यक है।",
+    "newInstance": "नया उदाहरण",
+    "createInstance": "उदाहरण बनाएँ",
+    "manage": "प्रबंधित करें",
+    "deleteTitle": "\"{{name}}\" हटाएं?",
+    "deleteAction": "{{name}} हटाएं",
+    "nameLabel": "नाम",
+    "priorityLabel": "प्राथमिकता",
+    "enabledLabel": "सक्षम",
+    "enabledBadge": "सक्षम",
+    "disabledBadge": "विकलांग",
+    "targetsSection": "लक्ष्य"
+  },
+  "weekdays": {
+    "sunday": {
+      "short": "रवि"
+    },
+    "monday": {
+      "short": "सोम"
+    },
+    "tuesday": {
+      "short": "मंगल"
+    },
+    "wednesday": {
+      "short": "बुध"
+    },
+    "thursday": {
+      "short": "गुरु"
+    },
+    "friday": {
+      "short": "शुक्र"
+    },
+    "saturday": {
+      "short": "शनि"
+    }
+  },
+  "history": {
+    "backLink": "शोर मीटर",
+    "titleFallback": "शोर मीटर",
+    "subtitle": "माप को खिलाड़ी ने स्थानीय रूप से रिकॉर्ड किया और अपने सामान्य दिल की धड़कन पर वितरित किया।",
+    "privacyNotice": "शोर इतिहास ग्राफ़ और रिपोर्ट के लिए सापेक्ष शोर-स्तर माप संग्रहीत करता है। Tilecast कभी भी माइक्रोफ़ोन ऑडियो रिकॉर्ड या संग्रहीत नहीं करता है। स्तर प्रत्येक खिलाड़ी के अपने माइक्रोफ़ोन से संबंधित होते हैं और कैलिब्रेटेड डेसीबल माप नहीं होते हैं।",
+    "rangeLabel": "तिथि सीमा",
+    "ranges": {
+      "today": "आज",
+      "yesterday": "कल",
+      "sevenDays": "7 दिन",
+      "thirtyDays": "30 दिन"
+    },
+    "screenLabel": "स्क्रीन",
+    "allScreens": "सभी स्क्रीन (संयुक्त)",
+    "screenHint": "स्तर प्रत्येक खिलाड़ी के अपने माइक्रोफ़ोन से संबंधित होते हैं, इसलिए स्क्रीन की तुलना सावधानी से की जाती है।",
+    "exportLabel": "निर्यात करें",
+    "granularity": {
+      "raw": "10 सेकंड का रिकॉर्ड",
+      "minute": "1 मिनट का सारांश",
+      "daily": "दैनिक सारांश"
+    },
+    "exportTitle": "चयनित रेंज और स्क्रीन निर्यात करें",
+    "exportAction": "सीएसवी निर्यात करें",
+    "loadError": "इतिहास लोड नहीं किया जा सका.",
+    "showingSingle": "<strong>{{name}}</strong> दिखाया जा रहा है।",
+    "combining": "{{count}} स्क्रीन का संयोजन। प्रत्येक खिलाड़ी का स्तर उसके अपने माइक्रोफ़ोन से आता है, इसलिए कमरों की तुलना करने के बजाय एक संयुक्त दृश्य समूह का वर्णन करता है।",
+    "emptyTitle": "इस सीमा में कोई माप नहीं",
+    "emptyDescription": "इतिहास तब प्रकट होता है जब एक लक्षित लिनक्स प्लेयर माप रहा होता है और दिल की धड़कन देता है।",
+    "chartTitle": "समय के साथ शोर का स्तर",
+    "chartDescription": "औसत और शिखर, इस मीटर की अपनी सीमा के विरुद्ध। बिना किसी निगरानी वाले अवधियों को खाली छोड़ दिया जाता है।",
+    "chartEmpty": "अभी तक कोई माप नहीं निकालना है.",
+    "chart": {
+      "aria": "समय के साथ शोर का स्तर। चेतावनी स्तर {{warning}}, बहुत तेज़ स्तर {{loud}}।",
+      "ariaLabel": "शोर स्तर इतिहास चार्ट",
+      "description": "औसत और चरम शोर स्तर समय के साथ दिखाए जाते हैं। अंतराल बिना किसी निगरानी के अवधियों को दर्शाते हैं। चेतावनी सीमा {{warning}} है; बहुत तेज़ सीमा {{loud}} है।",
+      "average": "औसत",
+      "peak": "शिखर",
+      "warning": "चेतावनी {{level}}",
+      "tooLoud": "बहुत तेज़ {{level}}"
+    },
+    "dailyTitle": "दैनिक तुलना",
+    "dailyDescription": "बिना निगरानी वाले दिनों को मौन के रूप में दिखाए जाने के बजाय छोड़ दिया जाता है।",
+    "dailyMeasureLabel": "दैनिक माप",
+    "measures": {
+      "average": "औसत स्तर",
+      "loud": "समय बहुत जोर से है",
+      "events": "चेतावनी घटनाएँ"
+    },
+    "dailyEmpty": "माप के लिए अभी कोई दिन नहीं हैं।",
+    "summary": {
+      "averageLabel": "औसत शोर स्तर",
+      "averageHint": "सापेक्ष, डेसीबल नहीं",
+      "peakLabel": "चरम शोर स्तर",
+      "loudLabel": "समय बहुत जोर से है",
+      "eventsLabel": "चेतावनी घटनाएँ",
+      "eventsHint": "टाइम्स बार दिखाई दिया",
+      "normalLabel": "समय सामान्य सीमा में",
+      "warningLabel": "चेतावनी सीमा में समय",
+      "longestLabel": "सबसे लंबा निरंतर बहुत तेज़",
+      "loudestLabel": "सबसे तेज़ 15 मिनट",
+      "monitoredLabel": "निगरानी का समय"
+    }
+  },
+  "packages": {
+    "title": "विस्तार पैकेज",
+    "manageTitle": "संस्थापित पैकेज",
+    "loadError": "स्थापित पैकेज लोड नहीं किया जा सका.",
+    "contributions": "योगदान",
+    "checkUpdate": "अद्यतन के लिए जाँच करें",
+    "upToDate": "यह पैकेज अद्यतित है.",
+    "updateTo": "{{version}} पर अपडेट करें",
+    "rollback": "पिछला संस्करण पुनर्स्थापित करें",
+    "remove": "पैकेज हटाएँ",
+    "removeConfirmTitle": "यह पैकेज हटाएँ?",
+    "removeConfirmBody": "यह {{packageId}} की स्थापना और उसके योगदान को हटा देता है। एक कस्टम रिपॉजिटरी बाइंडिंग पुनः स्थापित करने के लिए बची रहती है।",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "शेष सामग्री हटाएँ, फिर पुनः प्रयास करें।",
+    "addedContributions": "इस संस्करण में नया",
+    "removedContributions": "इस संस्करण में हटा दिया गया",
+    "removedWarning": "अपडेट करने से कुछ भी नहीं हटता: यदि कुछ भी अभी भी हटाए गए योगदान का उपयोग करता है, तो अपडेट तब तक प्रतीक्षा करता है जब तक आप उसे हटा नहीं देते।",
+    "studioTitle": "पैकेज इंटरफ़ेस",
+    "studioUnavailable": "पैकेज इंटरफ़ेस लोड नहीं किया जा सका.",
+    "jobsTitle": "पृष्ठभूमि नौकरियाँ",
+    "jobsLoadError": "पृष्ठभूमि नौकरियाँ लोड नहीं की जा सकीं.",
+    "jobEvery": "प्रत्येक {{minutes}} मिनट",
+    "jobNext": "अगला भाग",
+    "jobNever": "कभी मत भागो",
+    "jobOk": "सफल हुआ",
+    "jobFailed": "असफल",
+    "jobFailures": "{{count}} लगातार विफलताएँ"
+  },
+  "storeDetail": {
+    "by": "{{publisher}} द्वारा",
+    "byLinked": "<publisher>{{publisher}}</publisher> द्वारा",
+    "publisherLinkLabel": "{{publisher}}, रिपॉजिटरी (एक नए टैब में खुलता है)",
+    "publisherSiteLinkLabel": "{{publisher}}, वेबसाइट (एक नए टैब में खुलती है)",
+    "badgesLabel": "प्लगइन विवरण",
+    "sourceBadge": {
+      "included": "सम्मिलित",
+      "marketplace": "बाज़ार",
+      "custom": "कस्टम"
+    },
+    "incompatible": {
+      "title": "इस Tilecast संस्करण के साथ संगत नहीं है",
+      "body": "इस प्लगइन के लिए Tilecast {{range}} की आवश्यकता है।"
+    },
+    "about": {
+      "title": "के बारे में",
+      "cardTitle": "इस पैकेज के बारे में",
+      "customTitle": "कस्टम पैकेज",
+      "customNotice": "मार्केटप्लेस द्वारा समीक्षा या क्यूरेट नहीं किया गया।",
+      "noDownload": "कोई बाहरी पैकेज डाउनलोड नहीं किया गया है. यह प्लगइन इस Tilecast रिलीज़ के अंदर आता है।",
+      "source": "स्रोत",
+      "marketplaceSource": "आधिकारिक Tilecast बाज़ार",
+      "customSource": "कस्टम GitHub रिपॉजिटरी",
+      "provenance": "उद्गम",
+      "verified": "सत्यापित रिलीज़ उद्गम",
+      "verifiedOnInstall": "इंस्टॉल करते समय सत्यापित किया गया",
+      "reportIssue": "किसी समस्या की रिपोर्ट करें"
+    },
+    "adds": {
+      "title": "यह प्लगइन क्या जोड़ता है",
+      "pending": "कुछ भी इंस्टॉल करने से पहले, यह जो कुछ जोड़ता है उसे इंस्टॉल समीक्षा में सूचीबद्ध किया जाता है।",
+      "none": "यह पैकेज Studio में कुछ भी नहीं जोड़ता है।"
+    },
+    "kinds": {
+      "widget": "Widget",
+      "dataSource": "डेटा स्रोत",
+      "plugin": "प्लगइन"
+    },
+    "kindDescriptions": {
+      "widget": "एक विजेट जोड़ता है जिसे आप लेआउट में रख सकते हैं।",
+      "dataSource": "संगत विजेट्स को डेटा आपूर्ति करता है।",
+      "plugin": "Studio में अपने पेजों के साथ एक प्लगइन जोड़ता है।",
+      "other": "Studio में सामग्री जोड़ता है।"
+    },
+    "permissions": {
+      "title": "अनुमतियाँ और व्यवहार",
+      "pending": "कुछ भी इंस्टॉल करने से पहले, अनुरोधित अनुमतियाँ इंस्टॉल समीक्षा में सूचीबद्ध की जाती हैं।",
+      "noneTitle": "कोई विशेष अनुमति नहीं",
+      "noneBody": "यह प्लगइन नेटवर्क एक्सेस, स्थानीय स्टोरेज, बैकग्राउंड जॉब, एक कस्टम Studio इंटरफ़ेस, या Tilecast सेवाओं का अनुरोध नहीं करता है।"
+    },
+    "capabilities": {
+      "network": {
+        "title": "नेटवर्क पहुंच",
+        "body": "इससे जुड़ सकते हैं:"
+      },
+      "storage": {
+        "title": "स्थानीय भंडारण",
+        "body": "इस प्लगइन का अपना डेटा Tilecast सर्वर पर स्टोर करता है।"
+      },
+      "background": {
+        "title": "पृष्ठभूमि गतिविधि",
+        "body_one": "{{count}} निर्धारित कार्य चलाता है।",
+        "body_other": "{{count}} निर्धारित कार्य चलाता है।"
+      },
+      "realtime": {
+        "title": "उच्च-आवृत्ति पृष्ठभूमि गतिविधि",
+        "body": "हर कुछ सेकंड में एक बाउंडेड बैकग्राउंड जॉब चलाता है, जिसमें Studio बंद होना भी शामिल है।"
+      },
+      "studioUI": {
+        "title": "Studio इंटरफ़ेस",
+        "body": "Studio में अपना स्वयं का कॉन्फ़िगरेशन इंटरफ़ेस जोड़ता है।"
+      },
+      "service": {
+        "version": "संस्करण {{version}}",
+        "operationMutating": "{{title}} (डेटा बदलता है)",
+        "categories": {
+          "read": "पढ़ें",
+          "directory": "निर्देशिका",
+          "manage": "प्रबंधित करें",
+          "audit": "लेखापरीक्षा"
+        }
+      }
+    },
+    "requirements": {
+      "title": "आवश्यकताएँ"
+    },
+    "status": {
+      "title": "पैकेज की स्थिति",
+      "compatible": "इस सर्वर के साथ संगत",
+      "incompatible": "इस सर्वर के साथ संगत नहीं है",
+      "notCompatible": "संगत नहीं",
+      "upToDate": "अद्यतित · {{version}}",
+      "notInstalled": "स्थापित नहीं",
+      "installedOn": "स्थापित {{date}}"
+    },
+    "update": {
+      "check": "अपडेट के लिए जांचें",
+      "review": "अद्यतन की समीक्षा करें",
+      "checkAgain": "दोबारा जांचें"
+    },
+    "technical": {
+      "title": "तकनीकी विवरण",
+      "packageId": "पैकेज आईडी",
+      "registry": "रजिस्ट्री",
+      "signer": "हस्ताक्षरकर्ता",
+      "releaseTag": "टैग जारी करें",
+      "runtime": "रनटाइम मॉड्यूल",
+      "source": "स्रोत",
+      "contributions": "योगदान",
+      "jobIds": "पृष्ठभूमि नौकरी आईडी"
+    },
+    "screenshots": {
+      "title": "स्क्रीनशॉट",
+      "slide": "{{total}} का स्क्रीनशॉट {{current}}",
+      "open": "स्क्रीनशॉट बड़ा करें: {{alt}}",
+      "unavailable": "स्क्रीनशॉट अनुपलब्ध",
+      "lightboxTitle": "{{total}} का स्क्रीनशॉट {{current}}",
+      "previous": "पिछला स्क्रीनशॉट",
+      "next": "अगला स्क्रीनशॉट",
+      "position": "{{total}} का {{current}}"
+    },
+    "review": {
+      "installTitle": "{{name}} की समीक्षा करें",
+      "installDescription": "इंस्टॉल होने से पहले जांचें कि यह प्लगइन क्या जोड़ता है और यह क्या कर सकता है।",
+      "updateTitle": "{{name}} को अपडेट करें",
+      "updateDescription": "इसे लागू करने से पहले समीक्षा करें कि संस्करण {{version}} में क्या परिवर्तन हुए हैं।",
+      "confirmInstall": "प्लगइन इंस्टॉल करें",
+      "verification": "सत्यापन",
+      "contributionChanges": "यह जो जोड़ता है उसमें परिवर्तन करता है",
+      "noContributionChanges": "इस पैकेज में जो कुछ भी जोड़ा गया है उसमें कोई बदलाव नहीं है।",
+      "permissionChanges": "अनुमतियों में परिवर्तन",
+      "noPermissionChanges": "अनुमतियाँ अपरिवर्तित हैं.",
+      "permissionsAdded": "नई अनुमतियाँ",
+      "permissionsChanged": "अनुमतियाँ बदल दी गईं",
+      "permissionsRemoved": "अनुमतियाँ हटा दी गईं",
+      "previously": "पहले: {{value}}",
+      "versionChange": "{{from}} से {{to}} तक"
+    },
+    "settings": {
+      "title": "प्लगइन सेटिंग्स",
+      "description": "Tilecast को छोड़े बिना इस प्लगइन को कॉन्फ़िगर करें।"
+    },
+    "jobs": {
+      "description": "यह प्लगइन Tilecast सर्वर पर एक शेड्यूल पर चलता है।",
+      "lastRun": "अंतिम रन {{when}} · {{status}}",
+      "lastFailed": "अंतिम असफल रन {{when}}",
+      "successful": "सफल",
+      "nextRun": "अगला रन {{when}}"
+    },
+    "cadence": {
+      "minute": "हर मिनट",
+      "hour": "हर घंटे",
+      "day": "हर दिन",
+      "every": "प्रत्येक {{interval}}"
+    },
+    "danger": {
+      "title": "ख़तरे का क्षेत्र",
+      "removeTitle": "इस प्लगइन को हटा दें",
+      "removeBody": "हटाने से यह पैकेज इंस्टालेशन और इसमें जो कुछ भी जोड़ा गया है वह मिट जाता है। अभी भी इसका उपयोग करने वाली सामग्री को पहले हटाया जाना चाहिए।"
+    },
+    "management": {
+      "title": "पैकेज प्रबंधन",
+      "rollbackBody": "अंतिम अद्यतन से पहले सक्रिय संस्करण पर वापस जाएँ।",
+      "confirmTitle": "पिछला संस्करण पुनर्स्थापित करें?",
+      "confirmBody": "{{name}} उस संस्करण पर वापस जाता है जो अंतिम अपडेट से पहले सक्रिय था। यदि सामग्री अभी भी नए संस्करण में जोड़ी गई किसी चीज़ का उपयोग करती है, तो पुनर्स्थापना तब तक प्रतीक्षा करती है जब तक आप उस सामग्री को हटा नहीं देते।"
+    }
+  }
+}

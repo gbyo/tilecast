@@ -1,0 +1,513 @@
+{
+  "playerRuntime": {
+    "title": "Player-এর সারফেস",
+    "allowedSurfaces": "অনুমোদিত সারফেস: {{surfaces}}",
+    "priority": "অগ্রাধিকারের স্তর: {{tier}}",
+    "surfaces": {
+      "strip": {
+        "top": "ওপরের বার",
+        "bottom": "নিচের বার"
+      },
+      "corner": {
+        "top-left": "ওপরের বাঁ কোণা",
+        "top-right": "ওপরের ডান কোণা",
+        "bottom-left": "নিচের বাঁ কোণা",
+        "bottom-right": "নিচের ডান কোণা"
+      },
+      "overlay": "পূর্ণস্ক্রিন ওভারলে"
+    },
+    "tiers": {
+      "emergency": "জরুরি",
+      "live": "লাইভ",
+      "scheduled": "সময় নির্ধারিত",
+      "ambient": "পরিবেশগত"
+    }
+  },
+  "list": {
+    "title": "প্লাগইন",
+    "subtitle": "এই Tilecast ইনস্টলেশনে ঐচ্ছিক ফিচার ও ইন্টিগ্রেশন যোগ করুন।",
+    "addAction": "প্লাগইন যোগ করুন",
+    "browseAction": "প্লাগইন দেখুন",
+    "loadError": "প্লাগইন লোড করা যায়নি।",
+    "unsupportedTitle": "নতুন Tilecast রিলিজের প্লাগইন",
+    "unsupportedBody_one": "{{ids}} ইনস্টল করা হিসেবে নথিভুক্ত, তবে এই রিলিজে নেই। এটি চলবে না; নতুন রিলিজে ফিরে এলে ব্যবহারের জন্য এর ডেটা রাখা হয়েছে।",
+    "unsupportedBody_other": "{{ids}} ইনস্টল করা হিসেবে নথিভুক্ত, তবে এই রিলিজে নেই। এগুলো চলবে না; নতুন রিলিজে ফিরে এলে ব্যবহারের জন্য ডেটা রাখা হয়েছে।",
+    "retiredTitle": "Tilecast থেকে সরানো প্লাগইন",
+    "retiredBody_one": "{{ids}} ইনস্টল করা হিসেবে নথিভুক্ত, তবে Tilecast থেকে সরানো হয়েছে। এটি আর চলবে না, তবে ডেটা রাখা হয়েছে।",
+    "retiredBody_other": "{{ids}} ইনস্টল করা হিসেবে নথিভুক্ত, তবে Tilecast থেকে সরানো হয়েছে। এগুলো আর চলবে না, তবে ডেটা রাখা হয়েছে।",
+    "loading": "প্লাগইন লোড হচ্ছে",
+    "installedLabel": "ইনস্টল করা প্লাগইন",
+    "emptyTitle": "কোনো প্লাগইন ইনস্টল নেই",
+    "emptyDescription": "এই Tilecast ইনস্টলেশনের প্রয়োজনীয় ঐচ্ছিক ফিচারগুলোই যোগ করুন।",
+    "openAction": "খুলুন",
+    "openLabel": "{{name}} খুলুন"
+  },
+  "status": {
+    "attention": "মনোযোগ প্রয়োজন",
+    "active": "সক্রিয়",
+    "configured": "কনফিগার করা",
+    "needsSetup": "সেটআপ প্রয়োজন"
+  },
+  "tabs": {
+    "installed": "ইনস্টল করা",
+    "explore": "দেখুন",
+    "viewsLabel": "প্লাগইনের দৃশ্য"
+  },
+  "store": {
+    "title": "প্লাগইন দেখুন",
+    "description": "Tilecast-এ থাকা প্লাগইন এবং সরকারি Tilecast Marketplace-এর তালিকা।",
+    "sourceLabel": "উৎস",
+    "loadError": "এই প্লাগইন লোড করা যায়নি।",
+    "emptyTitle": "কোনো প্লাগইন উপলভ্য নেই",
+    "emptyDescription": "এই উৎসগুলো থেকে কোনো প্লাগইন পাওয়া যাচ্ছে না।",
+    "sources": {
+      "all": "সব উৎস",
+      "included": "Tilecast-এ অন্তর্ভুক্ত",
+      "marketplace": "Marketplace",
+      "custom": "নিজস্ব"
+    },
+    "featured": {
+      "title": "বিশেষভাবে দেখানো",
+      "label": "বিশেষ প্লাগইন"
+    },
+    "allPlugins": "সব প্লাগইন",
+    "card": {
+      "incompatible": "সামঞ্জস্যপূর্ণ নয়",
+      "moreCategories": "আরও {{count}}টি"
+    },
+    "notFoundTitle": "প্লাগইন পাওয়া যায়নি",
+    "notFoundDescription": "এই উৎসগুলোতে স্টোরের এন্ট্রি নেই।",
+    "backToExplore": "দেখার পাতায় ফিরুন",
+    "marketplace": {
+      "staleTitle": "Marketplace-এর ক্যাটালগ পুরোনো হতে পারে",
+      "staleDescription": "সর্বশেষ উপলভ্য ক্যাটালগ দেখানো হচ্ছে।",
+      "errorTitle": "Marketplace রিফ্রেশ করা যায়নি",
+      "refresh": "ক্যাটালগ রিফ্রেশ করুন",
+      "refreshing": "রিফ্রেশ হচ্ছে…"
+    },
+    "detail": {
+      "version": "সংস্করণ {{version}}",
+      "installedVersion": "ইনস্টল করা {{version}}",
+      "updateAvailable": "আপডেট উপলভ্য",
+      "requires": "Tilecast {{range}} প্রয়োজন",
+      "incompatible": "এই তালিকার জন্য Tilecast {{range}} দরকার, যা এই রিলিজে নেই।",
+      "publisher": "প্রকাশক",
+      "license": "লাইসেন্স",
+      "links": "লিংক",
+      "repository": "রিপোজিটরি",
+      "documentation": "নথি",
+      "issues": "সমস্যা ট্র্যাকার",
+      "officialCatalog": "সরকারি Tilecast Marketplace-এ তালিকাভুক্ত।",
+      "featuredLabel": "বিশেষভাবে দেখানো",
+      "featured": "বিশেষ তালিকা",
+      "categoriesLabel": "বিভাগ",
+      "versionLabel": "সংস্করণ",
+      "requiresLabel": "প্রয়োজন",
+      "digestLabel": "ডাইজেস্ট",
+      "customNote": "আপনার বেছে নেওয়া রিপোজিটরি থেকে যোগ করা হয়েছে। ইনস্টল করার আগে Tilecast রিলিজের উৎস যাচাই করে।",
+      "incompatiblePackage": "এই প্যাকেজের জন্য Tilecast {{range}} দরকার, যা এই রিলিজে নেই।"
+    },
+    "add": {
+      "action": "GitHub থেকে যোগ করুন",
+      "title": "নিজস্ব রিপোজিটরি যোগ করুন",
+      "description": "একটি সর্বজনীন GitHub রিপোজিটরি খুঁজে ইনস্টল করার আগে সর্বশেষ প্রকাশিত রিলিজ পর্যালোচনা করুন।",
+      "urlLabel": "রিপোজিটরির URL",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "খুঁজুন",
+      "resolving": "খোঁজা হচ্ছে…",
+      "install": "প্যাকেজ ইনস্টল করুন",
+      "installing": "ইনস্টল হচ্ছে…"
+    },
+    "review": {
+      "release": "রিলিজ",
+      "published": "প্রকাশিত",
+      "provenance": "উৎস যাচাই",
+      "signedBy": "{{signer}} স্বাক্ষর করেছেন",
+      "verified": "যাচাইকৃত",
+      "unsigned": "স্বাক্ষর নেই — শুধু ডেভেলপমেন্ট ইনস্টলে",
+      "contributions": "অবদান",
+      "noContributions": "কিছু তালিকাভুক্ত নেই",
+      "runtime": "Server মডিউল",
+      "networkHosts": "বহির্গামী HTTPS হোস্ট",
+      "backgroundJobs": "ব্যাকগ্রাউন্ড কাজ",
+      "jobSchedule": "{{id}} · প্রতি {{minutes}} মিনিটে",
+      "storage": "ব্যক্তিগত স্টোরেজ",
+      "storageGranted": "অনুমোদিত",
+      "studioInterface": "Studio ইন্টারফেস",
+      "installNote": "ইনস্টল করলে এই রিপোজিটরি প্যাকেজের সঙ্গে যুক্ত হয়, তাই আপডেট যাচাইয়ের সময় আবার খোঁজা হয়।",
+      "catalogInstallNote": "Marketplace তালিকাই আপডেটের উৎস থাকে, তাই আপডেট যাচাইয়ের সময় সেটি আবার পড়া হয়।"
+    }
+  },
+  "catalog": {
+    "back": "সব প্লাগইন",
+    "reviewDescription": "ইনস্টল করার আগে {{name}} পর্যালোচনা করুন।",
+    "installed": "ইনস্টল করা",
+    "install": "ইনস্টল করুন",
+    "reviewInstall": "পর্যালোচনা ও ইনস্টল",
+    "installNote": "মালিক বা প্রশাসক প্লাগইন ইনস্টল করতে পারেন।",
+    "title": "প্লাগইন যোগ করুন",
+    "description": "এই Tilecast রিলিজে থাকা ঐচ্ছিক ফিচার। ইনস্টল করলে কোনো কোড ডাউনলোড হয় না।",
+    "searchLabel": "প্লাগইন খুঁজুন",
+    "searchPlaceholder": "প্লাগইন খুঁজুন…",
+    "categoryLabel": "প্লাগইনের বিভাগ",
+    "categories": {
+      "all": "সব",
+      "display": "ডিসপ্লে",
+      "automation": "অটোমেশন",
+      "workflow": "কাজের ধারা",
+      "hardware": "হার্ডওয়্যার"
+    },
+    "emptySearchTitle": "কোনো মেলা প্লাগইন নেই",
+    "emptyInstalledTitle": "সব প্লাগইন ইনস্টল করা",
+    "emptySearchDescription": "অন্য অনুসন্ধান বা বিভাগ বেছে নিন।",
+    "emptyInstalledDescription": "এই ইনস্টলেশনে এই রিলিজের সব প্লাগইন ব্যবহার করা হচ্ছে।",
+    "requires": "{{list}} প্রয়োজন"
+  },
+  "detail": {
+    "builtIn": "Tilecast-এ অন্তর্নির্মিত",
+    "requirements": "প্রয়োজনীয়তা",
+    "noRequirements": "Player বা নেটওয়ার্কের প্রয়োজন নেই।",
+    "uses": "ব্যবহার করে"
+  },
+  "actionsMenu": {
+    "menuLabel": "{{name}} প্লাগইনের কাজ",
+    "remove": "প্লাগইন সরান",
+    "blockedTitle": "{{name}} সরানো যাবে না",
+    "viewLabel": "{{label}} দেখুন",
+    "removeTitle": "{{name}} সরাবেন?",
+    "removeDescription": "{{name}} এই ইনস্টলেশনের প্লাগইন তালিকা থেকে সরে যাবে এবং স্ক্রিনে প্রভাব ফেলা বন্ধ করবে। যেকোনো সময় আবার যোগ করতে পারেন।",
+    "blockedEmpty": "এই প্লাগইন এখনও ব্যবহৃত হচ্ছে।",
+    "blockedSentence_one": "{{list}} এখনও এই প্লাগইন ব্যবহার করে।",
+    "blockedSentence_other": "{{list}} এখনও এই প্লাগইন ব্যবহার করে।",
+    "blockedWait": "{{labels}} শেষ হওয়া পর্যন্ত অপেক্ষা করে প্লাগইন সরান।",
+    "blockedDisable": "এই পেজে {{disable}} বন্ধ করে প্লাগইন সরান।",
+    "blockedDelete": "এই পেজে বাকি {{labels}} মুছে প্লাগইন সরান।",
+    "blockedDisableDelete": "এই পেজে {{disable}} বন্ধ ও বাকি {{labels}} মুছে প্লাগইন সরান।"
+  },
+  "gate": {
+    "notInstalled": "{{name}} ইনস্টল করা নেই",
+    "installDescription": "ব্যবহার শুরু করতে {{name}} ইনস্টল করুন। {{description}}",
+    "lockedDescription": "{{description}} একজন মালিক বা প্রশাসক এটি ইনস্টল করতে পারেন।",
+    "installAction": "{{name}} ইনস্টল করুন",
+    "backToPlugins": "প্লাগইনে ফিরুন"
+  },
+  "shared": {
+    "scope": {
+      "all": "সব স্ক্রিন",
+      "screens": "নির্দিষ্ট স্ক্রিন",
+      "syncGroups": "ডিসপ্লে গ্রুপ",
+      "locations": "অবস্থান"
+    },
+    "targetType": "লক্ষ্যের ধরন",
+    "chooseTargets": "লক্ষ্য বেছে নিন",
+    "available": "উপলভ্য {{noun}}",
+    "selectedCount": "{{total}}টির মধ্যে {{chosen}}টি বেছে নেওয়া",
+    "nouns": {
+      "screens": "স্ক্রিন",
+      "syncGroups": "ডিসপ্লে গ্রুপ",
+      "locations": "অবস্থান"
+    },
+    "empty": {
+      "screens": "এখনও কোনো স্ক্রিন নথিভুক্ত হয়নি।",
+      "syncGroups": "এখনও কোনো ডিসপ্লে গ্রুপ নেই।",
+      "locations": "এখনও কোনো অবস্থান নেই।"
+    },
+    "loadingNoun": "{{noun}} লোড হচ্ছে…",
+    "loadErrorNoun": "{{noun}} লোড করা যায়নি।",
+    "backToPlugins": "প্লাগইন",
+    "manageNote": "পরিবর্তন করতে মালিক বা প্রশাসকের প্রবেশাধিকার প্রয়োজন।",
+    "newInstance": "নতুন ইনস্ট্যান্স",
+    "createInstance": "ইনস্ট্যান্স তৈরি করুন",
+    "manage": "পরিচালনা করুন",
+    "deleteTitle": "“{{name}}” মুছবেন?",
+    "deleteAction": "{{name}} মুছুন",
+    "nameLabel": "নাম",
+    "priorityLabel": "অগ্রাধিকার",
+    "enabledLabel": "চালু",
+    "enabledBadge": "চালু",
+    "disabledBadge": "বন্ধ",
+    "targetsSection": "লক্ষ্য"
+  },
+  "weekdays": {
+    "sunday": {
+      "short": "রবি"
+    },
+    "monday": {
+      "short": "সোম"
+    },
+    "tuesday": {
+      "short": "মঙ্গল"
+    },
+    "wednesday": {
+      "short": "বুধ"
+    },
+    "thursday": {
+      "short": "বৃহঃ"
+    },
+    "friday": {
+      "short": "শুক্র"
+    },
+    "saturday": {
+      "short": "শনি"
+    }
+  },
+  "history": {
+    "backLink": "Noise Meter",
+    "titleFallback": "Noise Meter",
+    "subtitle": "Player স্থানীয়ভাবে যে পরিমাপ রেকর্ড করে সাধারণ heartbeat-এ পাঠিয়েছে।",
+    "privacyNotice": "Noise history গ্রাফ ও রিপোর্টের জন্য আপেক্ষিক শব্দমাত্রা রাখে। Tilecast কখনও মাইক্রোফোনের অডিও রেকর্ড বা সংরক্ষণ করে না। মাত্রা প্রতিটি Player-এর নিজস্ব মাইক্রোফোনের তুলনায়, ক্যালিব্রেট করা ডেসিবেল নয়।",
+    "rangeLabel": "তারিখের সীমা",
+    "ranges": {
+      "today": "আজ",
+      "yesterday": "গতকাল",
+      "sevenDays": "৭ দিন",
+      "thirtyDays": "৩০ দিন"
+    },
+    "screenLabel": "স্ক্রিন",
+    "allScreens": "সব স্ক্রিন (একত্রে)",
+    "screenHint": "মাত্রা প্রতিটি Player-এর নিজস্ব মাইক্রোফোনের তুলনায়, তাই স্ক্রিন তুলনা সতর্কভাবে করুন।",
+    "exportLabel": "রপ্তানি",
+    "granularity": {
+      "raw": "১০ সেকেন্ডের রেকর্ড",
+      "minute": "১ মিনিটের সারাংশ",
+      "daily": "দৈনিক সারাংশ"
+    },
+    "exportTitle": "নির্বাচিত তারিখসীমা ও স্ক্রিন রপ্তানি করুন",
+    "exportAction": "CSV রপ্তানি করুন",
+    "loadError": "ইতিহাস লোড করা যায়নি।",
+    "showingSingle": "<strong>{{name}}</strong> দেখানো হচ্ছে।",
+    "combining": "{{count}}টি স্ক্রিন একত্র করা হচ্ছে। প্রতিটি Player-এর মাত্রা তার নিজস্ব মাইক্রোফোন থেকে আসে, তাই একত্র দৃশ্য গ্রুপ বোঝায়, কক্ষগুলোর তুলনা নয়।",
+    "emptyTitle": "এই সময়সীমায় কোনো পরিমাপ নেই",
+    "emptyDescription": "লক্ষ্য করা Linux Player পরিমাপ করে heartbeat পাঠালে ইতিহাস দেখা যাবে।",
+    "chartTitle": "সময়ের সঙ্গে শব্দমাত্রা",
+    "chartDescription": "এই মিটারের নিজস্ব সীমা অনুযায়ী গড় ও সর্বোচ্চ। পর্যবেক্ষণ না থাকা সময় ফাঁকা থাকে।",
+    "chartEmpty": "এখনও আঁকার মতো পরিমাপ নেই।",
+    "chart": {
+      "aria": "সময়ের সঙ্গে শব্দমাত্রা। সতর্কতার মাত্রা {{warning}}, অতিরিক্ত জোরে {{loud}}।",
+      "ariaLabel": "শব্দমাত্রার ইতিহাস চার্ট",
+      "description": "সময়ের সঙ্গে গড় ও সর্বোচ্চ Noise Level দেখানো হয়। ফাঁক মানে তখন পর্যবেক্ষণ ছিল না। সতর্কতার সীমা {{warning}}; অতিরিক্ত জোরের সীমা {{loud}}।",
+      "average": "গড়",
+      "peak": "সর্বোচ্চ",
+      "warning": "সতর্কতা {{level}}",
+      "tooLoud": "অতিরিক্ত জোরে {{level}}"
+    },
+    "dailyTitle": "দৈনিক তুলনা",
+    "dailyDescription": "পর্যবেক্ষণ না থাকা দিন নীরব হিসেবে না দেখিয়ে বাদ দেওয়া হয়।",
+    "dailyMeasureLabel": "দৈনিক পরিমাপ",
+    "measures": {
+      "average": "গড় মাত্রা",
+      "loud": "অতিরিক্ত জোরে থাকার সময়",
+      "events": "সতর্কতার ঘটনা"
+    },
+    "dailyEmpty": "এখনও পরিমাপসহ কোনো দিন নেই।",
+    "summary": {
+      "averageLabel": "গড় শব্দমাত্রা",
+      "averageHint": "আপেক্ষিক, ডেসিবেল নয়",
+      "peakLabel": "সর্বোচ্চ শব্দমাত্রা",
+      "loudLabel": "অতিরিক্ত জোরে থাকার সময়",
+      "eventsLabel": "সতর্কতার ঘটনা",
+      "eventsHint": "বার দেখানোর সংখ্যা",
+      "normalLabel": "স্বাভাবিক সীমায় সময়",
+      "warningLabel": "সতর্কতার সীমায় সময়",
+      "longestLabel": "একটানা অতিরিক্ত জোরে থাকার সর্বোচ্চ সময়",
+      "loudestLabel": "সবচেয়ে জোরে ১৫ মিনিট",
+      "monitoredLabel": "পর্যবেক্ষণের সময়"
+    }
+  },
+  "packages": {
+    "title": "এক্সটেনশন প্যাকেজ",
+    "manageTitle": "ইনস্টল করা প্যাকেজ",
+    "loadError": "ইনস্টল করা প্যাকেজ লোড করা যায়নি।",
+    "contributions": "অবদান",
+    "checkUpdate": "আপডেট দেখুন",
+    "upToDate": "এই প্যাকেজ আপ টু ডেট।",
+    "updateTo": "{{version}}-এ আপডেট করুন",
+    "rollback": "আগের সংস্করণ ফিরিয়ে আনুন",
+    "remove": "প্যাকেজ সরান",
+    "removeConfirmTitle": "এই প্যাকেজ সরাবেন?",
+    "removeConfirmBody": "এতে {{packageId}} ইনস্টলেশন ও তার অবদান মুছে যাবে। পুনরায় ইনস্টলের জন্য নিজস্ব রিপোজিটরির সংযোগ থাকবে।",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "বাকি কনটেন্ট মুছে আবার চেষ্টা করুন।",
+    "addedContributions": "এই সংস্করণে নতুন",
+    "removedContributions": "এই সংস্করণে সরানো হয়েছে",
+    "removedWarning": "আপডেটে কিছু মুছে যায় না: সরানো অবদান ব্যবহার হলে তা মুছে না ফেলা পর্যন্ত আপডেট অপেক্ষা করবে।",
+    "studioTitle": "প্যাকেজ ইন্টারফেস",
+    "studioUnavailable": "প্যাকেজ ইন্টারফেস লোড করা যায়নি।",
+    "jobsTitle": "ব্যাকগ্রাউন্ড কাজ",
+    "jobsLoadError": "ব্যাকগ্রাউন্ড কাজ লোড করা যায়নি।",
+    "jobEvery": "প্রতি {{minutes}} মিনিটে",
+    "jobNext": "পরের রান",
+    "jobNever": "কখনও চালানো হয়নি",
+    "jobOk": "সফল",
+    "jobFailed": "ব্যর্থ",
+    "jobFailures": "পরপর {{count}}টি ব্যর্থতা"
+  },
+  "storeDetail": {
+    "by": "{{publisher}}-এর",
+    "byLinked": "<publisher>{{publisher}}</publisher>-এর",
+    "publisherLinkLabel": "{{publisher}}, রিপোজিটরি (নতুন ট্যাবে খুলবে)",
+    "publisherSiteLinkLabel": "{{publisher}}, ওয়েবসাইট (নতুন ট্যাবে খুলবে)",
+    "badgesLabel": "প্লাগইনের বিবরণ",
+    "sourceBadge": {
+      "included": "অন্তর্ভুক্ত",
+      "marketplace": "Marketplace",
+      "custom": "নিজস্ব"
+    },
+    "incompatible": {
+      "title": "এই Tilecast সংস্করণের সঙ্গে সামঞ্জস্যপূর্ণ নয়",
+      "body": "এই প্লাগইনের জন্য Tilecast {{range}} দরকার।"
+    },
+    "about": {
+      "title": "সম্পর্কে",
+      "cardTitle": "এই প্যাকেজ সম্পর্কে",
+      "customTitle": "নিজস্ব প্যাকেজ",
+      "customNotice": "Marketplace এটি পর্যালোচনা বা বাছাই করেনি।",
+      "noDownload": "বাহ্যিক প্যাকেজ ডাউনলোড হয় না। এই প্লাগইন Tilecast রিলিজের মধ্যেই আছে।",
+      "source": "উৎস",
+      "marketplaceSource": "সরকারি Tilecast Marketplace",
+      "customSource": "নিজস্ব GitHub রিপোজিটরি",
+      "provenance": "উৎস যাচাই",
+      "verified": "রিলিজের উৎস যাচাইকৃত",
+      "verifiedOnInstall": "ইনস্টলের সময় যাচাই করা হয়েছে",
+      "reportIssue": "সমস্যা জানান"
+    },
+    "adds": {
+      "title": "এই প্লাগইন কী যোগ করে",
+      "pending": "ইনস্টলের আগে পর্যালোচনায় কী যোগ হবে তা দেখানো হয়।",
+      "none": "এই প্যাকেজ Studio-তে কিছু যোগ করে না।"
+    },
+    "kinds": {
+      "widget": "Widget",
+      "dataSource": "ডেটা সোর্স",
+      "plugin": "প্লাগইন"
+    },
+    "kindDescriptions": {
+      "widget": "লেআউটে বসানোর জন্য Widget যোগ করে।",
+      "dataSource": "সামঞ্জস্যপূর্ণ Widget-এ ডেটা দেয়।",
+      "plugin": "Studio-তে নিজস্ব পেজসহ প্লাগইন যোগ করে।",
+      "other": "Studio-তে কনটেন্ট যোগ করে।"
+    },
+    "permissions": {
+      "title": "অনুমতি ও আচরণ",
+      "pending": "ইনস্টলের আগে পর্যালোচনায় চাওয়া অনুমতি দেখানো হয়।",
+      "noneTitle": "বিশেষ অনুমতি নেই",
+      "noneBody": "এই প্লাগইন নেটওয়ার্ক, স্থানীয় স্টোরেজ, ব্যাকগ্রাউন্ড কাজ, নিজস্ব Studio ইন্টারফেস বা Tilecast পরিষেবা চায় না।"
+    },
+    "capabilities": {
+      "network": {
+        "title": "নেটওয়ার্কে প্রবেশাধিকার",
+        "body": "সংযোগ করতে পারে:"
+      },
+      "storage": {
+        "title": "স্থানীয় স্টোরেজ",
+        "body": "Tilecast সার্ভারে এই প্লাগইনের নিজস্ব ডেটা রাখে।"
+      },
+      "background": {
+        "title": "ব্যাকগ্রাউন্ড কাজ",
+        "body_one": "সময়সূচিতে {{count}}টি কাজ চালায়।",
+        "body_other": "সময়সূচিতে {{count}}টি কাজ চালায়।"
+      },
+      "realtime": {
+        "title": "ঘন ঘন ব্যাকগ্রাউন্ড কাজ",
+        "body": "Studio বন্ধ থাকলেও কয়েক সেকেন্ড পরপর একটি সীমাবদ্ধ ব্যাকগ্রাউন্ড কাজ চালায়।"
+      },
+      "studioUI": {
+        "title": "Studio ইন্টারফেস",
+        "body": "Studio-তে নিজস্ব কনফিগারেশন ইন্টারফেস যোগ করে।"
+      },
+      "service": {
+        "version": "সংস্করণ {{version}}",
+        "operationMutating": "{{title}} (ডেটা বদলায়)",
+        "categories": {
+          "read": "পড়া",
+          "directory": "ডিরেক্টরি",
+          "manage": "পরিচালনা",
+          "audit": "অডিট"
+        }
+      }
+    },
+    "requirements": {
+      "title": "প্রয়োজনীয়তা"
+    },
+    "status": {
+      "title": "প্যাকেজের অবস্থা",
+      "compatible": "এই সার্ভারের সঙ্গে সামঞ্জস্যপূর্ণ",
+      "incompatible": "এই সার্ভারের সঙ্গে সামঞ্জস্যপূর্ণ নয়",
+      "notCompatible": "সামঞ্জস্যপূর্ণ নয়",
+      "upToDate": "আপ টু ডেট · {{version}}",
+      "notInstalled": "ইনস্টল করা নেই",
+      "installedOn": "ইনস্টল হয়েছে {{date}}"
+    },
+    "update": {
+      "check": "আপডেট দেখুন",
+      "review": "আপডেট পর্যালোচনা করুন",
+      "checkAgain": "আবার দেখুন"
+    },
+    "technical": {
+      "title": "প্রযুক্তিগত বিবরণ",
+      "packageId": "প্যাকেজ ID",
+      "registry": "রেজিস্ট্রি",
+      "signer": "স্বাক্ষরকারী",
+      "releaseTag": "রিলিজ ট্যাগ",
+      "runtime": "রানটাইম মডিউল",
+      "source": "উৎস",
+      "contributions": "অবদান",
+      "jobIds": "ব্যাকগ্রাউন্ড কাজের ID"
+    },
+    "screenshots": {
+      "title": "স্ক্রিনশট",
+      "slide": "{{total}}টির মধ্যে স্ক্রিনশট {{current}}",
+      "open": "স্ক্রিনশট বড় করে দেখুন: {{alt}}",
+      "unavailable": "স্ক্রিনশট উপলভ্য নয়",
+      "lightboxTitle": "{{total}}টির মধ্যে স্ক্রিনশট {{current}}",
+      "previous": "আগের স্ক্রিনশট",
+      "next": "পরের স্ক্রিনশট",
+      "position": "{{total}}টির মধ্যে {{current}}"
+    },
+    "review": {
+      "installTitle": "{{name}} পর্যালোচনা করুন",
+      "installDescription": "ইনস্টলের আগে এই প্লাগইন কী যোগ করে ও কী করতে পারে তা দেখুন।",
+      "updateTitle": "{{name}} আপডেট করুন",
+      "updateDescription": "প্রয়োগের আগে সংস্করণ {{version}}-এ কী বদলাবে তা দেখুন।",
+      "confirmInstall": "প্লাগইন ইনস্টল করুন",
+      "verification": "যাচাই",
+      "contributionChanges": "কী যোগ হয় তার পরিবর্তন",
+      "noContributionChanges": "এই প্যাকেজ কী যোগ করে তাতে পরিবর্তন নেই।",
+      "permissionChanges": "অনুমতির পরিবর্তন",
+      "noPermissionChanges": "অনুমতি অপরিবর্তিত।",
+      "permissionsAdded": "নতুন অনুমতি",
+      "permissionsChanged": "বদলানো অনুমতি",
+      "permissionsRemoved": "সরানো অনুমতি",
+      "previously": "আগে: {{value}}",
+      "versionChange": "{{from}} থেকে {{to}}"
+    },
+    "settings": {
+      "title": "প্লাগইন সেটিংস",
+      "description": "Tilecast ছাড়াই এই প্লাগইন কনফিগার করুন।"
+    },
+    "jobs": {
+      "description": "Tilecast সার্ভারে সময়সূচি অনুযায়ী এই প্লাগইনের কাজ।",
+      "lastRun": "শেষ রান {{when}} · {{status}}",
+      "lastFailed": "শেষ ব্যর্থ রান {{when}}",
+      "successful": "সফল",
+      "nextRun": "পরের রান {{when}}"
+    },
+    "cadence": {
+      "minute": "প্রতি মিনিটে",
+      "hour": "প্রতি ঘণ্টায়",
+      "day": "প্রতিদিন",
+      "every": "প্রতি {{interval}}"
+    },
+    "danger": {
+      "title": "ঝুঁকিপূর্ণ কাজ",
+      "removeTitle": "এই প্লাগইন সরান",
+      "removeBody": "সরালে প্যাকেজ ইনস্টলেশন ও এর যোগ করা জিনিস মুছে যাবে। আগে এটি ব্যবহার করা কনটেন্ট সরাতে হবে।"
+    },
+    "management": {
+      "title": "প্যাকেজ পরিচালনা",
+      "rollbackBody": "সর্বশেষ আপডেটের আগে সক্রিয় সংস্করণে ফিরুন।",
+      "confirmTitle": "আগের সংস্করণ ফিরিয়ে আনবেন?",
+      "confirmBody": "{{name}} সর্বশেষ আপডেটের আগে সক্রিয় সংস্করণে ফিরবে। নতুন সংস্করণের যোগ করা কিছু কনটেন্ট ব্যবহার হলে তা মুছে না ফেলা পর্যন্ত ফিরিয়ে আনা অপেক্ষা করবে।"
+    }
+  }
+}

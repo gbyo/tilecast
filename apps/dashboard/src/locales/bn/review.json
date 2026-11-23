@@ -1,0 +1,148 @@
+{
+  "contentReview": {
+    "title": "কনটেন্ট পর্যালোচনা",
+    "description": "কোনো প্লেলিস্ট বা লেআউট স্ক্রিনে দেওয়ার আগে বর্তমান সংস্করণে অনুমোদিত হতে হবে। অনুমোদিত কনটেন্ট সম্পাদনা করলে সেটি আবার এখানে ফিরে আসে।",
+    "openInbox": "জমা দেওয়ার ইনবক্স খুলুন",
+    "notRequiredNotice": "এই ইনস্টলেশনে অনুমোদন বাধ্যতামূলক নয়, তাই এখানকার কিছুই কনটেন্ট স্ক্রিনে দেওয়া আটকাবে না। একজন মালিক বা প্রশাসক <settingsLink>সেটিংস, কনটেন্ট পর্যালোচনা</settingsLink> থেকে এটি চালু করতে পারেন।",
+    "filterLabel": "পর্যালোচনার অবস্থা",
+    "filterAll": "সব",
+    "loading": "পর্যালোচনার তালিকা লোড হচ্ছে",
+    "emptyPending": "পর্যালোচনার জন্য কিছু অপেক্ষা করছে না",
+    "emptyOther": "দেখানোর মতো কিছু নেই",
+    "table": {
+      "content": "কনটেন্ট",
+      "state": "অবস্থা",
+      "screens": "স্ক্রিনে আছে",
+      "reviewAction": "পর্যালোচনা"
+    },
+    "state": {
+      "pending": "পর্যালোচনার অপেক্ষায়",
+      "approved": "অনুমোদিত",
+      "rejected": "ফেরত পাঠানো হয়েছে"
+    },
+    "contentType": {
+      "playlist": "প্লেলিস্ট",
+      "layout": "লেআউট"
+    },
+    "contentTypeName": {
+      "playlist": "প্লেলিস্ট",
+      "layout": "লেআউট"
+    },
+    "itemMeta": "{{type}} · সংস্করণ {{revision}} · আপডেট {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · সংস্করণ {{revision}} · {{author}} · আপডেট {{updatedAt}}",
+    "assignedScreens_one": "ইতিমধ্যে {{count}}টি স্ক্রিনে আছে",
+    "assignedScreens_other": "ইতিমধ্যে {{count}}টি স্ক্রিনে আছে",
+    "sheet": {
+      "lastNote": "শেষ নোট: {{note}}",
+      "openContent": "{{type}} খুলুন"
+    },
+    "actions": {
+      "approve": "অনুমোদন করুন",
+      "sendBack": "ফেরত পাঠান"
+    },
+    "rejectDialog": {
+      "title": "পরিবর্তনের জন্য ফেরত পাঠান",
+      "description": "ঐচ্ছিক নোটে লেখককে কী ঠিক করতে হবে তা জানাতে পারেন।",
+      "noteLabel": "নোট",
+      "notePlaceholder": "অনুমোদনের আগে কী পরিবর্তন করতে হবে?",
+      "noteHint": "সিদ্ধান্তের সঙ্গে সংরক্ষিত হবে এবং লেখক দেখতে পাবেন।"
+    },
+    "toast": {
+      "approved": "কনটেন্ট অনুমোদিত হয়েছে।",
+      "sentBack": "কনটেন্ট ফেরত পাঠানো হয়েছে।",
+      "decisionFailed": "সিদ্ধান্তটি সংরক্ষণ করা যায়নি।"
+    }
+  },
+  "submissions": {
+    "title": "কনটেন্ট পর্যালোচনা",
+    "description": "প্রতিটি জমা পর্যালোচক যে নির্দিষ্ট খসড়াটি দেখেছেন সেটি সংরক্ষণ করে। প্রকাশ করলে নতুন অপরিবর্তনীয় রানটাইম সংস্করণ তৈরি হয়; পরের সম্পাদনাগুলো আবার জমা না দেওয়া পর্যন্ত ব্যক্তিগত থাকে।",
+    "openLegacyQueue": "পুরোনো সংস্করণ তালিকা খুলুন",
+    "policyNotice": "নীতি: <strong>{{policy}}</strong>। নিজের জমা অনুমোদন {{selfApproval}}; অনুমোদিত জমা {{behavior}}।",
+    "policy": {
+      "selfApprovalAllowed": "অনুমোদিত",
+      "selfApprovalDisabled": "নিষ্ক্রিয়",
+      "behaviorAuto": "স্বয়ংক্রিয়ভাবে প্রকাশিত হবে",
+      "behaviorManual": "প্রকাশ বা সময়সূচি নির্ধারণের স্পষ্ট নির্দেশের অপেক্ষায় থাকবে"
+    },
+    "filterLabel": "জমার অবস্থা",
+    "filters": {
+      "needsReview": "পর্যালোচনা প্রয়োজন",
+      "changesRequested": "পরিবর্তন চাওয়া হয়েছে",
+      "approved": "অনুমোদিত",
+      "scheduled": "সময় নির্ধারিত",
+      "publicationFailed": "প্রকাশ ব্যর্থ",
+      "published": "প্রকাশিত",
+      "allHistory": "সব ইতিহাস"
+    },
+    "status": {
+      "inReview": "পর্যালোচনা প্রয়োজন",
+      "changesRequested": "পরিবর্তন চাওয়া হয়েছে",
+      "approved": "অনুমোদিত",
+      "scheduled": "সময় নির্ধারিত",
+      "published": "প্রকাশিত",
+      "superseded": "নতুন সংস্করণে প্রতিস্থাপিত",
+      "cancelled": "বাতিল",
+      "publicationFailed": "প্রকাশ ব্যর্থ"
+    },
+    "table": {
+      "submission": "জমা",
+      "status": "অবস্থা",
+      "impact": "প্রভাব",
+      "reviewAction": "পর্যালোচনা"
+    },
+    "loading": "জমাগুলো লোড হচ্ছে…",
+    "loadErrorTitle": "জমাগুলো লোড করা যায়নি",
+    "loadErrorDescription": "সমস্যাটি চলতে থাকলে পেজটি রিলোড করে দেখুন।",
+    "emptyTitle": "এই দৃশ্যের সঙ্গে কোনো জমা মেলেনি",
+    "emptyDescription": "পর্যালোচনার জন্য কনটেন্ট জমা দিলে তা এখানে দেখা যাবে।",
+    "itemMeta": "খসড়া সংস্করণ {{revision}} · জমা {{submittedAt}}",
+    "itemMetaWithSubmitter": "খসড়া সংস্করণ {{revision}} · {{submittedAt}}-এ {{submitter}} জমা দিয়েছেন",
+    "itemImpact": "প্রকাশিত সংস্করণ {{published}} · {{locations}}টি অবস্থানের {{screens}}টি স্ক্রিন",
+    "detail": {
+      "status": "অবস্থা",
+      "publishedRevision": "প্রকাশিত সংস্করণ",
+      "impact": "প্রভাব",
+      "snapshotHash": "স্ন্যাপশট SHA-256",
+      "noRevision": "নেই",
+      "coverage": "{{locations}}টি অবস্থানের {{screens}}টি স্ক্রিন",
+      "newerDraft": "আরও নতুন একটি ব্যক্তিগত খসড়া আছে।",
+      "reviewNote": "পর্যালোচনার নোট: {{note}}",
+      "viewSnapshot": "জমা দেওয়া নির্দিষ্ট স্ন্যাপশট দেখুন",
+      "cancelSchedule": "সময়সূচি বাতিল করুন",
+      "openContent": "কনটেন্ট খুলুন"
+    },
+    "reviewForm": {
+      "noteLabel": "পর্যালোচনার নোট",
+      "notePlaceholder": "অনুমোদনের সঙ্গে সংরক্ষিত ঐচ্ছিক নোট",
+      "approve": "অনুমোদন করুন",
+      "requestChanges": "পরিবর্তন চান"
+    },
+    "rejectDialog": {
+      "title": "পরিবর্তন চান",
+      "description": "লেখককে কী ঠিক করতে হবে তা জানাতে কারণ দিতে হবে।",
+      "reasonLabel": "ফেরত পাঠানোর কারণ",
+      "reasonPlaceholder": "অনুমোদনের আগে কী পরিবর্তন করতে হবে?",
+      "reasonHint": "সিদ্ধান্তের সঙ্গে সংরক্ষিত হবে এবং লেখক দেখতে পাবেন।",
+      "confirm": "ফেরত পাঠান"
+    },
+    "publish": {
+      "publishNow": "এখনই প্রকাশ করুন",
+      "publishAtLabel": "প্রকাশের তারিখ",
+      "publishAtTimeLabel": "প্রকাশের সময়",
+      "publishAtHint": "ভবিষ্যতের তারিখ ও সময়ে প্রকাশের সময় নির্ধারণ করুন।",
+      "schedule": "সময় নির্ধারণ করুন"
+    },
+    "toast": {
+      "approved": "জমা অনুমোদিত হয়েছে।",
+      "changesRequested": "পরিবর্তন চাওয়া হয়েছে।",
+      "published": "জমা প্রকাশিত হয়েছে।",
+      "scheduled": "প্রকাশের সময় নির্ধারণ হয়েছে।",
+      "scheduleCancelled": "সময়সূচি বাতিল হয়েছে।",
+      "approveFailed": "অনুমোদন করা যায়নি।",
+      "requestChangesFailed": "পরিবর্তনের অনুরোধ করা যায়নি।",
+      "publishFailed": "প্রকাশ করা যায়নি।",
+      "scheduleFailed": "সময় নির্ধারণ করা যায়নি।",
+      "cancelScheduleFailed": "সময়সূচি বাতিল করা যায়নি।"
+    }
+  }
+}

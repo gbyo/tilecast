@@ -1,0 +1,722 @@
+{
+  "access": {
+    "roles": {
+      "owner": "Proprietário",
+      "administrator": "Administrador",
+      "editor": "Editor",
+      "contributor": "Colaborador",
+      "viewer": "Visualizador"
+    },
+    "capabilities": {
+      "manage": {
+        "label": "Gerenciar",
+        "implies": "Controle total – inclui todas as habilidades abaixo."
+      },
+      "approve": {
+        "label": "Aprovar",
+        "implies": "Aprovar ou rejeitar — inclui Revisar e Ver tudo."
+      },
+      "review": {
+        "label": "Revisão",
+        "implies": "Solicitar alterações — inclui Ver tudo."
+      },
+      "viewAll": {
+        "label": "Ver todas as respostas",
+        "implies": "Inclui visualização própria."
+      },
+      "viewOwn": {
+        "label": "Ver as próprias respostas"
+      },
+      "submit": {
+        "label": "Enviar respostas"
+      }
+    },
+    "loading": "Carregando acesso…",
+    "loadError": "Não foi possível carregar o acesso",
+    "loadRetry": "Por favor, tente novamente.",
+    "updateError": "Não foi possível atualizar o acesso.",
+    "changeFailed": "Falha na alteração de acesso",
+    "table": {
+      "user": "Usuário",
+      "globalRole": "Papel global",
+      "access": "Acesso",
+      "actions": "Ações"
+    },
+    "managerCreator": "Gerente (criador)",
+    "managerOwner": "Gerente (Proprietário)",
+    "alwaysManager": "Sempre um gerente",
+    "editAccess": "Editar acesso",
+    "grant": {
+      "title": "Conceder acesso",
+      "findUser": "Encontre um usuário",
+      "searchPlaceholder": "Pesquisar usuários",
+      "searchHint": "Pesquise por nome ou nome de usuário.",
+      "grantingTo": "Concedendo acesso a",
+      "searching": "Procurando…",
+      "noMatch": "Nenhum usuário correspondente",
+      "noMatchHint": "Tente uma pesquisa diferente.",
+      "searchError": "Falha na pesquisa do usuário"
+    },
+    "includedByBroader": "Incluído por uma capacidade mais ampla.",
+    "saveAccess": "Salvar acesso"
+  },
+  "builder": {
+    "actions": {
+      "moveUp": "Subir",
+      "moveDown": "Mover para baixo",
+      "moveTop": "Mover para o topo",
+      "moveBottom": "Mover para baixo",
+      "deleteField": "Excluir campo"
+    },
+    "row": {
+      "editField": "Editar {{name}}",
+      "actionsFor": "Ações para {{name}}"
+    },
+    "fieldsPanel": "Campos de formulário",
+    "emptyFields": "Ainda não há campos. Adicione o primeiro abaixo.",
+    "previewPanel": "Visualização do formulário",
+    "formTitle": "Título do formulário",
+    "formDescription": "Descrição do formulário",
+    "inspectorPanel": "Configurações de campo",
+    "inspectorEyebrow": "Inspetor",
+    "inspectorEmpty": "Selecione um campo para editar suas configurações.",
+    "status": {
+      "saving": "Salvando…",
+      "saveFailed": "Falha ao salvar",
+      "unsaved": "Alterações não salvas",
+      "saved": "Salvo"
+    },
+    "saveDraft": "Salvar rascunho",
+    "publish": "Publicar",
+    "leave": {
+      "title": "Sair sem salvar?",
+      "body": "Você tem alterações não salvas neste formulário. Sair agora irá descartá-los."
+    },
+    "draftError": "Rascunho não salvo",
+    "draftFallback": "Não foi possível salvar o rascunho.",
+    "publishTitle": "Publicar uma nova revisão?",
+    "publishBody": "A publicação cria uma nova revisão imutável. Os envios existentes permanecem vinculados à revisão em que foram criados.",
+    "publishConfirm": "Publicar revisão",
+    "publishConflict": "A forma mudou em outro lugar. Recarregue e tente novamente.",
+    "publishFallback": "Não foi possível publicar.",
+    "layout": {
+      "group": "Campos de formulário, visualização e inspetor",
+      "fields": "Campos de formulário",
+      "resizeFieldsPreview": "Redimensionar campos e visualizar painéis",
+      "preview": "Visualização do formulário",
+      "resizePreviewInspector": "Redimensionar painéis de visualização e inspetor",
+      "inspector": "Configurações de campo"
+    }
+  },
+  "fieldEditor": {
+    "publishedTitle": "Campo publicado",
+    "publishedWithType": "Este campo faz parte do formulário publicado, portanto, sua chave e tipo de saída são bloqueados para manter Widgets e visualizações salvas funcionando. Você ainda pode editar seu rótulo, texto de ajuda, validação e pedido.",
+    "publishedBase": "Este campo faz parte do formulário publicado, portanto sua chave está bloqueada para manter Widgets e visualizações salvas funcionando. Você ainda pode editar seu rótulo, texto de ajuda, validação e pedido.",
+    "label": "Etiqueta",
+    "key": "Chave de campo",
+    "keyHint": "Identificador estável usado por Widgets e visualizações.",
+    "type": "Tipo de campo",
+    "help": "Texto de ajuda",
+    "helpHint": "Mostrado sob o campo.",
+    "required": "Obrigatório",
+    "defaultValue": "Valor padrão",
+    "minimum": "Mínimo",
+    "maximum": "Máximo",
+    "minLength": "Comprimento mínimo",
+    "maxLength": "Comprimento máximo",
+    "options": "Opções",
+    "remove": "Remover",
+    "addOption": "Adicionar opção",
+    "optionLabel": "Etiqueta da opção {{n}}",
+    "optionValue": "Valor da opção {{n}}",
+    "newOptionLabel": "Opção {{index}}"
+  },
+  "palette": {
+    "title": "Adicionar um campo"
+  },
+  "controls": {
+    "shortText": {
+      "label": "Texto curto",
+      "description": "Uma única linha de texto."
+    },
+    "longText": {
+      "label": "Texto longo",
+      "description": "Um parágrafo de várias linhas."
+    },
+    "number": {
+      "label": "Número",
+      "description": "Um número decimal."
+    },
+    "integer": {
+      "label": "Inteiro",
+      "description": "Um número inteiro."
+    },
+    "boolean": {
+      "label": "Sim / não",
+      "description": "Uma alternância de caixa de seleção."
+    },
+    "select": {
+      "label": "Selecione",
+      "description": "Escolha uma opção."
+    },
+    "multiSelect": {
+      "label": "Seleção múltipla",
+      "description": "Escolha uma ou mais opções."
+    },
+    "date": {
+      "label": "Data",
+      "description": "Uma data do calendário."
+    },
+    "datetime": {
+      "label": "Data e hora",
+      "description": "Um encontro com hora certa."
+    },
+    "url": {
+      "label": "URL",
+      "description": "Um link da web."
+    },
+    "image": {
+      "label": "Carregamento de imagem",
+      "description": "Uma imagem carregada."
+    },
+    "section": {
+      "label": "Título da seção",
+      "description": "Um título para agrupar campos."
+    },
+    "helpText": {
+      "label": "Texto de ajuda",
+      "description": "Orientação mostrada aos remetentes."
+    }
+  },
+  "defaults": {
+    "sectionLabel": "Seção",
+    "helpTextLabel": "Texto de ajuda",
+    "optionLabel": "Opção {{n}}",
+    "titleLabel": "Título"
+  },
+  "renderer": {
+    "empty": "Este formulário ainda não possui campos.",
+    "charLimitReached": "Limite de caracteres atingido ({{max}})",
+    "charsLeft": "{{remaining}} de {{max}} caracteres restantes",
+    "selectPlaceholder": "Selecione…",
+    "imageNoteSubmit": "Os uploads de imagens estão disponíveis no momento do envio.",
+    "imageAttention": "A imagem precisa de atenção.",
+    "pendingUpload": "Carrega quando você salva.",
+    "uploading": "Fazendo upload…",
+    "imageAttached": "Imagem anexada.",
+    "replaceImage": "Substituir imagem",
+    "chooseImage": "Escolha a imagem",
+    "replaceLabel": "Substitua {{label}}",
+    "chooseLabel": "Escolha {{label}}",
+    "imageAlt": "Anexo {{label}}",
+    "removeImage": "Remover",
+    "noImage": "Nenhuma imagem fornecida."
+  },
+  "outputs": {
+    "loading": "Carregando saídas…",
+    "loadError": "Não foi possível carregar as saídas",
+    "retry": "Por favor, tente novamente.",
+    "projectionError": "Erro de projeção",
+    "staleCache": "Cache obsoleto",
+    "upToDate": "Atualizado",
+    "lastProjection": "Última projeção: {{value}}",
+    "never": "nunca",
+    "nextRefresh": "Próxima atualização: {{value}}",
+    "onChange": "na mudança",
+    "rebuild": "Reconstruir resultados",
+    "rebuildError": "Falha na reconstrução",
+    "lastReport": "A última projeção relatada: {{code}}",
+    "noViews": "Nenhuma visualização salva",
+    "noViewsHint": "Crie uma visualização na guia Visualizações para gerar um conjunto de dados de saída.",
+    "viewLabel": "Saída {{name}}",
+    "recordCount_one": "Registro {{count}}",
+    "recordCount_other": "Registros {{count}}",
+    "usedByWidgets_one": "Usado pelo widget {{count}}",
+    "usedByWidgets_other": "Usado por widgets {{count}}",
+    "referencedBy": "Referenciado por: {{names}}",
+    "noRecords": "Nenhum registro corresponde a esta visualização ainda.",
+    "recordCount_many": "Registros {{count}}",
+    "usedByWidgets_many": "Usado por widgets {{count}}"
+  },
+  "review": {
+    "loading": "Carregando envio…",
+    "unavailable": "Envio indisponível",
+    "unavailableBody": "Não foi possível carregar este envio ou você não tem mais acesso a ele.",
+    "decisionRecorded": "Decisão registrada.",
+    "untitled": "Envio sem título",
+    "submittedBy": "Enviado por {{name}}",
+    "unknownSubmitter": "Desconhecido",
+    "revision": "· Revisão {{number}}",
+    "actionFailed": "Falha na ação",
+    "displaySection": "Exibir metadados",
+    "displayTitle": "Configurações de exibição",
+    "titleLabel": "Título de exibição",
+    "priorityLabel": "Prioridade",
+    "fromLabel": "Exibir de",
+    "expiresLabel": "Expira em",
+    "displayTime": "Tempo de exibição",
+    "expiryTime": "Prazo de validade",
+    "decisionSection": "Decisão",
+    "decisionTitle": "{{label}} este envio",
+    "decisionFallback": "Registrar uma decisão",
+    "noteRequired": "É necessária uma nota para {{label}}.",
+    "noteLabel": "Nota",
+    "notePlaceholder": "O que mudou ou o que o autor deve consertar?",
+    "noteHint": "Gravado com a decisão e mostrado na história.",
+    "commentsSection": "Comentários",
+    "noComments": "Nenhum comentário ainda.",
+    "addComment": "Adicione um comentário",
+    "commentButton": "Comentário",
+    "historySection": "História",
+    "applyFallback": "Não foi possível aplicar a alteração.",
+    "commentFallback": "Não foi possível adicionar o comentário.",
+    "refreshedConflict": "Este envio foi alterado desde que você o abriu. Ele foi atualizado. Revise a versão mais recente e tente novamente.",
+    "events": {
+      "created": "Criado",
+      "createdBy": "Criado por {{name}}",
+      "edited": "Editado",
+      "editedBy": "Editado por {{name}}",
+      "moved": "Movido {{from}} → {{to}}",
+      "movedBy": "Movido {{from}} → {{to}} por {{name}}",
+      "commented": "Comentado",
+      "commentedBy": "Comentada por {{name}}",
+      "attachmentAdded": "Adicionado um anexo",
+      "attachmentAddedBy": "Adicionado um anexo por {{name}}",
+      "attachmentRemoved": "Removido um anexo",
+      "attachmentRemovedBy": "Um anexo removido por {{name}}",
+      "unknown": "{{type}}{{actor}}",
+      "byActor": " por {{name}}"
+    },
+    "leaveTitle": "Sair sem salvar?",
+    "leaveBody": "Esta revisão tem alterações não salvas."
+  },
+  "editor": {
+    "leaveTitle": "Sair sem salvar?",
+    "leaveBody": "Você tem alterações não salvas neste envio. Sair agora irá descartá-los.",
+    "changesRequested": "Alterações solicitadas",
+    "anonymousReviewer": "Revisor",
+    "saveFailed": "Não foi possível salvar",
+    "saveDraft": "Salvar rascunho",
+    "submitFallback": "Enviar",
+    "completedTitle": "Este envio é {{state}}",
+    "completedBody": "Não pode mais ser editado. Um revisor fará o acompanhamento se forem necessárias alterações.",
+    "commentsSection": "Comentários",
+    "fixFields_one": "Corrija o campo {{count}} antes de continuar",
+    "fixFields_other": "Corrija os campos {{count}} antes de continuar",
+    "cannotSubmit": "Este formulário não pode ser enviado em seu estado atual.",
+    "fixFields_many": "Corrija os campos {{count}} antes de continuar"
+  },
+  "views": {
+    "newView": "Nova visualização",
+    "viewInUse": "Ver em uso",
+    "deleteFallback": "Não foi possível excluir a visualização.",
+    "noViews": "Nenhuma visualização salva",
+    "noViewsHint": "Crie uma visualização para publicar um conjunto de dados nomeado para Widgets.",
+    "tableName": "Nome",
+    "tableKey": "Chave do conjunto de dados",
+    "tableStates": "Estados",
+    "tableActions": "Ações",
+    "duplicate": "Duplicar",
+    "leaveTitle": "Sair sem salvar?",
+    "leaveBody": "Esta visualização tem alterações não salvas.",
+    "notSaved": "Visualização não salva",
+    "saveFallback": "Não foi possível salvar a visualização.",
+    "previewFallback": "Não foi possível visualizar a visualização.",
+    "nameLabel": "Ver nome",
+    "keyLabel": "Chave do conjunto de dados",
+    "newKeyHint": "Tecla minúscula; corrigido uma vez salvo.",
+    "lockedKeyHint": "As chaves são imutáveis.",
+    "limitLabel": "Limite de registro",
+    "orderLabel": "Pedido",
+    "statesLegend": "Estados incluídos",
+    "fieldsLegend": "Campos de saída e pedido",
+    "addFieldLabel": "Adicione um campo de saída",
+    "addFieldPlaceholder": "Adicione um campo…",
+    "noneSelected": "Todos os campos disponíveis (nenhum selecionado).",
+    "filtersLegend": "Filtros de campo",
+    "filterFieldLabel": "Campo de filtro",
+    "fieldPlaceholder": "Campo…",
+    "operatorLabel": "Operador de filtro",
+    "removeItem": "Remover",
+    "addFilter": "Adicionar filtro",
+    "sortLegend": "Classificar",
+    "sortFieldLabel": "Campo de classificação",
+    "sortDirectionLabel": "Direção de classificação",
+    "ascending": "Ascendente",
+    "descending": "Descendente",
+    "addSort": "Adicionar regra de classificação",
+    "timeLegend": "Janela de tempo",
+    "timeEnabled": "Filtrar por uma janela de tempo relativa",
+    "startField": "Campo inicial",
+    "noneOption": "Nenhum",
+    "endField": "Campo final",
+    "startBeforeNow": "O início é antes de agora",
+    "endAfterNow": "O fim é depois de agora",
+    "previewButton": "Visualização",
+    "saveButton": "Salvar visualização",
+    "previewTitle": "Visualização",
+    "previewCount_one": "Registro {{count}}",
+    "previewCount_other": "Registros {{count}}",
+    "previewEmpty": "Nenhum registro corresponde a esta visualização.",
+    "moveUp": "Mova {{label}} para cima",
+    "moveDown": "Mova {{label}} para baixo",
+    "removeLabel": "Remover {{label}}",
+    "copyName": "{{name}} (cópia)",
+    "previewCount_many": "Registros {{count}}"
+  },
+  "workflow": {
+    "capabilities": {
+      "submit": {
+        "label": "Enviar"
+      },
+      "review": {
+        "label": "Revisão"
+      },
+      "approve": {
+        "label": "Aprovar"
+      },
+      "manage": {
+        "label": "Gerenciar"
+      },
+      "viewAll": {
+        "label": "Ver tudo"
+      },
+      "viewOwn": {
+        "label": "Ver próprio"
+      }
+    },
+    "leaveTitle": "Sair sem salvar?",
+    "leaveBody": "O fluxo de trabalho tem alterações não salvas.",
+    "notSaved": "Fluxo de trabalho não salvo",
+    "saveFallback": "Não foi possível salvar o fluxo de trabalho.",
+    "fixBefore": "Corrija-os antes de salvar",
+    "statesSection": "Estados",
+    "statesTitle": "Estados",
+    "addState": "Adicionar estado",
+    "stateLabel": "Etiqueta",
+    "stateKey": "Chave",
+    "lockedHint": "Em uso - bloqueado",
+    "keyHint": "Minúsculas, estável",
+    "stateRecords_one": "Registro {{count}}",
+    "stateRecords_other": "Registros {{count}}",
+    "initialOption": "Inicial",
+    "eligibleOption": "Elegível para saída",
+    "terminalOption": "Terminais",
+    "moveUp": "Mova {{label}} para cima",
+    "moveDown": "Mova {{label}} para baixo",
+    "deleteState": "Excluir {{label}}",
+    "deleteLockedTitle": "Referenciado por registros",
+    "deleteTitle": "Excluir estado",
+    "newStateLabel": "Novo estado",
+    "transitionsSection": "Transições",
+    "transitionsTitle": "Transições",
+    "addTransition": "Adicionar transição",
+    "colFrom": "De",
+    "colTo": "Para",
+    "colLabel": "Etiqueta",
+    "colCapability": "Capacidade necessária",
+    "fromStateLabel": "Do estado",
+    "toStateLabel": "Para declarar",
+    "capabilityLabel": "Capacidade necessária",
+    "moveTransitionUp": "Mover a transição para cima",
+    "moveTransitionDown": "Mover a transição para baixo",
+    "removeTransition": "Remover transição {{label}}",
+    "newTransitionLabel": "Nova transição",
+    "impactTitle": "Esta alteração afeta os caminhos de saída ou envio",
+    "reviewAgain": "Revise novamente",
+    "saveAnyway": "Salve mesmo assim",
+    "saveWorkflow": "Salvar fluxo de trabalho",
+    "validation": {
+      "noStates": "Adicione pelo menos um estado.",
+      "invalidStateKey": "A chave de estado \"{{key}}\" é inválida (letras minúsculas, dígitos, sublinhados).",
+      "emptyKey": "(vazio)",
+      "duplicateStateKey": "Chave de estado duplicada \"{{key}}\".",
+      "stateNeedsLabel": "Cada estado precisa de um rótulo.",
+      "exactlyOneInitial": "Exatamente um estado deve ser o estado inicial.",
+      "needEligible": "Pelo menos um estado deve ser elegível para saída.",
+      "badReference": "Cada transição deve fazer referência aos estados existentes.",
+      "duplicateTransition": "Transição duplicada {{from}} → {{to}}."
+    },
+    "warnings": {
+      "lostEligible": "O estado \"{{key}}\" não é mais elegível para saída; seus registros deixarão sinalização.",
+      "gainedEligible": "O estado \"{{key}}\" agora é elegível para saída; seus registros podem aparecer na sinalização.",
+      "submissionPaths": "Caminhos de envio alterados; isso afeta o modo como os remetentes movem os registros."
+    },
+    "stateRecords_many": "Registros {{count}}"
+  },
+  "validation": {
+    "imageRequired": "{{label}} requer uma imagem.",
+    "required": "{{label}} é obrigatório.",
+    "maxLength": "{{label}} deve ter no máximo caracteres {{max}}.",
+    "minLength": "{{label}} deve ter pelo menos caracteres {{min}}.",
+    "notNumber": "{{label}} deve ser um número.",
+    "notInteger": "{{label}} deve ser um número inteiro.",
+    "minValue": "{{label}} deve ser pelo menos {{minimum}}.",
+    "maxValue": "{{label}} deve ser no máximo {{maximum}}.",
+    "urlProtocol": "{{label}} deve ser um http(s) URL.",
+    "urlInvalid": "{{label}} deve ser um URL válido.",
+    "dateInvalid": "{{label}} deve ser uma data.",
+    "keyPattern": "As chaves devem começar com uma letra e usar apenas letras, números e sublinhados.",
+    "keyReserved": "\"{{key}}\" é uma chave reservada.",
+    "keyTaken": "Outro campo já utiliza esta chave."
+  },
+  "outputFields": {
+    "synthetic": {
+      "state": "Estado do fluxo de trabalho",
+      "displayTitle": "Título de exibição",
+      "priority": "Prioridade",
+      "submittedAt": "Hora do envio",
+      "displayAt": "Exibir de",
+      "expiresAt": "Expira em"
+    },
+    "operators": {
+      "equals": "é igual",
+      "notEquals": "não é igual",
+      "empty": "está vazio",
+      "notEmpty": "não está vazio",
+      "greaterThan": "maior que",
+      "lessThan": "menos que",
+      "contains": "contém"
+    }
+  },
+  "plugin": {
+    "breadcrumb": "Plug-ins",
+    "title": "Formulários",
+    "subtitle": "Crie formulários, gerencie respostas e disponibilize registros aprovados para sinalização.",
+    "create": "Criar formulário",
+    "loadError": "Não foi possível carregar os formulários",
+    "loadFallback": "Não foi possível carregar os formulários.",
+    "empty": "Ainda não há formulários",
+    "emptyCreate": "Crie um formulário para começar a coletar envios.",
+    "emptyDenied": "Você não tem acesso a nenhum formulário.",
+    "publishedRevision": "Revisão publicada {{number}}",
+    "draft": "Rascunho",
+    "noDescription": "Sem descrição",
+    "manage": "Gerenciar formulário"
+  },
+  "detail": {
+    "tabs": {
+      "responses": "Respostas",
+      "form": "Formulário",
+      "workflow": "Fluxo de trabalho",
+      "views": "Visualizações",
+      "outputs": "Resultados",
+      "access": "Acesso"
+    },
+    "loading": "Carregando formulário…",
+    "unavailable": "Formulário indisponível",
+    "unavailableBody": "Este formulário não pôde ser carregado.",
+    "pluginEyebrow": "Plug-in de formulários",
+    "sectionsLabel": "Seções do formulário",
+    "filters": {
+      "needsReview": "Precisa de revisão",
+      "allStates": "Todos os estados",
+      "state": "Estado",
+      "search": "Pesquisar",
+      "searchPlaceholder": "Título ou remetente",
+      "sort": "Classificar"
+    },
+    "sort": {
+      "updated": "Atualizado recentemente",
+      "newest": "Mais recente",
+      "oldest": "Mais antigo",
+      "priority": "Prioridade"
+    },
+    "loadResponsesError": "Não foi possível carregar as respostas",
+    "retry": "Por favor, tente novamente.",
+    "loadingResponses": "Carregando respostas…",
+    "noResponses": "Sem respostas",
+    "emptyNeedsReview": "Nada está esperando para revisão agora.",
+    "emptyFiltered": "Nenhum envio corresponde a esses filtros ainda.",
+    "table": {
+      "submission": "Envio",
+      "submitter": "Remetente",
+      "state": "Estado",
+      "priority": "Prioridade",
+      "updated": "Atualizado",
+      "window": "Janela de exibição",
+      "reviewAction": "Revisão"
+    },
+    "untitled": "Envio sem título",
+    "unknown": "Desconhecido",
+    "reviewLink": "Revisão {{title}}",
+    "untitledLink": "submissão sem título",
+    "pagination": "Página {{page}} de {{totalPages}} · {{total}} total",
+    "pagesLabel": "Páginas de respostas",
+    "sheetLabel": "Detalhe da resposta",
+    "sheetEyebrow": "Resposta",
+    "sheetTitle": "Revise o envio",
+    "sheetBody": "A lista permanece atrás deste painel; o fechamento retorna a ele.",
+    "backToResponses": "← Voltar às respostas",
+    "displayWindowRange": "{{start}} → {{end}}",
+    "displayWindowEmpty": "-",
+    "displayWindowNow": "agora",
+    "editDetails": "Editar detalhes",
+    "detailsError": "Detalhes não salvos",
+    "detailsFallback": "Não foi possível atualizar os detalhes.",
+    "nameLabel": "Nome do formulário",
+    "descriptionLabel": "Descrição",
+    "saveDetails": "Salvar detalhes",
+    "readOnlyTitle": "Somente leitura",
+    "readOnlyBody": "Você pode visualizar este formulário, mas não tem permissão para editá-lo.",
+    "publishedMeta": "Revisão publicada {{revision}} · {{date}}"
+  },
+  "create": {
+    "questions": {
+      "name": {
+        "title": "Para que serve este formulário?",
+        "description": "O nome mostrado no plugin Forms e ao selecionar a saída do formulário em Widgets.",
+        "label": "Nome do formulário"
+      },
+      "description": {
+        "title": "Descreva o propósito",
+        "description": "Opcional. Uma breve nota para outros autores de Studio sobre o que este formulário coleta.",
+        "label": "Descrição do formulário"
+      },
+      "formTitle": {
+        "title": "O que os remetentes veem primeiro?",
+        "description": "Opcional. O título mostrado acima do formulário para a pessoa que o preenche.",
+        "label": "Título voltado para o remetente"
+      },
+      "formDescription": {
+        "title": "Adicionar orientação para remetentes",
+        "description": "Opcional. Instruções breves mostradas sob o título do próprio formulário.",
+        "label": "Descrição voltada para o remetente"
+      }
+    },
+    "phasePurpose": "Objetivo",
+    "phaseDisplay": "Exibição",
+    "phaseReview": "Revisão",
+    "starterFieldLabel": "Título",
+    "createFallback": "Não foi possível criar o formulário.",
+    "nameRequired": "É necessário um nome.",
+    "deniedTitle": "Acesso insuficiente",
+    "deniedBody": "Você não tem permissão para criar formulários.",
+    "reviewEyebrow": "Plug-in de formulários · Etapa 3 de 3 · Revisão",
+    "reviewTitle": "Revise e crie",
+    "reviewBody": "Verifique os detalhes antes de criar este formulário.",
+    "createErrorTitle": "Não foi possível criar o formulário",
+    "summaryName": "Nome do formulário",
+    "summaryPurpose": "Objetivo",
+    "summarySubmitterTitle": "Título do remetente",
+    "summaryGuidance": "Orientação do remetente",
+    "starterTitle": "Um campo inicial está incluído",
+    "starterBody": "Seu formulário começa com um campo obrigatório “{{starterLabel}}” e é publicado imediatamente. Você pode adicionar campos e publicar novas revisões do construtor. Quem pode enviar e as regras de revisão são configuradas nas abas Acesso e Fluxo de Trabalho do construtor após a criação.",
+    "createButton": "Criar formulário",
+    "backToQuestions": "Voltar às perguntas",
+    "backHint": "Retorna à criação guiada sem perder suas respostas.",
+    "stepHeader": "Plugin de formulários · Etapa {{step}} de 3 · {{phase}}",
+    "createTitle": "Crie um formulário",
+    "createSubtitle": "Colete envios, aprove-os e publique registros em Widgets.",
+    "progress": "Pergunta {{index}} de {{total}}",
+    "navPrevious": "Anterior",
+    "navSkip": "Pular",
+    "navNext": "Próximo",
+    "navReview": "Revisão"
+  },
+  "portal": {
+    "loadingIcon": "Carregando",
+    "shell": {
+      "homeLabel": "Meus formulários",
+      "formsLabel": "Formulários",
+      "studioLink": "Voltar para Studio",
+      "signOut": "Sair"
+    },
+    "list": {
+      "loading": "Carregando seus formulários…",
+      "error": "Não foi possível carregar os formulários",
+      "retry": "Por favor, tente novamente.",
+      "eyebrow": "Formulários",
+      "title": "Meus formulários",
+      "description": "Formulários que você pode enviar ou ajudar a revisar.",
+      "empty": "Ainda não há formulários",
+      "emptyBody": "Você não tem acesso a nenhum formulário. Peça a um administrador para conceder acesso a você.",
+      "draftOnly": "Apenas rascunho",
+      "drafts": "Rascunhos",
+      "submitted": "Enviado",
+      "changesRequested": "Alterações solicitadas"
+    },
+    "detail": {
+      "loading": "Carregando formulário…",
+      "unavailable": "Formulário indisponível",
+      "unavailableBody": "Talvez você não tenha acesso a este formulário ou ele não exista mais.",
+      "backToForms": "Voltar para Meus Formulários",
+      "eyebrow": "Formulário",
+      "start": "Iniciar envio",
+      "sentTitle": "Envio enviado",
+      "sentBody": "Seu envio está agora com os revisores. Você pode acompanhar seu status abaixo.",
+      "notOpen": "Ainda não está aberto para inscrições",
+      "notOpenBody": "Este formulário não publicou uma versão para a qual você possa enviar.",
+      "viewOnly": "Somente visualizar",
+      "viewOnlyBody": "Você pode revisar os envios para este formulário, mas não pode criar os seus próprios.",
+      "submissionsLabel": "Seus envios",
+      "submissionsTitle": "Seus envios",
+      "submissionsLoading": "Carregando envios…",
+      "submissionsEmpty": "Ainda não há envios",
+      "submissionsError": "Não foi possível carregar seus envios. Tente novamente mais tarde.",
+      "submissionsEmptySubmit": "Inicie um envio para vê-lo aqui.",
+      "submissionsEmptyNone": "Você não enviou este formulário.",
+      "submissionsPages": "Suas páginas de envios",
+      "pagination": "Página {{page}} de {{totalPages}} · {{total}} total",
+      "updatedAt": "{{date}} atualizado",
+      "untitled": "Envio sem título"
+    },
+    "submission": {
+      "loading": "Carregando…",
+      "unavailable": "Formulário indisponível",
+      "backToForms": "Voltar para Meus Formulários",
+      "recordUnavailable": "Envio indisponível",
+      "recordDenied": "Você pode não ter acesso a este envio.",
+      "backToForm": "Voltar ao formulário",
+      "newTitle": "Novo envio",
+      "editTitle": "Editar envio"
+    },
+    "previous": "Anterior",
+    "next": "Próximo"
+  },
+  "nav": {
+    "approvals": "Aprovações"
+  },
+  "approvals": {
+    "eyebrow": "Formulários",
+    "title": "Aprovações",
+    "description": "Envios aguardando uma decisão de revisão em seus formulários.",
+    "table": {
+      "form": "Formulário",
+      "submission": "Envio",
+      "submitter": "Remetente",
+      "state": "Estado",
+      "submitted": "Enviado",
+      "displayWindow": "Janela de exibição",
+      "reviewAction": "Revisão"
+    },
+    "untitledSubmission": "Envio sem título",
+    "untitledSubmissionInline": "submissão sem título",
+    "unknownSubmitter": "Desconhecido",
+    "reviewActionLabel": "Revisão {{title}} de {{formName}}",
+    "loadErrorTitle": "Não foi possível carregar as aprovações",
+    "loadErrorFallback": "Por favor, tente novamente.",
+    "loading": "Carregando aprovações",
+    "emptyTitle": "Nada para revisar",
+    "emptyDescription": "Não há envios aguardando sua decisão no momento.",
+    "paginationLabel": "Páginas de aprovações",
+    "paginationStatus": "Página {{page}} de {{totalPages}} · {{total}} pendente",
+    "displayWindow": {
+      "now": "agora",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "toasts": {
+    "formCreated": "Formulário criado.",
+    "accessUpdated": "Acesso ao formulário atualizado.",
+    "draftSaved": "Rascunho de formulário salvo.",
+    "published": "Formulário publicado.",
+    "outputsRebuilt": "Saídas de formulário reconstruídas.",
+    "submissionUpdated": "Envio atualizado.",
+    "commentAdded": "Comentário adicionado.",
+    "attachmentUploaded": "Anexo carregado.",
+    "attachmentRemoved": "Anexo removido.",
+    "viewSaved": "Visualização de formulário salva.",
+    "workflowSaved": "Fluxo de trabalho do formulário salvo."
+  }
+}

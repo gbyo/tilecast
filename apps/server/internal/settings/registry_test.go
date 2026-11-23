@@ -19,7 +19,7 @@ func TestRegistryRejectsUnknownAndUnsafeValues(t *testing.T) {
 }
 
 func TestLanguagePreferenceAcceptsOnlyShippedLocales(t *testing.T) {
-	for _, language := range []string{"system", "en", "es", "ru"} {
+	for _, language := range []string{"system", "en", "es", "ru", "fr", "hi", "pt", "bn", "zh", "nl"} {
 		if _, err := Validate(map[string]any{"preference.language": language}, ScopePreference); err != nil {
 			t.Fatalf("%s rejected: %v", language, err)
 		}
