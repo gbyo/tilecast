@@ -1,5 +1,6 @@
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -806,6 +807,59 @@ operations:
         ),
       );
       expect(automation.operations).toHaveLength(5);
+    });
+
+    it("scaffolds a plugin without instance kinds that still conforms", async () => {
+      const created = scaffold(root, {
+        id: "usage_report",
+        category: "Automation",
+        maintainer: "@gbyo",
+        api: false,
+        pluginApi: 3,
+        noInstances: true,
+      });
+      expect(created.some((path) => path.includes("/studio/"))).toBe(false);
+      const manifest = manifestOf("usage-report");
+      expect(manifest.apiVersion).toBe(3);
+      expect(manifest.instances).toEqual([]);
+      // One organization setting gives Studio a generated landing page.
+      expect(manifest.settings.organization).toHaveLength(1);
+      // A scaffold never grants a read service on its own.
+      expect(manifest.services).toEqual([]);
+      const source = readFileSync(
+        join(root, "plugins/usage-report/plugin.go"),
+        "utf8",
+      );
+      expect(source).not.toContain("ValidateInstance");
+      await generateInto(root);
+      expect(await problems(root)).toEqual([]);
+      // No kinds, so no generated automation operations.
+      expect(
+        existsSync(join(root, "plugins/usage-report/automation.gen.json")),
+      ).toBe(false);
+    });
+
+    it("refuses --no-instances outside Plugin Manifest API 3 or with a Player contribution", () => {
+      expect(() =>
+        scaffold(root, {
+          id: "usage_report",
+          category: "Automation",
+          maintainer: "@gbyo",
+          api: false,
+          noInstances: true,
+        }),
+      ).toThrow(/--plugin-api 3/);
+      expect(() =>
+        scaffold(root, {
+          id: "usage_report",
+          category: "Automation",
+          maintainer: "@gbyo",
+          api: false,
+          pluginApi: 3,
+          noInstances: true,
+          player: { required: ["player.clock@1"] },
+        }),
+      ).toThrow(/projects instances/);
     });
 
     it("refuses a plugin that opens its own network connection", async () => {

@@ -29,6 +29,9 @@ Use a checkout that already passes the repository checks. Install the dependenci
    - `--no-studio` leaves out Studio pages, for a server-only integration.
    - `--player` adds Player behavior. Name its services with `--services player.clock@1,...` and enhancements with `--optional player.presentation.observe@1`.
    - `--surface ticker:strip.top,strip.bottom:scheduled` adds a visual contribution and the `player.surface@1` service.
+   - `--no-instances` (with `--plugin-api 3`) leaves out instances, for a plugin built from settings, connections, feeds, events, webhooks, or providers. It starts with one organization setting so its page has something to open on.
+
+   A scaffold never asks for Tilecast services on its own. If the plugin reads the content library or Activity, add `content.read@2` or `activity.read@1` to `services` yourself, and only the one you need.
 
    Without `--player`, the plugin gets no Player files at all.
 

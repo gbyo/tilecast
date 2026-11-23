@@ -103,14 +103,41 @@ field key must not use them.
 The reserved paths `settings`, `secrets`, `status`, `install`, `kinds`, and
 `connections` are not valid kind paths.
 
-#### Limit of four kinds
+#### Limit of sixteen kinds
 
-A plugin declares at most four instance kinds. Studio shows each kind as one tab
-of the plugin page. Four is the most tabs that Studio already shows in one tab
-list (the Widget inspector sections), and four tabs fit a phone-width page
-without a scrolling tab list. Each kind also adds five API operations and five
-automation commands. The limit is `MaxInstanceKinds` in the Go SDK and
-`MAX_INSTANCE_KINDS` in the TypeScript schema. A test keeps them equal.
+A plugin declares at most sixteen instance kinds. The limit bounds the
+generated contract surface. Each kind creates generated routes, five CRUD
+OpenAPI operations, five automation commands, Studio resources, and
+validation work. Sixteen kinds permit a complex plugin and keep that surface
+bounded and reviewable. The limit is `MaxInstanceKinds` in the Go SDK and
+`MAX_INSTANCE_KINDS` in the TypeScript schema. A test keeps them equal, and
+tests check that 16 kinds validate, 17 kinds fail, and the generated routes,
+operations, and automation commands at the limit are distinct.
+
+Studio navigation does not set the limit:
+
+| Kinds   | Navigation                                       |
+| ------- | ------------------------------------------------ |
+| 1       | No kind navigator                                |
+| 2 to 4  | Tabs                                             |
+| 5 to 16 | A labelled selector that fits a phone-width page |
+
+Both forms go to the canonical route of the kind. The URL is the only
+selected state, so browser back and forward move between kinds. The list,
+create, and edit routes of each kind do not change.
+
+#### Plugins without instances
+
+A plugin may declare `"instances": []`. Such a plugin can consist of
+settings, services, connections, feeds, events, webhooks, providers, and its
+own Studio pages, in any combination. The host does not require an
+artificial instance.
+
+The Studio route of a plugin without instances lands on the first generated
+page it has, in this order: organization settings, connections, feeds,
+webhooks, and status. A plugin that declares its own Studio index page keeps
+it, and the host adds no landing page. The organization settings page is
+also at `settings` whenever the plugin declares organization settings.
 
 ### Schedule modes
 
@@ -399,6 +426,11 @@ field.
 - The Player protocol does not change. A Player that hosts Plugin API 2 receives
   `plugin_state`. A Player without it receives the Plugin API 1 entry.
 - `npm run plugins:new -- <id> --plugin-api 3` scaffolds a version 3 plugin.
+  `--no-instances` scaffolds one without instance kinds: it declares one
+  organization setting, so Studio has a landing page, and no instance hooks.
+  A scaffold declares no Server service. An analysis-style plugin adds only
+  the read services it needs, `content.read@2` or `activity.read@1`. See
+  [Plugin read services](plugin-read-services.md).
 
 ## Countdown Bar on Plugin Manifest API 3
 

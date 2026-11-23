@@ -12,7 +12,9 @@ code, the public documentation, and the tests.
   `background` or `system` read covers the whole installation under that
   declaration. It is not administrator access.
 - Read [`docs/plugins.md`](../docs/plugins.md) for the behavior of each plugin.
-- Create a plugin with `npm run plugins:new -- <plugin_id>`.
+- Create a plugin with `npm run plugins:new -- <plugin_id>`. Add
+  `--plugin-api 3` for host-owned settings and instances, and
+  `--no-instances` for a version 3 plugin without instance kinds.
 - Bundle a Widget with `npm run widgets:new -- <name> --plugin <plugin_id>`.
 - Bundle a declarative Data Source with `npm run data-sources:new -- <name> --adapter <adapter> --plugin <plugin_id>`.
 - Run `npm run extensions:check` before you commit.

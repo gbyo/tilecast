@@ -36,6 +36,14 @@ export interface ScaffoldOptions {
    * operations, automation mapping, and Studio pages from the manifest.
    */
   pluginApi?: 1 | 2 | 3;
+  /**
+   * Plugin Manifest API 3 without instance kinds, for a plugin built from
+   * settings, services, connections, feeds, events, webhooks, or providers.
+   * The scaffold then declares one organization setting, so Studio has a
+   * generated landing page. It grants no read service: a plugin adds
+   * `content.read@2` or `activity.read@1` itself when it needs one.
+   */
+  noInstances?: boolean;
   /** Studio pages. Default true. */
   studio?: boolean;
   /**
@@ -96,6 +104,13 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
   const player = options.player;
   if (player && pluginApi === 1)
     throw new Error("a Player contribution needs Plugin API 2 or 3");
+  const noInstances = options.noInstances ?? false;
+  if (noInstances && pluginApi !== 3)
+    throw new Error("--no-instances needs --plugin-api 3");
+  if (noInstances && player)
+    throw new Error(
+      "a Plugin Manifest API 3 Player contribution projects instances; drop --no-instances or --player",
+    );
   const surfaces = player?.surfaces ?? [];
   const playerManifest = player
     ? {
@@ -135,28 +150,44 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
           api: { basePaths: [`/plugins/${dir}`] },
           studio: { route: `/plugins/${dir}` },
           services: [],
-          instances: [
-            {
-              kind: "item",
-              noun: { singular: "item", plural: "items" },
-              path: "items",
-              operations: {
-                singular: `${title(id).replaceAll(" ", "")}Item`,
-                plural: `${title(id).replaceAll(" ", "")}Items`,
-              },
-              targeting: player ? "screens" : "none",
-              schedule: "none",
-              fields: [
+          ...(noInstances
+            ? {
+                settings: {
+                  organization: [
+                    {
+                      key: "label",
+                      label: "Label",
+                      control: "text",
+                      maxLength: 120,
+                    },
+                  ],
+                },
+              }
+            : {}),
+          instances: noInstances
+            ? []
+            : [
                 {
-                  key: "title",
-                  label: "Title",
-                  control: "text",
-                  required: true,
-                  maxLength: 120,
+                  kind: "item",
+                  noun: { singular: "item", plural: "items" },
+                  path: "items",
+                  operations: {
+                    singular: `${title(id).replaceAll(" ", "")}Item`,
+                    plural: `${title(id).replaceAll(" ", "")}Items`,
+                  },
+                  targeting: player ? "screens" : "none",
+                  schedule: "none",
+                  fields: [
+                    {
+                      key: "title",
+                      label: "Title",
+                      control: "text",
+                      required: true,
+                      maxLength: 120,
+                    },
+                  ],
                 },
               ],
-            },
-          ],
         }
       : {}),
     ...(pluginApi === 3
@@ -188,8 +219,34 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
 
   files.set(
     "plugin.go",
-    pluginApi === 3
-      ? `// Package ${pkg} is the ${name} plugin on Plugin Manifest API 3. The host
+    pluginApi === 3 && noInstances
+      ? `// Package ${pkg} is the ${name} plugin on Plugin Manifest API 3. It has
+// no instance kinds: the host stores its organization settings and
+// generates their Studio page from the manifest. Add the members the plugin
+// needs, such as services, connections, feeds, events, webhooks, or
+// providers, and declare only the Server services it calls.
+package ${pkg}
+
+import (
+	_ "embed"
+
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+)
+
+//go:embed tilecast.plugin.json
+var manifest []byte
+
+// Plugin is the ${name} server contribution.
+type Plugin struct {
+	plugin.Bundle
+}
+
+func New() plugin.Plugin {
+	return &Plugin{Bundle: plugin.NewBundle(manifest, nil)}
+}
+`
+      : pluginApi === 3
+        ? `// Package ${pkg} is the ${name} plugin on Plugin Manifest API 3. The host
 // stores, authorizes, audits, and serves its instances and generates its
 // routes and Studio pages from the manifest; this package judges what an
 // instance means${player ? " and turns one into Player state" : ""}.
@@ -228,19 +285,19 @@ func New() plugin.Plugin {
 func (p *Plugin) ValidateInstance(context.Context, plugin.HostedInstance) error {
 	return nil
 }${
-          player
-            ? `
+            player
+              ? `
 
 // ProjectInstance maps one eligible instance to Player state. The host has
 // chosen the instance for the screen and sets the state's ID.
 func (p *Plugin) ProjectInstance(_ context.Context, instance plugin.HostedInstance, _ plugin.ProjectionTarget) (plugin.InstanceProjection, error) {
 	return plugin.InstanceProjection{State: &plugin.PlayerState{Type: ${JSON.stringify(id)}, Version: 1, State: instance.Configuration}}, nil
 }`
-            : ""
-        }
+              : ""
+          }
 `
-      : player
-        ? `// Package ${pkg} is the ${name} plugin.
+        : player
+          ? `// Package ${pkg} is the ${name} plugin.
 package ${pkg}
 
 import (
@@ -276,7 +333,7 @@ func (p *Plugin) ProjectPlayerState(context.Context, uuid.UUID) ([]plugin.Player
 	return []plugin.PlayerState{}, nil
 }
 `
-        : `// Package ${pkg} is the ${name} plugin.
+          : `// Package ${pkg} is the ${name} plugin.
 package ${pkg}
 
 import (
