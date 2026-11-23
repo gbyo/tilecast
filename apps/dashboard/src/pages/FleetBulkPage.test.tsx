@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -64,24 +65,24 @@ const preview: BulkPreview = {
   undoWindowMinutes: 15,
 };
 
-// Studio's Select is a Base UI combobox, not a native <select>: open it, then
-// click the option.
+// Assignment uses the shared searchable presentation picker.
 async function choose(
   user: ReturnType<typeof userEvent.setup>,
   label: string,
   option: string | RegExp,
 ) {
   await user.click(await screen.findByLabelText(label));
-  await user.click(await screen.findByRole("option", { name: option }));
+  await user.click(await screen.findByRole("button", { name: option }));
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
 }
 
-function renderPage() {
+function renderPage(initialEntry = "/screens/bulk") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <FleetBulkPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -103,14 +104,33 @@ describe("Fleet bulk changes", () => {
         total: 2,
       }),
     );
-    vi.spyOn(api, "playlists").mockResolvedValue(
-      widen<Awaited<ReturnType<typeof api.playlists>>>({
-        items: [{ id: "p1", name: "New menu" }],
+    vi.spyOn(api, "playlistPage").mockResolvedValue(
+      widen<Awaited<ReturnType<typeof api.playlistPage>>>({
+        items: [{ id: "p1", name: "New menu", itemCount: 1 }],
         total: 1,
+        page: 1,
+        pageSize: 100,
       }),
     );
-    vi.spyOn(api, "layouts").mockResolvedValue(
-      widen<Awaited<ReturnType<typeof api.layouts>>>({ items: [], total: 0 }),
+    vi.spyOn(api, "layoutPage").mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "playlist").mockResolvedValue(
+      widen<Awaited<ReturnType<typeof api.playlist>>>({
+        id: "p1",
+        name: "New menu",
+        itemCount: 1,
+      }),
+    );
+    vi.spyOn(api, "layout").mockResolvedValue(
+      widen<Awaited<ReturnType<typeof api.layout>>>({
+        id: "l1",
+        name: "Wall",
+        publishedRevision: 3,
+      }),
     );
     vi.spyOn(api, "bulkOperations").mockResolvedValue([]);
   });
@@ -131,8 +151,10 @@ describe("Fleet bulk changes", () => {
         ),
       ).toBeTruthy();
       expect(api.screens).not.toHaveBeenCalled();
-      expect(api.playlists).not.toHaveBeenCalled();
-      expect(api.layouts).not.toHaveBeenCalled();
+      expect(api.playlistPage).not.toHaveBeenCalled();
+      expect(api.layoutPage).not.toHaveBeenCalled();
+      expect(api.playlist).not.toHaveBeenCalled();
+      expect(api.layout).not.toHaveBeenCalled();
       expect(api.bulkOperations).not.toHaveBeenCalled();
     },
   );
@@ -153,6 +175,52 @@ describe("Fleet bulk changes", () => {
       name: /Preview the change/,
     });
     expect(button.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("prefills the selected playlist without loading either library", async () => {
+    const build = vi
+      .spyOn(api, "previewBulkOperation")
+      .mockResolvedValue(preview);
+    renderPage("/screens/bulk?playlist=p1");
+    const user = userEvent.setup();
+    expect(await screen.findByLabelText("Playlist")).toHaveTextContent(
+      "New menu",
+    );
+    expect(api.playlist).toHaveBeenCalledWith("p1");
+    expect(api.playlistPage).not.toHaveBeenCalled();
+    expect(api.layoutPage).not.toHaveBeenCalled();
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Cafeteria/ }),
+    );
+    await user.click(screen.getByRole("button", { name: /Preview the change/ }));
+    await waitFor(() =>
+      expect(build).toHaveBeenCalledWith({
+        screenIds: ["s1"],
+        action: "assign_playlist",
+        playlistId: "p1",
+      }),
+    );
+  });
+
+  it("prefills the published layout and its assignment action", async () => {
+    const build = vi
+      .spyOn(api, "previewBulkOperation")
+      .mockResolvedValue(preview);
+    renderPage("/screens/bulk?layout=l1");
+    const user = userEvent.setup();
+    expect(await screen.findByLabelText("Layout")).toHaveTextContent("Wall");
+    expect(api.layout).toHaveBeenCalledWith("l1");
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Cafeteria/ }),
+    );
+    await user.click(screen.getByRole("button", { name: /Preview the change/ }));
+    await waitFor(() =>
+      expect(build).toHaveBeenCalledWith({
+        screenIds: ["s1"],
+        action: "assign_layout",
+        layoutId: "l1",
+      }),
+    );
   });
 
   it("names the screens pulled in by a Display Group before anything is applied", async () => {
