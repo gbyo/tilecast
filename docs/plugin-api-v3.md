@@ -331,6 +331,17 @@ order for each subject. Core events come from a closed vocabulary. A plugin
 event has the full name `plugin.<plugin id>.<name>@<version>`, and its payload
 contract never changes under a version. See [Plugin events](plugin-events.md).
 
+## Webhooks
+
+A plugin declares inbound endpoints in `webhooks`. The host owns
+`POST /api/v1/hooks/{pluginId}/{webhookId}`. It authenticates each request
+with a `tch_` webhook token, a signature that it verifies with an
+organization secret setting, or a fetch-back event ID. It answers a declared
+handshake itself, drops a repeated delivery ID, and answers the declared
+`200` or `202` only after the request is queued. A plugin implements
+`HandleWebhook(ctx, plugin.Webhook) error`, and `VerifyWebhook` for a
+`verify` signature. See [Plugin webhooks](plugin-webhooks.md).
+
 ## Personal data
 
 A field of the plugin profile can carry `personal: { retentionDays }`, from 1 to

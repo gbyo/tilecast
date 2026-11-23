@@ -152,3 +152,21 @@ func (p *Plugin) HandleEvent(ctx context.Context, event plugin.Event) error
 Tilecast calls it **at least once** for each delivery, in order for each subject, with no signed-in person, for at most 30 seconds. The same `DeliveryID` can arrive again, so make the handler safe to repeat; `OccurrenceID` is the same for every subscriber of one event. Returning an error retries the delivery like a timer.
 
 Never change an event's payload under the same version: add a new version instead. Tilecast records each version's payload shape the first time it's published and refuses to publish a version whose fields, types, or limits changed. Changing labels or descriptions is fine. See [Plugin events](https://github.com/gbyo/tilecast/blob/main/docs/plugin-events.md) for the full contract.
+
+## Receive webhooks (Plugin Manifest API 3)
+
+Declare inbound endpoints in the manifest's `webhooks` member. Tilecast owns the address, `/api/v1/hooks/<plugin id>/<webhook id>`; your plugin never registers a public route of its own. Pick one authentication mode for each webhook:
+
+- **`token`**: a system on your network, such as a door controller, sends `Authorization: Bearer tch_…`. People create and revoke tokens on the plugin's Webhooks page.
+- **`signature`**: a SaaS provider signs each request. Declare `standard-webhooks`, or `hmac-sha256` with the provider's header, encoding, and signed string (`body`, `timestamp.body`, or `url.body`). Point `signature.secret` at an organization setting with the `secret` control. Tilecast checks the signature; your code never sees the secret. Declare where the provider puts its delivery ID (`deliveryId`), so Tilecast can drop repeats.
+- **`fetch-back`**: Tilecast keeps only an event ID from the request, and your handler reads the event from the provider through one of your connections.
+
+Set `ackStatus` to `200` if the provider retries anything else (Planning Center does); the default is `202`. Either way, Tilecast answers only after it has stored the request.
+
+```go
+func (p *Plugin) HandleWebhook(ctx context.Context, webhook plugin.Webhook) error
+```
+
+Tilecast calls it **at least once**, in order for each webhook, with no signed-in person, for at most 30 seconds. `DeliveryID` stays the same across retries; `ExternalID` is the provider's ID; `Body` is the exact raw body; `Headers` holds only the headers you listed in `forwardHeaders`. Treat a webhook as "something changed, go read it" and keep polling as well: a webhook only makes an update arrive sooner, and many Servers have no public HTTPS address at all.
+
+For a provider no declaration fits, use the `verify` scheme and implement `VerifyWebhook`. It gets one second and can't call `http.fetch@1`. See [Plugin webhooks](https://github.com/gbyo/tilecast/blob/main/docs/plugin-webhooks.md) for every rule and limit.
