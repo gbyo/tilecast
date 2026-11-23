@@ -6,7 +6,9 @@
   "description": "Read a meter gateway and a public API.",
   "category": "Workflow",
   "icon": "plug",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "meter",
     "plural": "meters"
@@ -15,12 +17,17 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": ["/plugins/local-gateway"]
+    "basePaths": [
+      "/plugins/local-gateway"
+    ]
   },
   "studio": {
     "route": "/plugins/local-gateway"
   },
-  "services": ["http.fetch@1", "secrets.read@1"],
+  "services": [
+    "http.fetch@1",
+    "secrets.read@1"
+  ],
   "connections": [
     {
       "id": "cloud",
@@ -57,7 +64,9 @@
         "key": "cloud",
         "label": "Cloud",
         "control": "connection",
-        "connections": ["cloud"]
+        "connections": [
+          "cloud"
+        ]
       },
       {
         "key": "cloudToken",
@@ -86,7 +95,10 @@
           "key": "gateway",
           "label": "Gateway",
           "control": "connection",
-          "connections": ["gateway", "printer"],
+          "connections": [
+            "gateway",
+            "printer"
+          ],
           "required": true
         },
         {

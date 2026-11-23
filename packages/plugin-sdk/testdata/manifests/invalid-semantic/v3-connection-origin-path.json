@@ -6,7 +6,9 @@
   "description": "Read a meter gateway and a public API.",
   "category": "Workflow",
   "icon": "plug",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "meter",
     "plural": "meters"
@@ -15,19 +17,26 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": ["/plugins/local-gateway"]
+    "basePaths": [
+      "/plugins/local-gateway"
+    ]
   },
   "studio": {
     "route": "/plugins/local-gateway"
   },
-  "services": ["http.fetch@1", "secrets.read@1"],
+  "services": [
+    "http.fetch@1",
+    "secrets.read@1"
+  ],
   "connections": [
     {
       "id": "cloud",
       "title": "Cloud API",
       "description": "The vendor's public API.",
       "type": "http",
-      "origins": ["https://api.example.com/v1"],
+      "origins": [
+        "https://api.example.com/v1"
+      ],
       "maxResponseBytes": 16777216,
       "timeoutSeconds": 60
     },
@@ -54,7 +63,9 @@
         "key": "cloud",
         "label": "Cloud",
         "control": "connection",
-        "connections": ["cloud"]
+        "connections": [
+          "cloud"
+        ]
       },
       {
         "key": "cloudToken",
@@ -83,7 +94,10 @@
           "key": "gateway",
           "label": "Gateway",
           "control": "connection",
-          "connections": ["gateway", "nas"],
+          "connections": [
+            "gateway",
+            "nas"
+          ],
           "required": true
         },
         {

@@ -6,7 +6,9 @@
   "description": "A Plugin API v2 fixture.",
   "category": "Display",
   "icon": "puzzle",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "item",
     "plural": "items"

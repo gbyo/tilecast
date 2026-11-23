@@ -117,7 +117,7 @@ function parseIPv6(text: string): number[] | null {
 function ipv6Text(groups: number[]): string {
   let bestStart = -1;
   let bestLength = 0;
-  for (let i = 0; i < 8;) {
+  for (let i = 0; i < 8; ) {
     if (groups[i] !== 0) {
       i++;
       continue;
@@ -193,8 +193,7 @@ export function parseOrigin(raw: string): Origin | null {
     const groups = parseIPv6(lowered);
     if (!groups) return null;
     const [, , , , , marker = 0, high = 0, low = 0] = groups;
-    const mapped =
-      groups.slice(0, 5).every((value) => value === 0) && marker === 0xffff;
+    const mapped = groups.slice(0, 5).every((value) => value === 0) && marker === 0xffff;
     const host = mapped
       ? [high >> 8, high & 255, low >> 8, low & 255].join(".")
       : ipv6Text(groups);
@@ -258,15 +257,11 @@ export function connectionProblems(
     for (const raw of connection.origins) {
       const origin = parseCanonicalOrigin(raw);
       if (!origin) {
-        problems.push(
-          `${where}: invalid origin "${raw}"; write it canonically`,
-        );
+        problems.push(`${where}: invalid origin "${raw}"; write it canonically`);
         continue;
       }
       if (origin.scheme !== "https")
-        problems.push(
-          `${where} declares ${raw}; a fixed origin must use https`,
-        );
+        problems.push(`${where} declares ${raw}; a fixed origin must use https`);
       if (seen.has(raw)) problems.push(`${where} declares ${raw} twice`);
       seen.add(raw);
     }
@@ -274,20 +269,15 @@ export function connectionProblems(
   const plain = connection.plainHttp === "allowed";
   const privateNetwork = connection.privateNetwork === "allowed";
   if (plain && !operator)
-    problems.push(
-      `${where} allows plain HTTP; plain HTTP needs origins "operator"`,
-    );
+    problems.push(`${where} allows plain HTTP; plain HTTP needs origins "operator"`);
   if (plain && !privateNetwork)
     problems.push(
       `${where} allows plain HTTP; plain HTTP reaches only private addresses, so privateNetwork must be "allowed"`,
     );
   if (connection.allowPlaintextSecret && !plain)
-    problems.push(
-      `${where} allows a plaintext secret without plainHttp "allowed"`,
-    );
+    problems.push(`${where} allows a plaintext secret without plainHttp "allowed"`);
   if (connection.type === "oauth2") {
-    if (!connection.oauth)
-      problems.push(`${where} has type "oauth2" and needs oauth`);
+    if (!connection.oauth) problems.push(`${where} has type "oauth2" and needs oauth`);
     if (operator || privateNetwork || plain || connection.allowPlaintextSecret)
       problems.push(
         `${where} is an OAuth connection; it needs fixed https origins and refuses the private network and plain HTTP`,
@@ -310,23 +300,15 @@ export function connectionProblems(
       problems.push(`${where} oauth has an empty, long, or repeated scope`);
     for (const scope of oauth.scopes)
       if (!/^[\x21\x23-\x5b\x5d-\x7e]+$/.test(scope))
-        problems.push(
-          `${where} oauth scope "${scope}" holds a character a scope cannot hold`,
-        );
-    for (const [key, value] of Object.entries(
-      oauth.authorizationParameters ?? {},
-    )) {
+        problems.push(`${where} oauth scope "${scope}" holds a character a scope cannot hold`);
+    for (const [key, value] of Object.entries(oauth.authorizationParameters ?? {})) {
       if (
         !/^[a-z][a-z0-9_]{0,39}$/.test(key) ||
         (RESERVED_OAUTH_PARAMETERS as readonly string[]).includes(key)
       )
-        problems.push(
-          `${where} oauth authorization parameter "${key}" is invalid or set by the host`,
-        );
+        problems.push(`${where} oauth authorization parameter "${key}" is invalid or set by the host`);
       if (!/^[\x20-\x7e]+$/.test(value))
-        problems.push(
-          `${where} oauth authorization parameter "${key}" holds a control or non-ASCII character`,
-        );
+        problems.push(`${where} oauth authorization parameter "${key}" holds a control or non-ASCII character`);
     }
   }
   return problems;

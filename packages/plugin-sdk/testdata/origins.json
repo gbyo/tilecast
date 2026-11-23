@@ -1,61 +1,17 @@
 {
   "$comment": "Shared origin cases for the Go SDK (ParseOrigin, ParseCanonicalOrigin) and the TypeScript SDK (parseOrigin). operator is what ParseOrigin returns for typed input; canonical says whether a manifest may declare the text as written.",
   "cases": [
-    {
-      "input": "https://example.com",
-      "operator": "https://example.com",
-      "canonical": true
-    },
-    {
-      "input": "https://api.example.com:8443",
-      "operator": "https://api.example.com:8443",
-      "canonical": true
-    },
-    {
-      "input": "HTTPS://Example.COM",
-      "operator": "https://example.com",
-      "canonical": false
-    },
-    {
-      "input": "https://example.com:443",
-      "operator": "https://example.com",
-      "canonical": false
-    },
-    {
-      "input": "https://example.com/",
-      "operator": "https://example.com",
-      "canonical": false
-    },
-    {
-      "input": "http://inverter.lan",
-      "operator": "http://inverter.lan",
-      "canonical": true
-    },
-    {
-      "input": "http://inverter.lan:80",
-      "operator": "http://inverter.lan",
-      "canonical": false
-    },
-    {
-      "input": "http://192.168.1.20:8080",
-      "operator": "http://192.168.1.20:8080",
-      "canonical": true
-    },
-    {
-      "input": "https://[fd12::5]",
-      "operator": "https://[fd12::5]",
-      "canonical": true
-    },
-    {
-      "input": "https://[FD12:0::5]",
-      "operator": "https://[fd12::5]",
-      "canonical": false
-    },
-    {
-      "input": "https://example.com.",
-      "operator": "https://example.com",
-      "canonical": false
-    },
+    { "input": "https://example.com", "operator": "https://example.com", "canonical": true },
+    { "input": "https://api.example.com:8443", "operator": "https://api.example.com:8443", "canonical": true },
+    { "input": "HTTPS://Example.COM", "operator": "https://example.com", "canonical": false },
+    { "input": "https://example.com:443", "operator": "https://example.com", "canonical": false },
+    { "input": "https://example.com/", "operator": "https://example.com", "canonical": false },
+    { "input": "http://inverter.lan", "operator": "http://inverter.lan", "canonical": true },
+    { "input": "http://inverter.lan:80", "operator": "http://inverter.lan", "canonical": false },
+    { "input": "http://192.168.1.20:8080", "operator": "http://192.168.1.20:8080", "canonical": true },
+    { "input": "https://[fd12::5]", "operator": "https://[fd12::5]", "canonical": true },
+    { "input": "https://[FD12:0::5]", "operator": "https://[fd12::5]", "canonical": false },
+    { "input": "https://example.com.", "operator": "https://example.com", "canonical": false },
     { "input": "https://example.com/path", "operator": null },
     { "input": "https://example.com/?a=1", "operator": null },
     { "input": "https://example.com?a=1", "operator": null },

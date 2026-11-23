@@ -6,7 +6,9 @@
   "description": "Read a meter gateway and a public API.",
   "category": "Workflow",
   "icon": "plug",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "meter",
     "plural": "meters"
@@ -15,66 +17,89 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": ["/plugins/local-gateway"]
+    "basePaths": [
+      "/plugins/local-gateway"
+    ]
   },
   "studio": {
     "route": "/plugins/local-gateway"
   },
-  "services": ["http.fetch@1", "secrets.read@1"],
+  "services": [
+    "http.fetch@1",
+    "secrets.read@1"
+  ],
   "connections": [
     {
       "id": "c0",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c1",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c2",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c3",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c4",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c5",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c6",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c7",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     },
     {
       "id": "c8",
       "title": "C",
       "type": "http",
-      "origins": ["https://example.com"]
+      "origins": [
+        "https://example.com"
+      ]
     }
   ],
   "settings": {
@@ -83,7 +108,9 @@
         "key": "cloud",
         "label": "Cloud",
         "control": "connection",
-        "connections": ["c0"]
+        "connections": [
+          "c0"
+        ]
       },
       {
         "key": "cloudToken",
@@ -112,7 +139,9 @@
           "key": "gateway",
           "label": "Gateway",
           "control": "connection",
-          "connections": ["c1"],
+          "connections": [
+            "c1"
+          ],
           "required": true
         },
         {

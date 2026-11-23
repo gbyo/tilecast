@@ -12,7 +12,10 @@
  * inspector from this metadata; Widgets never get their own React editors.
  */
 
-import type { ConfigAuthoringSection, ConfigVisibleWhen } from "./fields.ts";
+import type {
+  ConfigAuthoringSection,
+  ConfigVisibleWhen,
+} from "./fields.ts";
 
 export type AuthoringSection = ConfigAuthoringSection;
 
@@ -180,7 +183,10 @@ export function visibleAuthoringFields<Field extends AuthoringField>(
 export function groupAuthoringFields<Field extends AuthoringField>(
   fields: readonly Field[],
 ): { section: AuthoringSection; fields: Field[] }[] {
-  const groups = new Map<AuthoringSection, { field: Field; index: number }[]>();
+  const groups = new Map<
+    AuthoringSection,
+    { field: Field; index: number }[]
+  >();
   fields.forEach((field, index) => {
     const section = authoringUiOf(field).section ?? "content";
     const group = groups.get(section);

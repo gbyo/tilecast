@@ -6,7 +6,9 @@
   "description": "Show a room calendar.",
   "category": "Display",
   "icon": "calendar",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "sign",
     "plural": "signs"
@@ -15,28 +17,39 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": ["/plugins/calendar-sign"]
+    "basePaths": [
+      "/plugins/calendar-sign"
+    ]
   },
   "studio": {
     "route": "/plugins/calendar-sign"
   },
-  "services": ["http.fetch@1"],
+  "services": [
+    "http.fetch@1"
+  ],
   "connections": [
     {
       "id": "google",
       "title": "Google Calendar",
       "type": "oauth2",
-      "origins": ["https://www.googleapis.com"]
+      "origins": [
+        "https://www.googleapis.com"
+      ]
     },
     {
       "id": "square",
       "title": "Square",
       "type": "oauth2",
-      "origins": ["https://connect.squareup.com"],
+      "origins": [
+        "https://connect.squareup.com"
+      ],
       "oauth": {
         "authorizationEndpoint": "https://connect.squareup.com/oauth2/authorize",
         "tokenEndpoint": "https://connect.squareup.com/oauth2/token",
-        "scopes": ["ITEMS_READ", "MERCHANT_PROFILE_READ"],
+        "scopes": [
+          "ITEMS_READ",
+          "MERCHANT_PROFILE_READ"
+        ],
         "tokenEndpointAuthMethod": "client_secret_post",
         "tokenRequestFormat": "json"
       }
@@ -61,7 +74,9 @@
           "key": "calendar",
           "label": "Calendar",
           "control": "connection",
-          "connections": ["google"],
+          "connections": [
+            "google"
+          ],
           "required": true
         }
       ]

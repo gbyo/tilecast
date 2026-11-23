@@ -6,7 +6,9 @@
   "description": "Show room bookings.",
   "category": "Display",
   "icon": "calendar",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "sign",
     "plural": "signs"
@@ -15,12 +17,17 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": ["/plugins/room-sign"]
+    "basePaths": [
+      "/plugins/room-sign"
+    ]
   },
   "studio": {
     "route": "/plugins/room-sign"
   },
-  "services": ["secrets.read@1", "organization.read@1"],
+  "services": [
+    "secrets.read@1",
+    "organization.read@1"
+  ],
   "settings": {
     "organization": [
       {
@@ -132,19 +139,25 @@
     "runtime": {
       "entrypoint": "./runtime/index.ts",
       "services": {
-        "required": ["player.surface@1"]
+        "required": [
+          "player.surface@1"
+        ]
       },
       "surfaces": [
         {
           "id": "sign",
-          "slots": ["corner.top-right"],
+          "slots": [
+            "corner.top-right"
+          ],
           "tier": "ambient"
         }
       ]
     }
   },
   "runtime": {
-    "manifestTypes": ["room_sign"],
+    "manifestTypes": [
+      "room_sign"
+    ],
     "tier": "ambient"
   }
 }
