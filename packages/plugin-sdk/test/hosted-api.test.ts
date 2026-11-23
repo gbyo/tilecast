@@ -45,3 +45,34 @@ it("validates instance responses and exposes secret states without write fields"
   expect(validate({ ...response, clearSecrets: ["token"] })).toBe(false);
   expect(validate({ ...response, expectedRevision: 1 })).toBe(false);
 });
+
+it("generates a bounded, unique contract surface at the instance-kind limit", async () => {
+  const { default: sixteen } =
+    await import("../testdata/manifests/valid/v3-sixteen-kinds.json");
+  const { MAX_INSTANCE_KINDS } = await import("../src/manifest");
+  const { generatedAutomation } = await import("../tools/pluginctl/hosted-api");
+  const parsed = parsePluginManifest(sixteen);
+  if (parsed.apiVersion !== 3) throw new Error("expected API 3 manifest");
+  expect(parsed.instances).toHaveLength(MAX_INSTANCE_KINDS);
+  expect(MAX_INSTANCE_KINDS).toBe(16);
+
+  const fragment = generatedFragment(parsed) as {
+    paths: Record<string, Record<string, { operationId: string }>>;
+  };
+  const operationIds = Object.values(fragment.paths).flatMap((methods) =>
+    Object.values(methods).map((operation) => operation.operationId),
+  );
+  // Settings operations plus five CRUD operations for each kind, all unique.
+  expect(new Set(operationIds).size).toBe(operationIds.length);
+  for (let index = 0; index < 16; index += 1) {
+    expect(
+      operationIds.filter((id) => id.toLowerCase().includes(`k${index}`))
+        .length,
+    ).toBeGreaterThanOrEqual(5);
+  }
+
+  const automation = generatedAutomation(parsed);
+  expect(automation).toHaveLength(16 * 5);
+  const commands = automation.map((operation) => JSON.stringify(operation));
+  expect(new Set(commands).size).toBe(commands.length);
+});

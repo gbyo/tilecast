@@ -6,9 +6,7 @@
   "description": "Show room bookings.",
   "category": "Display",
   "icon": "calendar",
-  "maintainers": [
-    "@gbyo"
-  ],
+  "maintainers": ["@gbyo"],
   "instanceNoun": {
     "singular": "sign",
     "plural": "signs"
@@ -17,17 +15,12 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": [
-      "/plugins/room-sign"
-    ]
+    "basePaths": ["/plugins/room-sign"]
   },
   "studio": {
     "route": "/plugins/room-sign"
   },
-  "services": [
-    "secrets.read@1",
-    "organization.read@1"
-  ],
+  "services": ["secrets.read@1", "organization.read@1"],
   "settings": {
     "organization": [
       {
@@ -159,6 +152,258 @@
           "control": "secret"
         }
       ]
+    },
+    {
+      "kind": "k5",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p5",
+      "operations": {
+        "singular": "K5",
+        "plural": "K5s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k6",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p6",
+      "operations": {
+        "singular": "K6",
+        "plural": "K6s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k7",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p7",
+      "operations": {
+        "singular": "K7",
+        "plural": "K7s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k8",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p8",
+      "operations": {
+        "singular": "K8",
+        "plural": "K8s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k9",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p9",
+      "operations": {
+        "singular": "K9",
+        "plural": "K9s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k10",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p10",
+      "operations": {
+        "singular": "K10",
+        "plural": "K10s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k11",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p11",
+      "operations": {
+        "singular": "K11",
+        "plural": "K11s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k12",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p12",
+      "operations": {
+        "singular": "K12",
+        "plural": "K12s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k13",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p13",
+      "operations": {
+        "singular": "K13",
+        "plural": "K13s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k14",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p14",
+      "operations": {
+        "singular": "K14",
+        "plural": "K14s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k15",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p15",
+      "operations": {
+        "singular": "K15",
+        "plural": "K15s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
+    },
+    {
+      "kind": "k16",
+      "noun": {
+        "singular": "calendar",
+        "plural": "calendars"
+      },
+      "path": "p16",
+      "operations": {
+        "singular": "K16",
+        "plural": "K16s"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "feedToken",
+          "label": "Feed token",
+          "control": "secret"
+        }
+      ]
     }
   ],
   "player": {
@@ -171,16 +416,12 @@
     "runtime": {
       "entrypoint": "./runtime/index.ts",
       "services": {
-        "required": [
-          "player.surface@1"
-        ]
+        "required": ["player.surface@1"]
       },
       "surfaces": [
         {
           "id": "sign",
-          "slots": [
-            "corner.top-right"
-          ],
+          "slots": ["corner.top-right"],
           "tier": "ambient"
         }
       ]

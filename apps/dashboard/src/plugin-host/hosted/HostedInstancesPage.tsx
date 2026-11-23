@@ -21,7 +21,6 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "@/components/ui/toast";
 import { apiErrorMessage } from "@/i18n";
@@ -30,12 +29,14 @@ import { PluginPage } from "../PluginPage";
 import { useStudioSession } from "../session";
 import { hostedClient, hostedInstancesKey } from "./api";
 import { kindRoute, summaryOf, type HostedPluginProps } from "./model";
+import { HostedKindNavigator } from "./HostedKindNavigator";
 import { HostedPluginLinks } from "./HostedPluginLinks";
 import { SecretKeyNotice } from "./SecretKeyNotice";
 
 /**
  * The generated list page of a plugin's instance kinds. One kind shows a
- * list; more than one shows a tab for each. Everything here comes from the
+ * list; more than one adds the kind navigator: tabs for up to four kinds,
+ * a selector for more. Everything here comes from the
  * manifest, so a plugin writes no list page of its own.
  */
 export function HostedInstancesPage({
@@ -95,21 +96,7 @@ export function HostedInstancesPage({
         }
       >
         <SecretKeyNotice />
-        {kinds.length > 1 && (
-          <Tabs value={kind.path}>
-            <TabsList>
-              {kinds.map((item) => (
-                <TabsTrigger
-                  key={item.path}
-                  value={item.path}
-                  render={<Link to={kindRoute(manifest, item)} />}
-                >
-                  {item.noun.plural}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
+        <HostedKindNavigator manifest={manifest} current={kind.path} />
         {instances.isError && (
           <Alert variant="destructive">
             <AlertDescription>

@@ -75,6 +75,7 @@ async function main(argv: string[]): Promise<number> {
           api: { type: "boolean", default: false },
           "plugin-api": { type: "string", default: "2" },
           "no-studio": { type: "boolean", default: false },
+          "no-instances": { type: "boolean", default: false },
           player: { type: "boolean", default: false },
           services: { type: "string", default: "player.clock@1" },
           optional: { type: "string", default: "" },
@@ -84,7 +85,7 @@ async function main(argv: string[]): Promise<number> {
       const id = positionals[0];
       if (!id) {
         console.error(
-          "usage: npm run plugins:new -- <plugin_id> [--name Name] [--category Display] [--api] [--no-studio] [--player [--services a@1,...] [--optional a@1,...] [--surface id:slot,slot:tier]] [--plugin-api 1]",
+          "usage: npm run plugins:new -- <plugin_id> [--name Name] [--category Display] [--api] [--no-studio] [--player [--services a@1,...] [--optional a@1,...] [--surface id:slot,slot:tier]] [--plugin-api 1|3 [--no-instances]]",
         );
         return 2;
       }
@@ -107,6 +108,7 @@ async function main(argv: string[]): Promise<number> {
               ? 3
               : 2,
         studio: !values["no-studio"],
+        noInstances: values["no-instances"],
         ...(values.player || surfaces.length > 0
           ? { player: { required, optional: csv(values.optional), surfaces } }
           : {}),

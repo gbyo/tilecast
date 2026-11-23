@@ -63,6 +63,10 @@ adds no product feature and no example plugin:
   [plugin read services](../plugin-read-services.md).
 - The install review shows the contexts of each service grant, for packages
   and bundled plugins.
+- A plugin may declare up to sixteen instance kinds, up from four. Studio
+  shows two to four kinds as tabs and more as a selector. A plugin without
+  instance kinds lands on its first generated page, and
+  `npm run plugins:new -- <id> --plugin-api 3 --no-instances` scaffolds one.
 
 Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
@@ -272,9 +276,18 @@ validator, and the TypeScript types.
 
 A plugin declares one or more instance kinds. A kind has a noun, a settings
 schema, a targeting mode (`screens` or `none`), a schedule mode (`none`,
-`window`, or `weekly`), and an optional priority. Phase 1 sets an upper bound
-for the number of kinds from the generated Studio navigation and records the
+`window`, or `weekly`), and an optional priority. A plugin declares at most
+sixteen kinds. The bound limits generated contract surface: each kind
+creates generated routes, CRUD OpenAPI operations, automation operations,
+Studio resources, and validation work. Sixteen permits complex plugins while
+keeping that surface bounded and reviewable. Studio shows two to four kinds
+as tabs and more as a selector, so navigation does not set the bound. Phase
+1 set four from the tab count; the platform validation stage replaced that
 reason.
+
+A plugin may also declare no kinds. It then consists of settings, services,
+connections, feeds, events, webhooks, providers, or its own Studio pages,
+and Studio lands on the first generated page it has.
 
 The schedule mode controls when the host projects an instance. A domain
 calendar, such as A and B days or a bell schedule with exceptions, is plugin
@@ -1122,7 +1135,11 @@ install review shows:
 ### 19. Tooling
 
 - `npm run plugins:new` takes a recipe: `overlay`, `integration`, `feed`,
-  `operator`, or `automation`.
+  `operator`, `automation`, or `analysis`. The recipes are planned, not
+  implemented. An `analysis` plugin reads content or Activity and reports
+  on it; it declares only the read services it needs.
+- Until the recipes exist, `--plugin-api 3 --no-instances` scaffolds a
+  plugin without instance kinds. A scaffold grants no read service.
 - A local development loop runs a plugin against a demo Server and reloads
   Studio and Runtime code.
 - The public plugin guide uses plugins from this record as worked examples.

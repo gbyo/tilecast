@@ -166,7 +166,9 @@ A version 3 plugin describes what it stores, and Tilecast stores it. You write n
   "api": { "basePaths": ["/plugins/room-sign"] },
   "studio": { "route": "/plugins/room-sign" },
   "settings": {
-    "organization": [{ "key": "apiToken", "label": "API token", "control": "secret" }]
+    "organization": [
+      { "key": "apiToken", "label": "API token", "control": "secret" }
+    ]
   },
   "instances": [
     {
@@ -177,13 +179,21 @@ A version 3 plugin describes what it stores, and Tilecast stores it. You write n
       "targeting": "screens",
       "schedule": "none",
       "priority": { "minimum": -10, "maximum": 10, "default": 0 },
-      "fields": [{ "key": "title", "label": "Title", "control": "text", "required": true }]
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "control": "text",
+          "required": true
+        }
+      ]
     }
   ]
 }
 ```
 
-- A plugin has at most four instance kinds. Studio shows each as a tab.
+- A plugin has at most sixteen instance kinds. Studio shows two to four as tabs and more as a drop-down, and each kind's address stays the same either way.
+- A plugin doesn't need instances at all. With `"instances": []`, its page opens on the first thing it has: settings, connections, feeds, webhooks, or status.
 - `targeting` is `screens` or `none`. `schedule` is `none`, `window`, or `weekly`.
 - `fields` use the same vocabulary as Widget settings, plus `secret`. A secret is encrypted and never shown again.
 - `personal` marks a field that holds personal data and says how long to keep it.
@@ -199,7 +209,12 @@ A version 3 plugin never opens its own network connection. It declares each serv
 {
   "services": ["http.fetch@1", "secrets.read@1"],
   "connections": [
-    { "id": "calendar", "title": "Calendar API", "type": "http", "origins": ["https://api.example.com"] },
+    {
+      "id": "calendar",
+      "title": "Calendar API",
+      "type": "http",
+      "origins": ["https://api.example.com"]
+    },
     {
       "id": "gateway",
       "title": "Meter gateway",
@@ -211,7 +226,12 @@ A version 3 plugin never opens its own network connection. It declares each serv
   ],
   "settings": {
     "organization": [
-      { "key": "calendar", "label": "Calendar", "control": "connection", "connections": ["calendar"] },
+      {
+        "key": "calendar",
+        "label": "Calendar",
+        "control": "connection",
+        "connections": ["calendar"]
+      },
       { "key": "apiToken", "label": "API token", "control": "secret" }
     ]
   }
@@ -219,7 +239,7 @@ A version 3 plugin never opens its own network connection. It declares each serv
 ```
 
 - `origins` is a list of `https` origins, or `operator` when the operator enters one. An origin is a scheme, host, and port, with no path.
-- `privateNetwork` and `plainHttp` say what a connection *could* do. Each still needs its own permission from the operator. Plain HTTP works only with an operator origin on a private address.
+- `privateNetwork` and `plainHttp` say what a connection _could_ do. Each still needs its own permission from the operator. Plain HTTP works only with an operator origin on a private address.
 - `allowPlaintextSecret` lets a secret travel over plain HTTP after a third permission.
 - `maxResponseBytes` (up to 16 MiB) and `timeoutSeconds` (up to 60) raise the defaults of 1 MiB and 10 seconds. The install review shows a raised limit.
 - A `connection` field stores the ID of a connection record. List the declarations it accepts in `connections`.
@@ -270,9 +290,20 @@ A feed is a set of records that your plugin publishes for Widgets. Tilecast stor
       "instanceKind": "menu",
       "expectedRefreshSeconds": 900,
       "fields": [
-        { "key": "name", "label": "Name", "control": "text", "maxLength": 120, "override": "local_until_changed" },
+        {
+          "key": "name",
+          "label": "Name",
+          "control": "text",
+          "maxLength": 120,
+          "override": "local_until_changed"
+        },
         { "key": "price", "label": "Price", "control": "number", "minimum": 0 },
-        { "key": "photo", "label": "Photo", "control": "url", "image": { "connection": "images" } }
+        {
+          "key": "photo",
+          "label": "Photo",
+          "control": "url",
+          "image": { "connection": "images" }
+        }
       ]
     }
   ]
@@ -287,4 +318,3 @@ A feed is a set of records that your plugin publishes for Widgets. Tilecast stor
 - Changing the fields means a new `version`.
 
 See the [Plugin feeds](https://github.com/gbyo/tilecast/blob/main/docs/plugin-feeds.md) reference for every rule.
-

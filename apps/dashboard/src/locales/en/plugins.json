@@ -1038,7 +1038,8 @@
         "channel": "Notification channel: delivers the notifications Tilecast already sends, under your notification settings.",
         "check": "Content Health check: reads one item at a time when it changes ({{kinds}}) and reports problems as incidents."
       }
-    }
+    },
+    "kindSelectorLabel": "Type"
   },
   "secrets": {
     "state": {
