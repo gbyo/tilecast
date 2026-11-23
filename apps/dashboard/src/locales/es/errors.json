@@ -42,6 +42,11 @@
     "plugin_settings_revision_conflict": "Alguien guardó ajustes más recientes. Recárgalos y vuelve a hacer el cambio.",
     "expected_revision_required": "Envía expectedRevision con la revisión que leíste, para no sobrescribir nunca un cambio más reciente.",
     "secrets_unavailable": "Los secretos de los plugins no están disponibles en este servidor.",
-    "restore_unreadable_secrets": "Algunos secretos de plugins de esta copia necesitan claves que este servidor no tiene."
+    "restore_unreadable_secrets": "Algunos secretos de plugins de esta copia necesitan claves que este servidor no tiene.",
+    "plugin_connection_not_found": "No se encontró la conexión.",
+    "plugin_connection_in_use": "Hay configuraciones o elementos que usan esta conexión. Primero elija otra conexión allí.",
+    "plugin_connection_revision_conflict": "Otra persona cambió esta conexión. Vuelva a cargarla y repita el cambio.",
+    "invalid_plugin_connection": "La conexión no es válida.",
+    "plugin_connection_limit": "Este complemento ya tiene el máximo de conexiones. Elimine una que ya no use."
   }
 }

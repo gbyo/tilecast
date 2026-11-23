@@ -1301,7 +1301,12 @@ export type PluginSummary = {
   active: boolean;
   instanceCount: number;
   attention: PluginAttention[];
+  /** Outbound connections a Plugin Manifest API 3 plugin declares. */
+  connections?: PluginConnectionReview[];
 };
+
+export type PluginConnectionReview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginConnectionReview"];
 
 export type UnsupportedPluginInstallation = {
   pluginId: string;

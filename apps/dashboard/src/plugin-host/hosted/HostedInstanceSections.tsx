@@ -10,7 +10,10 @@ import { WidgetInspectorField } from "@/components/content/widget-editor/fields/
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { TargetFields, useTargetSource } from "../../plugins/shared";
+import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
 import { HostedSecretField } from "./HostedSecretField";
+import { HostedConnectionField } from "./connections/HostedConnectionField";
+import { withValue } from "./connections/model";
 import {
   scheduleFields,
   type HostedDocument,
@@ -90,6 +93,8 @@ export function HostedInstanceGeneral({
 }
 
 export function HostedInstanceConfig({
+  pluginId,
+  manifest,
   fields,
   form,
   state,
@@ -98,6 +103,8 @@ export function HostedInstanceConfig({
   csrf,
   problemFor,
 }: InspectorProps & {
+  pluginId: string;
+  manifest: PluginManifestV3;
   fields: ConfigField[];
   state: HostedFormState;
   secretStates?: HostedDocument["secrets"];
@@ -149,6 +156,25 @@ export function HostedInstanceConfig({
                     dirty,
                   );
                 }}
+              />
+            ) : field.control === "connection" ? (
+              <HostedConnectionField
+                key={field.key}
+                pluginId={pluginId}
+                manifest={manifest}
+                field={field}
+                label={field.label}
+                description={field.description}
+                value={state.config[field.key]}
+                readOnly={readOnly}
+                error={problemFor(field.key)}
+                onChange={(value) =>
+                  form.setValue(
+                    "config",
+                    withValue(state.config, field.key, value),
+                    dirty,
+                  )
+                }
               />
             ) : (
               <HostedInspectorField

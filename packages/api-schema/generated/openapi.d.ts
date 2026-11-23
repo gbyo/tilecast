@@ -2909,6 +2909,60 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugins/{pluginId}/connections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lists the connection records of a Plugin Manifest API 3 plugin that declares connections. Requires plugins.use. A record never holds a credential. Each record states whether it can be used now and why not. */
+    get: operations["listPluginConnections"];
+    put?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent. */
+    post: operations["createPluginConnection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/connections/{connectionId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Reads one connection record. Requires plugins.use. */
+    get: operations["getPluginConnection"];
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation. */
+    put: operations["updatePluginConnection"];
+    post?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. */
+    delete: operations["deletePluginConnection"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/connections/{connectionId}/consents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for. */
+    put: operations["setPluginConnectionConsents"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugins/dependency-graph": {
     parameters: {
       query?: never;
@@ -7981,6 +8035,27 @@ export interface components {
       active: boolean;
       instanceCount: number;
       attention: components["schemas"]["PluginAttention"][];
+      /** @description Outbound connections a Plugin Manifest API 3 plugin declares. Empty for other plugins. */
+      connections: components["schemas"]["PluginConnectionReview"][];
+    };
+    PluginConnectionReview: {
+      id: string;
+      title: string;
+      description?: string;
+      /** @enum {string} */
+      type: "http";
+      /** @description An Owner or Administrator enters the one origin. */
+      operatorOrigin: boolean;
+      /** @description The fixed https origins. Empty for an operator connection. */
+      origins: string[];
+      /** @description Private addresses are possible after a separate consent. */
+      privateNetwork: boolean;
+      /** @description Plain HTTP on the local network is possible after its own consent. */
+      plainHttp: boolean;
+      /** @description A secret header over plain HTTP is possible after a third consent. */
+      plaintextSecret: boolean;
+      maxResponseBytes: number;
+      timeoutSeconds: number;
     };
     PluginAutomationOperation: {
       operationId: string;
@@ -8284,6 +8359,87 @@ export interface components {
           mutating: boolean;
         }[];
       }[];
+    };
+    PluginConnectionConsent: {
+      /** @description The declaration makes this consent possible. */
+      available: boolean;
+      /** @description The consent applies now. */
+      given: boolean;
+      /** Format: date-time */
+      givenAt?: string;
+      /** Format: uuid */
+      givenBy?: string;
+    };
+    PluginConnection: {
+      /** Format: uuid */
+      id: string;
+      plugin: string;
+      /** @description The connection declaration of the plugin manifest. */
+      definition: string;
+      name: string;
+      /** @description The configured origin of an operator connection. */
+      origin?: string;
+      /** @description The approved origins now. */
+      origins: string[];
+      consents: {
+        privateNetwork: components["schemas"]["PluginConnectionConsent"];
+        plainHttp: components["schemas"]["PluginConnectionConsent"];
+        plaintextSecret: components["schemas"]["PluginConnectionConsent"];
+      };
+      /** @description ready, or the first reason the connection cannot be used. */
+      status: string;
+      reasons: (
+        | "origin_required"
+        | "private_network_consent_required"
+        | "plain_http_consent_required"
+        | "declaration_removed"
+      )[];
+      notices: (
+        "consents_need_confirmation" | "private_addresses_need_consent"
+      )[];
+      references: components["schemas"]["PluginConnectionReference"][];
+      revision: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    PluginConnectionReference: {
+      /** @enum {string} */
+      ownerType: "settings" | "instance";
+      /** Format: uuid */
+      ownerId: string;
+      fieldKey: string;
+      label: string;
+    };
+    PluginConnectionCreate: {
+      definition: string;
+      name: string;
+      /** @description Required for an operator connection; refused otherwise. */
+      origin?: string;
+    };
+    PluginConnectionUpdate: {
+      /** @description Optional. A record's declaration never changes. */
+      definition?: string;
+      name: string;
+      origin?: string;
+      expectedRevision: number;
+    };
+    PluginConnectionConsentsWrite: {
+      privateNetwork: boolean;
+      plainHttp: boolean;
+      plaintextSecret: boolean;
+      expectedRevision: number;
+    };
+    PluginConnectionInUseError: {
+      error: {
+        /** @constant */
+        code: "plugin_connection_in_use";
+        message: string;
+        details: {
+          references: components["schemas"]["PluginConnectionReference"][];
+        };
+      };
     };
     PluginInUseError: {
       error: {
@@ -12806,6 +12962,8 @@ export interface components {
   parameters: {
     /** @description Registry identifier such as countdown_bar. */
     PluginID: string;
+    /** @description A connection record of the plugin. */
+    PluginConnectionID: string;
     /** @description Store package identifier such as countdown_bar. */
     PackageID: string;
     ResourceID: string;
@@ -21298,6 +21456,329 @@ export interface operations {
       };
       /** @description plugin_not_installed */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listPluginConnections: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Connection records */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              items: components["schemas"]["PluginConnection"][];
+              total: number;
+            };
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no connections */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createPluginConnection: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PluginConnectionCreate"];
+      };
+    };
+    responses: {
+      /** @description Record created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginConnection"];
+          };
+        };
+      };
+      /** @description invalid_plugin_connection — unknown declaration, or an origin the declaration does not accept */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_installed, or plugin_connection_limit — a plugin has at most 50 records */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getPluginConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Connection record */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginConnection"];
+          };
+        };
+      };
+      /** @description plugin_not_found or plugin_connection_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  updatePluginConnection: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PluginConnectionUpdate"];
+      };
+    };
+    responses: {
+      /** @description Record updated */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginConnection"];
+          };
+        };
+      };
+      /** @description invalid_plugin_connection */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_connection_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_connection_revision_conflict, with error.details.currentRevision */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description expected_revision_required */
+      428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deletePluginConnection: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Record deleted */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_connection_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_connection_in_use — error.details.references lists the settings and instances that use it */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PluginConnectionInUseError"];
+        };
+      };
+    };
+  };
+  setPluginConnectionConsents: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PluginConnectionConsentsWrite"];
+      };
+    };
+    responses: {
+      /** @description Consents written */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginConnection"];
+          };
+        };
+      };
+      /** @description invalid_plugin_connection */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_connection_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_connection_revision_conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description expected_revision_required */
+      428: {
         headers: {
           [name: string]: unknown;
         };

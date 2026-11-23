@@ -1,3 +1,4 @@
+import { ConnectionReviewSection } from "./ConnectionReviewSection";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
@@ -315,6 +316,7 @@ export function StoreDetail({
             capabilities={capabilities}
             loading={loadingPackage}
           />
+          <ConnectionReviewSection view={view} />
           <RequirementsSection view={view} />
         </div>
 
