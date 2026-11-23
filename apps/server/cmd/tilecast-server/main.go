@@ -253,6 +253,9 @@ func serve() {
 	// row in the creation transaction so removal cannot race it. The gate
 	// is injected so media never imports plugin implementation details.
 	mediaService.SetPluginSourceGate(pluginService)
+	// Package-owned content creation takes the same share lock on the package
+	// installation row, so Remove, update, and rollback serialize with it.
+	mediaService.SetPackageSourceGate(installService)
 	mediaService.SetContentDefinitions(contentDefinitions)
 	playlistService.SetContentDefinitions(contentDefinitions)
 	playlistService.SetPackagePayloads(contributionService)
