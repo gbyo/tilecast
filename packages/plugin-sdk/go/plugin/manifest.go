@@ -65,6 +65,9 @@ type Manifest struct {
 	// Webhooks are the inbound endpoints the host owns for the plugin.
 	// Plugin Manifest API 3 only.
 	Webhooks []WebhookDeclaration `json:"webhooks,omitempty"`
+	// Providers are the core provider slots the plugin fills. Plugin
+	// Manifest API 3 only.
+	Providers *Providers `json:"providers,omitempty"`
 }
 
 type InstanceNoun struct {
@@ -380,8 +383,8 @@ func (m Manifest) Validate() error {
 			return fail("%v", err)
 		}
 	}
-	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0 || len(m.Connections) > 0 || len(m.Feeds) > 0 || m.Events != nil || len(m.Webhooks) > 0) {
-		return fail("services, settings, instances, connections, feeds, events, and webhooks are Plugin Manifest API 3 members")
+	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0 || len(m.Connections) > 0 || len(m.Feeds) > 0 || m.Events != nil || len(m.Webhooks) > 0 || m.Providers != nil) {
+		return fail("services, settings, instances, connections, feeds, events, webhooks, and providers are Plugin Manifest API 3 members")
 	}
 	switch m.APIVersion {
 	case 3:

@@ -11,6 +11,7 @@
     "./feeds": "./src/feeds.ts",
     "./events": "./src/events.ts",
     "./webhooks": "./src/webhooks.ts",
+    "./providers": "./src/providers.ts",
     "./automation": "./src/automation.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime/testing": "./src/runtime-testing.ts",

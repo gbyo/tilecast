@@ -1828,6 +1828,87 @@
             "required": ["id", "title", "authentication"],
             "additionalProperties": false
           }
+        },
+        "providers": {
+          "description": "Core provider slots the plugin fills: notification channels and Content Health checks.",
+          "type": "object",
+          "properties": {
+            "notifications": {
+              "description": "notifications.channels: deliver a notification that Tilecast already decided to send.",
+              "type": "object",
+              "properties": {
+                "channels": {
+                  "minItems": 1,
+                  "maxItems": 2,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "description": { "type": "string", "maxLength": 280 }
+                    },
+                    "required": ["id", "title"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["channels"],
+              "additionalProperties": false
+            },
+            "contentHealth": {
+              "description": "contenthealth.checks: check one content item that Content Health passes in.",
+              "type": "object",
+              "properties": {
+                "checks": {
+                  "minItems": 1,
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "description": { "type": "string", "maxLength": 280 },
+                      "kinds": {
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "playlist",
+                            "layout",
+                            "widget_instance",
+                            "media_item"
+                          ]
+                        }
+                      }
+                    },
+                    "required": ["id", "title", "kinds"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["checks"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [

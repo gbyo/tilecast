@@ -291,6 +291,10 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 	subscribes := m.Events != nil && len(m.Events.Subscribes) > 0
 	_, handlesWebhooks := p.(WebhookHandler)
 	_, verifiesWebhooks := p.(WebhookVerifier)
+	_, deliversNotifications := p.(NotificationChannelProvider)
+	_, reportsChannels := p.(NotificationChannelStatus)
+	_, checksContent := p.(ContentChecker)
+	channels, checks := len(m.NotificationChannels()) > 0, len(m.ContentChecks()) > 0
 	verifyScheme := false
 	for _, webhook := range m.Webhooks {
 		verifyScheme = verifyScheme || (webhook.Signature != nil && webhook.Signature.Scheme == SignatureVerify)
@@ -330,6 +334,14 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 		return fmt.Errorf("declares a webhook with signature scheme verify but does not implement WebhookVerifier")
 	case verifiesWebhooks && !verifyScheme:
 		return fmt.Errorf("implements WebhookVerifier without a webhook of signature scheme verify")
+	case channels && !deliversNotifications:
+		return fmt.Errorf("declares notification channels but does not implement NotificationChannelProvider")
+	case (deliversNotifications || reportsChannels) && !channels:
+		return fmt.Errorf("implements a notification channel hook without declaring providers.notifications.channels")
+	case checks && !checksContent:
+		return fmt.Errorf("declares content checks but does not implement ContentChecker")
+	case checksContent && !checks:
+		return fmt.Errorf("implements ContentChecker without declaring providers.contentHealth.checks")
 	}
 	return nil
 }

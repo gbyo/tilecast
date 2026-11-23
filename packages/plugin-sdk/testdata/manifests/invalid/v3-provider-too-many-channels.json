@@ -1,0 +1,41 @@
+{
+  "apiVersion": 3,
+  "id": "provider_slots",
+  "definitionVersion": 1,
+  "name": "Provider Slots",
+  "description": "A notification channel and a Content Health check.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "providers": {
+    "notifications": {
+      "channels": [
+        {
+          "id": "c0",
+          "title": "C"
+        },
+        {
+          "id": "c1",
+          "title": "C"
+        },
+        {
+          "id": "c2",
+          "title": "C"
+        }
+      ]
+    },
+    "contentHealth": {
+      "checks": [
+        {
+          "id": "readability",
+          "title": "Readability",
+          "kinds": ["playlist", "layout", "widget_instance", "media_item"]
+        }
+      ]
+    }
+  }
+}

@@ -249,6 +249,9 @@ func (m Manifest) validateV3() error {
 	if err := m.validateWebhooks(); err != nil {
 		return err
 	}
+	if err := m.validateProviders(); err != nil {
+		return err
+	}
 	publishes := m.Events != nil && len(m.Events.Publishes) > 0
 	if publishes != declaresServiceName(m, "events.publish") {
 		return fmt.Errorf("a plugin that publishes events declares events.publish@1, and only such a plugin does")
