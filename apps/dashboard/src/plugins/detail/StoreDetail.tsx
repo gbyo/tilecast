@@ -125,7 +125,11 @@ function PackageManageBlock({
   return (
     <div className="order-7 grid content-start gap-8 xl:order-none xl:col-start-1">
       {showSettings && (
-        <PackageStudioUI packageId={view.packageId} csrfToken={csrfToken} />
+        <PackageStudioUI
+          key={installedPackage.digest}
+          packageId={view.packageId}
+          csrfToken={csrfToken}
+        />
       )}
       {showJobs && <PackageJobs packageId={view.packageId} />}
       {installedPackage.hasRollback && (
