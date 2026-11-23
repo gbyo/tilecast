@@ -1,0 +1,513 @@
+{
+  "playerRuntime": {
+    "title": "Player-oppervlakken",
+    "allowedSurfaces": "Toegestane oppervlakken: {{surfaces}}",
+    "priority": "Prioriteitsniveau: {{tier}}",
+    "surfaces": {
+      "strip": {
+        "top": "Bovenste strook",
+        "bottom": "Onderste strook"
+      },
+      "corner": {
+        "top-left": "Linkerbovenhoek",
+        "top-right": "Rechterbovenhoek",
+        "bottom-left": "Linker benedenhoek",
+        "bottom-right": "Rechteronderhoek"
+      },
+      "overlay": "Overlay op volledig scherm"
+    },
+    "tiers": {
+      "emergency": "Noodsituatie",
+      "live": "Leef",
+      "scheduled": "Gepland",
+      "ambient": "Omgeving"
+    }
+  },
+  "list": {
+    "title": "Plug-ins",
+    "subtitle": "Voeg optionele Tilecast-functies en -integraties toe aan deze installatie.",
+    "addAction": "Voeg plug-in toe",
+    "browseAction": "Blader door plug-ins",
+    "loadError": "Plug-ins konden niet worden geladen.",
+    "unsupportedTitle": "Plug-ins van een nieuwere Tilecast-release",
+    "unsupportedBody_one": "{{ids}} is geregistreerd als geïnstalleerd, maar maakt geen deel uit van deze release. Het werkt niet en de gegevens worden bewaard voor wanneer de nieuwere release terugkeert.",
+    "unsupportedBody_other": "{{ids}} worden geregistreerd als geïnstalleerd, maar maken geen deel uit van deze release. Ze zullen niet actief zijn en hun gegevens worden bewaard voor wanneer de nieuwere release terugkeert.",
+    "retiredTitle": "Plug-ins verwijderd uit Tilecast",
+    "retiredBody_one": "{{ids}} wordt geregistreerd als geïnstalleerd, maar is verwijderd uit Tilecast. Het werkt niet meer en de gegevens ervan worden bewaard.",
+    "retiredBody_other": "{{ids}} wordt geregistreerd als geïnstalleerd, maar is verwijderd uit Tilecast. Ze zijn niet meer actief en hun gegevens worden bewaard.",
+    "loading": "Plug-ins laden",
+    "installedLabel": "Geïnstalleerde plug-ins",
+    "emptyTitle": "Geen plug-ins geïnstalleerd",
+    "emptyDescription": "Voeg alleen de optionele functies toe die deze Tilecast-installatie nodig heeft.",
+    "openAction": "Openen",
+    "openLabel": "Open {{name}}"
+  },
+  "status": {
+    "attention": "Aandacht",
+    "active": "Actief",
+    "configured": "Geconfigureerd",
+    "needsSetup": "Heeft opstelling nodig"
+  },
+  "tabs": {
+    "installed": "Geïnstalleerd",
+    "explore": "Ontdek",
+    "viewsLabel": "Plugin-weergaven"
+  },
+  "store": {
+    "title": "Ontdek plug-ins",
+    "description": "Plug-ins meegeleverd met Tilecast en lijsten van de officiële Tilecast Marketplace.",
+    "sourceLabel": "Bron",
+    "loadError": "Deze plug-in kan niet worden geladen.",
+    "emptyTitle": "Geen plug-ins beschikbaar",
+    "emptyDescription": "Er zijn geen plug-ins beschikbaar van deze bronnen.",
+    "sources": {
+      "all": "Alle bronnen",
+      "included": "Inbegrepen bij Tilecast",
+      "marketplace": "Marktplaats",
+      "custom": "Aangepast"
+    },
+    "featured": {
+      "title": "Uitgelicht",
+      "label": "Aanbevolen plug-ins"
+    },
+    "allPlugins": "Alle plug-ins",
+    "card": {
+      "incompatible": "Incompatibel",
+      "moreCategories": "+{{count}}"
+    },
+    "notFoundTitle": "Plug-in niet gevonden",
+    "notFoundDescription": "Dit winkelitem is niet beschikbaar via deze bronnen.",
+    "backToExplore": "Terug naar Ontdekken",
+    "marketplace": {
+      "staleTitle": "De marktplaatscatalogus is mogelijk verouderd",
+      "staleDescription": "Toont de laatst beschikbare catalogus.",
+      "errorTitle": "Marktplaats kan niet worden vernieuwd",
+      "refresh": "Catalogus vernieuwen",
+      "refreshing": "Verfrissend…"
+    },
+    "detail": {
+      "version": "Versie {{version}}",
+      "installedVersion": "{{version}} geïnstalleerd",
+      "updateAvailable": "Update beschikbaar",
+      "requires": "Vereist Tilecast {{range}}",
+      "incompatible": "Deze aanbieding vereist Tilecast {{range}}, waaraan deze release niet voldoet.",
+      "publisher": "Uitgever",
+      "license": "Licentie",
+      "links": "Koppelingen",
+      "repository": "Bewaarplaats",
+      "documentation": "Documentatie",
+      "issues": "Probleemtracker",
+      "officialCatalog": "Vermeld op de officiële Tilecast-marktplaats.",
+      "featuredLabel": "Spotlight",
+      "featured": "Uitgelichte vermelding",
+      "categoriesLabel": "Categorieën",
+      "versionLabel": "Versie",
+      "requiresLabel": "Vereist",
+      "digestLabel": "Verteren",
+      "customNote": "Toegevoegd vanuit een door u gekozen repository. Tilecast verifieert de herkomst van de release voordat het wordt geïnstalleerd.",
+      "incompatiblePackage": "Dit pakket vereist Tilecast {{range}}, waaraan deze release niet voldoet."
+    },
+    "add": {
+      "action": "Toevoegen vanuit GitHub",
+      "title": "Voeg een aangepaste opslagplaats toe",
+      "description": "Zoek een openbare GitHub-repository op en bekijk de laatst gepubliceerde release voordat u deze installeert.",
+      "urlLabel": "Opslagplaats URL",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "Kijk omhoog",
+      "resolving": "Omhoog kijken…",
+      "install": "Pakket installeren",
+      "installing": "Installeren…"
+    },
+    "review": {
+      "release": "Laat los",
+      "published": "Gepubliceerd",
+      "provenance": "Herkomst",
+      "signedBy": "Ondertekend door {{signer}}",
+      "verified": "Geverifieerd",
+      "unsigned": "Niet ondertekend: alleen ontwikkelingsinstallaties",
+      "contributions": "Bijdragen",
+      "noContributions": "Geen vermeld",
+      "runtime": "Servermodule",
+      "networkHosts": "Uitgaande HTTPS-hosts",
+      "backgroundJobs": "Achtergrond banen",
+      "jobSchedule": "{{id}} · elke {{minutes}} min",
+      "storage": "Privé berging",
+      "storageGranted": "Toegegeven",
+      "studioInterface": "Studio-interface",
+      "installNote": "Door te installeren wordt deze repository aan het pakket gebonden, dus updatecontroles lossen het probleem opnieuw op.",
+      "catalogInstallNote": "De Marketplace-lijst blijft het updatevlak, dus updatecontroles lezen het opnieuw."
+    }
+  },
+  "catalog": {
+    "back": "Alle plug-ins",
+    "reviewDescription": "Controleer {{name}} voordat u het installeert.",
+    "installed": "Geïnstalleerd",
+    "install": "Installeren",
+    "reviewInstall": "Beoordelen en installeren",
+    "installNote": "Een Eigenaar of Beheerder kan plug-ins installeren.",
+    "title": "Voeg een plug-in toe",
+    "description": "Optionele functies ingebouwd in deze Tilecast-release. Als u er een installeert, wordt er nooit code gedownload.",
+    "searchLabel": "Zoek plug-ins",
+    "searchPlaceholder": "Plug-ins zoeken…",
+    "categoryLabel": "Categorie plug-ins",
+    "categories": {
+      "all": "Allemaal",
+      "display": "Weergave",
+      "automation": "Automatisering",
+      "workflow": "Werkstroom",
+      "hardware": "Hardware"
+    },
+    "emptySearchTitle": "Geen overeenkomende plug-ins",
+    "emptyInstalledTitle": "Elke plug-in is geïnstalleerd",
+    "emptySearchDescription": "Probeer een andere zoekopdracht of categorie.",
+    "emptyInstalledDescription": "Deze installatie maakt al gebruik van elke plug-in die deze release biedt.",
+    "requires": "Vereist {{list}}"
+  },
+  "detail": {
+    "builtIn": "Ingebouwd in Tilecast",
+    "requirements": "Vereisten",
+    "noRequirements": "Geen Player of netwerkvereisten.",
+    "uses": "Gebruik"
+  },
+  "actionsMenu": {
+    "menuLabel": "{{name}} plug-inacties",
+    "remove": "Plug-in verwijderen",
+    "blockedTitle": "{{name}} kan niet worden verwijderd",
+    "viewLabel": "Bekijk {{label}}",
+    "removeTitle": "{{name}} verwijderen?",
+    "removeDescription": "{{name}} verlaat de lijst met plug-ins van deze installatie en heeft geen invloed meer op de schermen. Je kunt het op elk gewenst moment opnieuw toevoegen.",
+    "blockedEmpty": "Deze plug-in is nog steeds in gebruik.",
+    "blockedSentence_one": "{{list}} gebruikt nog steeds deze plug-in.",
+    "blockedSentence_other": "{{list}} gebruikt deze plug-in nog steeds.",
+    "blockedWait": "Wacht tot de {{labels}} is gewist en verwijder vervolgens de plug-in.",
+    "blockedDisable": "Schakel de {{disable}} op deze pagina uit en verwijder vervolgens de plug-in.",
+    "blockedDelete": "Verwijder de resterende {{labels}} op deze pagina en verwijder vervolgens de plug-in.",
+    "blockedDisableDelete": "Schakel de {{disable}} uit en verwijder de resterende {{labels}} op deze pagina en verwijder vervolgens de plug-in."
+  },
+  "gate": {
+    "notInstalled": "{{name}} is niet geïnstalleerd",
+    "installDescription": "Installeer {{name}} om het te gaan gebruiken. {{description}}",
+    "lockedDescription": "{{description}} Een eigenaar of beheerder kan het installeren.",
+    "installAction": "Installeer {{name}}",
+    "backToPlugins": "Terug naar Plug-ins"
+  },
+  "shared": {
+    "scope": {
+      "all": "Alle schermen",
+      "screens": "Individuele schermen",
+      "syncGroups": "Groepen weergeven",
+      "locations": "Locaties"
+    },
+    "targetType": "Doeltype",
+    "chooseTargets": "Kies doelen",
+    "available": "Beschikbaar {{noun}}",
+    "selectedCount": "{{chosen}} of {{total}} geselecteerd",
+    "nouns": {
+      "screens": "schermen",
+      "syncGroups": "Groepen weergeven",
+      "locations": "locaties"
+    },
+    "empty": {
+      "screens": "Er zijn nog geen schermen ingeschreven.",
+      "syncGroups": "Er bestaan ​​nog geen weergavegroepen.",
+      "locations": "Er zijn nog geen locaties."
+    },
+    "loadingNoun": "{{noun}} laden...",
+    "loadErrorNoun": "De {{noun}} kan niet worden geladen.",
+    "backToPlugins": "Plug-ins",
+    "manageNote": "Om wijzigingen aan te brengen is eigenaar- of beheerderstoegang vereist.",
+    "newInstance": "Nieuw exemplaar",
+    "createInstance": "Instantie maken",
+    "manage": "Beheer",
+    "deleteTitle": "“{{name}}” verwijderen?",
+    "deleteAction": "{{name}} verwijderen",
+    "nameLabel": "Naam",
+    "priorityLabel": "Prioriteit",
+    "enabledLabel": "Ingeschakeld",
+    "enabledBadge": "Ingeschakeld",
+    "disabledBadge": "Uitgeschakeld",
+    "targetsSection": "Doelstellingen"
+  },
+  "weekdays": {
+    "sunday": {
+      "short": "Zon"
+    },
+    "monday": {
+      "short": "ma"
+    },
+    "tuesday": {
+      "short": "di"
+    },
+    "wednesday": {
+      "short": "wo"
+    },
+    "thursday": {
+      "short": "Do"
+    },
+    "friday": {
+      "short": "Vr"
+    },
+    "saturday": {
+      "short": "Zat"
+    }
+  },
+  "history": {
+    "backLink": "Geluidsmeter",
+    "titleFallback": "Geluidsmeter",
+    "subtitle": "Metingen die de speler lokaal heeft opgenomen en op zijn gewone hartslag hebben afgeleverd.",
+    "privacyNotice": "De geluidsgeschiedenis slaat relatieve geluidsniveaumetingen op voor grafieken en rapporten. Tilecast neemt nooit microfoonaudio op en slaat deze ook nooit op. Niveaus zijn gerelateerd aan de eigen microfoon van elke speler en zijn geen gekalibreerde decibelmetingen.",
+    "rangeLabel": "Datumbereik",
+    "ranges": {
+      "today": "Vandaag",
+      "yesterday": "Gisteren",
+      "sevenDays": "7 dagen",
+      "thirtyDays": "30 dagen"
+    },
+    "screenLabel": "Scherm",
+    "allScreens": "Alle schermen (gecombineerd)",
+    "screenHint": "Niveaus zijn relatief ten opzichte van de eigen microfoon van elke speler, dus schermen worden zorgvuldig vergeleken.",
+    "exportLabel": "Exporteren",
+    "granularity": {
+      "raw": "10-secondenrecords",
+      "minute": "Samenvattingen van 1 minuut",
+      "daily": "Dagelijkse samenvattingen"
+    },
+    "exportTitle": "Exporteer het geselecteerde bereik en scherm",
+    "exportAction": "CSV exporteren",
+    "loadError": "De geschiedenis kon niet worden geladen.",
+    "showingSingle": "<strong>{{name}}</strong> wordt weergegeven.",
+    "combining": "{{count}}-schermen combineren. De niveaus van elke speler komen uit zijn eigen microfoon, dus een gecombineerde weergave beschrijft de groep in plaats van kamers te vergelijken.",
+    "emptyTitle": "Geen metingen in dit bereik",
+    "emptyDescription": "De geschiedenis verschijnt zodra een gerichte Linux-speler heeft gemeten en een hartslag heeft geleverd.",
+    "chartTitle": "Geluidsniveau in de loop van de tijd",
+    "chartDescription": "Gemiddelde en piek, tegen de eigen drempelwaarden van deze meter. Perioden zonder monitoring worden blanco gelaten.",
+    "chartEmpty": "Er zijn nog geen metingen om te tekenen.",
+    "chart": {
+      "aria": "Geluidsniveau in de loop van de tijd. Waarschuwingsniveau {{warning}}, te luid niveau {{loud}}.",
+      "ariaLabel": "Geschiedenisgrafiek voor geluidsniveaus",
+      "description": "Het gemiddelde en piekgeluidsniveau worden in de loop van de tijd weergegeven. Hiaten duiden op perioden zonder monitoring. De waarschuwingsdrempel is {{warning}}; de te luide drempel is {{loud}}.",
+      "average": "Gemiddeld",
+      "peak": "Piek",
+      "warning": "Waarschuwing {{level}}",
+      "tooLoud": "Te luid {{level}}"
+    },
+    "dailyTitle": "Dagelijkse vergelijking",
+    "dailyDescription": "Dagen zonder monitoring worden weggelaten in plaats van als stil weergegeven.",
+    "dailyMeasureLabel": "Dagelijkse maatregel",
+    "measures": {
+      "average": "Gemiddeld niveau",
+      "loud": "De tijd is te luid",
+      "events": "Waarschuwingsgebeurtenissen"
+    },
+    "dailyEmpty": "Nog geen dagen met metingen.",
+    "summary": {
+      "averageLabel": "Gemiddeld geluidsniveau",
+      "averageHint": "Relatief, niet decibel",
+      "peakLabel": "Piek geluidsniveau",
+      "loudLabel": "De tijd is te luid",
+      "eventsLabel": "Waarschuwingsgebeurtenissen",
+      "eventsHint": "Keer de bar verscheen",
+      "normalLabel": "Tijd binnen normaal bereik",
+      "warningLabel": "Tijd binnen waarschuwingsbereik",
+      "longestLabel": "Langste continu te luid",
+      "loudestLabel": "Luidste 15 minuten",
+      "monitoredLabel": "Bewaakte tijd"
+    }
+  },
+  "packages": {
+    "title": "Uitbreidingspakketten",
+    "manageTitle": "Geïnstalleerd pakket",
+    "loadError": "Het geïnstalleerde pakket kon niet worden geladen.",
+    "contributions": "Bijdragen",
+    "checkUpdate": "Controleer op update",
+    "upToDate": "Dit pakket is actueel.",
+    "updateTo": "Update naar {{version}}",
+    "rollback": "Vorige versie herstellen",
+    "remove": "Pakket verwijderen",
+    "removeConfirmTitle": "Dit pakket verwijderen?",
+    "removeConfirmBody": "Hiermee wordt de installatie van {{packageId}} en zijn bijdragen verwijderd. Een aangepaste repositorybinding blijft bestaan ​​voor herinstallatie.",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "Verwijder de resterende inhoud en probeer het opnieuw.",
+    "addedContributions": "Nieuw in deze versie",
+    "removedContributions": "Verwijderd in deze versie",
+    "removedWarning": "Bij het bijwerken wordt niets verwijderd: als iets nog steeds een verwijderde bijdrage gebruikt, wacht de update totdat u deze verwijdert.",
+    "studioTitle": "Pakketinterface",
+    "studioUnavailable": "De pakketinterface kan niet worden geladen.",
+    "jobsTitle": "Achtergrond banen",
+    "jobsLoadError": "Achtergrondtaken konden niet worden geladen.",
+    "jobEvery": "Elke {{minutes}} min",
+    "jobNext": "Volgende run",
+    "jobNever": "Nooit rennen",
+    "jobOk": "Geslaagd",
+    "jobFailed": "Mislukt",
+    "jobFailures": "{{count}} opeenvolgende fouten"
+  },
+  "storeDetail": {
+    "by": "door {{publisher}}",
+    "byLinked": "door <publisher>{{publisher}}</publisher>",
+    "publisherLinkLabel": "{{publisher}}, repository (opent in een nieuw tabblad)",
+    "publisherSiteLinkLabel": "{{publisher}}, website (opent in een nieuw tabblad)",
+    "badgesLabel": "Details van de plug-in",
+    "sourceBadge": {
+      "included": "Inbegrepen",
+      "marketplace": "Marktplaats",
+      "custom": "Aangepast"
+    },
+    "incompatible": {
+      "title": "Niet compatibel met deze Tilecast-versie",
+      "body": "Deze plug-in vereist Tilecast {{range}}."
+    },
+    "about": {
+      "title": "Over",
+      "cardTitle": "Over dit pakket",
+      "customTitle": "Aangepast pakket",
+      "customNotice": "Niet beoordeeld of samengesteld door de Marktplaats.",
+      "noDownload": "Er is geen extern pakket gedownload. Deze plug-in wordt geleverd in deze Tilecast-release.",
+      "source": "Bron",
+      "marketplaceSource": "Officiële Tilecast-marktplaats",
+      "customSource": "Aangepaste GitHub-opslagplaats",
+      "provenance": "Herkomst",
+      "verified": "Geverifieerde herkomst van uitgave",
+      "verifiedOnInstall": "Geverifieerd tijdens de installatie",
+      "reportIssue": "Rapporteer een probleem"
+    },
+    "adds": {
+      "title": "Wat deze plug-in toevoegt",
+      "pending": "Wat het toevoegt, wordt vermeld in de installatiebeoordeling, voordat er iets wordt geïnstalleerd.",
+      "none": "Dit pakket voegt niets toe aan Studio."
+    },
+    "kinds": {
+      "widget": "Widget",
+      "dataSource": "Gegevensbron",
+      "plugin": "Plug-in"
+    },
+    "kindDescriptions": {
+      "widget": "Voegt een widget toe die u in lay-outs kunt plaatsen.",
+      "dataSource": "Levert gegevens aan compatibele widgets.",
+      "plugin": "Voegt een plug-in toe met zijn eigen pagina's in Studio.",
+      "other": "Voegt inhoud toe aan Studio."
+    },
+    "permissions": {
+      "title": "Machtigingen en gedrag",
+      "pending": "De gevraagde machtigingen worden vermeld in de installatiebeoordeling, voordat er iets wordt geïnstalleerd.",
+      "noneTitle": "Geen speciale machtigingen",
+      "noneBody": "Deze plug-in vraagt geen netwerktoegang, lokale opslag, achtergrondtaken, een aangepaste Studio-interface of Tilecast-services."
+    },
+    "capabilities": {
+      "network": {
+        "title": "Netwerktoegang",
+        "body": "Kan verbinding maken met:"
+      },
+      "storage": {
+        "title": "Lokale opslag",
+        "body": "Slaat de eigen gegevens van deze plug-in op de Tilecast-server op."
+      },
+      "background": {
+        "title": "Achtergrondactiviteit",
+        "body_one": "Voert de geplande taak {{count}} uit.",
+        "body_other": "Voert geplande {{count}}-taken uit."
+      },
+      "realtime": {
+        "title": "Hoogfrequente achtergrondactiviteit",
+        "body": "Voert elke paar seconden één begrensde achtergrondtaak uit, ook wanneer Studio is gesloten."
+      },
+      "studioUI": {
+        "title": "Studio-interface",
+        "body": "Voegt een eigen configuratie-interface toe aan Studio."
+      },
+      "service": {
+        "version": "Versie {{version}}",
+        "operationMutating": "{{title}} (verandert gegevens)",
+        "categories": {
+          "read": "Lees",
+          "directory": "Directory",
+          "manage": "Beheer",
+          "audit": "Controle"
+        }
+      }
+    },
+    "requirements": {
+      "title": "Vereisten"
+    },
+    "status": {
+      "title": "Pakketstatus",
+      "compatible": "Compatibel met deze server",
+      "incompatible": "Niet compatibel met deze server",
+      "notCompatible": "Niet compatibel",
+      "upToDate": "Up-to-date · {{version}}",
+      "notInstalled": "Niet geïnstalleerd",
+      "installedOn": "{{date}} geïnstalleerd"
+    },
+    "update": {
+      "check": "Controleer op updates",
+      "review": "Recensie-update",
+      "checkAgain": "Controleer opnieuw"
+    },
+    "technical": {
+      "title": "Technische details",
+      "packageId": "Pakket-ID",
+      "registry": "Register",
+      "signer": "Ondertekenaar",
+      "releaseTag": "Label vrijgeven",
+      "runtime": "Runtime-module",
+      "source": "Bron",
+      "contributions": "Bijdragen",
+      "jobIds": "Achtergrondtaak-ID's"
+    },
+    "screenshots": {
+      "title": "Schermafbeeldingen",
+      "slide": "Schermafbeelding {{current}} van {{total}}",
+      "open": "Schermafbeelding vergroten: {{alt}}",
+      "unavailable": "Schermafbeelding niet beschikbaar",
+      "lightboxTitle": "Schermafbeelding {{current}} van {{total}}",
+      "previous": "Vorige schermafbeelding",
+      "next": "Volgende schermafbeelding",
+      "position": "{{current}} of {{total}}"
+    },
+    "review": {
+      "installTitle": "Beoordeel {{name}}",
+      "installDescription": "Controleer wat deze plug-in toevoegt en wat deze kan doen voordat deze wordt geïnstalleerd.",
+      "updateTitle": "Update {{name}}",
+      "updateDescription": "Bekijk welke wijzigingen er in versie {{version}} zijn voordat deze wordt toegepast.",
+      "confirmInstall": "Installeer plug-in",
+      "verification": "Verificatie",
+      "contributionChanges": "Veranderingen in wat het toevoegt",
+      "noContributionChanges": "Er verandert niets aan wat dit pakket toevoegt.",
+      "permissionChanges": "Wijzigingen in machtigingen",
+      "noPermissionChanges": "Machtigingen zijn ongewijzigd.",
+      "permissionsAdded": "Nieuwe rechten",
+      "permissionsChanged": "Gewijzigde rechten",
+      "permissionsRemoved": "Machtigingen verwijderd",
+      "previously": "Voorheen: {{value}}",
+      "versionChange": "Van {{from}} tot {{to}}"
+    },
+    "settings": {
+      "title": "Plugin-instellingen",
+      "description": "Configureer deze plug-in zonder Tilecast te verlaten."
+    },
+    "jobs": {
+      "description": "Werk deze plug-in draait volgens een schema op de Tilecast-server.",
+      "lastRun": "Laatste run {{when}} · {{status}}",
+      "lastFailed": "Laatste mislukte run {{when}}",
+      "successful": "Succesvol",
+      "nextRun": "Voer vervolgens {{when}} uit"
+    },
+    "cadence": {
+      "minute": "Elke minuut",
+      "hour": "Elk uur",
+      "day": "Elke dag",
+      "every": "Elke {{interval}}"
+    },
+    "danger": {
+      "title": "Gevarenzone",
+      "removeTitle": "Verwijder deze plug-in",
+      "removeBody": "Door te verwijderen wordt deze pakketinstallatie verwijderd en wat eraan is toegevoegd. Inhoud die er nog steeds gebruik van maakt, moet eerst worden verwijderd."
+    },
+    "management": {
+      "title": "Pakketbeheer",
+      "rollbackBody": "Ga terug naar de versie die actief was vóór de laatste update.",
+      "confirmTitle": "De vorige versie herstellen?",
+      "confirmBody": "{{name}} gaat terug naar de versie die actief was vóór de laatste update. Als de inhoud nog steeds iets gebruikt dat door de nieuwere versie is toegevoegd, wacht het herstel totdat u die inhoud verwijdert."
+    }
+  }
+}

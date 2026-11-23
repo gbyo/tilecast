@@ -1,0 +1,471 @@
+{
+  "notifications": {
+    "created": "Schema gemaakt.",
+    "updated": "Schema bijgewerkt.",
+    "deleted": "Schema verwijderd."
+  },
+  "page": {
+    "title": "Schema's",
+    "create": "Maak een schema",
+    "createShort": "Creëer",
+    "count_one": "{{count}}-schema",
+    "count_other": "{{count}}-schema's",
+    "loading": "Schema's laden",
+    "loadError": "Kan schema's niet laden.",
+    "enabled": "Ingeschakeld",
+    "disabled": "Uitgeschakeld",
+    "priorityValue": "Prioriteit {{priority}}",
+    "emptyTitle": "Nog geen schema's",
+    "emptyDescription": "Met schema's kunnen inhoud of weergaveacties op specifieke tijdstippen op geselecteerde schermen worden uitgevoerd.",
+    "filteredEmptyTitle": "Er komen geen schema's overeen",
+    "filteredEmptyDescription": "Probeer een andere zoekopdracht of wijzig uw filters.",
+    "clearSearchAndFilters": "Duidelijk zoeken en filters",
+    "deleteFailed": "Kan het schema niet verwijderen.",
+    "noTargets": "Geen doelen",
+    "targetsMore": "{{names}} +{{count}}",
+    "priorityHelp": "Hogere prioriteit wint wanneer in aanmerking komende schema's elkaar overlappen.",
+    "priorityHelpLabel": "Over prioriteit",
+    "targetsHelpLabel": "Alle doelen: {{names}}",
+    "columns": {
+      "schedule": "Schema",
+      "status": "Status",
+      "when": "Wanneer",
+      "presentation": "Presentatie",
+      "targets": "Doelstellingen",
+      "priority": "Prioriteit",
+      "updated": "Bijgewerkt",
+      "actions": "Acties"
+    },
+    "timing": {
+      "everyDay": "Elke dag",
+      "overnight": "{{range}} volgende dag",
+      "from": "Van {{date}}",
+      "until": "Tot {{date}}"
+    },
+    "actions": {
+      "edit": "Schema bewerken",
+      "open": "Open schema",
+      "delete": "Schema verwijderen",
+      "actionsFor": "Acties voor {{name}}",
+      "enable": "Schakel schema in",
+      "disable": "Schakel schema uit",
+      "enabled": "Schema ingeschakeld.",
+      "disabled": "Schema uitgeschakeld.",
+      "toggleFailed": "Kan de planningsstatus niet wijzigen."
+    }
+  },
+  "agenda": {
+    "listTab": "Schemalijst",
+    "title": "Afspeelagenda",
+    "chooseTarget": "Kies een scherm of groep",
+    "groups": "Groepen weergeven",
+    "screens": "Schermen",
+    "weekNavigation": "Weeknavigatie",
+    "previousWeek": "Vorige week",
+    "nextWeek": "Volgende week",
+    "today": "Vandaag",
+    "days": "Dagen in de agenda",
+    "dayWithOverlap": "{{day}}, overlapt",
+    "timezone": "Tijden weergegeven in {{timezone}}",
+    "emptyTitle": "Kies waar je wilt kijken",
+    "emptyDescription": "Selecteer een scherm of weergavegroep om de verwachte weergave ervan te zien.",
+    "noMembers": "Geen schermen om te tonen",
+    "noMembersDescription": "Deze groep heeft geen schermen die u kunt bekijken.",
+    "loading": "Agenda voor {{screen}} laden",
+    "loadError": "Kan de agenda voor {{screen}} niet laden.",
+    "tooManyChanges": "Er zijn te veel schemawijzigingen om deze week te laten zien voor {{screen}}.",
+    "midnight": "middernacht",
+    "allDay": "De hele dag",
+    "timeRange": "{{from}} – {{to}}",
+    "unnamedContent": "Presentatie niet beschikbaar",
+    "noContent": "Geen inhoud geselecteerd",
+    "unnamedSchedule": "Schema",
+    "fallback": "Terugval",
+    "groupScreen": "Scherm in groep",
+    "calendarFor": "Afspeelkalender voor {{screen}}",
+    "clockChange": "Klok verandering",
+    "expectedPlayback": "Verwachte weergave",
+    "overlap": "Schema overlap"
+  },
+  "toolbar": {
+    "groupLabel": "Zoek en filter schema's",
+    "search": "Zoek schema's",
+    "filters": "Filters",
+    "filtersActive": "Filters, {{count}} actief",
+    "filtersTitle": "Filters",
+    "filtersDescription": "Beperk de schema's die in deze lijst worden weergegeven.",
+    "filtersReset": "Filters opnieuw instellen",
+    "filtersDone": "Klaar",
+    "clearFilters": "Filters wissen",
+    "filterAny": "Elke",
+    "facets": {
+      "status": "Status",
+      "type": "Schematype",
+      "presentation": "Presentatie"
+    },
+    "sortShort": "Sorteren",
+    "sortButtonLabel": "Sorteerschema's: {{value}}",
+    "sortMenuTitle": "Sorteer op",
+    "sort": {
+      "updated": "Onlangs bijgewerkt",
+      "name": "Naam",
+      "priority": "Hoogste prioriteit"
+    }
+  },
+  "options": {
+    "type": {
+      "weekly": "Wekelijks",
+      "oneTime": "Eenmalig"
+    },
+    "presentation": {
+      "playlist": "Afspeellijst",
+      "layout": "Indeling",
+      "displayControl": "Weergavebediening"
+    }
+  },
+  "editor": {
+    "heading": "Schema-editor: {{name}}",
+    "formLabel": "Schema-instellingen",
+    "newName": "Nieuw schema",
+    "loading": "Schema laden",
+    "discard": {
+      "title": "Niet-opgeslagen wijzigingen verwijderen?",
+      "body": "Uw wijzigingen in \"{{name}}\" zijn niet opgeslagen.",
+      "keepEditing": "Blijf bewerken"
+    },
+    "details": {
+      "title": "Schema",
+      "name": "Naam",
+      "namePlaceholder": "Ochtend aankondigingen",
+      "enabled": "Ingeschakeld",
+      "enabledHint": "Wanneer dit schema wordt opgeslagen, kan het het afspelen tijdens de geplande tijden beïnvloeden.",
+      "description": "Beschrijving (optioneel)",
+      "descriptionHint": "Een interne notitie, alleen zichtbaar in Studio."
+    },
+    "presentation": {
+      "title": "Presentatie",
+      "description": "Wat moet er gebeuren als dit schema wint?",
+      "modeLabel": "Presentatietype",
+      "content": "Inhoud",
+      "contentHint": "Speel een afspeellijst of gepubliceerde lay-out af.",
+      "displayControl": "Weergavebediening",
+      "displayControlHint": "Wijzig de voeding, ingang, volume, dempen of helderheid.",
+      "choose": "Kies een afspeellijst of lay-out",
+      "change": "Verandering",
+      "use": "Gebruik deze presentatie",
+      "playlistKind": "Afspeellijst",
+      "layoutKind": "Indeling",
+      "playlistMeta_one": "Afspeellijst · {{count}} item · {{duration}}",
+      "playlistMeta_other": "Afspeellijst · {{count}}-items · {{duration}}",
+      "playlistEmpty": "Afspeellijst · Nog geen items",
+      "layoutMeta": "Lay-out · Gepubliceerde revisie {{revision}}",
+      "durationVaries": "duur varieert"
+    },
+    "header": {
+      "back": "Terug naar Schema's",
+      "save": "Wijzigingen opslaan",
+      "create": "Maak een schema",
+      "saveShort": "Opslaan",
+      "review": "Beoordeling",
+      "reviewIssues_one": "Review, {{count}} item heeft aandacht nodig",
+      "reviewIssues_other": "Review, {{count}}-items hebben aandacht nodig",
+      "discard": "Negeer niet-opgeslagen wijzigingen",
+      "delete": "Schema verwijderen",
+      "more": "Meer acties"
+    },
+    "status": {
+      "saved": "Opgeslagen",
+      "unsaved": "Niet opgeslagen",
+      "saving": "Opslaan…",
+      "failed": "Opslaan mislukt",
+      "viewOnly": "Alleen bekijken"
+    },
+    "delete": {
+      "title": "“{{name}}” verwijderen?",
+      "body": "Dit schema stopt met spelen. De schermen zullen een ander toepasselijk schema gebruiken, of hun normale fallback-inhoud.",
+      "keep": "Houd het schema bij",
+      "confirm": "Schema verwijderen",
+      "failed": "Het schema kon niet worden verwijderd."
+    },
+    "notFound": {
+      "title": "Schema niet gevonden",
+      "body": "Het kan zijn dat het verwijderd is, of dat u er geen toegang toe heeft.",
+      "back": "Terug naar Schema's"
+    },
+    "cannotCreate": {
+      "title": "U kunt geen planningen maken",
+      "body": "Eigenaren en beheerders beheren planningen. Je kunt de bestaande nog steeds openen."
+    },
+    "loadFailed": {
+      "title": "Het schema kan niet worden geladen",
+      "retry": "Probeer het opnieuw"
+    },
+    "deleteTitle": "{{name}} verwijderen?"
+  },
+  "displayAction": {
+    "actionLabel": "Actie",
+    "inputLabel": "Invoer-ID",
+    "inputHint": "Gebruik voor HDMI-CEC een fysiek adres zoals 1.0.0.0.",
+    "volumeLabel": "Volume",
+    "brightnessLabel": "Helderheid",
+    "notSet": "niet ingesteld",
+    "note": "De actie gebruikt dezelfde planningtiming, prioriteit en doelen als inhoudsplanningen. Spelers melden of de panelstatus wordt bevestigd.",
+    "options": {
+      "powerOn": "Schakel in",
+      "powerOff": "Uitschakelen",
+      "setInput": "Ingang instellen",
+      "setVolume": "Volume instellen",
+      "mute": "Dempen",
+      "unmute": "Dempen opheffen",
+      "setBrightness": "Helderheid instellen"
+    },
+    "summary": {
+      "powerOn": "Weergave ingeschakeld",
+      "powerOff": "Schakel het beeldscherm uit",
+      "setInput": "Stel de display-invoer in op {{value}}",
+      "setVolume": "Stel het weergavevolume in op {{value}}",
+      "mute": "Weergave dempen",
+      "unmute": "Schakel de weergave uit",
+      "setBrightness": "Stel de helderheid van het scherm in op {{value}}"
+    }
+  },
+  "weekdays": {
+    "monday": {
+      "short": "ma",
+      "long": "Maandag"
+    },
+    "tuesday": {
+      "short": "di",
+      "long": "Dinsdag"
+    },
+    "wednesday": {
+      "short": "wo",
+      "long": "Woensdag"
+    },
+    "thursday": {
+      "short": "Do",
+      "long": "Donderdag"
+    },
+    "friday": {
+      "short": "Vr",
+      "long": "Vrijdag"
+    },
+    "saturday": {
+      "short": "Zat",
+      "long": "Zaterdag"
+    },
+    "sunday": {
+      "short": "Zon",
+      "long": "Zondag"
+    }
+  },
+  "timing": {
+    "weekdaysLabel": "Actieve weekdagen",
+    "starts": "Begint",
+    "ends": "Eindigt",
+    "startsTimeLabel": "Begintijd",
+    "endsTimeLabel": "Eindtijd",
+    "removeDateRange": "Datumbereik verwijderen",
+    "timezoneLabel": "Tijdzone",
+    "timezoneSearch": "Zoek stad of regio",
+    "timezoneEmpty": "Er zijn geen tijdzones die overeenkomen met deze zoekopdracht.",
+    "clockNotSet": "Niet ingesteld",
+    "daysSummary": {
+      "none": "geen dagen geselecteerd",
+      "everyDayShort": "Elke dag"
+    },
+    "summary": {
+      "oneTimeRange": "{{start}} – {{end}}",
+      "chooseOneTime": "Kies een begin- en eindtijd",
+      "nextDaySuffix": " (volgende dag)",
+      "rangeBetween": "{{start}} – {{end}}",
+      "rangeFrom": "van {{start}}",
+      "rangeUntil": "tot {{end}}"
+    },
+    "title": "Tijdstip",
+    "description": "Wanneer dit schema loopt, in zijn eigen tijdzone.",
+    "typeLabel": "Schematype",
+    "typeWeekly": "Wekelijks",
+    "typeWeeklyHint": "Herhaal op geselecteerde dagen en tijden.",
+    "typeOneTime": "Eenmalig",
+    "typeOneTimeHint": "Eén keer uitvoeren tussen twee datums en tijden.",
+    "overnightNote": "Eindigt de volgende dag.",
+    "fullDayNote": "Loopt 24 uur.",
+    "limitDateRange": "Beperk tot een datumbereik",
+    "startsOn": "Begint op",
+    "endsOn": "Eindigt op",
+    "organizationDefault": "Standaardinstelling van de organisatie",
+    "timezoneHint": "Tijden gebruiken deze tijdzone, waar u ook bewerkt.",
+    "timezoneHintOther": "Tijden gebruiken deze tijdzone, waar u ook bewerkt. De standaardinstelling van uw organisatie is {{timezone}}."
+  },
+  "duration": {
+    "days_one": "{{count}} dag",
+    "days_other": "{{count}} dagen",
+    "hours": "{{count}} uur",
+    "minutes": "{{count}} min",
+    "seconds": "{{count}} sec",
+    "unavailable": "Duur niet beschikbaar",
+    "invalidOrder": "Het einde moet na het begin liggen"
+  },
+  "targets": {
+    "title": "Doelstellingen",
+    "description": "Waar dit schema van toepassing is.",
+    "add": "Voeg doelen toe",
+    "search": "Zoekschermen en weergavegroepen",
+    "loading": "Schermen en groepen laden…",
+    "loadError": "Schermen en weergavegroepen konden niet worden geladen.",
+    "retry": "Probeer het opnieuw",
+    "empty": "Er komen geen schermen of weergavegroepen overeen.",
+    "groupedHint": "Een scherm in een Weergavegroep wordt toegevoegd via zijn groep.",
+    "selectedLabel_one": "{{count}} geselecteerd doel",
+    "selectedLabel_other": "{{count}} geselecteerde doelen",
+    "remove": "Verwijder {{name}}",
+    "groups": "Groepen weergeven",
+    "screens": "Schermen",
+    "groupDetail_one": "Weergavegroep · {{count}}-scherm",
+    "groupDetail_other": "Weergavegroep · {{count}}-schermen",
+    "screenDetail": "Scherm · {{location}}",
+    "kindGroup": "Weergavegroep",
+    "kindScreen": "Scherm",
+    "none": "Nog geen doelstellingen.",
+    "sharedNote": "Schermen in een weergavegroep delen altijd één schema en de bijbehorende reserve-inhoud.",
+    "unknown": "Geselecteerd doel"
+  },
+  "priority": {
+    "customValue": "Aangepast ({{priority}})",
+    "presets": {
+      "normal": "Normaal",
+      "important": "Belangrijk",
+      "special": "Speciale gebeurtenis",
+      "custom": "Aangepast"
+    }
+  },
+  "validation": {
+    "nameRequired": "Voer een schemanaam in.",
+    "contentRequired": "Kies inhoud of een actie Weergavebeheer.",
+    "inputRequired": "Voer een invoer-ID in voor de actie Weergavebeheer.",
+    "volumeRange": "Het volume moet tussen 0 en 100 liggen.",
+    "brightnessRange": "De helderheid moet tussen 0 en 100 liggen.",
+    "timezoneRequired": "Kies een tijdzone.",
+    "targetsRequired": "Selecteer minimaal één scherm of groep.",
+    "priorityRange": "Prioriteit moet een geheel getal tussen -999 en 999 zijn.",
+    "daysRequired": "Selecteer minimaal één weekdag.",
+    "timeRequired": "Kies begin- en eindtijden.",
+    "dateRangeInvalid": "De einddatum mag niet vóór de startdatum liggen.",
+    "oneTimeRequired": "Kies het begin en einde van het evenement.",
+    "oneTimeOrder": "Het einde van het evenement moet na het begin ervan liggen."
+  },
+  "range": {
+    "label": "Datumbereik",
+    "from": "Van",
+    "to": "Aan",
+    "presets": {
+      "day": "Laatste 24 uur",
+      "week": "Laatste 7 dagen",
+      "month": "Laatste 30 dagen",
+      "custom": "Aangepast bereik"
+    }
+  },
+  "datePicker": {
+    "pickDate": "Kies een datum",
+    "clear": "Duidelijke datum",
+    "time": "Tijd",
+    "timeFor": "{{label}}-tijd",
+    "previewTime": "Voorbeeldtijd van de dag",
+    "fromTime": "Van tijd",
+    "toTime": "Naar tijd"
+  },
+  "conflict": {
+    "title": "Conflicthantering",
+    "hint": "Een hogere prioriteit heeft de voorkeur wanneer schema's strijden om een scherm. De volgende controle toont het resultaat.",
+    "groupLabel": "Prioriteit",
+    "presets": {
+      "normal": "Standaard prioriteit.",
+      "important": "Voorkeur boven normale schema's.",
+      "special": "Voor uitzonderlijke inhoud die de overhand zou moeten krijgen.",
+      "custom": "Kies een exacte prioriteit van −999 tot 999."
+    },
+    "customLabel": "Prioritaire waarde",
+    "customHint": "Een geheel getal van −999 tot 999. Hoger heeft de voorkeur.",
+    "overlapBadge_one": "{{count}} overlappen",
+    "overlapBadge_other": "{{count}} overlapt"
+  },
+  "outcome": {
+    "title": "Resultaat plannen",
+    "description": "Wat dit concept zal doen als het eenmaal is opgeslagen.",
+    "enabled": "Ingeschakeld",
+    "disabled": "Uitgeschakeld",
+    "viewOnly": "Alleen bekijken",
+    "what": "Wat",
+    "when": "Wanneer",
+    "where": "Waar",
+    "priority": "Prioriteit",
+    "priorityInvalid": "Niet ingesteld",
+    "noPresentation": "Nog niets gekozen",
+    "noTargets": "Nog geen doelstellingen",
+    "targetCount_one": "{{count}}-doel",
+    "targetCount_other": "{{count}}-doelen",
+    "screenCount_one": "{{count}}-scherm",
+    "screenCount_other": "{{count}}-schermen",
+    "viaTargets_one": "via {{count}}-doel",
+    "viaTargets_other": "via {{count}}-doelen",
+    "checkTitle": "Controle bij volgende uitvoering",
+    "checking": "Controleren…",
+    "checkFailed": "De controle kon niet worden uitgevoerd",
+    "checkFailedSave": "U kunt dit schema nog steeds opslaan.",
+    "retry": "Probeer het opnieuw",
+    "incompleteBoth": "Kies een presentatie en minimaal één doel om dit schema te controleren.",
+    "incompletePresentation": "Kies een presentatie om dit schema te bekijken.",
+    "incompleteTargets": "Kies ten minste één doel om dit schema te controleren.",
+    "incompleteTiming": "Voltooi de timing om dit schema te controleren.",
+    "simulatedEnabled": "De onderstaande controle simuleert dit schema zoals ingeschakeld.",
+    "unsupportedTitle_one": "Het {{count}}-gerichte scherm kan de weergavebediening niet uitvoeren",
+    "unsupportedTitle_other": "Op {{count}} gerichte schermen kunnen geen weergavebediening uitvoeren",
+    "unsupportedBody": "Alleen Linux-spelers voeren weergavecontrole uit. Verwijder die schermen of kies in plaats daarvan inhoud.",
+    "noRunTitle": "Geen komende run",
+    "noRunBody": "Dit schema wordt niet opnieuw uitgevoerd zoals ingesteld, dus u hoeft niets te controleren.",
+    "checkedAt": "Gecontroleerd op {{when}}",
+    "checkedNow": "Nu actief · gecontroleerd vanaf {{when}}",
+    "winsAll_one": "Dit schema wint op het beoogde scherm.",
+    "winsAll_other": "Dit schema wint op alle {{count}}-gerichte schermen.",
+    "winsNone_one": "Dit schema verliest op het beoogde scherm.",
+    "winsNone_other": "Dit schema verliest op alle {{count}}-gerichte schermen.",
+    "winsAllRunnable_one": "Dit schema wint op het scherm dat het kan uitvoeren.",
+    "winsAllRunnable_other": "Dit schema wint op alle {{count}}-schermen waarop het kan worden uitgevoerd.",
+    "winsSome_one": "Dit schema wint op {{wins}} van het {{count}}-scherm.",
+    "winsSome_other": "Dit schema wint op {{wins}} van {{count}}-schermen.",
+    "competitors": "Overlappende schema's",
+    "moreCompetitors": "Meer overlappende schema's worden niet vermeld.",
+    "otherScreens": "Schermen die iets anders laten zien",
+    "showsInstead": "Toont in plaats daarvan {{name}}",
+    "andMore_one": "en {{count}} meer scherm",
+    "andMore_other": "en {{count}} meer schermen",
+    "scopeNote": "Controleert alleen de volgende run. Latere runs kunnen verschillen.",
+    "competitor": {
+      "mixed_one": "Overtreft dit schema op het {{outranks}}-scherm van het {{count}}-scherm",
+      "mixed_other": "Overtreft dit schema op {{outranks}} van {{count}}-schermen",
+      "outranks": {
+        "priority_one": "Hogere prioriteit · {{count}}-scherm",
+        "priority_other": "Hogere prioriteit · {{count}}-schermen",
+        "specific_one": "Richt zich rechtstreeks op het scherm · {{count}}-scherm",
+        "specific_other": "Richt zich rechtstreeks op de schermen · {{count}}-schermen",
+        "start_one": "Later begonnen · {{count}}-scherm",
+        "start_other": "Later begonnen · {{count}}-schermen",
+        "tie_one": "Wint een volledige gelijkspel · {{count}}-scherm",
+        "tie_other": "Wint een volledige gelijkspel · {{count}}-schermen"
+      },
+      "yields": {
+        "priority_one": "Lagere prioriteit · dit schema wint op het {{count}}-scherm",
+        "priority_other": "Lagere prioriteit · dit schema wint op {{count}}-schermen",
+        "specific_one": "Minder specifiek · dit schema wint op het {{count}}-scherm",
+        "specific_other": "Minder specifiek · dit schema wint op {{count}}-schermen",
+        "start_one": "Eerder begonnen · dit schema wint op het {{count}}-scherm",
+        "start_other": "Eerder begonnen · dit schema wint op {{count}}-schermen",
+        "tie_one": "Verliest een volledige gelijkspel · {{count}}-scherm",
+        "tie_other": "Verliest een volledige gelijkspel · {{count}}-schermen"
+      }
+    },
+    "hiddenSchedule": "Nog een schema",
+    "showsOther": "Toont in plaats daarvan een ander schema"
+  }
+}

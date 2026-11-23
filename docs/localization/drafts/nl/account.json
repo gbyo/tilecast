@@ -1,0 +1,540 @@
+{
+  "myAccount": {
+    "title": "Mijn account",
+    "subtitle": "Instellingen die van jou zijn en niet van de organisatie.",
+    "navLabel": "Accountsecties",
+    "signedInAs": "Aangemeld als",
+    "sections": {
+      "preferences": {
+        "title": "Voorkeuren",
+        "description": "Weergave- en workflowinstellingen, opgeslagen bij uw account in plaats van bij deze browser."
+      },
+      "security": {
+        "title": "Beveiliging bij inloggen",
+        "description": "Of er een tweede factor nodig is, hangt af van de organisatiesetting. Wat je gebruikt om het te bevredigen, is jouw keuze."
+      }
+    }
+  },
+  "roles": {
+    "owner": "Eigenaar",
+    "administrator": "Beheerder",
+    "editor": "Redacteur",
+    "contributor": "Bijdrager",
+    "viewer": "Kijker",
+    "descriptions": {
+      "owner": "Alles, inclusief back-ups en integratietokens.",
+      "administrator": "Alles behalve systeembewerkingen die alleen door de eigenaar kunnen worden uitgevoerd.",
+      "editor": "Creëert inhoud, publiceert deze en beheert schermen en afspelen.",
+      "contributor": "Creëert en bewerkt inhoud, maar kan geen lay-out publiceren, iets verwijderen of inhoud op een scherm plaatsen.",
+      "viewer": "Alleen lezen."
+    }
+  },
+  "users": {
+    "accessDenied": "Jouw rol omvat niet het aansturen van mensen.",
+    "addForm": {
+      "title": "Voeg een gebruiker toe",
+      "passwordHint": "Wachtwoorden moeten minimaal 12 tekens bevatten.",
+      "nameLabel": "Naam",
+      "usernameLabel": "Gebruikersnaam",
+      "passwordLabel": "Tijdelijk wachtwoord",
+      "roleLabel": "Rol",
+      "submit": "Gebruiker toevoegen",
+      "submitting": "Toevoegen…"
+    },
+    "list": {
+      "loading": "Gebruikers laden…",
+      "status": {
+        "active": "Actief",
+        "inactive": "Inactief"
+      },
+      "lastSignedIn": "Laatst ingelogd in {{date}}",
+      "neverSignedIn": "Nooit aangemeld",
+      "mfa": {
+        "on": "Tweestapsverificatie ingeschakeld",
+        "required": "Tweestapsverificatie vereist, nog niet aangemeld",
+        "off": "Geen tweestapsverificatie"
+      }
+    },
+    "editDialog": {
+      "title": "Bewerk {{name}}",
+      "nameLabel": "Naam",
+      "usernameLabel": "Gebruikersnaam",
+      "roleLabel": "Rol",
+      "passwordLabel": "Nieuw wachtwoord",
+      "passwordPlaceholder": "Ongewijzigd laten",
+      "passwordHint": "Minimaal 12 tekens.",
+      "activeLabel": "Account actief",
+      "mfaTitle": "Tweestapsverificatie",
+      "mfaEnrolled": "Voor dit account is een authenticator-app of een toegangssleutel geregistreerd.",
+      "mfaNotEnrolled": "Voor dit account is geen tweede factor ingeschreven.",
+      "resetConfirmTitle": "Elke authenticator, toegangssleutel en herstelcode voor {{name}} wissen?",
+      "resetConfirmBody": "Ze worden overal afgemeld en moeten zich opnieuw inschrijven.",
+      "resetAction": "Opnieuw instellen",
+      "resetting": "Resetten…",
+      "scopeTitle": "Schermomvang",
+      "deactivateTitle": "{{name}} deactiveren?",
+      "deactivateAction": "Deactiveren",
+      "deactivating": "Deactiveren…",
+      "deleteTitle": "{{name}} definitief verwijderen?",
+      "deleteBody": "Hiermee worden hun aanmeldingsgegevens, voorkeuren en beveiligingsreferenties verwijderd. Dit kan niet ongedaan worden gemaakt.",
+      "deleteAction": "Permanent verwijderen",
+      "deleting": "Verwijderen…",
+      "tabsLabel": "Accountinstellingen",
+      "tabs": {
+        "account": "Rekening",
+        "role": "Rol",
+        "content": "Toegang tot inhoud",
+        "screens": "Schermtoegang"
+      }
+    },
+    "toasts": {
+      "created": "Gebruiker gemaakt.",
+      "updated": "Gebruiker bijgewerkt.",
+      "disabled": "Gebruiker uitgeschakeld.",
+      "deleted": "Gebruiker permanent verwijderd.",
+      "securityReset": "Aanmeldingsfactoren van gebruiker opnieuw ingesteld."
+    },
+    "errors": {
+      "requestFailed": "Tilecast kan dit account niet updaten."
+    },
+    "roleSelect": {
+      "builtin": "Ingebouwde rollen",
+      "custom": "Aangepaste rollen"
+    },
+    "access": {
+      "roleTitle": "Rol",
+      "roleDescription": "Wat deze persoon kan doen in Studio.",
+      "contentTitle": "Toegang tot inhoud",
+      "contentDescription": "Welke media deze persoon kan bereiken en welke tags hij/zij kan toepassen.",
+      "screensDescription": "Welke schermen deze persoon kan bereiken.",
+      "selfNote": "U kunt uw eigen toegang niet wijzigen. Vraag het aan een andere beheerder.",
+      "screensTitle": "Schermtoegang",
+      "screensCreateDescription": "Welke schermen deze persoon kan bereiken. Kies alle schermen, of de locaties en weergavegroepen waarin ze werken."
+    }
+  },
+  "security": {
+    "loading": "Inlogbeveiliging laden…",
+    "loadError": "Aanmeldingsbeveiliging kan niet worden geladen.",
+    "authenticator": {
+      "title": "Authenticator-app",
+      "description": "Een zescijferige code van een app zoals Aegis, Google Authenticator of 1Password.",
+      "setup": "Instellen",
+      "enrolled": "Ingeschreven",
+      "notEnrolled": "Niet ingeschreven",
+      "addedOn": "{{date}} toegevoegd",
+      "enrollInstruction": "Scan de code met uw authenticator-app en voer vervolgens de zescijferige code in die wordt weergegeven.",
+      "manualKeyLabel": "Kunt u niet scannen? Voer deze sleutel handmatig in:",
+      "codeLabel": "Zescijferige code",
+      "removeTitle": "Authenticator verwijderen",
+      "removeDescription": "Bevestig uw wachtwoord om de authenticator van dit account te verwijderen."
+    },
+    "passkeys": {
+      "title": "Wachtwoorden",
+      "description": "Log in met een vingerafdruk, gezicht, schermvergrendeling of beveiligingssleutel. Met een toegangssleutel logt u automatisch in en geldt als tweestapsverificatie.",
+      "add": "Voeg een toegangssleutel toe",
+      "unavailableTitle": "Er zijn geen toegangscodes beschikbaar voor deze installatie.",
+      "browserUnsupported": "Deze browser ondersteunt geen wachtwoordsleutels.",
+      "empty": "Geen toegangscodes",
+      "addedOn": "{{date}} toegevoegd",
+      "lastUsed": "Laatst gebruikte {{date}}",
+      "neverUsed": "Nooit gebruikt",
+      "rename": "Hernoemen",
+      "renameTitle": "Hernoem “{{name}}”",
+      "renameHint": "Tilecast heeft dit genoemd naar de authenticator die het heeft gemaakt.",
+      "removeTitle": "Verwijder “{{name}}”",
+      "removeFallbackTitle": "Wachtwoord verwijderen",
+      "removeDescription": "Bevestig uw wachtwoord om deze toegangssleutel uit dit account te verwijderen.",
+      "notCreated": "Er is geen wachtwoord aangemaakt.",
+      "selectToRename": "Selecteer een wachtwoord waarvan u de naam wilt wijzigen.",
+      "selectToRemove": "Selecteer een toegangssleutel om te verwijderen."
+    },
+    "recovery": {
+      "title": "Herstelcodes",
+      "description": "Codes voor eenmalig gebruik waarmee u kunt inloggen als u uw authenticator of toegangscode niet kunt bereiken.",
+      "regenerate": "Regenereer",
+      "generate": "Genereer",
+      "remaining_one": "{{count}} ongebruikte code resterend",
+      "remaining_other": "{{count}} resterende ongebruikte codes",
+      "empty": "Geen herstelcodes",
+      "dialogTitle": "Herstelcodes genereren",
+      "dialogDescription": "Bevestig uw wachtwoord om nieuwe codes te genereren. Eventuele bestaande herstelcodes werken niet meer.",
+      "shownOnceTitle": "Deze codes worden één keer getoond.",
+      "shownOnceDescription": "Bewaar ze nu ergens veilig. Tilecast slaat alleen hun hashes op en kan deze niet opnieuw weergeven.",
+      "copyAll": "Kopieer alles",
+      "savedConfirm": "Ik heb ze bewaard"
+    },
+    "passwordDialog": {
+      "passwordLabel": "Accountwachtwoord"
+    },
+    "errors": {
+      "requestFailed": "Tilecast kan het verzoek niet voltooien."
+    },
+    "qr": {
+      "failed": "De QR-code kon niet worden weergegeven. Voer in plaats daarvan de onderstaande sleutel handmatig in.",
+      "alt": "Authenticator instellen QR-code"
+    }
+  },
+  "preferences": {
+    "loading": "Voorkeuren laden…",
+    "loadError": "Voorkeuren kunnen niet worden geladen.",
+    "saved": "Voorkeuren opgeslagen.",
+    "leaveWarning": "Mijn account verlaten met niet-opgeslagen voorkeurswijzigingen?",
+    "conflict": "Deze voorkeuren veranderden elders. Laad de nieuwste voorkeuren opnieuw voordat u deze opslaat.",
+    "appearance": {
+      "title": "Uiterlijk",
+      "description": "Volg deze browser of forceer Studio licht of donker.",
+      "system": "Systeem",
+      "light": "Licht",
+      "dark": "Donker"
+    },
+    "language": {
+      "title": "Taal",
+      "description": "De taal die Studio voor u gebruikt. Namen, inhoud en berichten van spelers worden niet vertaald.",
+      "system": "Browserstandaard ({{language}})"
+    }
+  },
+  "oauth": {
+    "loading": "Autorisatieverzoek laden…",
+    "invalidTitle": "Autorisatieverzoek is niet geldig",
+    "invalidDescription": "Het autorisatieverzoek is niet geldig.",
+    "title": "Toegang autoriseren",
+    "intro": "“{{client}}” vraagt om in Tilecast als jou op te treden. Controleer de toegang hieronder voordat u akkoord gaat.",
+    "redirectTitle": "Antwoord keert terug naar",
+    "decisionError": "Tilecast kon de beslissing niet vastleggen.",
+    "approve": "Autoriseren",
+    "deny": "Ontkennen",
+    "grantsLoading": "Autorisatievergunningen laden…",
+    "grantsTitle": "Geautoriseerde exploitanten",
+    "grantsDescription": "Loopback-operators die als dit account kunnen optreden. De intrekking wordt onmiddellijk van kracht.",
+    "grantsError": "Autorisatietoekenningen konden niet worden geladen.",
+    "grantsEmpty": "Er zijn geen exploitanten geautoriseerd.",
+    "revoked": "Ingetrokken",
+    "grantedOn": "Toegekend {{date}}",
+    "lastUsed": "Laatst gebruikte {{date}}",
+    "revoke": "Intrekken",
+    "revokeError": "Tilecast kon de subsidie niet intrekken."
+  },
+  "pat": {
+    "title": "Persoonlijke toegangstokens",
+    "description": "Benoemde tokens voor scripts en automatisering. Tokens verlopen altijd; het geheim wordt één keer getoond bij de creatie en nooit meer.",
+    "loading": "Persoonlijke toegangstokens laden…",
+    "error": "Persoonlijke toegangstokens konden niet worden geladen.",
+    "empty": "Nog geen persoonlijke toegangstokens.",
+    "searchPlaceholder": "Zoek tokens op naam...",
+    "nameLabel": "Tokennaam",
+    "namePlaceholder": "ci-implementeren",
+    "scopesLabel": "Bereik",
+    "scope": {
+      "read": "Lees",
+      "write": "Schrijf",
+      "admin": "Beheerder"
+    },
+    "lifetimeLabel": "Verloopt na",
+    "lifetimeDays": "{{count}} dagen",
+    "create": "Token maken",
+    "creating": "Creëren…",
+    "createError": "Tilecast kan het token niet maken.",
+    "createdTitle": "Token gemaakt",
+    "createdWarning": "Kopieer het nu. Dit geheim zal nooit meer getoond worden.",
+    "tokenLabel": "Nieuw persoonlijk toegangstoken",
+    "copy": "Kopieer",
+    "copied": "Gekopieerd",
+    "done": "Klaar",
+    "createdOn": "{{date}} gemaakt",
+    "expiresIn": "Verloopt {{date}} · {{count}}d over",
+    "expired": "Verlopen",
+    "lastUsed": "Laatst gebruikte {{date}}",
+    "revoked": "Ingetrokken",
+    "revoke": "Intrekken",
+    "revokeError": "Tilecast kan het token niet intrekken."
+  },
+  "roleAdmin": {
+    "groups": {
+      "media": "Media",
+      "widgets": "Widgets",
+      "dataSources": "Gegevensbronnen",
+      "playlists": "Afspeellijsten",
+      "layouts": "Indelingen",
+      "campaigns": "Campagnes",
+      "review": "Inhoud beoordeling",
+      "screens": "Schermen",
+      "schedules": "Schema's",
+      "activity": "Activiteit",
+      "plugins": "Plug-ins",
+      "administration": "Administratie"
+    },
+    "capabilities": {
+      "media_read": {
+        "label": "Bekijk media",
+        "description": "Bekijk media in de bibliotheek en de details ervan."
+      },
+      "media_upload": {
+        "label": "Media uploaden",
+        "description": "Voeg afbeeldingen en video's toe."
+      },
+      "media_edit": {
+        "label": "Mediadetails bewerken",
+        "description": "Hernoem, beschrijf, stel de beschikbaarheid in en probeer opnieuw te verwerken."
+      },
+      "media_organize": {
+        "label": "Verplaats en verzamel media",
+        "description": "Verplaats media tussen mappen en in of uit collecties."
+      },
+      "media_tags_assign": {
+        "label": "Tags toepassen",
+        "description": "Tags op media toevoegen en verwijderen. Toegang tot inhoud kan beperken welke tags."
+      },
+      "media_archive": {
+        "label": "Media archiveren en herstellen",
+        "description": "Haal de media uit de rotatie en breng deze terug."
+      },
+      "media_delete": {
+        "label": "Media verwijderen",
+        "description": "Verwijder media permanent en verwijder mappen, tags of verzamelingen die de rol beheert."
+      },
+      "media_folders_manage": {
+        "label": "Beheer mappen",
+        "description": "Mappen maken, hernoemen en verplaatsen. Heeft de hele bibliotheek nodig."
+      },
+      "media_tags_manage": {
+        "label": "Beheer tags",
+        "description": "Tags maken en hernoemen. Heeft elk label nodig."
+      },
+      "media_collections_manage": {
+        "label": "Beheer collecties",
+        "description": "Verzamelingen maken en hernoemen. Heeft de hele bibliotheek nodig."
+      },
+      "widget_read": {
+        "label": "Bekijk Widgets",
+        "description": "Zie Widgets en websites."
+      },
+      "widget_edit": {
+        "label": "Maak en bewerk Widgets",
+        "description": "Bouw en wijzig Widgets en websites."
+      },
+      "widget_delete": {
+        "label": "Archiveer en verwijder Widgets",
+        "description": "Haal Widgets uit de rotatie of verwijder ze."
+      },
+      "datasource_read": {
+        "label": "Gegevensbronnen bekijken",
+        "description": "Zie Gegevensbronnen en hun gegevens."
+      },
+      "datasource_edit": {
+        "label": "Gegevensbronnen maken en bewerken",
+        "description": "Verbind feeds, agenda's, spreadsheets en handmatige gegevens."
+      },
+      "datasource_manage": {
+        "label": "Beheer gegevensbronnen",
+        "description": "Verwijder gegevensbronnen en maak formulieren waarin antwoorden worden verzameld."
+      },
+      "playlist_read": {
+        "label": "Bekijk afspeellijsten",
+        "description": "Bekijk afspeellijsten en hun geschiedenis."
+      },
+      "playlist_edit": {
+        "label": "Bewerk afspeellijsten",
+        "description": "Maak afspeellijsten en wijzig concepten. Zonder publicatie worden wijzigingen beoordeeld."
+      },
+      "playlist_publish": {
+        "label": "Publiceer afspeellijsten",
+        "description": "Zet afspeellijstwijzigingen live en herstel eerdere versies."
+      },
+      "playlist_delete": {
+        "label": "Verwijder afspeellijsten",
+        "description": "Verwijder afspeellijsten."
+      },
+      "layout_read": {
+        "label": "Bekijk lay-outs",
+        "description": "Zie Lay-outs en hun geschiedenis."
+      },
+      "layout_edit": {
+        "label": "Lay-outs bewerken",
+        "description": "Maak lay-outs en wijzig concepten. Zonder publicatie worden wijzigingen beoordeeld."
+      },
+      "layout_publish": {
+        "label": "Lay-outs publiceren",
+        "description": "Zet lay-outwijzigingen live en herstel eerdere versies."
+      },
+      "layout_delete": {
+        "label": "Lay-outs verwijderen",
+        "description": "Lay-outs verwijderen."
+      },
+      "campaign_read": {
+        "label": "Bekijk campagnes",
+        "description": "Bekijk campagnes en hun releases."
+      },
+      "campaign_edit": {
+        "label": "Campagnes bewerken",
+        "description": "Maak campagnes, wijzig concepten en archiveer ze."
+      },
+      "campaign_publish": {
+        "label": "Publiceer campagnes",
+        "description": "Geef campagnes vrij op schermen."
+      },
+      "content_review": {
+        "label": "Inzendingen beoordelen",
+        "description": "Goedkeuren, wijzigingen aanvragen, ingediende inhoud plannen en terugdraaien."
+      },
+      "screen_read": {
+        "label": "Bekijk schermen",
+        "description": "Bekijk schermen, weergavegroepen, status, liveweergave en afspelen."
+      },
+      "screen_manage": {
+        "label": "Beheer schermen",
+        "description": "Wijzig scherminstellingen, groepen, locaties, opdrachten en Player-updates."
+      },
+      "screen_pair": {
+        "label": "Schermen koppelen en intrekken",
+        "description": "Keur nieuwe spelers goed en trek hun inloggegevens in."
+      },
+      "screen_assign": {
+        "label": "Wijs inhoud toe aan schermen",
+        "description": "Kies wat er speelt, start takeovers en presenteer met AirPlay."
+      },
+      "screen_locations_manage": {
+        "label": "Beheer locaties",
+        "description": "Locaties maken, hernoemen en verwijderen. Heeft toegang nodig tot elk scherm."
+      },
+      "screen_networks_manage": {
+        "label": "Beheer presentatienetwerken",
+        "description": "Presentatienetwerkdefinities maken, wijzigen en verwijderen. Heeft toegang nodig tot elk scherm."
+      },
+      "schedule_read": {
+        "label": "Bekijk schema's",
+        "description": "Bekijk de speelschema's en wat ze zullen spelen."
+      },
+      "schedule_edit": {
+        "label": "Schema's bewerken",
+        "description": "Planningen maken, wijzigen, in- of uitschakelen en verwijderen."
+      },
+      "activity_read": {
+        "label": "Activiteit bekijken",
+        "description": "Bekijk de gezondheid van de vloot, bewijs van spelen, incidenten en schermtijdlijnen."
+      },
+      "activity_audit": {
+        "label": "Bekijk de inhoudsgeschiedenis",
+        "description": "Bekijk het auditlogboek met inhoudswijzigingen."
+      },
+      "activity_manage": {
+        "label": "Beheer activiteit",
+        "description": "Bekijk het volledige auditlogboek, exportrapporten en update-incidenten en retentie."
+      },
+      "plugins_use": {
+        "label": "Gebruik plug-ins",
+        "description": "Open plug-inpagina's en blader door de Plugin Store."
+      },
+      "plugins_manage": {
+        "label": "Beheer plug-ins",
+        "description": "Installeer, update, configureer en verwijder plug-ins."
+      },
+      "users_manage": {
+        "label": "Beheer mensen",
+        "description": "Voeg accounts toe en stel hun rol, inhoudstoegang en schermtoegang in."
+      },
+      "roles_manage": {
+        "label": "Beheer rollen",
+        "description": "Aangepaste rollen maken en wijzigen."
+      },
+      "settings_manage": {
+        "label": "Wijzig de installatie-instellingen",
+        "description": "Bewerk organisatie-instellingen, branding en meldingen."
+      },
+      "system_manage": {
+        "label": "Systeemonderhoud uitvoeren",
+        "description": "Bekijk de systeemstatus en voer onderhoud uit."
+      },
+      "system_backups": {
+        "label": "Back-ups en herstel",
+        "description": "Back-ups maken, downloaden en herstellen."
+      },
+      "integrations_manage": {
+        "label": "Integratietokens",
+        "description": "Integratietokens maken en intrekken."
+      },
+      "player_releases": {
+        "label": "Player-releases",
+        "description": "Controleer, cache en verwijder Player-releases."
+      }
+    },
+    "summary": {
+      "none": "Deze rol levert nog niets op."
+    },
+    "page": {
+      "intro": "Een rol is wat iemand kan doen. Ingebouwde rollen staan ​​vast; voeg uw eigen toe om mensen precies de toegang te geven die ze nodig hebben voor hun werk.",
+      "createAction": "Rol creëren",
+      "loading": "Rollen laden…",
+      "builtin": "Ingebouwd",
+      "custom": "Aangepast",
+      "people_one": "{{count}} persoon",
+      "people_other": "{{count}} mensen",
+      "capabilityCount_one": "{{count}}-mogelijkheid",
+      "capabilityCount_other": "{{count}}-mogelijkheden",
+      "viewAction": "Bekijk",
+      "duplicateAction": "Duplicaat",
+      "duplicateLabel": "Dupliceer {{name}} als een nieuwe rol",
+      "deleteTitle": "De rol {{name}} verwijderen?",
+      "deleteBody": "Niemand vervult deze rol. Het verwijderen ervan kan niet ongedaan worden gemaakt.",
+      "deleteInUse_one": "De {{count}}-persoon bekleedt deze rol nog steeds. Verplaats ze eerst naar een andere rol.",
+      "deleteInUse_other": "{{count}}-mensen vervullen nog steeds deze rol. Verplaats ze eerst naar een andere rol."
+    },
+    "toasts": {
+      "created": "Rol gemaakt.",
+      "updated": "Rol bijgewerkt.",
+      "deleted": "Rol verwijderd."
+    },
+    "editor": {
+      "createTitle": "Creëer een rol",
+      "editTitle": "Bewerk {{name}}",
+      "description": "Kies wat mensen met deze rol kunnen doen. Inhoud en schermtoegang, ingesteld per persoon op de pagina Gebruikers, bepaal waar ze dit kunnen doen.",
+      "builtinDescription": "Ingebouwde rollen kunnen niet worden gewijzigd. Dupliceer er één om er een aangepaste rol van te maken.",
+      "nameLabel": "Naam",
+      "namePlaceholder": "Bijvoorbeeld klasmedia",
+      "descriptionLabel": "Beschrijving",
+      "descriptionPlaceholder": "Voor wie is deze rol bedoeld",
+      "capabilitiesTitle": "Wat deze rol kan doen",
+      "capabilitiesHint": "Als u een actie inschakelt, wordt ook ingeschakeld wat deze nodig heeft, zoals bekijken vóór uploaden.",
+      "capabilitiesViewHint": "Alles wat deze rol mogelijk maakt, per gebied.",
+      "groupCount": "{{count}} of {{total}}",
+      "ownerReserved": "Gereserveerd voor de rol Eigenaar.",
+      "ownerOnly": "Alleen een Eigenaar kan dit verlenen.",
+      "notYours": "Je eigen rol omvat dit niet.",
+      "createAction": "Rol creëren",
+      "copyName": "{{name}}-kopie"
+    }
+  },
+  "contentAccess": {
+    "ownerNote": "Eigenaars bereiken altijd de hele bibliotheek en kunnen elke tag toepassen.",
+    "loadError": "Toegang tot inhoud kan niet worden geladen.",
+    "loading": "Toegang tot inhoud laden",
+    "roleHasNoMedia": "De rol van deze persoon omvat geen Media of Widgets, dus toegang tot inhoud heeft geen effect totdat zijn of haar rol dat wel doet.",
+    "notConfigured": "Dit account heeft nog geen toegang tot inhoud en kan dus geen media zien. Kies toegang en sla op.",
+    "saved": "Toegang tot inhoud opgeslagen.",
+    "saveAction": "Toegang tot inhoud opslaan",
+    "library": {
+      "legend": "Mediabibliotheek",
+      "description": "Een map bevat alles wat erin zit.",
+      "all": "Gehele bibliotheek",
+      "allHint": "Elke map, plus media die zich niet in een map bevinden.",
+      "restricted": "Alleen geselecteerde mappen",
+      "restrictedHint_one": "map {{count}} geselecteerd. Media daarbuiten, inclusief niet-gearchiveerde media, blijven verborgen.",
+      "restrictedHint_other": "{{count}}-mappen geselecteerd. Media buiten hen, inclusief niet-gearchiveerde media, blijven verborgen.",
+      "searchLabel": "Zoek in mappen",
+      "searchPlaceholder": "Zoek in mappen",
+      "noFolders": "Er zijn nog geen mappen. Maak eerst mappen in Media.",
+      "noMatch": "Er komen geen mappen overeen.",
+      "included": "Inbegrepen",
+      "subtreeNote": "Uploads van deze persoon komen in een van deze mappen terecht.",
+      "emptyNote": "Als er geen mappen zijn geselecteerd, kan deze persoon geen media zien of uploaden."
+    },
+    "tags": {
+      "legend": "Tags die ze kunnen toepassen",
+      "description": "Tags labelen media, bijvoorbeeld om een op tags gebaseerde afspeellijst te voeden. Ze maken de media nooit zichtbaar.",
+      "all": "Elk label",
+      "restricted": "Alleen geselecteerde tags",
+      "restrictedHint_one": "{{count}}-tag geselecteerd.",
+      "restrictedHint_other": "{{count}}-tags geselecteerd.",
+      "noTags": "Er zijn nog geen tags."
+    }
+  }
+}
