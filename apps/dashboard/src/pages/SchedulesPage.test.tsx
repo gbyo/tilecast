@@ -417,21 +417,18 @@ describe("Schedules library", () => {
       await waitFor(() => expect(lastParams(spy).enabled).toBe(""));
     });
 
-    it(
-      "keeps the Filters Popover in a compact iPad-width workspace",
-      async () => {
-        stubViewport(true);
-        mockSchedules();
-        renderPage();
-        const user = userEvent.setup();
-        await screen.findByText("Morning Broadcast");
+    it("keeps Filters in a Popover at iPad widths", async () => {
+      stubViewport(true);
+      mockSchedules();
+      renderPage();
+      const user = userEvent.setup();
+      await screen.findByText("Morning Broadcast");
 
-        await openFilters(user);
-        const dialog = await screen.findByRole("dialog", { name: "Filters" });
-        expect(dialog).toHaveAttribute("data-slot", "popover-content");
-        expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
-      },
-    );
+      await openFilters(user);
+      const dialog = await screen.findByRole("dialog", { name: "Filters" });
+      expect(dialog).toHaveAttribute("data-slot", "popover-content");
+      expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
+    });
 
     it("renders the Drawer instead of a Popover on phones", async () => {
       stubViewport(true, true);
