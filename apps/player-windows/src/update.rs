@@ -299,9 +299,11 @@ async fn execute(context: &DaemonContext, job: &PendingJob) -> Pass {
                     let server = context.command_server.borrow().clone();
                     if let Some(server) = server {
                         fail(context, &server, job, "update_unavailable", &detail).await;
-                    } else {
-                        clear_job(&context.paths, job);
                     }
+                    // If there is no live server relationship, or the terminal
+                    // report itself cannot be delivered, fail() deliberately
+                    // leaves the durable job in place. run() will see it again
+                    // and resume instead of abandoning an accepted deployment.
                     return Pass::Done;
                 }
                 tracing::info!(component = "update", event = "retrying", attempt, detail = %detail);
@@ -594,11 +596,16 @@ fn sha256_file(path: &std::path::Path) -> Option<String> {
 enum Reported {
     Sent,
     Closed,
+    Unavailable,
 }
 
 impl Reported {
     fn is_closed(&self) -> bool {
         matches!(self, Reported::Closed)
+    }
+
+    fn is_acknowledged(&self) -> bool {
+        matches!(self, Reported::Sent | Reported::Closed)
     }
 }
 
@@ -619,14 +626,15 @@ async fn report(
         )
         .await;
     match outcome {
+        Ok(player_client::updates::UpdateReportOutcome::Accepted) => Reported::Sent,
         Ok(player_client::updates::UpdateReportOutcome::Closed) => Reported::Closed,
-        _ => Reported::Sent,
+        Err(_) => Reported::Unavailable,
     }
 }
 
-/// A terminal failure: the report goes out up to three times, then the
-/// job and its staging are cleared. Settlement still happens through
-/// the heartbeat of whatever build is running.
+/// A terminal failure: retry the report, but retain the durable job and
+/// staged bytes until the server acknowledges that terminal state. This
+/// lets an accepted update survive a temporary server/network outage.
 async fn fail(
     context: &DaemonContext,
     server: &player_client::AuthenticatedServer,
@@ -635,8 +643,9 @@ async fn fail(
     message: &str,
 ) {
     tracing::warn!(component = "update", event = "failed", deployment = %job.deployment_id, code, message = %message);
+    let mut acknowledged = false;
     for _ in 0..3 {
-        if report(
+        let reported = report(
             server,
             job.deployment_id,
             "failed",
@@ -644,15 +653,23 @@ async fn fail(
             Some(code.chars().take(64).collect()),
             Some(message.to_owned()),
         )
-        .await
-        .is_closed()
-        {
+        .await;
+        if reported.is_acknowledged() {
+            acknowledged = true;
             break;
         }
         if context.shutdown.is_cancelled() {
             break;
         }
         tokio::time::sleep(PASS_INTERVAL).await;
+    }
+    if !acknowledged {
+        tracing::warn!(
+            component = "update",
+            event = "failure_report_deferred",
+            deployment = %job.deployment_id
+        );
+        return;
     }
     clear_job(&context.paths, job);
     let staged = staging_dir(&context.paths).join(format!("{}.msix", job.release_id.simple()));
@@ -686,6 +703,15 @@ mod tests {
     fn corpus() -> VersionCorpus {
         serde_json::from_str(include_str!("../../../packages/player-contracts/fixtures/release-versions.json"))
             .expect("the shared release version corpus parses")
+    }
+
+    #[test]
+    fn only_server_acknowledgements_are_terminal_reports() {
+        assert!(Reported::Sent.is_acknowledged());
+        assert!(Reported::Closed.is_acknowledged());
+        assert!(!Reported::Unavailable.is_acknowledged());
+        assert!(Reported::Closed.is_closed());
+        assert!(!Reported::Unavailable.is_closed());
     }
 
     #[test]
