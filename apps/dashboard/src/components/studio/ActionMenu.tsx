@@ -274,9 +274,9 @@ export function ActionMenuButton({
 }
 
 /**
- * A pointer context menu for a whole row or card. It is enabled only when
- * the primary pointer can actually hover; touch users use the visible action
- * button instead of having to discover a long-press gesture. Keep the trigger
+ * A pointer context menu for a whole row or card. It is enabled when any
+ * precise hovering input is available, including Apple Pencil or an attached
+ * trackpad, while the visible action button remains the touch path. Keep the trigger
  * mounted so entering batch selection does not discard focus or observers.
  */
 export function ActionContextMenu({
