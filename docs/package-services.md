@@ -52,7 +52,13 @@ and answers non-secret screen facts with reported player
 capabilities; `screens.read@1/get` takes an ID. `targets.resolve@1`
 validates display targets and resolves them to screen IDs.
 `content.read@1` lists and gets playlists, layouts, data sources,
-schedules, and screen groups as JSON documents.
+schedules, and screen groups as JSON documents. It is frozen: its
+operations, its `page` and `pageSize` pagination, its answers, and its
+contexts do not change. `content.read@2` and `activity.read@1` are the
+shared read services for packages and bundled plugins, with cursor
+pagination and models that the service owns. A `content.read@1` grant does
+not reach a `content.read@2` operation. See
+[Plugin read services](plugin-read-services.md).
 `users.read-basic@1` answers the basic user directory: identifiers,
 names, roles, and activity only.
 
@@ -125,9 +131,12 @@ writes nothing.
 
 ## Contexts
 
-Two contexts bound every call. Background jobs run as the system with
-no user actor; writes attribute NULL like every other system write.
-Studio interface calls run as the signed-in account. Each Studio call
+Three contexts bound every call: `studio`, `background`, and `system`.
+[Plugin read services](plugin-read-services.md#one-rule-for-unattended-calls)
+owns the one rule for packages and bundled plugins. Background jobs and
+system callbacks run unattended with no user actor; writes attribute NULL
+like every other system write. Studio interface calls run as the signed-in
+account. Each Studio call
 takes the same capability check and the same `authz` decision as the
 matching dashboard route: `screens.read@1/get` and
 `players.display-control@1` decide the screen, `content.read@1` decides
@@ -138,10 +147,13 @@ access answers `not_found`, like the dashboard's `404`. A missing grant,
 a forbidden context, or an invalid actor denies the call before any
 domain code runs.
 
-The call context alone decides which rule applies. A background call
-keeps the install-time grant of the package and takes no user's screen
-access. A Studio call without an actor is refused; it never runs as a
-background call. See [Screen access](screen-scopes.md).
+The call context alone decides which rule applies. An unattended call
+runs only when the registry lists its context for the operation. It keeps
+the install-time grant of the package, sees the installation-wide view of
+the operation, and takes no user's screen access or content access. It
+never acts as the person who installed or configured the package. A Studio
+call without an actor is refused; it never runs as an unattended call. An
+unknown context is refused. See [Screen access](screen-scopes.md).
 
 Reads reuse the domain and shared-host services.
 Mutations run through the canonical domain services with

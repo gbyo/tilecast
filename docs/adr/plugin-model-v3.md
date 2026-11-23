@@ -51,6 +51,19 @@ plugin parity for its members stays in phase 6:
   harness prove each contract instead, including a screen that goes offline
   and reaches a plugin notification channel through a core incident.
 
+The platform validation stage between phases 3 and 4 is in progress. It
+adds no product feature and no example plugin:
+
+- One rule for unattended Server service calls is implemented for packages
+  and bundled plugins alike. See section 3.
+- `content.read@2` and `activity.read@1` are implemented for packages and
+  bundled plugins. `content.read@1` stays frozen for the packages that hold
+  it. The Activity reports that both Studio and `activity.read@1` read moved
+  out of the HTTP handlers into `internal/activityreport`. See
+  [plugin read services](../plugin-read-services.md).
+- The install review shows the contexts of each service grant, for packages
+  and bundled plugins.
+
 Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
 [External package service capabilities](../package-services.md), and
@@ -217,6 +230,18 @@ one Server service vocabulary.
   participant is the actor), `background` (a job or timer), and `system` (an
   event, a webhook, or a Player report). The registry already names
   `system` for this use.
+- One rule decides who a call acts for, for packages and bundled plugins
+  alike. A `studio` call needs a signed-in actor and takes the live
+  capabilities and the live object, content, and screen decision of that
+  actor. A `studio` call without an actor fails. A `background` or `system`
+  call carries no actor. It runs only when the registry lists that context
+  for the operation, the caller holds the exact service grant, the
+  installation of the caller is active, and the resource rules of the
+  operation permit the request. It then sees the installation-wide view of
+  the operation. It never takes the access of the person who configured the
+  plugin, and there is no system user. Any other context fails. Each
+  capability names its contexts. No read is available in every context by
+  default. See [plugin read services](../plugin-read-services.md).
 - The `Host` struct fields stay for Plugin API v1 and v2 plugins.
 - A bundled plugin keeps direct SQL on its own tables.
 
@@ -985,15 +1010,20 @@ works for the device:
    screen. Edge adds a udev rule, a group, and a `DeviceAllow` entry, as for
    `player.serial@1`. Some printers do not accept raw data through `usblp`.
    The capability matrix lists each qualified model. No phase includes this
-   service. It is added with the first plugin that needs it.
+   service. This description is a non-normative design note, not a roadmap
+   commitment. It is added only with a concrete consumer, after a
+   threat-boundary review, hardware qualification, and a decision on Player
+   ownership.
 
 For the third method, a print job is plugin state with a job ID. A native
 contribution prints each
 job ID once and sends the result with `player.report@1`. A job with personal
 data, such as a visitor badge, is `sensitive` state.
 
-**Digital inputs.** `player.gpio@1` on Edge reads digital input lines, such
-as a door counter, a beam sensor, or a push button.
+**Digital inputs (design note).** `player.gpio@1` on Edge reads digital
+input lines, such as a door counter, a beam sensor, or a push button. This
+description records architectural constraints. It is not a roadmap
+commitment.
 
 - An Owner assigns lines of one GPIO chip to the screen in Studio. The
   plugin names a line by its setting, never by a chip path.
@@ -1006,8 +1036,10 @@ as a door counter, a beam sensor, or a push button.
   receives counts and the current level. It does not receive each edge.
 - The service sets no output line. An output, such as a relay or a beacon,
   needs a separate decision, because it acts on the physical world.
-- No phase includes this service. It is added with the first plugin that
-  needs it. The capability matrix lists each qualified board.
+- No phase includes this service. It is added only with a concrete
+  consumer, after a threat-boundary review, hardware qualification, and a
+  decision on Player ownership. The capability matrix lists each qualified
+  board.
 
 **Gateway pattern.** One Player owns a device, such as a scoreboard console.
 It sends decoded values with `player.report@1`. The Server part of the plugin
@@ -1041,12 +1073,19 @@ If a fast path is needed:
 - `content.write@1` creates and changes playlists, Widgets, and schedules
   through the canonical domain services, with the operator's authorization.
   Content Review applies when the review policy requires it.
-- `content.read@1` reads playlists, Layouts, Widget instances, schedules, and
-  media items as API models. It applies the operator's content access and
-  screen scope, as the Studio API does.
-- These three services run in the `studio` context only. A timer, a job, an
-  event, a webhook, and a Player report have no operator. They cannot call
-  these services.
+- `content.read@2` reads playlists, Layouts, Widgets, media items, Data
+  Sources, schedules, and screen groups as models that the service owns. A
+  `studio` call applies the operator's capabilities, content access, and
+  screen access, as the Studio API does. A `background` or `system` call
+  reads the installation under the install-time grant, by the rule of
+  section 3. `content.read@1`, the package grant that exists today, stays
+  frozen. `activity.read@1` reads proof of play, compliance, and current
+  screen activity in the same way. It is a separate grant because Activity
+  is a different class of data. See
+  [plugin read services](../plugin-read-services.md).
+- `media.ingest@1` and `content.write@1` run in the `studio` context only. A
+  timer, a job, an event, a webhook, and a Player report have no operator.
+  They cannot call these services.
 - A plugin that acts on outside input, such as a chat message that asks for a
   publication, puts the input in moderation. The reviewer's decision runs in
   the `studio` context, so the hook can write content as the reviewer.
@@ -1090,22 +1129,36 @@ install review shows:
 
 ## Phases
 
-Each phase delivers real plugins. A phase ends when those plugins pass their
-checks and the contracts describe the new members.
+A phase ends when conformance tests prove its contracts and the contracts
+describe the new members. The plugins in the Proof column are useful
+demonstrations. Shipping one is not a phase-completion requirement.
 
-| Phase | Scope                                                                                                                                              | Proof                                                                      |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 0     | Takeover priority classes. Terminology and the rename. One extension overview.                                                                     | Emergency Alerts survives an operator Takeover                             |
-| 1     | `config-schema`, settings, secrets, instances, personal-data declarations, the registry Go client                                                  | Countdown Bar on Plugin Manifest API 3, with line counts                   |
-| 2     | `http.fetch@1`, connections, local `http` origins, OAuth, feeds with overrides and images, `storage.kv@1`, timers                                  | Room sign display; POS menu board                                          |
-| 3     | Core and plugin events, `token`, `signature`, and `fetch-back` webhooks, the delivery engine, notification channels, `contenthealth` checks        | Planning Center sync; offline notifier; bell schedule events               |
-| 4     | Plugin capabilities, staff pages, kiosks, moderation with plugin assets and takedown, the purge list, `public` webhooks, public links              | "Now serving" keypad; scorekeeper page; community flyer wall with QR links |
-| 5     | `player.report@1`, `player.audio.cue@1` with sequences, `player.serial@1` on Edge, the fast-path measurement                                       | Scoreboard gateway; spoken queue call                                      |
-| 6     | Installed parity: every member for packages, `plugin-runtime.state@1` on instances, Player frame ABI 2 on services, blobs, TCP, stream connections | One plugin shipped as a package; transit arrivals; MQTT occupancy sign     |
-| 7     | Participant sessions; content read, content write, and media services; editor action slots                                                         | Live poll; Slack publishing through moderation                             |
+| Phase | Scope                                                                                                                                                         | Proof                                                                      |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 0     | Takeover priority classes. Terminology and the rename. One extension overview.                                                                                | Emergency Alerts survives an operator Takeover                             |
+| 1     | `config-schema`, settings, secrets, instances, personal-data declarations, the registry Go client                                                             | Countdown Bar on Plugin Manifest API 3, with line counts                   |
+| 2     | `http.fetch@1`, connections, local `http` origins, OAuth, feeds with overrides and images, `storage.kv@1`, timers                                             | Room sign display; POS menu board                                          |
+| 3     | Core and plugin events, `token`, `signature`, and `fetch-back` webhooks, the delivery engine, notification channels, `contenthealth` checks                   | Planning Center sync; offline notifier; bell schedule events               |
+| 3V    | Platform validation: one unattended-call rule, `content.read@2`, `activity.read@1`, a larger bounded instance-kind surface, zero-instance routing and tooling | Conformance tests                                                          |
+| 4     | Plugin capabilities, staff pages, kiosks, moderation with plugin assets and takedown, the purge list, `public` webhooks, public links                         | "Now serving" keypad; scorekeeper page; community flyer wall with QR links |
+| 5     | `player.report@1`, `player.audio.cue@1` with sequences, `player.serial@1` on Edge, the fast-path measurement                                                  | Scoreboard gateway; spoken queue call                                      |
+| 6     | Installed parity: every member for packages, `plugin-runtime.state@1` on instances, Player frame ABI 2 on services, blobs, TCP, stream connections            | One plugin shipped as a package; transit arrivals; MQTT occupancy sign     |
+| 7     | Participant sessions; `content.write@1` and `media.ingest@1`; participant-driven content actions; editor action slots                                         | Live poll; Slack publishing through moderation                             |
 
 Emergency Alerts and Forms move to Plugin Manifest API 3 after phase 3.
 Plugin API v1 is deleted after both move.
+
+### Need before primitive
+
+A new Plugin Model primitive starts from a concrete product or extension
+requirement. Before a new primitive is added, the authors check whether an
+existing general service or provider slot can satisfy the requirement. When
+a new primitive is necessary, its contract describes a reusable capability.
+It does not encode the domain of one plugin. The design identifies at least
+one materially different plausible use.
+
+This rule does not permit speculative primitives. Design ahead where
+architectural compatibility matters. Implement when a need exists.
 
 ## Consequences
 
@@ -1134,8 +1187,12 @@ Plugin API v1 is deleted after both move.
 - OAuth connections need an HTTPS public URL and an OAuth client that the
   operator registers.
 - `player.serial@1` widens the Edge device policy. It needs hardware
-  qualification. `player.gpio@1` and `player.printer@1` do the same when a
-  plugin first needs them.
+  qualification.
+- `player.gpio@1`, `player.printer@1`, and the other hardware services that
+  section 15 discusses are design notes, not roadmap commitments. A name in
+  this record does not commit Tilecast to build the service. Implementation
+  needs a concrete consumer, a threat-boundary review, hardware
+  qualification, and clear Player ownership.
 - Stream connections keep sockets open from the Server to brokers and local
   systems. Messages during an interruption are lost, so a plugin must read
   current values again after each reconnect.

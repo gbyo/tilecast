@@ -208,6 +208,11 @@ creates the account as `restricted` with no grants. Studio always sends it.
   the fleet health card, and the per-screen Activity routes are narrowed. Do not
   use screen access as a confidentiality boundary for historical reporting.
   Give a restricted operator a role without `activity.read` when this matters.
+  The `activity.read@1` service follows the same rule in the `studio`
+  context: proof and compliance cover the installation, and
+  `screens.current` is narrowed. A `background` or `system` call has no
+  operator and reads the installation under the service grant. See
+  [Plugin read services](plugin-read-services.md).
 - The Presentation Network list returns organization facts: network names and
   security types, never credentials.
 - One installation serves one organization. Screen access is not a tenancy

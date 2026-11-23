@@ -17,7 +17,9 @@ Guests call `tilecast.call_v1` with an operation token such as `screens.read@1/l
 
 The reference guest SDK (`packages/package-guest-sdk`) owns the unsafe boundary, envelope parsing, and typed shapes. The Hello Services sample (`packages/package-samples/hello-services`) shows a scheduled job that reads screens and writes one audit event.
 
-Background jobs run as the system with no user actor. Studio interface calls run as the signed-in account with that operation's dashboard role policy.
+Background jobs run with no user actor. They read the installation-wide view that the service grant approves, and never borrow the access of the person who installed the package. Studio interface calls run as the signed-in account with that operation's dashboard role policy.
+
+`content.read@2` and `activity.read@1` are the current read services for content and Activity, with cursor pagination. `content.read@1` keeps working exactly as before, but it is a different grant: moving a package to `content.read@2` shows up as a permission change in the update review. See the [plugin read services reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-read-services.md).
 
 ## Poll a source every few seconds
 

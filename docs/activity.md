@@ -363,6 +363,15 @@ Two telemetry datasets deliberately do **not** appear in that table, because nei
 
 Cleanup runs periodically and after Activity ingestion, changing at most 500 rows per dataset per invocation in short statements. It never deletes open playback sessions or open screen-state intervals, restores the default singleton safely if it is missing, and logs only safe row counts and errors. Derived sessions retain the evidence needed for reporting after their source raw events age out.
 
+## Report ownership
+
+`internal/activityreport` implements the proof list, the proof summary, the
+compliance report, the expected-window judgement, and the fleet
+classification. The Studio Activity routes and the `activity.read@1` service
+both call it. The metric definitions in this document apply to both. The
+service returns the safe view only. See
+[Plugin read services](plugin-read-services.md#activityread1).
+
 ## API summary
 
 See [`activity-api.yaml`](activity-api.yaml) for request and response shapes.

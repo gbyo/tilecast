@@ -6,6 +6,11 @@ the migrations, the API description, the Studio pages, the Player runtime
 code, the public documentation, and the tests.
 
 - Read [`docs/plugin-api.md`](../docs/plugin-api.md) for the contract.
+- Read [`docs/plugin-read-services.md`](../docs/plugin-read-services.md) before
+  a plugin reads the content library or Activity. Declare only the read
+  services the plugin needs: `content.read@2` or `activity.read@1`. A
+  `background` or `system` read covers the whole installation under that
+  declaration. It is not administrator access.
 - Read [`docs/plugins.md`](../docs/plugins.md) for the behavior of each plugin.
 - Create a plugin with `npm run plugins:new -- <plugin_id>`.
 - Bundle a Widget with `npm run widgets:new -- <name> --plugin <plugin_id>`.
