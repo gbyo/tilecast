@@ -72,7 +72,9 @@ describe("SiteHeader", () => {
 
     const navigation = screen.getByRole("button", { name: /navigation/i });
     const search = screen.getByRole("button", { name: /Search Tilecast/ });
-    const notifications = screen.getByRole("button", { name: /Notifications/ });
+    const notifications = screen.getByRole("button", {
+      name: /Notifications/,
+    });
     expect(navigation.className).toContain("size-11");
     expect(search.className).toContain("size-11");
     expect(notifications.className).toContain("size-11");
@@ -94,7 +96,9 @@ describe("SiteHeader", () => {
     );
 
     const search = screen.getByRole("button", { name: /Search Tilecast/ });
-    const notifications = screen.getByRole("button", { name: /Notifications/ });
+    const notifications = screen.getByRole("button", {
+      name: /Notifications/,
+    });
     expect(search.className).toContain("size-11");
     expect(notifications.className).toContain("size-11");
     expect(screen.getByText("Search Tilecast").className).toContain("sr-only");

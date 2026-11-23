@@ -1,7 +1,7 @@
 import XCTest
 
-/// Adaptive native navigation against `FixtureStudioServer`, a loopback stand-in for
-/// a Tilecast server. The fixture's destinations are made up, so these
+/// Adaptive native navigation against `FixtureStudioServer`, a loopback
+/// stand-in for a Tilecast server. The fixture's destinations are made up, so these
 /// tests also show that the shell renders whatever catalog Studio sends.
 final class NativeNavigationUITests: XCTestCase {
     private var server: FixtureStudioServer!
@@ -142,5 +142,4 @@ final class NativeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Layouts"].waitForExistence(timeout: 5), "secondary destinations stay reachable without consuming content width")
         XCTAssertTrue(app.buttons["Manage Servers…"].exists)
     }
-
 }

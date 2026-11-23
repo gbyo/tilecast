@@ -63,8 +63,8 @@ struct NativeTabNavigation: View {
         // people can reveal the system sidebar when they want the hierarchy.
         .tabViewStyle(.sidebarAdaptable)
         .defaultAdaptableTabBarPlacement(.tabBar)
-        // Studio is drawn behind the tab container, so it must not paint over
-        // the page. The More list draws its own background.
+        // Keep the adaptive container itself clear. iPhone composes Studio
+        // behind it; iPad overlays Studio only inside the measured content slot.
         .background(.clear)
     }
 

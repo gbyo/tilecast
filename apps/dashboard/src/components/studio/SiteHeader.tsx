@@ -272,10 +272,7 @@ export function SiteHeader({
             <Button
               variant="ghost"
               size="icon"
-              className={cn(
-                "relative size-11",
-                !nativeHost && "lg:size-8",
-              )}
+              className={cn("relative size-11", !nativeHost && "lg:size-8")}
               aria-label={
                 notifications.count
                   ? t("header.notificationsWithCount", {
