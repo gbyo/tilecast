@@ -93,6 +93,16 @@ func (s *Service) RecordManual(ctx context.Context, screenID uuid.UUID, upload p
 	s.record(ctx, screenID, upload, "manual")
 }
 
+// RecordTriggered preserves whether the preview capture was operator-requested
+// or part of ordinary scheduled/background preview activity.
+func (s *Service) RecordTriggered(ctx context.Context, screenID uuid.UUID, upload previews.Upload, trigger previews.CaptureTrigger) {
+	if trigger == previews.CaptureTriggerManual {
+		s.RecordManual(ctx, screenID, upload)
+		return
+	}
+	s.Record(ctx, screenID, upload)
+}
+
 func (s *Service) record(ctx context.Context, screenID uuid.UUID, upload previews.Upload, trigger string) {
 	policy := s.Policy(ctx)
 	if !policy.Enabled {
