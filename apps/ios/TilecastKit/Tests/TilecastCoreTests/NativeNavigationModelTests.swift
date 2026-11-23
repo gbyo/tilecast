@@ -62,46 +62,46 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
             catalog(primary: ["alpha"], more: ["charlie"]),
             active: "charlie"
         )
-        #expect(model.selectedTab == .more)
+        #expect(model.compactSelectedTab == .more)
         #expect(model.adaptiveSelectedTab == .destination("charlie"))
 
         model.apply(catalog(primary: ["alpha", "charlie"], more: []))
-        #expect(model.selectedTab == .destination("charlie"))
-        #expect(model.frontendTab == .destination("charlie"))
+        #expect(model.compactSelectedTab == .destination("charlie"))
+        #expect(model.compactFrontendTab == .destination("charlie"))
         #expect(model.adaptiveSelectedTab == .destination("charlie"))
         #expect(model.adaptiveFrontendTab == .destination("charlie"))
     }
 
     @Test func startsOnTheActiveDestination() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["charlie"]), active: "bravo")
-        #expect(model.selectedTab == .destination("bravo"))
-        #expect(model.frontendTab == .destination("bravo"))
+        #expect(model.compactSelectedTab == .destination("bravo"))
+        #expect(model.compactFrontendTab == .destination("bravo"))
 
         let (inMore, _) = makeModel(catalog(primary: ["alpha"], more: ["charlie"]), active: "charlie")
-        #expect(inMore.selectedTab == .more)
-        #expect(inMore.frontendTab == .more, "a More destination shows Studio in the compact More tab")
+        #expect(inMore.compactSelectedTab == .more)
+        #expect(inMore.compactFrontendTab == .more, "a More destination shows Studio in the compact More tab")
         #expect(inMore.adaptiveSelectedTab == .destination("charlie"))
         #expect(inMore.adaptiveFrontendTab == .destination("charlie"), "iPad selects the same destination directly")
     }
 
     @Test func startsOnTheFirstTabForALocationWithNoDestination() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: []))
-        #expect(model.selectedTab == .destination("alpha"))
-        #expect(model.frontendTab == .destination("alpha"))
+        #expect(model.compactSelectedTab == .destination("alpha"))
+        #expect(model.compactFrontendTab == .destination("alpha"))
     }
 
     @Test func aTapSelectsImmediatelyButWaitsToMoveStudio() {
         let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: []), active: "alpha")
-        model.selectTab(.destination("bravo"))
+        model.selectCompactTab(.destination("bravo"))
         #expect(requests.sent == ["bravo"])
-        #expect(model.selectedTab == .destination("bravo"), "the native tab responds to the tap immediately")
-        #expect(model.frontendTab == .destination("alpha"), "Studio stays on the last confirmed tab")
-        #expect(model.isTabSelectionPending)
+        #expect(model.compactSelectedTab == .destination("bravo"), "the native tab responds to the tap immediately")
+        #expect(model.compactFrontendTab == .destination("alpha"), "Studio stays on the last confirmed tab")
+        #expect(model.isCompactSelectionPending)
 
         model.apply(NavigationState(activeDestinationID: "bravo", path: "/anything"))
-        #expect(model.selectedTab == .destination("bravo"))
-        #expect(model.frontendTab == .destination("bravo"))
-        #expect(!model.isTabSelectionPending)
+        #expect(model.compactSelectedTab == .destination("bravo"))
+        #expect(model.compactFrontendTab == .destination("bravo"))
+        #expect(!model.isCompactSelectionPending)
     }
 
     @Test func adaptiveSidebarSelectsSecondaryDestinationsDirectly() {
@@ -116,100 +116,100 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         #expect(model.adaptiveFrontendTab == .destination("alpha"))
         #expect(model.isAdaptiveSelectionPending)
         // Compact iPhone navigation still maps this destination through More.
-        #expect(model.selectedTab == .destination("alpha"))
+        #expect(model.compactSelectedTab == .destination("alpha"))
 
         model.apply(NavigationState(activeDestinationID: "charlie"))
         #expect(model.adaptiveSelectedTab == .destination("charlie"))
         #expect(model.adaptiveFrontendTab == .destination("charlie"))
         #expect(!model.isAdaptiveSelectionPending)
-        #expect(model.selectedTab == .more)
-        #expect(model.frontendTab == .more)
+        #expect(model.compactSelectedTab == .more)
+        #expect(model.compactFrontendTab == .more)
     }
 
     @Test func anUndeliveredRequestRollsBackTheOptimisticSelection() {
         let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: []), active: "alpha")
-        model.selectTab(.destination("bravo"))
+        model.selectCompactTab(.destination("bravo"))
         #expect(requests.sent == ["bravo"])
-        #expect(model.selectedTab == .destination("bravo"))
-        #expect(model.isTabSelectionPending)
+        #expect(model.compactSelectedTab == .destination("bravo"))
+        #expect(model.isCompactSelectionPending)
 
         model.navigationRequestFailed("bravo")
-        #expect(model.selectedTab == .destination("alpha"))
-        #expect(model.frontendTab == .destination("alpha"))
+        #expect(model.compactSelectedTab == .destination("alpha"))
+        #expect(model.compactFrontendTab == .destination("alpha"))
         #expect(model.adaptiveSelectedTab == .destination("alpha"))
         #expect(model.adaptiveFrontendTab == .destination("alpha"))
-        #expect(!model.isTabSelectionPending)
+        #expect(!model.isCompactSelectionPending)
         #expect(!model.isAdaptiveSelectionPending)
     }
 
     @Test func aBlockedNavigationKeepsTheCurrentSelection() {
         let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["charlie"]), active: "charlie")
-        model.selectTab(.destination("alpha"))
+        model.selectCompactTab(.destination("alpha"))
         #expect(requests.sent == ["alpha"])
-        #expect(model.selectedTab == .destination("alpha"), "the tap is reflected optimistically")
-        #expect(model.frontendTab == .more, "the confirmed Studio page does not move early")
+        #expect(model.compactSelectedTab == .destination("alpha"), "the tap is reflected optimistically")
+        #expect(model.compactFrontendTab == .more, "the confirmed Studio page does not move early")
         #expect(model.adaptiveSelectedTab == .destination("alpha"))
         #expect(model.adaptiveFrontendTab == .destination("charlie"))
-        #expect(model.isTabSelectionPending)
+        #expect(model.isCompactSelectionPending)
         #expect(model.isAdaptiveSelectionPending)
         // Studio's unsaved-changes prompt stopped the navigation, and Studio
         // acknowledged with the unchanged location.
         model.apply(NavigationState(activeDestinationID: "charlie"))
-        #expect(model.selectedTab == .more, "the rejected optimistic selection rolls back")
-        #expect(model.frontendTab == .more, "the prompt is visible where the page is")
+        #expect(model.compactSelectedTab == .more, "the rejected optimistic selection rolls back")
+        #expect(model.compactFrontendTab == .more, "the prompt is visible where the page is")
         #expect(model.adaptiveSelectedTab == .destination("charlie"))
         #expect(model.adaptiveFrontendTab == .destination("charlie"))
-        #expect(!model.isTabSelectionPending)
+        #expect(!model.isCompactSelectionPending)
         #expect(!model.isAdaptiveSelectionPending)
     }
 
     @Test func aBlockedRequestFromTheMoreListRevealsTheCurrentPage() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["charlie"]), active: "bravo")
-        model.selectTab(.more)
-        #expect(model.frontendTab == nil, "the list covers Studio")
+        model.selectCompactTab(.more)
+        #expect(model.compactFrontendTab == nil, "the list covers Studio")
         model.open("charlie")
         model.apply(NavigationState(activeDestinationID: "bravo"))
-        #expect(model.selectedTab == .destination("bravo"))
-        #expect(model.frontendTab == .destination("bravo"))
+        #expect(model.compactSelectedTab == .destination("bravo"))
+        #expect(model.compactFrontendTab == .destination("bravo"))
     }
 
     @Test func moreShowsItsListThenStudio() {
         let (model, requests) = makeModel(catalog(primary: ["alpha"], more: ["charlie", "delta"]), active: "alpha")
-        model.selectTab(.more)
-        #expect(model.selectedTab == .more)
-        #expect(model.moreShowsList)
+        model.selectCompactTab(.more)
+        #expect(model.compactSelectedTab == .more)
+        #expect(model.compactMoreShowsList)
 
         model.open("delta")
         #expect(requests.sent == ["delta"])
         #expect(model.adaptiveSelectedTab == .destination("delta"))
         model.apply(NavigationState(activeDestinationID: "delta"))
-        #expect(model.selectedTab == .more, "More stays selected for a compact More destination")
-        #expect(model.frontendTab == .more)
+        #expect(model.compactSelectedTab == .more, "More stays selected for a compact More destination")
+        #expect(model.compactFrontendTab == .more)
         #expect(model.adaptiveSelectedTab == .destination("delta"))
         #expect(model.adaptiveFrontendTab == .destination("delta"))
 
-        model.selectTab(.more)
-        #expect(model.moreShowsList, "a second tap returns to the list")
-        #expect(model.frontendTab == nil)
+        model.selectCompactTab(.more)
+        #expect(model.compactMoreShowsList, "a second tap returns to the list")
+        #expect(model.compactFrontendTab == nil)
     }
 
     @Test func unrelatedUpdatesDoNotLeaveTheMoreList() {
         let (model, _) = makeModel(catalog(primary: ["alpha"], more: ["charlie"]), active: "alpha")
-        model.selectTab(.more)
+        model.selectCompactTab(.more)
         model.apply(NavigationState(activeDestinationID: "alpha", path: "/alpha?filter=online"))
-        #expect(model.moreShowsList)
+        #expect(model.compactMoreShowsList)
         #expect(model.path == "/alpha?filter=online")
     }
 
     @Test func aLocationWithNoDestinationStaysInItsTab() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: []), active: "bravo")
         model.apply(NavigationState(activeDestinationID: nil, path: "/somewhere"))
-        #expect(model.selectedTab == .destination("bravo"))
-        #expect(model.frontendTab == .destination("bravo"))
+        #expect(model.compactSelectedTab == .destination("bravo"))
+        #expect(model.compactFrontendTab == .destination("bravo"))
         // Tapping the tab again asks Studio to go to the destination.
         var sent: [String] = []
         model.requestNavigation = { sent.append($0) }
-        model.selectTab(.destination("bravo"))
+        model.selectCompactTab(.destination("bravo"))
         #expect(sent == ["bravo"])
     }
 
@@ -218,17 +218,17 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         model.open("zulu")
         #expect(requests.sent.isEmpty)
 
-        model.selectTab(.destination("zulu"))
+        model.selectCompactTab(.destination("zulu"))
         #expect(requests.sent.isEmpty)
-        #expect(model.selectedTab == .destination("alpha"), "an invalid optimistic selection is ignored")
-        #expect(!model.isTabSelectionPending)
+        #expect(model.compactSelectedTab == .destination("alpha"), "an invalid optimistic selection is ignored")
+        #expect(!model.isCompactSelectionPending)
     }
 
     @Test func aReplacementCatalogMovesSelectionOffARemovedTab() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: []), active: "bravo")
         model.apply(catalog(primary: ["alpha"], more: ["bravo"]))
-        #expect(model.selectedTab == .more)
-        #expect(model.frontendTab == .more)
+        #expect(model.compactSelectedTab == .more)
+        #expect(model.compactFrontendTab == .more)
         #expect(model.adaptiveSelectedTab == .destination("bravo"))
         #expect(model.adaptiveFrontendTab == .destination("bravo"))
     }
@@ -238,7 +238,7 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         model.reset()
         #expect(!model.isAvailable)
         #expect(model.activeDestinationID == nil)
-        #expect(model.selectedTab == .more)
+        #expect(model.compactSelectedTab == .more)
         #expect(model.adaptiveSelectedTab == .more)
         #expect(model.adaptiveFrontendTab == nil)
     }

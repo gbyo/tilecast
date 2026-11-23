@@ -46,12 +46,12 @@ struct NativeTabNavigation: View {
         Binding(
             get: {
                 usesCompactMore
-                    ? navigation.selectedTab
+                    ? navigation.compactSelectedTab
                     : navigation.adaptiveSelectedTab
             },
             set: { tab in
                 if usesCompactMore {
-                    navigation.selectTab(tab)
+                    navigation.selectCompactTab(tab)
                 } else {
                     navigation.selectAdaptiveTab(tab)
                 }
@@ -80,7 +80,7 @@ struct NativeTabNavigation: View {
             if usesCompactMore {
                 Tab(value: NavigationTab.more) {
                     // The More list and Studio take turns in one compact tab.
-                    if navigation.frontendTab == .more {
+                    if navigation.compactFrontendTab == .more {
                         NavigationStack {
                             StudioSlotView(extendsBelowTabBar: extendsBelowFloatingTabBar)
                                 .studioBackBar(navigation)
@@ -160,21 +160,21 @@ struct NativeTabNavigation: View {
     /// Studio acknowledges the route after paint.
     @ViewBuilder
     private func studio(in tab: NavigationTab, adaptive: Bool) -> some View {
-        let frontendTab =
-            adaptive ? navigation.adaptiveFrontendTab : navigation.frontendTab
-        let selectedTab =
-            adaptive ? navigation.adaptiveSelectedTab : navigation.selectedTab
+        let compactFrontendTab =
+            adaptive ? navigation.adaptiveFrontendTab : navigation.compactFrontendTab
+        let compactSelectedTab =
+            adaptive ? navigation.adaptiveSelectedTab : navigation.compactSelectedTab
         let selectionPending =
             adaptive
                 ? navigation.isAdaptiveSelectionPending
-                : navigation.isTabSelectionPending
+                : navigation.isCompactSelectionPending
 
         NavigationStack {
-            if frontendTab == tab {
+            if compactFrontendTab == tab {
                 StudioSlotView(extendsBelowTabBar: extendsBelowFloatingTabBar)
                     .studioBackBar(navigation)
                     .containerBackground(.clear, for: .navigation)
-            } else if selectedTab == tab && selectionPending {
+            } else if compactSelectedTab == tab && selectionPending {
                 Color(uiColor: .systemBackground)
                     .ignoresSafeArea()
                     .toolbar(.hidden, for: .navigationBar)
