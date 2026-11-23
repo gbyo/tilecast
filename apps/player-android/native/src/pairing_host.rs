@@ -221,6 +221,8 @@ pub struct AndroidPairingHost {
     wake: Arc<tokio::sync::Notify>,
     server_wake: Arc<tokio::sync::Notify>,
     manifest_wake: Arc<tokio::sync::Notify>,
+    state: player_state::StateDb,
+    resume: Arc<std::sync::Mutex<crate::resume::ResumeState>>,
 }
 
 impl AndroidPairingHost {
@@ -229,8 +231,10 @@ impl AndroidPairingHost {
         wake: Arc<tokio::sync::Notify>,
         server_wake: Arc<tokio::sync::Notify>,
         manifest_wake: Arc<tokio::sync::Notify>,
+        state: player_state::StateDb,
+        resume: Arc<std::sync::Mutex<crate::resume::ResumeState>>,
     ) -> Self {
-        Self { meta, wake, server_wake, manifest_wake }
+        Self { meta, wake, server_wake, manifest_wake, state, resume }
     }
 }
 
@@ -262,6 +266,7 @@ impl CorePairingHost for AndroidPairingHost {
         // and wake the server link so it verifies and reports at once
         // instead of sleeping through its idle interval.
         if matches!(status, PairingStatus::Enrolled) {
+            crate::resume::refresh_binding(&self.state, &self.resume).await;
             self.wake.notify_one();
             self.server_wake.notify_one();
             self.manifest_wake.notify_one();
