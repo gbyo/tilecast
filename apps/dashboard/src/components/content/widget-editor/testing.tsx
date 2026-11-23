@@ -65,7 +65,9 @@ export function useViewport(kind: "desktop" | "tablet" | "phone") {
         ? kind === "desktop"
         : query === "(max-width: 1023px)"
           ? kind !== "desktop"
-          : false,
+          : query === "(max-width: 639px)"
+            ? kind === "phone"
+            : false,
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
