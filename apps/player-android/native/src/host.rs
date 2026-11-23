@@ -177,6 +177,7 @@ pub struct AndroidHost {
     renderer: Arc<tokio::sync::Mutex<PresentationEngine>>,
     renderer_broker: Arc<player_core::CaptureBroker>,
     renderer_snapshot: Arc<Mutex<RendererSnapshot>>,
+    resume: Arc<Mutex<crate::resume::ResumeState>>,
 }
 
 impl std::fmt::Debug for AndroidHost {
@@ -205,6 +206,7 @@ impl AndroidHost {
             .build()
             .map_err(|_| HostError::Runtime)?;
         let state = StateDb::open(paths.state_db.clone(), OpenOptions::default()).map_err(|_| HostError::State)?;
+        let resume = Arc::new(Mutex::new(crate::resume::load_resume_state(&state)));
         let clock: SharedClock = Arc::new(SystemClock);
         let core = PlayerCore::new(Dependencies { state: state.clone(), clock: clock.clone() });
         let policy = StorePolicy { limit_bytes: CAS_LIMIT_BYTES, reserved_free_bytes: CAS_RESERVED_FREE_BYTES };
@@ -256,6 +258,7 @@ impl AndroidHost {
                 renderer_broker: renderer_broker.clone(),
                 renderer_snapshot: renderer_snapshot.clone(),
                 signals: signals.clone(),
+                resume: resume.clone(),
             },
         );
         // The engine reports through the same Activity channel the
@@ -278,6 +281,7 @@ impl AndroidHost {
             renderer,
             renderer_broker,
             renderer_snapshot,
+            resume,
         })
     }
 
@@ -650,6 +654,7 @@ impl AndroidHost {
     fn unbind_link(&self) {
         let signals = self.drivers.link_signals();
         *signals.link_state.lock().unwrap_or_else(|error| error.into_inner()) = player_core::ServerLinkState::Unbound;
+        crate::resume::clear_binding(&self.resume);
     }
 
     /// Issues a presentation activation from a projected host message.
@@ -731,6 +736,44 @@ impl AndroidHost {
         };
         let activation = report.get("activationId").and_then(serde_json::Value::as_str).unwrap_or("");
         let activation_generation = report.get("activationGeneration").and_then(serde_json::Value::as_u64).unwrap_or(0);
+        if kind == "progress" {
+            let Some(progress_kind) = report.get("kind").and_then(serde_json::Value::as_str) else {
+                return MALFORMED;
+            };
+            let item_id = report.get("itemId").and_then(serde_json::Value::as_str).map(str::to_owned);
+            let zone_id = report.get("zoneId").and_then(serde_json::Value::as_str).map(str::to_owned);
+            return self.runtime.block_on(async {
+                let (current, meaningful, identity, now) = {
+                    let mut engine = self.renderer.lock().await;
+                    let now = engine.clock().now();
+                    let (current, meaningful) = engine.progress(
+                        generation,
+                        activation,
+                        activation_generation,
+                        progress_kind,
+                        item_id.as_deref(),
+                        zone_id.as_deref(),
+                        now,
+                    );
+                    let identity = if current && meaningful {
+                        engine
+                            .current_activation()
+                            .filter(|active| active.timing.is_none())
+                            .and_then(|active| active.identity.clone())
+                    } else {
+                        None
+                    };
+                    (current, meaningful, identity, now)
+                };
+                if current
+                    && meaningful
+                    && let (Some(item_id), Some(identity)) = (item_id.as_deref(), identity.as_ref())
+                {
+                    crate::resume::note_item_evidence(&self.state, &self.resume, item_id, identity, now).await;
+                }
+                if current { APPLIED } else { IGNORED }
+            });
+        }
         self.runtime.block_on(async {
             let mut engine = self.renderer.lock().await;
             let now = engine.clock().now();
@@ -751,22 +794,6 @@ impl AndroidHost {
                     activation_generation,
                     report.get("code").and_then(serde_json::Value::as_str),
                 ),
-                "progress" => {
-                    let Some(kind) = report.get("kind").and_then(serde_json::Value::as_str) else {
-                        return MALFORMED;
-                    };
-                    engine
-                        .progress(
-                            generation,
-                            activation,
-                            activation_generation,
-                            kind,
-                            report.get("itemId").and_then(serde_json::Value::as_str),
-                            report.get("zoneId").and_then(serde_json::Value::as_str),
-                            now,
-                        )
-                        .0
-                }
                 "error" => {
                     let (Some(code), Some(message)) = (
                         report.get("code").and_then(serde_json::Value::as_str),
