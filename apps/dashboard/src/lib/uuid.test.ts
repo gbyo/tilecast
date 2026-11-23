@@ -18,31 +18,34 @@ describe("newUuid", () => {
     expect(randomUUID).toHaveBeenCalledOnce();
   });
 
-  it("builds an RFC 4122 v4 UUID from getRandomValues without randomUUID", () => {
-    const getRandomValues = vi.fn((bytes: Uint8Array) => {
-      bytes.set([
-        0x00,
-        0x11,
-        0x22,
-        0x33,
-        0x44,
-        0x55,
-        0x66,
-        0x77,
-        0x88,
-        0x99,
-        0xaa,
-        0xbb,
-        0xcc,
-        0xdd,
-        0xee,
-        0xff,
-      ]);
-      return bytes;
-    });
-    vi.stubGlobal("crypto", { getRandomValues });
+  it(
+    "builds an RFC 4122 v4 UUID from getRandomValues without randomUUID",
+    () => {
+      const getRandomValues = vi.fn((bytes: Uint8Array) => {
+        bytes.set([
+          0x00,
+          0x11,
+          0x22,
+          0x33,
+          0x44,
+          0x55,
+          0x66,
+          0x77,
+          0x88,
+          0x99,
+          0xaa,
+          0xbb,
+          0xcc,
+          0xdd,
+          0xee,
+          0xff,
+        ]);
+        return bytes;
+      });
+      vi.stubGlobal("crypto", { getRandomValues });
 
-    expect(newUuid()).toBe("00112233-4455-4677-8899-aabbccddeeff");
-    expect(getRandomValues).toHaveBeenCalledOnce();
-  });
+      expect(newUuid()).toBe("00112233-4455-4677-8899-aabbccddeeff");
+      expect(getRandomValues).toHaveBeenCalledOnce();
+    },
+  );
 });
