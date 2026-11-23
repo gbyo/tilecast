@@ -23,6 +23,7 @@ extension NavigationCatalog.Destination {
 struct NativeTabNavigation: View {
     let page: StudioPage
     let actions: ServerActions
+    @Environment(StudioHost.self) private var host
     @Environment(StudioSlot.self) private var slot
 
     private var navigation: NativeNavigationModel { page.bridge.navigation }
@@ -63,6 +64,23 @@ struct NativeTabNavigation: View {
         // people can reveal the system sidebar when they want the hierarchy.
         .tabViewStyle(.sidebarAdaptable)
         .defaultAdaptableTabBarPlacement(.tabBar)
+        .tabViewSidebarHeader {
+            Menu {
+                ServerMenuItems(actions: actions)
+                Divider()
+                Button { page.reload() } label: {
+                    Label("Reload", image: AppIcon.reload)
+                }
+                SignOutButton(page: page)
+            } label: {
+                IconLabel(
+                    verbatim: host.directory.activeServer?.displayName
+                        ?? String(localized: "Tilecast"),
+                    image: AppIcon.server
+                )
+            }
+            .accessibilityIdentifier("native.serverMenu")
+        }
         // Keep the adaptive container itself clear. iPhone composes Studio
         // behind it; iPad overlays Studio only inside the measured content slot.
         .background(.clear)

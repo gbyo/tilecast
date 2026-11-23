@@ -288,7 +288,9 @@ The app uses one SwiftUI `TabView` with the `sidebarAdaptable` style instead of 
 
 This follows Apple's current iPadOS guidance: keep functionality stable as space changes, expose more UI when room is available, and prefer a tab bar first when a permanent sidebar would unnecessarily reduce content space.
 
-Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. In the native host, that shared topbar stays compact and keeps search/notification controls at touch-sized hit targets instead of expanding the desktop search field at tablet widths. The app shows no second navigation bar above Studio while native navigation is active.
+Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. In the native host, that shared topbar stays compact and keeps search/notification controls at touch-sized hit targets instead of expanding the desktop search field at tablet widths. When iPadOS expands the adaptable navigation into a sidebar, the sidebar header restores the active-server menu without forcing that sidebar to remain visible. The app shows no second navigation bar above Studio while native navigation is active.
+
+Studio also keeps presentation width separate from workspace density. Phone-sized content areas (up to 639px) use bottom drawers for transient details and filters. Narrow workspaces below 1024px still simplify toolbars, editors, and dense tables, but iPad-sized medium widths use anchored popovers and tablet/desktop detail panels instead of inheriting phone modal behavior.
 
 #### Studio beneath the tab bar
 
