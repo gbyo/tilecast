@@ -16,7 +16,9 @@ selection; it does not prove what appeared on the physical display.
 
 1. Open **Screens** and select the Screen.
 2. Open **Overview** and find **Playback**. **Expected now** shows the
-   selected presentation, why it won, and the latest reported Player state.
+   selected presentation, why it won, and the Player connection or reported
+   playback state. A disconnected Player is labeled with its connection state
+   rather than a cached playing state.
 3. Read **Default content** below it. That presentation plays when no
    takeover, Show Now presentation, or content schedule is active.
 
@@ -72,6 +74,10 @@ network access, or actual rendering.
 4. Select **Use server time** to return to the automatically refreshed view.
 
 </Steps>
+
+When you request a different instant, Studio shows a loading state until its
+answer arrives. If the request fails, use **Retry** to request that same
+instant again. The previous instant's answer is not shown as the new one.
 
 The current view refreshes every ten seconds. The calendar offers dates
 through the next ten years. A historical gap remains visible; today's
