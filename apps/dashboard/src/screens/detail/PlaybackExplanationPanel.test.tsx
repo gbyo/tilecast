@@ -229,9 +229,7 @@ describe("PlaybackExplanationPanel", () => {
     );
     renderPanel();
     const retry = await screen.findByRole("button", { name: "Retry" });
-    expect(
-      screen.queryByText("Selection precedence"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Selection precedence")).not.toBeInTheDocument();
     server.resetHandlers();
     await interaction.click(retry);
     expect(await screen.findByText("Selection precedence")).toBeVisible();
