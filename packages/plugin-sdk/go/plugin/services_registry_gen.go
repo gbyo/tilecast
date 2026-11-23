@@ -18,6 +18,10 @@ var ServerServices = []ServerService{
 	{ID: "instance.read", Version: 1, Name: "Installation details", Description: "Read installation facts such as the public address and release version.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "instance.read@1/get", Title: "Read installation", Description: "Read installation facts such as the public address and release version.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
+	{ID: "instances.read", Version: 1, Name: "Own instances", Description: "Read one of this plugin's own instances: name, enabled state, revision, and configuration, never a secret.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "instances.read@1/get", Title: "Read instance", Description: "Read one instance of this plugin by kind and ID. A missing instance answers not_found.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 163840},
+		{Name: "instances.read@1/list", Title: "List instances", Description: "List the IDs, names, and enabled state of this plugin's instances of one kind.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 163840},
+	}},
 	{ID: "organization.read", Version: 1, Name: "Organization details", Description: "Read the organization's name and identifier.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "organization.read@1/get", Title: "Read organization", Description: "Read the organization's name and identifier.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
@@ -75,6 +79,16 @@ func (s *Services) HttpFetchRequest(ctx context.Context, input, output any) erro
 // InstanceReadGet calls instance.read@1/get: Read installation facts such as the public address and release version
 func (s *Services) InstanceReadGet(ctx context.Context, input, output any) error {
 	return s.Call(ctx, "instance.read@1/get", input, output)
+}
+
+// InstancesReadGet calls instances.read@1/get: Read one instance of this plugin by kind and ID. A missing instance answers not_found
+func (s *Services) InstancesReadGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "instances.read@1/get", input, output)
+}
+
+// InstancesReadList calls instances.read@1/list: List the IDs, names, and enabled state of this plugin's instances of one kind
+func (s *Services) InstancesReadList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "instances.read@1/list", input, output)
 }
 
 // OrganizationReadGet calls organization.read@1/get: Read the organization's name and identifier

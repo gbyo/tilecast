@@ -7464,6 +7464,9 @@ type CatalogPlugin struct {
 	Description   string                   `json:"description"`
 	Documentation *string                  `json:"documentation,omitempty"`
 
+	// Feeds Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins.
+	Feeds *[]PluginFeedReview `json:"feeds,omitempty"`
+
 	// Icon Bounded icon identifier; unknown values render a generic icon
 	Icon                 string `json:"icon"`
 	Id                   string `json:"id"`
@@ -9680,6 +9683,52 @@ type MediaDiagnostics struct {
 	WorkerCount           int  `json:"workerCount"`
 }
 
+// MenuBoard defines model for MenuBoard.
+type MenuBoard struct {
+	CreatedAt time.Time          `json:"createdAt"`
+	Enabled   bool               `json:"enabled"`
+	Id        openapi_types.UUID `json:"id"`
+	Kind      interface{}        `json:"kind"`
+
+	// LocationId Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.
+	LocationId *string `json:"locationId,omitempty"`
+	Name       string  `json:"name"`
+	Revision   int     `json:"revision"`
+
+	// Sample Publish a fixed sample menu instead of reading Square.
+	Sample    *bool     `json:"sample,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// MenuBoardInput defines model for MenuBoardInput.
+type MenuBoardInput struct {
+	// Enabled Defaults to true on create and keeps its value on update.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// LocationId Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.
+	LocationId *string `json:"locationId,omitempty"`
+	Name       string  `json:"name"`
+
+	// Sample Publish a fixed sample menu instead of reading Square.
+	Sample *bool `json:"sample,omitempty"`
+}
+
+// MenuBoardUpdate defines model for MenuBoardUpdate.
+type MenuBoardUpdate struct {
+	// Enabled Defaults to true on create and keeps its value on update.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// ExpectedRevision The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.
+	ExpectedRevision int `json:"expectedRevision"`
+
+	// LocationId Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.
+	LocationId *string `json:"locationId,omitempty"`
+	Name       string  `json:"name"`
+
+	// Sample Publish a fixed sample menu instead of reading Square.
+	Sample *bool `json:"sample,omitempty"`
+}
+
 // MultiFactorMethod defines model for MultiFactorMethod.
 type MultiFactorMethod string
 
@@ -11236,6 +11285,27 @@ type PluginFeedRecords struct {
 	Total   int                `json:"total"`
 }
 
+// PluginFeedReview defines model for PluginFeedReview.
+type PluginFeedReview struct {
+	Dataset string `json:"dataset"`
+	Fields  int    `json:"fields"`
+	Id      string `json:"id"`
+
+	// Images The feed downloads remote images through a connection.
+	Images bool `json:"images"`
+
+	// Personal Fields that hold personal data, deleted after their retention.
+	Personal []struct {
+		Key           string `json:"key"`
+		Label         string `json:"label"`
+		RetentionDays int    `json:"retentionDays"`
+	} `json:"personal"`
+
+	// Provider The Data Source provider, <plugin id>.<feed id>.
+	Provider string `json:"provider"`
+	Title    string `json:"title"`
+}
+
 // PluginInUseError defines model for PluginInUseError.
 type PluginInUseError struct {
 	Error struct {
@@ -11904,6 +11974,69 @@ type RoleRequest struct {
 	Capabilities []Capability `json:"capabilities"`
 	Description  *string      `json:"description,omitempty"`
 	Name         string       `json:"name"`
+}
+
+// RoomSign defines model for RoomSign.
+type RoomSign struct {
+	// CalendarId The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.
+	CalendarId *string            `json:"calendarId,omitempty"`
+	CreatedAt  time.Time          `json:"createdAt"`
+	Enabled    bool               `json:"enabled"`
+	Id         openapi_types.UUID `json:"id"`
+	Kind       interface{}        `json:"kind"`
+
+	// LookAheadDays How many days of meetings to publish.
+	LookAheadDays *int   `json:"lookAheadDays,omitempty"`
+	Name          string `json:"name"`
+	Revision      int    `json:"revision"`
+
+	// Sample Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+	Sample *bool `json:"sample,omitempty"`
+
+	// ShowTitles Off shows every meeting as Busy, for rooms where titles are private.
+	ShowTitles *bool     `json:"showTitles,omitempty"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// RoomSignInput defines model for RoomSignInput.
+type RoomSignInput struct {
+	// CalendarId The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.
+	CalendarId *string `json:"calendarId,omitempty"`
+
+	// Enabled Defaults to true on create and keeps its value on update.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// LookAheadDays How many days of meetings to publish.
+	LookAheadDays *int   `json:"lookAheadDays,omitempty"`
+	Name          string `json:"name"`
+
+	// Sample Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+	Sample *bool `json:"sample,omitempty"`
+
+	// ShowTitles Off shows every meeting as Busy, for rooms where titles are private.
+	ShowTitles *bool `json:"showTitles,omitempty"`
+}
+
+// RoomSignUpdate defines model for RoomSignUpdate.
+type RoomSignUpdate struct {
+	// CalendarId The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.
+	CalendarId *string `json:"calendarId,omitempty"`
+
+	// Enabled Defaults to true on create and keeps its value on update.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// ExpectedRevision The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.
+	ExpectedRevision int `json:"expectedRevision"`
+
+	// LookAheadDays How many days of meetings to publish.
+	LookAheadDays *int   `json:"lookAheadDays,omitempty"`
+	Name          string `json:"name"`
+
+	// Sample Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+	Sample *bool `json:"sample,omitempty"`
+
+	// ShowTitles Off shows every meeting as Busy, for rooms where titles are private.
+	ShowTitles *bool `json:"showTitles,omitempty"`
 }
 
 // Schedule defines model for Schedule.
@@ -14866,6 +14999,42 @@ type UpdateCountdownBarInstanceParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// CreateMenuBoardParams defines parameters for CreateMenuBoard.
+type CreateMenuBoardParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteMenuBoardParams defines parameters for DeleteMenuBoard.
+type DeleteMenuBoardParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateMenuBoardParams defines parameters for UpdateMenuBoard.
+type UpdateMenuBoardParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CreateRoomSignParams defines parameters for CreateRoomSign.
+type CreateRoomSignParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteRoomSignParams defines parameters for DeleteRoomSign.
+type DeleteRoomSignParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdateRoomSignParams defines parameters for UpdateRoomSign.
+type UpdateRoomSignParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // CreatePluginConnectionParams defines parameters for CreatePluginConnection.
 type CreatePluginConnectionParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -15811,6 +15980,18 @@ type CreateCountdownBarInstanceJSONRequestBody = CountdownBarInstanceInput
 
 // UpdateCountdownBarInstanceJSONRequestBody defines body for UpdateCountdownBarInstance for application/json ContentType.
 type UpdateCountdownBarInstanceJSONRequestBody = CountdownBarInstanceUpdate
+
+// CreateMenuBoardJSONRequestBody defines body for CreateMenuBoard for application/json ContentType.
+type CreateMenuBoardJSONRequestBody = MenuBoardInput
+
+// UpdateMenuBoardJSONRequestBody defines body for UpdateMenuBoard for application/json ContentType.
+type UpdateMenuBoardJSONRequestBody = MenuBoardUpdate
+
+// CreateRoomSignJSONRequestBody defines body for CreateRoomSign for application/json ContentType.
+type CreateRoomSignJSONRequestBody = RoomSignInput
+
+// UpdateRoomSignJSONRequestBody defines body for UpdateRoomSign for application/json ContentType.
+type UpdateRoomSignJSONRequestBody = RoomSignUpdate
 
 // CreatePluginConnectionJSONRequestBody defines body for CreatePluginConnection for application/json ContentType.
 type CreatePluginConnectionJSONRequestBody = PluginConnectionCreate
@@ -19126,6 +19307,84 @@ type ClientInterface interface {
 	//
 	// Requires an authenticated dashboard session. Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
 	GetDependencyGraph(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMenuBoards performs a GET /api/v1/plugins/menu-board/menus (the `ListMenuBoards` operationId) request.
+	//
+	// List menus, strongest priority first.
+	ListMenuBoards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateMenuBoardWithBody performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create a menu. Requires plugins.manage and screen access to its targets.
+	CreateMenuBoardWithBody(ctx context.Context, params *CreateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateMenuBoard performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Create a menu. Requires plugins.manage and screen access to its targets.
+	CreateMenuBoard(ctx context.Context, params *CreateMenuBoardParams, body CreateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteMenuBoard performs a DELETE /api/v1/plugins/menu-board/menus/{id} (the `DeleteMenuBoard` operationId) request.
+	//
+	// Delete a menu and remove it from its screens.
+	DeleteMenuBoard(ctx context.Context, id ResourceID, params *DeleteMenuBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMenuBoard performs a GET /api/v1/plugins/menu-board/menus/{id} (the `GetMenuBoard` operationId) request.
+	//
+	// Get one menu with its current revision, to send back as expectedRevision when updating it.
+	GetMenuBoard(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateMenuBoardWithBody performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	UpdateMenuBoardWithBody(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateMenuBoard performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	UpdateMenuBoard(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, body UpdateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRoomSigns performs a GET /api/v1/plugins/room-sign/rooms (the `ListRoomSigns` operationId) request.
+	//
+	// List rooms, strongest priority first.
+	ListRoomSigns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRoomSignWithBody performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create a room. Requires plugins.manage and screen access to its targets.
+	CreateRoomSignWithBody(ctx context.Context, params *CreateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRoomSign performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Create a room. Requires plugins.manage and screen access to its targets.
+	CreateRoomSign(ctx context.Context, params *CreateRoomSignParams, body CreateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteRoomSign performs a DELETE /api/v1/plugins/room-sign/rooms/{id} (the `DeleteRoomSign` operationId) request.
+	//
+	// Delete a room and remove it from its screens.
+	DeleteRoomSign(ctx context.Context, id ResourceID, params *DeleteRoomSignParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRoomSign performs a GET /api/v1/plugins/room-sign/rooms/{id} (the `GetRoomSign` operationId) request.
+	//
+	// Get one room with its current revision, to send back as expectedRevision when updating it.
+	GetRoomSign(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateRoomSignWithBody performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	UpdateRoomSignWithBody(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateRoomSign performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	UpdateRoomSign(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, body UpdateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPluginAutomation performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
 	//
@@ -26492,6 +26751,224 @@ func (c *Client) UpdateCountdownBarInstance(ctx context.Context, id ResourceID, 
 // Requires an authenticated dashboard session. Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
 func (c *Client) GetDependencyGraph(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDependencyGraphRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListMenuBoards performs a GET /api/v1/plugins/menu-board/menus (the `ListMenuBoards` operationId) request.
+//
+// List menus, strongest priority first.
+func (c *Client) ListMenuBoards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMenuBoardsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateMenuBoardWithBody performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create a menu. Requires plugins.manage and screen access to its targets.
+func (c *Client) CreateMenuBoardWithBody(ctx context.Context, params *CreateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMenuBoardRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateMenuBoard performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Create a menu. Requires plugins.manage and screen access to its targets.
+func (c *Client) CreateMenuBoard(ctx context.Context, params *CreateMenuBoardParams, body CreateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMenuBoardRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteMenuBoard performs a DELETE /api/v1/plugins/menu-board/menus/{id} (the `DeleteMenuBoard` operationId) request.
+//
+// Delete a menu and remove it from its screens.
+func (c *Client) DeleteMenuBoard(ctx context.Context, id ResourceID, params *DeleteMenuBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMenuBoardRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMenuBoard performs a GET /api/v1/plugins/menu-board/menus/{id} (the `GetMenuBoard` operationId) request.
+//
+// Get one menu with its current revision, to send back as expectedRevision when updating it.
+func (c *Client) GetMenuBoard(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMenuBoardRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateMenuBoardWithBody performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+func (c *Client) UpdateMenuBoardWithBody(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMenuBoardRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateMenuBoard performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+func (c *Client) UpdateMenuBoard(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, body UpdateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMenuBoardRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListRoomSigns performs a GET /api/v1/plugins/room-sign/rooms (the `ListRoomSigns` operationId) request.
+//
+// List rooms, strongest priority first.
+func (c *Client) ListRoomSigns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRoomSignsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateRoomSignWithBody performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create a room. Requires plugins.manage and screen access to its targets.
+func (c *Client) CreateRoomSignWithBody(ctx context.Context, params *CreateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRoomSignRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateRoomSign performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Create a room. Requires plugins.manage and screen access to its targets.
+func (c *Client) CreateRoomSign(ctx context.Context, params *CreateRoomSignParams, body CreateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRoomSignRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteRoomSign performs a DELETE /api/v1/plugins/room-sign/rooms/{id} (the `DeleteRoomSign` operationId) request.
+//
+// Delete a room and remove it from its screens.
+func (c *Client) DeleteRoomSign(ctx context.Context, id ResourceID, params *DeleteRoomSignParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRoomSignRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetRoomSign performs a GET /api/v1/plugins/room-sign/rooms/{id} (the `GetRoomSign` operationId) request.
+//
+// Get one room with its current revision, to send back as expectedRevision when updating it.
+func (c *Client) GetRoomSign(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRoomSignRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateRoomSignWithBody performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+func (c *Client) UpdateRoomSignWithBody(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRoomSignRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateRoomSign performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+func (c *Client) UpdateRoomSign(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, body UpdateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRoomSignRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -44212,6 +44689,460 @@ func NewGetDependencyGraphRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListMenuBoardsRequest constructs an http.Request for the ListMenuBoards method
+func NewListMenuBoardsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/menu-board/menus")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateMenuBoardRequest calls the generic CreateMenuBoard builder with application/json body
+func NewCreateMenuBoardRequest(server string, params *CreateMenuBoardParams, body CreateMenuBoardJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateMenuBoardRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateMenuBoardRequestWithBody constructs an http.Request for the CreateMenuBoard method, with any body, and a specified content type
+func NewCreateMenuBoardRequestWithBody(server string, params *CreateMenuBoardParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/menu-board/menus")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteMenuBoardRequest constructs an http.Request for the DeleteMenuBoard method
+func NewDeleteMenuBoardRequest(server string, id ResourceID, params *DeleteMenuBoardParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/menu-board/menus/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetMenuBoardRequest constructs an http.Request for the GetMenuBoard method
+func NewGetMenuBoardRequest(server string, id ResourceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/menu-board/menus/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateMenuBoardRequest calls the generic UpdateMenuBoard builder with application/json body
+func NewUpdateMenuBoardRequest(server string, id ResourceID, params *UpdateMenuBoardParams, body UpdateMenuBoardJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateMenuBoardRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewUpdateMenuBoardRequestWithBody constructs an http.Request for the UpdateMenuBoard method, with any body, and a specified content type
+func NewUpdateMenuBoardRequestWithBody(server string, id ResourceID, params *UpdateMenuBoardParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/menu-board/menus/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListRoomSignsRequest constructs an http.Request for the ListRoomSigns method
+func NewListRoomSignsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/room-sign/rooms")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateRoomSignRequest calls the generic CreateRoomSign builder with application/json body
+func NewCreateRoomSignRequest(server string, params *CreateRoomSignParams, body CreateRoomSignJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateRoomSignRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateRoomSignRequestWithBody constructs an http.Request for the CreateRoomSign method, with any body, and a specified content type
+func NewCreateRoomSignRequestWithBody(server string, params *CreateRoomSignParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/room-sign/rooms")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteRoomSignRequest constructs an http.Request for the DeleteRoomSign method
+func NewDeleteRoomSignRequest(server string, id ResourceID, params *DeleteRoomSignParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/room-sign/rooms/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetRoomSignRequest constructs an http.Request for the GetRoomSign method
+func NewGetRoomSignRequest(server string, id ResourceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/room-sign/rooms/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateRoomSignRequest calls the generic UpdateRoomSign builder with application/json body
+func NewUpdateRoomSignRequest(server string, id ResourceID, params *UpdateRoomSignParams, body UpdateRoomSignJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateRoomSignRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewUpdateRoomSignRequestWithBody constructs an http.Request for the UpdateRoomSign method, with any body, and a specified content type
+func NewUpdateRoomSignRequestWithBody(server string, id ResourceID, params *UpdateRoomSignParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/room-sign/rooms/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetPluginAutomationRequest constructs an http.Request for the GetPluginAutomation method
 func NewGetPluginAutomationRequest(server string, pluginId PluginID) (*http.Request, error) {
 	var err error
@@ -54400,6 +55331,104 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetDependencyGraphWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDependencyGraphResponse, error)
+
+	// ListMenuBoardsWithResponse performs a GET /api/v1/plugins/menu-board/menus (the `ListMenuBoards` operationId) request.
+	//
+	// List menus, strongest priority first.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListMenuBoardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMenuBoardsResponse, error)
+
+	// CreateMenuBoardWithBodyWithResponse performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create a menu. Requires plugins.manage and screen access to its targets.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateMenuBoardWithBodyWithResponse(ctx context.Context, params *CreateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMenuBoardResponse, error)
+
+	// CreateMenuBoardWithResponse performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Create a menu. Requires plugins.manage and screen access to its targets.
+	CreateMenuBoardWithResponse(ctx context.Context, params *CreateMenuBoardParams, body CreateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMenuBoardResponse, error)
+
+	// DeleteMenuBoardWithResponse performs a DELETE /api/v1/plugins/menu-board/menus/{id} (the `DeleteMenuBoard` operationId) request.
+	//
+	// Delete a menu and remove it from its screens.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeleteMenuBoardWithResponse(ctx context.Context, id ResourceID, params *DeleteMenuBoardParams, reqEditors ...RequestEditorFn) (*DeleteMenuBoardResponse, error)
+
+	// GetMenuBoardWithResponse performs a GET /api/v1/plugins/menu-board/menus/{id} (the `GetMenuBoard` operationId) request.
+	//
+	// Get one menu with its current revision, to send back as expectedRevision when updating it.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMenuBoardWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetMenuBoardResponse, error)
+
+	// UpdateMenuBoardWithBodyWithResponse performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UpdateMenuBoardWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMenuBoardResponse, error)
+
+	// UpdateMenuBoardWithResponse performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	UpdateMenuBoardWithResponse(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, body UpdateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMenuBoardResponse, error)
+
+	// ListRoomSignsWithResponse performs a GET /api/v1/plugins/room-sign/rooms (the `ListRoomSigns` operationId) request.
+	//
+	// List rooms, strongest priority first.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListRoomSignsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRoomSignsResponse, error)
+
+	// CreateRoomSignWithBodyWithResponse performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create a room. Requires plugins.manage and screen access to its targets.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateRoomSignWithBodyWithResponse(ctx context.Context, params *CreateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoomSignResponse, error)
+
+	// CreateRoomSignWithResponse performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Create a room. Requires plugins.manage and screen access to its targets.
+	CreateRoomSignWithResponse(ctx context.Context, params *CreateRoomSignParams, body CreateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoomSignResponse, error)
+
+	// DeleteRoomSignWithResponse performs a DELETE /api/v1/plugins/room-sign/rooms/{id} (the `DeleteRoomSign` operationId) request.
+	//
+	// Delete a room and remove it from its screens.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeleteRoomSignWithResponse(ctx context.Context, id ResourceID, params *DeleteRoomSignParams, reqEditors ...RequestEditorFn) (*DeleteRoomSignResponse, error)
+
+	// GetRoomSignWithResponse performs a GET /api/v1/plugins/room-sign/rooms/{id} (the `GetRoomSign` operationId) request.
+	//
+	// Get one room with its current revision, to send back as expectedRevision when updating it.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetRoomSignWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetRoomSignResponse, error)
+
+	// UpdateRoomSignWithBodyWithResponse performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UpdateRoomSignWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoomSignResponse, error)
+
+	// UpdateRoomSignWithResponse performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+	UpdateRoomSignWithResponse(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, body UpdateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoomSignResponse, error)
 
 	// GetPluginAutomationWithResponse performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
 	//
@@ -68247,6 +69276,446 @@ func (r GetDependencyGraphResponse) ContentType() string {
 	return ""
 }
 
+type ListMenuBoardsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items *[]MenuBoard `json:"items,omitempty"`
+			Total *int         `json:"total,omitempty"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListMenuBoardsResponse) GetJSON200() *struct {
+	Data struct {
+		Items *[]MenuBoard `json:"items,omitempty"`
+		Total *int         `json:"total,omitempty"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListMenuBoardsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMenuBoardsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMenuBoardsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListMenuBoardsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateMenuBoardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data MenuBoard `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateMenuBoardResponse) GetJSON201() *struct {
+	Data MenuBoard `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateMenuBoardResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateMenuBoardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateMenuBoardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateMenuBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteMenuBoardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteMenuBoardResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteMenuBoardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteMenuBoardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteMenuBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMenuBoardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data MenuBoard `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMenuBoardResponse) GetJSON200() *struct {
+	Data MenuBoard `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMenuBoardResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMenuBoardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMenuBoardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMenuBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateMenuBoardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data MenuBoard `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateMenuBoardResponse) GetJSON200() *struct {
+	Data MenuBoard `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateMenuBoardResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateMenuBoardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateMenuBoardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateMenuBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListRoomSignsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items *[]RoomSign `json:"items,omitempty"`
+			Total *int        `json:"total,omitempty"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListRoomSignsResponse) GetJSON200() *struct {
+	Data struct {
+		Items *[]RoomSign `json:"items,omitempty"`
+		Total *int        `json:"total,omitempty"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListRoomSignsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRoomSignsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRoomSignsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListRoomSignsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateRoomSignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data RoomSign `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateRoomSignResponse) GetJSON201() *struct {
+	Data RoomSign `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateRoomSignResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRoomSignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRoomSignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateRoomSignResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteRoomSignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteRoomSignResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteRoomSignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteRoomSignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteRoomSignResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetRoomSignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data RoomSign `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetRoomSignResponse) GetJSON200() *struct {
+	Data RoomSign `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetRoomSignResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRoomSignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRoomSignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRoomSignResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateRoomSignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data RoomSign `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateRoomSignResponse) GetJSON200() *struct {
+	Data RoomSign `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateRoomSignResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateRoomSignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateRoomSignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateRoomSignResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetPluginAutomationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -80463,6 +81932,188 @@ func (c *ClientWithResponses) GetDependencyGraphWithResponse(ctx context.Context
 	return ParseGetDependencyGraphResponse(rsp)
 }
 
+// ListMenuBoardsWithResponse performs a GET /api/v1/plugins/menu-board/menus (the `ListMenuBoards` operationId) request.
+//
+// List menus, strongest priority first.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListMenuBoardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMenuBoardsResponse, error) {
+	rsp, err := c.ListMenuBoards(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMenuBoardsResponse(rsp)
+}
+
+// CreateMenuBoardWithBodyWithResponse performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create a menu. Requires plugins.manage and screen access to its targets.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateMenuBoardWithBodyWithResponse(ctx context.Context, params *CreateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMenuBoardResponse, error) {
+	rsp, err := c.CreateMenuBoardWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMenuBoardResponse(rsp)
+}
+
+// CreateMenuBoardWithResponse performs a POST /api/v1/plugins/menu-board/menus (the `CreateMenuBoard` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Create a menu. Requires plugins.manage and screen access to its targets.
+func (c *ClientWithResponses) CreateMenuBoardWithResponse(ctx context.Context, params *CreateMenuBoardParams, body CreateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMenuBoardResponse, error) {
+	rsp, err := c.CreateMenuBoard(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMenuBoardResponse(rsp)
+}
+
+// DeleteMenuBoardWithResponse performs a DELETE /api/v1/plugins/menu-board/menus/{id} (the `DeleteMenuBoard` operationId) request.
+//
+// Delete a menu and remove it from its screens.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeleteMenuBoardWithResponse(ctx context.Context, id ResourceID, params *DeleteMenuBoardParams, reqEditors ...RequestEditorFn) (*DeleteMenuBoardResponse, error) {
+	rsp, err := c.DeleteMenuBoard(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMenuBoardResponse(rsp)
+}
+
+// GetMenuBoardWithResponse performs a GET /api/v1/plugins/menu-board/menus/{id} (the `GetMenuBoard` operationId) request.
+//
+// Get one menu with its current revision, to send back as expectedRevision when updating it.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMenuBoardWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetMenuBoardResponse, error) {
+	rsp, err := c.GetMenuBoard(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMenuBoardResponse(rsp)
+}
+
+// UpdateMenuBoardWithBodyWithResponse performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UpdateMenuBoardWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMenuBoardResponse, error) {
+	rsp, err := c.UpdateMenuBoardWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMenuBoardResponse(rsp)
+}
+
+// UpdateMenuBoardWithResponse performs a PUT /api/v1/plugins/menu-board/menus/{id} (the `UpdateMenuBoard` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+func (c *ClientWithResponses) UpdateMenuBoardWithResponse(ctx context.Context, id ResourceID, params *UpdateMenuBoardParams, body UpdateMenuBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMenuBoardResponse, error) {
+	rsp, err := c.UpdateMenuBoard(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMenuBoardResponse(rsp)
+}
+
+// ListRoomSignsWithResponse performs a GET /api/v1/plugins/room-sign/rooms (the `ListRoomSigns` operationId) request.
+//
+// List rooms, strongest priority first.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListRoomSignsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRoomSignsResponse, error) {
+	rsp, err := c.ListRoomSigns(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRoomSignsResponse(rsp)
+}
+
+// CreateRoomSignWithBodyWithResponse performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create a room. Requires plugins.manage and screen access to its targets.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateRoomSignWithBodyWithResponse(ctx context.Context, params *CreateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoomSignResponse, error) {
+	rsp, err := c.CreateRoomSignWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRoomSignResponse(rsp)
+}
+
+// CreateRoomSignWithResponse performs a POST /api/v1/plugins/room-sign/rooms (the `CreateRoomSign` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Create a room. Requires plugins.manage and screen access to its targets.
+func (c *ClientWithResponses) CreateRoomSignWithResponse(ctx context.Context, params *CreateRoomSignParams, body CreateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoomSignResponse, error) {
+	rsp, err := c.CreateRoomSign(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRoomSignResponse(rsp)
+}
+
+// DeleteRoomSignWithResponse performs a DELETE /api/v1/plugins/room-sign/rooms/{id} (the `DeleteRoomSign` operationId) request.
+//
+// Delete a room and remove it from its screens.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeleteRoomSignWithResponse(ctx context.Context, id ResourceID, params *DeleteRoomSignParams, reqEditors ...RequestEditorFn) (*DeleteRoomSignResponse, error) {
+	rsp, err := c.DeleteRoomSign(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteRoomSignResponse(rsp)
+}
+
+// GetRoomSignWithResponse performs a GET /api/v1/plugins/room-sign/rooms/{id} (the `GetRoomSign` operationId) request.
+//
+// Get one room with its current revision, to send back as expectedRevision when updating it.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetRoomSignWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetRoomSignResponse, error) {
+	rsp, err := c.GetRoomSign(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRoomSignResponse(rsp)
+}
+
+// UpdateRoomSignWithBodyWithResponse performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UpdateRoomSignWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoomSignResponse, error) {
+	rsp, err := c.UpdateRoomSignWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateRoomSignResponse(rsp)
+}
+
+// UpdateRoomSignWithResponse performs a PUT /api/v1/plugins/room-sign/rooms/{id} (the `UpdateRoomSign` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+func (c *ClientWithResponses) UpdateRoomSignWithResponse(ctx context.Context, id ResourceID, params *UpdateRoomSignParams, body UpdateRoomSignJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoomSignResponse, error) {
+	rsp, err := c.UpdateRoomSign(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateRoomSignResponse(rsp)
+}
+
 // GetPluginAutomationWithResponse performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
 //
 // A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
@@ -91628,6 +93279,322 @@ func ParseGetDependencyGraphResponse(rsp *http.Response) (*GetDependencyGraphRes
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListMenuBoardsResponse parses an HTTP response from a ListMenuBoardsWithResponse call
+func ParseListMenuBoardsResponse(rsp *http.Response) (*ListMenuBoardsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMenuBoardsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items *[]MenuBoard `json:"items,omitempty"`
+				Total *int         `json:"total,omitempty"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateMenuBoardResponse parses an HTTP response from a CreateMenuBoardWithResponse call
+func ParseCreateMenuBoardResponse(rsp *http.Response) (*CreateMenuBoardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateMenuBoardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data MenuBoard `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteMenuBoardResponse parses an HTTP response from a DeleteMenuBoardWithResponse call
+func ParseDeleteMenuBoardResponse(rsp *http.Response) (*DeleteMenuBoardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteMenuBoardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetMenuBoardResponse parses an HTTP response from a GetMenuBoardWithResponse call
+func ParseGetMenuBoardResponse(rsp *http.Response) (*GetMenuBoardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMenuBoardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data MenuBoard `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateMenuBoardResponse parses an HTTP response from a UpdateMenuBoardWithResponse call
+func ParseUpdateMenuBoardResponse(rsp *http.Response) (*UpdateMenuBoardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateMenuBoardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data MenuBoard `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 428:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListRoomSignsResponse parses an HTTP response from a ListRoomSignsWithResponse call
+func ParseListRoomSignsResponse(rsp *http.Response) (*ListRoomSignsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRoomSignsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items *[]RoomSign `json:"items,omitempty"`
+				Total *int        `json:"total,omitempty"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRoomSignResponse parses an HTTP response from a CreateRoomSignWithResponse call
+func ParseCreateRoomSignResponse(rsp *http.Response) (*CreateRoomSignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRoomSignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data RoomSign `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteRoomSignResponse parses an HTTP response from a DeleteRoomSignWithResponse call
+func ParseDeleteRoomSignResponse(rsp *http.Response) (*DeleteRoomSignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteRoomSignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetRoomSignResponse parses an HTTP response from a GetRoomSignWithResponse call
+func ParseGetRoomSignResponse(rsp *http.Response) (*GetRoomSignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRoomSignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data RoomSign `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateRoomSignResponse parses an HTTP response from a UpdateRoomSignWithResponse call
+func ParseUpdateRoomSignResponse(rsp *http.Response) (*UpdateRoomSignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateRoomSignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data RoomSign `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 428:
+		break // No content-type
 
 	}
 

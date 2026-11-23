@@ -361,6 +361,10 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.feedPublish(ctx, call)
 	case "feeds.publish@1/revision":
 		return d.feedRevision(ctx, call)
+	case "instances.read@1/get":
+		return d.instanceRead(ctx, call)
+	case "instances.read@1/list":
+		return d.instanceList(ctx, call)
 	default:
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "operation has no handler"}, nil
 	}

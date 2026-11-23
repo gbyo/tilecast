@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Typed shapes of storage.kv@1, timers.schedule@1, and timers.cancel@1 for
@@ -149,4 +151,54 @@ func (s *Services) CancelTimer(ctx context.Context, key string) (bool, error) {
 	}
 	err := s.Call(ctx, "timers.cancel@1/cancel", kvKey{Key: key}, &out)
 	return out.Cancelled, err
+}
+
+// OwnInstance is one of the plugin's own instances as instances.read@1
+// answers it. It never holds a secret.
+type OwnInstance struct {
+	ID            uuid.UUID      `json:"id"`
+	Kind          string         `json:"kind"`
+	Name          string         `json:"name"`
+	Enabled       bool           `json:"enabled"`
+	Revision      int64          `json:"revision"`
+	Configuration map[string]any `json:"configuration"`
+}
+
+// Decode copies the configuration into a plugin's own struct.
+func (i OwnInstance) Decode(out any) error {
+	return HostedInstance{Configuration: i.Configuration}.Decode(out)
+}
+
+// ErrInstanceNotFound answers ReadInstance for an instance that does not
+// exist, for example one that was deleted after a timer was scheduled.
+var ErrInstanceNotFound = errors.New("plugin: instance not found")
+
+// ReadInstance reads one of the plugin's own instances through
+// instances.read@1.
+func (s *Services) ReadInstance(ctx context.Context, kind string, id uuid.UUID) (OwnInstance, error) {
+	var out OwnInstance
+	err := s.Call(ctx, "instances.read@1/get", map[string]any{"kind": kind, "id": id}, &out)
+	var failure *ServiceError
+	if errors.As(err, &failure) && failure.Code == KVNotFound {
+		return OwnInstance{}, ErrInstanceNotFound
+	}
+	return out, err
+}
+
+// InstanceSummary is one entry of ListInstances.
+type InstanceSummary struct {
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Enabled  bool      `json:"enabled"`
+	Revision int64     `json:"revision"`
+}
+
+// ListInstances lists the plugin's own instances of one kind through
+// instances.read@1, at most 500.
+func (s *Services) ListInstances(ctx context.Context, kind string) ([]InstanceSummary, error) {
+	var out struct {
+		Items []InstanceSummary `json:"items"`
+	}
+	err := s.Call(ctx, "instances.read@1/list", map[string]any{"kind": kind}, &out)
+	return out.Items, err
 }

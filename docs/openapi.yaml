@@ -10883,6 +10883,244 @@ paths:
       responses:
         "200": { description: Matching users under data.items }
         "403": { description: Manage capability required }
+  /api/v1/plugins/menu-board/menus:
+    get:
+      operationId: listMenuBoards
+      description: List menus, strongest priority first.
+      responses:
+        "200":
+          description: menus
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MenuBoard"
+                      total:
+                        type: integer
+    post:
+      operationId: createMenuBoard
+      description: Create a menu. Requires plugins.manage and screen access to its targets.
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuBoardInput"
+      responses:
+        "201":
+          description: menu created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MenuBoard"
+        "400":
+          description: Configuration or targets are invalid
+        "403":
+          description: Capability or screen access missing
+        "409":
+          description: The plugin is not installed
+  /api/v1/plugins/menu-board/menus/{id}:
+    get:
+      operationId: getMenuBoard
+      description: Get one menu with its current revision, to send back as expectedRevision when updating it.
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: menu
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MenuBoard"
+        "404":
+          description: Not found
+    put:
+      operationId: updateMenuBoard
+      description: Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuBoardUpdate"
+      responses:
+        "200":
+          description: menu replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MenuBoard"
+        "400":
+          description: Configuration or targets are invalid
+        "403":
+          description: Capability or screen access missing
+        "404":
+          description: Not found
+        "409":
+          description: Stale revision; nothing changed
+        "428":
+          description: expectedRevision is missing
+    delete:
+      operationId: deleteMenuBoard
+      description: Delete a menu and remove it from its screens.
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
+      responses:
+        "204":
+          description: menu deleted
+        "403":
+          description: Capability or screen access missing
+        "404":
+          description: Not found
+  /api/v1/plugins/room-sign/rooms:
+    get:
+      operationId: listRoomSigns
+      description: List rooms, strongest priority first.
+      responses:
+        "200":
+          description: rooms
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RoomSign"
+                      total:
+                        type: integer
+    post:
+      operationId: createRoomSign
+      description: Create a room. Requires plugins.manage and screen access to its targets.
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomSignInput"
+      responses:
+        "201":
+          description: room created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/RoomSign"
+        "400":
+          description: Configuration or targets are invalid
+        "403":
+          description: Capability or screen access missing
+        "409":
+          description: The plugin is not installed
+  /api/v1/plugins/room-sign/rooms/{id}:
+    get:
+      operationId: getRoomSign
+      description: Get one room with its current revision, to send back as expectedRevision when updating it.
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: room
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/RoomSign"
+        "404":
+          description: Not found
+    put:
+      operationId: updateRoomSign
+      description: Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomSignUpdate"
+      responses:
+        "200":
+          description: room replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/RoomSign"
+        "400":
+          description: Configuration or targets are invalid
+        "403":
+          description: Capability or screen access missing
+        "404":
+          description: Not found
+        "409":
+          description: Stale revision; nothing changed
+        "428":
+          description: expectedRevision is missing
+    delete:
+      operationId: deleteRoomSign
+      description: Delete a room and remove it from its screens.
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/CSRFToken"
+      responses:
+        "204":
+          description: room deleted
+        "403":
+          description: Capability or screen access missing
+        "404":
+          description: Not found
 components:
   parameters:
     PluginID:
@@ -13284,6 +13522,38 @@ components:
           type: array
           description: Outbound connections a Plugin Manifest API 3 plugin declares. Empty for other plugins.
           items: { $ref: "#/components/schemas/PluginConnectionReview" }
+        feeds:
+          type: array
+          description: Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins.
+          items: { $ref: "#/components/schemas/PluginFeedReview" }
+    PluginFeedReview:
+      type: object
+      required: [id, title, provider, dataset, fields, personal, images]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        provider:
+          {
+            type: string,
+            description: "The Data Source provider, <plugin id>.<feed id>.",
+          }
+        dataset: { type: string, x-extensible-enum: [organization, instance] }
+        fields: { type: integer, minimum: 1, maximum: 16 }
+        images:
+          {
+            type: boolean,
+            description: The feed downloads remote images through a connection.,
+          }
+        personal:
+          type: array
+          description: Fields that hold personal data, deleted after their retention.
+          items:
+            type: object
+            required: [key, label, retentionDays]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              retentionDays: { type: integer, minimum: 1 }
     PluginConnectionReview:
       type: object
       required:
@@ -20637,6 +20907,210 @@ components:
           format: uuid
         kind:
           const: instance
+        revision:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MenuBoardInput:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+          description: Defaults to true on create and keeps its value on update.
+        locationId:
+          description: Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.
+          type: string
+          maxLength: 64
+        sample:
+          description: Publish a fixed sample menu instead of reading Square.
+          type: boolean
+          default: false
+    MenuBoardUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - expectedRevision
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+          description: Defaults to true on create and keeps its value on update.
+        locationId:
+          description: Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.
+          type: string
+          maxLength: 64
+        sample:
+          description: Publish a fixed sample menu instead of reading Square.
+          type: boolean
+          default: false
+        expectedRevision:
+          type: integer
+          minimum: 1
+          description: The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.
+    MenuBoard:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - id
+        - kind
+        - enabled
+        - revision
+        - createdAt
+        - updatedAt
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+        locationId:
+          description: Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.
+          type: string
+          maxLength: 64
+        sample:
+          description: Publish a fixed sample menu instead of reading Square.
+          type: boolean
+          default: false
+        id:
+          type: string
+          format: uuid
+        kind:
+          const: menu
+        revision:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    RoomSignInput:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+          description: Defaults to true on create and keeps its value on update.
+        calendarId:
+          description: The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.
+          type: string
+          maxLength: 254
+        lookAheadDays:
+          description: How many days of meetings to publish.
+          type: integer
+          minimum: 1
+          maximum: 14
+          default: 2
+        showTitles:
+          description: Off shows every meeting as Busy, for rooms where titles are private.
+          type: boolean
+          default: true
+        sample:
+          description: Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+          type: boolean
+          default: false
+    RoomSignUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - expectedRevision
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+          description: Defaults to true on create and keeps its value on update.
+        calendarId:
+          description: The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.
+          type: string
+          maxLength: 254
+        lookAheadDays:
+          description: How many days of meetings to publish.
+          type: integer
+          minimum: 1
+          maximum: 14
+          default: 2
+        showTitles:
+          description: Off shows every meeting as Busy, for rooms where titles are private.
+          type: boolean
+          default: true
+        sample:
+          description: Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+          type: boolean
+          default: false
+        expectedRevision:
+          type: integer
+          minimum: 1
+          description: The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.
+    RoomSign:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - id
+        - kind
+        - enabled
+        - revision
+        - createdAt
+        - updatedAt
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 180
+        enabled:
+          type: boolean
+        calendarId:
+          description: The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.
+          type: string
+          maxLength: 254
+        lookAheadDays:
+          description: How many days of meetings to publish.
+          type: integer
+          minimum: 1
+          maximum: 14
+          default: 2
+        showTitles:
+          description: Off shows every meeting as Busy, for rooms where titles are private.
+          type: boolean
+          default: true
+        sample:
+          description: Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+          type: boolean
+          default: false
+        id:
+          type: string
+          format: uuid
+        kind:
+          const: room
         revision:
           type: integer
           minimum: 1

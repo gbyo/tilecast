@@ -161,6 +161,10 @@ type CatalogPlugin struct {
 	// install review shows each one, separating what changes where data can
 	// go from display text.
 	Connections []ConnectionReview `json:"connections"`
+
+	// Feeds are the datasets the plugin publishes as Data Sources, with
+	// the personal fields and their retention.
+	Feeds []FeedReview `json:"feeds"`
 }
 
 // PluginAttention is a bounded, advisory status note. It never blocks
@@ -300,6 +304,7 @@ func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlug
 		Installed: installed, Installable: d.Installable,
 		Configured: status.configured, Active: status.active, InstanceCount: status.count,
 		Attention: attention, Connections: append([]ConnectionReview{}, d.Connections...),
+		Feeds: append([]FeedReview{}, d.Feeds...),
 	}
 }
 

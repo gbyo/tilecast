@@ -29,8 +29,10 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/apps/server/internal/outbound"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
@@ -50,6 +52,12 @@ type Harness struct {
 	// directory.
 	Secrets *pluginsecrets.Store
 
+	// Plugins is the plugin host service: tests drive its timers, image
+	// imports, OAuth flow, and feeds directly.
+	Plugins *plugins.Service
+	// Media is the media service the host stores private plugin assets in.
+	Media *media.Service
+
 	t         *testing.T
 	id        string
 	service   *plugins.Service
@@ -61,6 +69,8 @@ type Harness struct {
 type Option func(*options)
 
 type options struct {
+	outbound       *outbound.Engine
+	clock          plugin.Clock
 	maxConnections int
 	backgroundJobs *bool
 	upgradeFrom    int64
@@ -74,6 +84,11 @@ type options struct {
 // data. A plugin uses it to prove its migrations keep existing data working.
 func UpgradeFrom(version int64, seed func(ctx context.Context, pool *pgxpool.Pool) (orgID, ownerID uuid.UUID)) Option {
 	return func(o *options) { o.upgradeFrom, o.seed = version, seed }
+}
+
+// Clock replaces the host clock, for timers and token expiry.
+func Clock(clock plugin.Clock) Option {
+	return func(o *options) { o.clock = clock }
 }
 
 // MaxConnections bounds the plugin's database pool. With 1, a plugin that
@@ -178,13 +193,32 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	if chosen.backgroundJobs != nil {
 		jobsAllowed = *chosen.backgroundJobs
 	}
-	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p), plugins.WithSecrets(h.Secrets),
+	serviceOptions := []plugins.Option{plugins.WithPlugins(p), plugins.WithSecrets(h.Secrets),
 		plugins.WithTakeovers(h.takeovers),
 		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
 		plugins.WithBackgroundJobsAllowed(func() bool { return jobsAllowed }),
 		plugins.WithDataSourceInvalidator(playlistService),
 		plugins.WithAttachments(mediaService),
-		plugins.WithPublicURL("https://tilecast.example"))
+		plugins.WithPublicURL("https://tilecast.example")}
+	if chosen.outbound != nil {
+		serviceOptions = append(serviceOptions, plugins.WithOutbound(chosen.outbound))
+	}
+	if chosen.clock != nil {
+		serviceOptions = append(serviceOptions, plugins.WithClock(chosen.clock))
+	}
+	h.service = plugins.NewService(pool, nil, serviceOptions...)
+	h.Plugins, h.Media = h.service, mediaService
+	providers, err := h.service.DataSourceProviders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mediaService.SetDataSourceProviders(providers...); err != nil {
+		t.Fatal(err)
+	}
+	// The one service registry, as main wires it, so the plugin's typed
+	// client reaches the same dispatcher.
+	h.service.SetServiceCaller(services.NewDispatcher(services.Dependencies{DB: pool, Playlists: playlistService,
+		Media: mediaService, Plugins: h.service}))
 	h.Host, _ = h.service.Host(h.id)
 	return h
 }
