@@ -2187,7 +2187,7 @@ export function ScreenListContent({
         </div>
       )}
       <Dialog open={selectionOpen} onOpenChange={setSelectionOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>
               {t("list.selectedCount", { count: selectedScreens.length })}
