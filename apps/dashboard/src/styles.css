@@ -426,3 +426,23 @@ a {
     @apply font-sans;
   }
 }
+
+/* Sign-in-only, card-free look; setup retains the normal themed card. */
+.auth-page--login .brand__studio-logo { color: white; }
+.auth-page--login [data-slot="field-label"] { color: rgb(248 250 252); }
+.auth-page--login [data-slot="input"] {
+  min-height: 40px;
+  color: white;
+  background-color: rgb(8 15 37 / 70%);
+  border-color: rgb(255 255 255 / 35%);
+}
+.auth-page--login [data-slot="input"]:focus-visible { border-color: #bfdbfe; }
+.auth-page--login [data-slot="input"]:-webkit-autofill {
+  -webkit-text-fill-color: white;
+  box-shadow: 0 0 0 100px #111c3a inset;
+}
+.auth-page--login [data-slot="field-separator-content"] {
+  background-color: #080f25;
+  color: rgb(226 232 240);
+}
+.auth-page--login [data-slot="button"] { min-height: 40px; }

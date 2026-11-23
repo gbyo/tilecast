@@ -52,72 +52,72 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   }, [auth.status, mode, navigate, returnTo]);
 
   if (auth.isLoading) return <LoadingScreen />;
-  // login-03: a muted shell with a compact centered card. Setup uses the same
-  // language with a slightly wider card for the guided questions. There are
-  // no social-provider buttons: this installation has only local accounts.
+  // Keep the setup flow card, but let the original right-framed artwork fill
+  // the sign-in screen without a dimming overlay or card backdrop.
+  const isLogin = mode === "login";
   return (
-    <main className="relative isolate flex min-h-svh flex-col items-center justify-center gap-6 overflow-hidden bg-muted p-6 md:p-10">
+    <main className={isLogin ? "auth-page--login relative isolate flex min-h-svh flex-col items-center justify-center overflow-hidden bg-[#080f25] p-6 text-white sm:p-10 md:items-start md:px-[clamp(3rem,9vw,10rem)]" : "relative isolate flex min-h-svh flex-col items-center justify-center gap-6 overflow-hidden bg-muted p-6 md:p-10"}>
       {!backgroundFailed && (
         <>
           <img
             src="/api/v1/auth/background"
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 -z-20 size-full object-cover"
+            className={`absolute inset-0 -z-20 size-full object-cover ${isLogin ? "object-[25%_center] md:object-center" : ""}`}
             onError={() => setBackgroundFailed(true)}
           />
-          <div className="absolute inset-0 -z-10 bg-black/40" />
+          {!isLogin && <div className="absolute inset-0 -z-10 bg-black/40" />}
         </>
       )}
       <div
-        className={`flex w-full flex-col gap-6 ${mode === "setup" ? "max-w-md" : "max-w-sm"}`}
+        className={`relative z-10 flex w-full flex-col gap-6 ${mode === "setup" ? "max-w-md" : "max-w-sm"}`}
       >
-        <div className="flex justify-center">
+        <div className={isLogin ? "flex justify-start" : "flex justify-center"}>
           <div
             className={
-              backgroundFailed ? "" : "rounded-md bg-card/90 px-3 py-1.5"
+              isLogin || backgroundFailed ? "" : "rounded-md bg-card/90 px-3 py-1.5"
             }
           >
             <Brand compact />
           </div>
         </div>
-        <Card>
+        <Card className={isLogin ? "gap-5 overflow-visible bg-transparent py-0 text-white ring-0 shadow-none" : ""}>
           {mode === "setup" ? (
             <CardContent className="pt-6">
               <SetupFlow />
             </CardContent>
           ) : auth.challenge ? (
             <>
-              <CardHeader className="text-center">
+              <CardHeader className={isLogin ? "px-0 text-left" : "text-center"}>
                 <h1
                   data-slot="card-title"
                   className="font-heading text-xl font-medium"
                 >
                   {t("challenge.title")}
                 </h1>
-                <CardDescription>
+                <CardDescription className={isLogin ? "text-slate-300" : ""}>
                   {auth.challenge.methods.includes("totp") ||
                   auth.challenge.methods.includes("recovery_code")
                     ? t("challenge.codeDescription")
                     : t("challenge.passkeyDescription")}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isLogin ? "px-0" : ""}>
                 <ChallengeFormView />
               </CardContent>
             </>
           ) : (
             <>
-              <CardHeader className="text-center">
+              <CardHeader className={isLogin ? "px-0 text-left" : "text-center"}>
                 <h1
                   data-slot="card-title"
                   className="font-heading text-xl font-medium"
                 >
                   {t("login.title")}
                 </h1>
-                <CardDescription>{t("login.description")}</CardDescription>
+                <CardDescription className={isLogin ? "text-slate-300" : ""}>{t("login.description")}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isLogin ? "px-0" : ""}>
                 <LoginFormView />
               </CardContent>
             </>
@@ -199,7 +199,7 @@ function LoginFormView() {
           <FieldError errors={[form.formState.errors.password]} />
         </Field>
         <Field>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} className="bg-white text-slate-950 hover:bg-slate-100">
             {isSubmitting ? t("login.submitting") : t("login.submit")}
           </Button>
         </Field>
@@ -211,6 +211,7 @@ function LoginFormView() {
             <Field>
               <Button
                 variant="outline"
+                className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => void loginWithPasskey()}
@@ -275,7 +276,7 @@ function ChallengeFormView() {
               <FieldError errors={[form.formState.errors.code]} />
             </Field>
             <Field>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} className="bg-white text-slate-950 hover:bg-slate-100">
                 {isSubmitting
                   ? t("challenge.submitting")
                   : t("challenge.submit")}
@@ -293,6 +294,7 @@ function ChallengeFormView() {
           )}
           <Button
             variant="outline"
+            className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
             type="button"
             disabled={isSubmitting}
             onClick={() => void verifyMfaPasskey()}
@@ -301,7 +303,7 @@ function ChallengeFormView() {
           </Button>
         </div>
       )}
-      <Button variant="ghost" type="button" onClick={cancelChallenge}>
+      <Button variant="ghost" type="button" onClick={cancelChallenge} className="text-white hover:bg-white/10 hover:text-white">
         {t("challenge.back")}
       </Button>
     </div>
