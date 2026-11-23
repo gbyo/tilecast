@@ -70,6 +70,7 @@ pub struct ServerLinkDeps {
     pub renderer_broker: Arc<player_core::CaptureBroker>,
     pub renderer_snapshot: Arc<Mutex<crate::renderer::RendererSnapshot>>,
     pub signals: Arc<LinkSignals>,
+    pub resume: Arc<Mutex<crate::resume::ResumeState>>,
 }
 
 #[derive(Debug)]
@@ -99,6 +100,7 @@ struct RendererDriver {
     live_stream: Arc<AndroidLiveStreamHost>,
     clock: player_types::time::SharedClock,
     signals: Arc<LinkSignals>,
+    resume: Arc<Mutex<crate::resume::ResumeState>>,
     shutdown: CancellationToken,
     started: AtomicBool,
     handles: Mutex<Vec<tokio::task::JoinHandle<()>>>,
@@ -140,8 +142,14 @@ impl Drivers {
         let version = player_version(&user_agent);
         let link_user_agent = user_agent.clone();
         let signals = link.signals.clone();
-        let host =
-            AndroidPairingHost::new(meta, wake.clone(), signals.server_wake.clone(), signals.manifest_wake.clone());
+        let host = AndroidPairingHost::new(
+            meta,
+            wake.clone(),
+            signals.server_wake.clone(),
+            signals.manifest_wake.clone(),
+            link.state.clone(),
+            link.resume.clone(),
+        );
         let (activity, activity_rx) = activity_channel();
         let clock: player_types::time::SharedClock = Arc::new(crate::host::SystemClock);
         let started_at = clock.now();
@@ -241,6 +249,7 @@ impl Drivers {
                 engine: link.renderer_engine,
                 clock,
                 signals,
+                resume: link.resume,
                 shutdown: CancellationToken::new(),
                 started: AtomicBool::new(false),
                 handles: Mutex::new(Vec::new()),
@@ -390,6 +399,7 @@ impl Drivers {
                     self.renderer.config.clone(),
                     self.renderer.signals.manifest_wake.clone(),
                     self.renderer.signals.gate.clone(),
+                    self.renderer.resume.clone(),
                 ),
                 self.renderer.signals.manifest_wake.clone(),
                 self.renderer.signals.manifest_item_boundary.clone(),
