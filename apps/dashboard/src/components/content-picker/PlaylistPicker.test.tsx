@@ -123,6 +123,87 @@ describe("PlaylistPicker", () => {
     await waitFor(() => expect(playlists).toHaveBeenCalledWith("promo", 1));
   });
 
+  it("keeps an explicit selection visible and confirmable outside the search results", async () => {
+    vi.spyOn(api, "playlistPage").mockImplementation(async (search) => {
+      const found = search ? [items[0]!] : items;
+      return {
+        items: found,
+        total: found.length,
+        page: 1,
+        pageSize: 100,
+      };
+    });
+    const confirm = vi.fn();
+    picker(confirm);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Promos/ }));
+    await user.type(screen.getByPlaceholderText("Search playlists"), "lobby");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /Promos/ }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Promos")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Add playlist" }));
+    expect(confirm).toHaveBeenCalledWith({
+      kind: "playlist",
+      playlist: items[1],
+    });
+  });
+
+  it("replaces a retained selection when the user chooses another result", async () => {
+    list();
+    const confirm = vi.fn();
+    picker(confirm);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Promos/ }));
+    await user.click(screen.getByRole("button", { name: /Lobby loop/ }));
+    expect(screen.getByRole("button", { name: /Promos/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await user.click(screen.getByRole("button", { name: "Add playlist" }));
+    expect(confirm).toHaveBeenCalledWith({
+      kind: "playlist",
+      playlist: items[0],
+    });
+  });
+
+  it("restores the caller's choice and clears an abandoned search on reopen", async () => {
+    list();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const confirm = vi.fn();
+    const onClose = vi.fn();
+    const view = (open: boolean) => (
+      <QueryClientProvider client={client}>
+        <PlaylistPicker
+          open={open}
+          selectedId="lobby"
+          onConfirm={confirm}
+          onClose={onClose}
+        />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(true));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Promos/ }));
+    await user.type(screen.getByPlaceholderText("Search playlists"), "promo");
+    rerender(view(false));
+    rerender(view(true));
+    expect(await screen.findByPlaceholderText("Search playlists")).toHaveValue(
+      "",
+    );
+    await user.click(screen.getByRole("button", { name: "Add playlist" }));
+    expect(confirm).toHaveBeenCalledWith({
+      kind: "playlist",
+      playlist: items[0],
+    });
+  });
+
   it("marks a tag-driven playlist so it is not mistaken for a static one", async () => {
     list();
     picker();
