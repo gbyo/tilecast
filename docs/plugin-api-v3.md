@@ -287,11 +287,18 @@ plugin calls `http.fetch@1` with that ID. See
 [Plugin connections](plugin-connections.md) for the declaration, the address
 and redirect rules, the consents, secret headers, and the failure codes.
 
+An `oauth2` connection adds an OAuth 2.0 provider. The operator registers an
+OAuth client, enters its ID and secret on the connection page, and selects
+Connect. The host runs the authorization code flow with PKCE, stores the
+tokens as connection secrets, refreshes them, and adds the bearer header to
+`http.fetch@1`. Plugin code never receives a token. See
+[OAuth 2.0 connections](plugin-connections.md#oauth-20-connections).
+
 Studio adds a **Connections** page below the plugin's route when the manifest
 declares connections. The install review on the plugin's catalog page shows
 each declaration: its origins, whether an operator enters the origin, private
-network, plain HTTP, plaintext secrets, and a response or time limit above the
-default.
+network, plain HTTP, plaintext secrets, a response or time limit above the
+default, and the OAuth endpoints and scopes.
 
 ## Personal data
 
@@ -392,5 +399,5 @@ participant sessions, moderation, public links, Player reports, audio cues,
 serial or GPIO or printer services, stream connections, TCP, installed-package
 parity for `plugin-runtime.state@1`, content services for plugins, or editor
 action slots. A `data_source` field is not valid in a plugin manifest. Phase 2
-adds host connections and `http.fetch@1`; the other phase 2 members follow in
-later changes.
+adds host connections, `http.fetch@1`, and OAuth 2.0 connections; feeds,
+`storage.kv@1`, and timers follow in later changes.

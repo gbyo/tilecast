@@ -7,8 +7,11 @@ Implementation: phase 1 is implemented. See
 [Plugin Manifest API 3](../plugin-api-v3.md),
 [configuration schema](../config-schema.md), and
 [plugin secrets](../plugin-secrets.md). Phase 2 is in progress: host
-connections, local `http` origins, and `http.fetch@1` are implemented. See
-[plugin connections](../plugin-connections.md). The other phase 2 members and
+connections, local `http` origins, `http.fetch@1`, and OAuth 2.0 connections
+are implemented. See [plugin connections](../plugin-connections.md). The
+OAuth callback hands the provider's answer to Studio, which completes the
+attempt with the session, because the Studio session cookie is
+`SameSite=Strict`. The other phase 2 members and
 later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
 [External package service capabilities](../package-services.md), and

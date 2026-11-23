@@ -110,6 +110,27 @@ Studio asks you to confirm before it gives a permission. Changing a connection's
 
 A connection that a setting or item still uses can't be deleted. Its page lists what uses it. See [Plugin connections](https://github.com/gbyo/tilecast/blob/main/docs/plugin-connections.md) for the exact address and redirect rules.
 
+### Sign in to a provider with OAuth
+
+Some connections sign in to an online account, such as a Google calendar or a Square catalog. Tilecast doesn't ship a shared sign-in app for these providers: you register your own OAuth client with the provider, and Tilecast keeps the tokens on your server. The install review lists the provider's sign-in address, its token address, and the access the plugin asks for.
+
+Before you start, set `TILECAST_PUBLIC_URL` to the `https` address people use to reach Studio. Providers don't send a sign-in result to an unencrypted address, so Studio hides **Connect** and explains why until the address is `https`. See [Networking](/administration/networking/).
+
+<Steps>
+
+1. Create the connection as above. Its page shows a **Provider account** section.
+2. Copy the **Redirect URI** from that section. In the provider's developer console, create an OAuth client (a "web application" client) and add this exact address as an authorized redirect URI.
+3. Enter the provider's **Client ID** and, when the section asks for it, the **Client secret**, then select **Save client**. Tilecast stores the secret encrypted and never shows it again.
+4. Select **Connect**. Sign in at the provider and approve the access it lists. The provider sends you back to the connection's page, which says whether the connection worked.
+
+</Steps>
+
+Tilecast renews access by itself. If the provider stops accepting the connection, for example because someone removed Tilecast's access in their account, the connection shows **Reconnect required**: select **Reconnect** and sign in again. If renewing fails for a moment, the page shows when it last failed and Tilecast keeps using the current access until it expires.
+
+Select **Disconnect** to stop using the account. Tilecast asks the provider to revoke its access, when the provider supports that, and deletes its own tokens either way. The page tells you whether the provider confirmed. If it didn't, remove Tilecast's access in your account at the provider. A connected connection can't be deleted until you disconnect it. Changing the client ID also disconnects it.
+
+A sign-in that takes longer than ten minutes, or that someone else started, doesn't finish. Select **Connect** again.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:

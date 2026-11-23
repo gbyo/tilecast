@@ -224,5 +224,33 @@ A version 3 plugin never opens its own network connection. It declares each serv
 - `maxResponseBytes` (up to 16 MiB) and `timeoutSeconds` (up to 60) raise the defaults of 1 MiB and 10 seconds. The install review shows a raised limit.
 - A `connection` field stores the ID of a connection record. List the declarations it accepts in `connections`.
 
+### OAuth connections
+
+A service that signs people in with OAuth 2.0, such as Google Calendar or Square, uses `type: "oauth2"`. Tilecast runs the sign-in, keeps the tokens, renews them, and adds the `Authorization: Bearer` header to your `http.fetch@1` requests. Your code never sees a token and must not send its own `Authorization` header on that connection.
+
+```json
+{
+  "id": "google",
+  "title": "Google Calendar",
+  "type": "oauth2",
+  "origins": ["https://www.googleapis.com"],
+  "oauth": {
+    "authorizationEndpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+    "tokenEndpoint": "https://oauth2.googleapis.com/token",
+    "revocationEndpoint": "https://oauth2.googleapis.com/revoke",
+    "scopes": ["https://www.googleapis.com/auth/calendar.readonly"],
+    "tokenEndpointAuthMethod": "client_secret_post",
+    "authorizationParameters": { "access_type": "offline", "prompt": "consent" }
+  }
+}
+```
+
+- Every endpoint and origin is `https`. An OAuth connection can't use an operator origin, the private network, or plain HTTP.
+- Ask for the smallest read-only scopes the plugin needs. The install review lists them.
+- `tokenEndpointAuthMethod` is `client_secret_basic`, `client_secret_post`, or `none`. Use `tokenRequestFormat: "json"` only for a provider that takes JSON token requests.
+- Tilecast sets the standard parameters itself (`client_id`, `redirect_uri`, `state`, the PKCE challenge, and so on). `authorizationParameters` holds up to eight extra fixed values, such as `access_type`.
+- Changing an endpoint or a scope in a later release asks operators to connect again.
+- Handle these failure codes from `http.fetch@1`: `oauth_not_connected`, `oauth_reconnect_required`, and `oauth_refresh_failed`. Show the plugin as needing attention; don't retry in a loop.
+
 See [Use a connection from server code](/developers/plugins/server/#use-a-connection-plugin-manifest-api-3) for the request side, and the [Plugin connections](https://github.com/gbyo/tilecast/blob/main/docs/plugin-connections.md) reference for every rule.
 
