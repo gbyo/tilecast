@@ -137,6 +137,15 @@ pub async fn refresh_binding(state: &StateDb, resume: &Arc<Mutex<ResumeState>>) 
         .set_binding(binding);
 }
 
+/// An explicit server reset must not let the old relationship keep writing
+/// checkpoints while setup owns the screen.
+pub fn clear_binding(resume: &Arc<Mutex<ResumeState>>) {
+    resume
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .set_binding(None);
+}
+
 /// Persist one accepted, meaningful item report. Layouts, takeovers,
 /// Quick Present and synchronized projections are intentionally excluded.
 pub async fn note_item_evidence(
