@@ -121,7 +121,7 @@ export function FleetGroupSort({
   );
 }
 
-/** Phone layout: Group and Sort share one menu so the toolbar stays one row. */
+/** Narrow workspace: Group and Sort share one menu so the toolbar stays one row. */
 export function FleetViewOptionsMenu({
   groupBy,
   onGroupByChange,

@@ -59,7 +59,7 @@ export type WidgetsToolbarProps = {
 /**
  * The library's discovery and display controls: search, Widget type, sort, and
  * view. Widget type is the one facet the server supports, so it sits directly
- * in the toolbar instead of behind a Filters button. Phones keep search on its
+ * in the toolbar instead of behind a Filters button. Narrow workspaces keep search on their
  * own row, keep type directly reachable, and fold sort and view into one View
  * options menu; exactly one arrangement is mounted.
  */
@@ -291,7 +291,7 @@ function WidgetSortMenu({
   );
 }
 
-/** Phone layout: sort and view share one menu with a radio group each. */
+/** Narrow workspace: sort and view share one menu with a radio group each. */
 function WidgetViewOptionsMenu({
   sort,
   onSortChange,

@@ -35,7 +35,7 @@ export type SchedulesToolbarProps = {
 /**
  * Search, Filters, and Sort. Schedules have one useful presentation, so there
  * is no view control. Active facets surface as chips on a second row only
- * while there are any. Phones put Search on its own row; exactly one
+ * while there are any. Narrow workspaces put Search on its own row; exactly one
  * arrangement of each control is mounted.
  */
 export function SchedulesToolbar({
@@ -94,7 +94,7 @@ export function SchedulesToolbar({
 /**
  * Sort is a compact menu so its current value costs no permanent width. The
  * label gives way to the icon below the xl width on desktop; the accessible
- * name and tooltip keep stating the current sort either way. On phones the
+ * name and tooltip keep stating the current sort either way. In a narrow workspace the
  * button reads just "Sort", pushed to the end of its row.
  */
 function ScheduleSortMenu({

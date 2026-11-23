@@ -50,7 +50,7 @@ export type MediaToolbarProps = {
 /**
  * The library's discovery and display controls: Search, Filters, media type,
  * sort, and view. Active facets surface as chips on a second row only while
- * there are any. Phones keep Search on its own row and fold type, sort, and
+ * there are any. Narrow workspaces keep Search on their own row and fold type, sort, and
  * view into one View options menu; exactly one arrangement is mounted.
  */
 export function MediaToolbar({
@@ -239,7 +239,7 @@ function MediaViewToggle({
 }
 
 /**
- * Phone layout: media type, sort, and view share one menu. It organizes what
+ * Narrow workspace: media type, sort, and view share one menu. It organizes what
  * is shown, so it is kept apart from Filters, which narrows the data.
  */
 function MediaViewOptionsMenu({
