@@ -104,13 +104,13 @@ export function checkBoundaries(repo: Repo): Problem[] {
 
 /**
  * Ways to open a network connection without the host. A Plugin Manifest
- * API 3 plugin reaches the network through host connections (a later Plugin
- * Model V3 phase), never with its own client. A bundled plugin is trusted
+ * API 3 plugin reaches the network through host connections and the
+ * http.fetch@1 service, never with its own client or resolver. A bundled plugin is trusted
  * first-party code, so this check finds mistakes; it is not a sandbox and
  * does not contain malicious Go code.
  */
 const DIRECT_NETWORK =
-  /\b(?:http\.(?:Client|Transport|DefaultClient|DefaultTransport|Get|Head|Post|PostForm|NewRequest|NewRequestWithContext)\b|net\.(?:Dial|DialTimeout|DialTCP|DialUDP|Listen|ListenTCP|ListenUDP|Lookup\w+|Resolver|Dialer)\b|tls\.(?:Dial|DialWithDialer|Client)\b)/;
+  /\b(?:http\.(?:Client|Transport|DefaultClient|DefaultTransport|Get|Head|Post|PostForm|NewRequest|NewRequestWithContext)\b|httputil\.(?:NewSingleHostReverseProxy|ReverseProxy)\b|net\.(?:Dial|DialTimeout|DialTCP|DialUDP|Listen|ListenTCP|ListenUDP|Lookup\w+|Resolver|Dialer)\b|tls\.(?:Dial|DialWithDialer|Client)\b)/;
 
 const GO_STRINGS_AND_COMMENTS =
   /("(?:\\.|[^"\\\n])*"|`[^`]*`|'(?:\\.|[^'\\])*')|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
@@ -131,7 +131,7 @@ function checkNoDirectNetwork(
     {
       plugin: plugin.manifest.id,
       file: relative(repo.root, file),
-      message: `uses ${found[0]}; a Plugin Manifest API 3 plugin does not open its own network connections (host connections arrive in a later Plugin Model V3 phase)`,
+      message: `uses ${found[0]}; a Plugin Manifest API 3 plugin does not open its own network connections; send requests with http.fetch@1 through a declared connection`,
     },
   ];
 }

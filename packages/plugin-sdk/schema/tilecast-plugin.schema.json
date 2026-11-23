@@ -1027,7 +1027,7 @@
         },
         "capabilities": {
           "default": { "backgroundWorkers": false },
-          "description": "Server declarations. Outbound access arrives with host connections in a later phase.",
+          "description": "Server declarations. Outbound access is declared with connections.",
           "type": "object",
           "properties": {
             "backgroundWorkers": { "default": false, "type": "boolean" }
@@ -1375,6 +1375,83 @@
             ],
             "additionalProperties": false
           }
+        },
+        "connections": {
+          "default": [],
+          "description": "Host-owned outbound connections. Plugin code names a connection record and never states an origin, an address rule, or a credential.",
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                "description": "Identifier that connection records and connection fields name. It never changes."
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "pattern": "\\S"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 280,
+                "pattern": "\\S"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["http"],
+                "description": "http: requests through http.fetch@1."
+              },
+              "origins": {
+                "anyOf": [
+                  { "type": "string", "const": "operator" },
+                  {
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  }
+                ],
+                "description": "A fixed list of canonical https origins (scheme, host, and port), or \"operator\": an Owner or Administrator enters one origin in Studio."
+              },
+              "privateNetwork": {
+                "description": "allowed makes private addresses possible after a separate operator consent. Loopback and link-local addresses are never reached.",
+                "type": "string",
+                "enum": ["refused", "allowed"]
+              },
+              "plainHttp": {
+                "description": "allowed makes an operator-entered http origin on private addresses possible after its own consent. Needs origins \"operator\" and privateNetwork \"allowed\".",
+                "type": "string",
+                "enum": ["refused", "allowed"]
+              },
+              "allowPlaintextSecret": {
+                "description": "Lets a secret header travel over plain HTTP after a third consent. Needs plainHttp allowed.",
+                "type": "boolean"
+              },
+              "maxResponseBytes": {
+                "description": "Response body bound. Default 1 MiB, at most 16 MiB. The install review shows a larger value.",
+                "type": "integer",
+                "minimum": 1024,
+                "maximum": 16777216
+              },
+              "timeoutSeconds": {
+                "description": "Time bound of one request, redirects and body included. Default 10 seconds.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 60
+              }
+            },
+            "required": ["id", "title", "type", "origins"],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1497,7 +1574,8 @@
           },
           "required": ["retentionDays"],
           "additionalProperties": false
-        }
+        },
+        "connections": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["key", "label", "control"],
       "additionalProperties": false

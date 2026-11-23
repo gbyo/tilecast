@@ -249,8 +249,11 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 	default:
 		return nil, &Denial{Kind: DenialForbiddenContext, Message: "unknown invocation context"}, nil
 	}
-	if len(call.Input) > MaxInputBytes {
-		return nil, nil, &CallError{Code: ErrCodeTooLarge, Message: "input exceeds 32 KiB"}
+	// The operation, the caller, the grant, the context, and the actor are
+	// decided; now the operation's own bound applies to the input.
+	limits := LimitsOf(operation)
+	if len(call.Input) > limits.MaxInputBytes {
+		return nil, nil, &CallError{Code: ErrCodeTooLarge, Message: fmt.Sprintf("input exceeds %d bytes", limits.MaxInputBytes)}
 	}
 	if call.ExecutionEpoch != uuid.Nil {
 		// Production Wasm supplies this host-only identity. Direct domain
@@ -340,6 +343,8 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.pluginSettingsGet(ctx, call)
 	case "secrets.read@1/get":
 		return d.pluginSecretGet(ctx, call)
+	case "http.fetch@1/request":
+		return d.httpFetch(ctx, call)
 	default:
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "operation has no handler"}, nil
 	}

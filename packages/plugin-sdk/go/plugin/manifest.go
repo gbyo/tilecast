@@ -53,6 +53,9 @@ type Manifest struct {
 	Settings *Settings `json:"settings,omitempty"`
 	// Instances are host-owned instance kinds. Plugin Manifest API 3 only.
 	Instances []InstanceKind `json:"instances,omitempty"`
+	// Connections are host-owned outbound connections. Plugin Manifest API
+	// 3 only.
+	Connections []Connection `json:"connections,omitempty"`
 }
 
 type InstanceNoun struct {
@@ -368,8 +371,8 @@ func (m Manifest) Validate() error {
 			return fail("%v", err)
 		}
 	}
-	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0) {
-		return fail("services, settings, and instances are Plugin Manifest API 3 members")
+	if m.APIVersion < 3 && (len(m.Services) > 0 || m.Settings != nil || len(m.Instances) > 0 || len(m.Connections) > 0) {
+		return fail("services, settings, instances, and connections are Plugin Manifest API 3 members")
 	}
 	switch m.APIVersion {
 	case 3:

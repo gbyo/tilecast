@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
@@ -91,8 +92,8 @@ func (d *Dispatcher) CallBundled(ctx context.Context, call plugins.BundledCall) 
 	if err != nil {
 		return nil, &plugin.ServiceError{Code: ErrCodeUnavailable, Message: "The service is temporarily unavailable."}
 	}
-	if len(encoded) > MaxOutputBytes {
-		return nil, &plugin.ServiceError{Code: ErrCodeTooLarge, Message: "output exceeds 64 KiB"}
+	if limit := OperationLimits(call.Operation).MaxOutputBytes; len(encoded) > limit {
+		return nil, &plugin.ServiceError{Code: ErrCodeTooLarge, Message: fmt.Sprintf("output exceeds %d bytes", limit)}
 	}
 	return encoded, nil
 }

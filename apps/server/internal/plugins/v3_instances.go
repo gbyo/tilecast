@@ -237,7 +237,7 @@ func (s *Service) prepareInstance(ctx context.Context, hosted hostedPlugin, kind
 	if out.schedule, err = validateSchedule(kind.Schedule, write.Schedule); err != nil {
 		return out, err
 	}
-	out.configuration, err = configschema.Normalize(ctx, kind.Fields, write.Configuration, s.configReferences())
+	out.configuration, err = configschema.Normalize(ctx, kind.Fields, write.Configuration, s.pluginConfigReferences(hosted.manifest.ID))
 	if err != nil {
 		return out, fmt.Errorf("%w: %v", plugin.ErrInvalid, err)
 	}
@@ -611,6 +611,9 @@ func (s *Service) storeInstanceResources(ctx context.Context, tx pgx.Tx, hosted 
 	// The library refuses to remove a family while an instance uses it.
 	// Disabled instances count: enabling one must not find the font gone.
 	if err := storeConfigReferences(ctx, tx, pluginID, id, prepared.name, kind.Fields, prepared.configuration); err != nil {
+		return err
+	}
+	if err := useConnections(ctx, tx, pluginID, "instance", id, prepared.name, kind.Fields, prepared.configuration); err != nil {
 		return err
 	}
 	ref := func(key string) pluginsecrets.SecretRef {

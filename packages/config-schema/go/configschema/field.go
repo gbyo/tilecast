@@ -33,9 +33,9 @@ var sharedControls = map[string]bool{
 }
 
 // Plugin-only controls. A secret value is stored only through the secret
-// store, never in configuration. A connection names a host-held outbound
-// connection; the connection runtime is not part of this release, so the
-// plugin manifest validator refuses it until it exists.
+// store, never in configuration. A connection value is the ID of a
+// host-owned connection record of the same plugin; Connections names the
+// connection declarations the field accepts.
 const (
 	ControlSecret     = "secret"
 	ControlConnection = "connection"
@@ -114,6 +114,27 @@ type Field struct {
 	UI            map[string]any `json:"ui,omitempty"`
 	// Personal marks a field that holds personal data. Plugin profile only.
 	Personal *Personal `json:"personal,omitempty"`
+	// Connections lists the connection declarations a connection field
+	// accepts. Plugin profile, connection control only.
+	Connections []string `json:"connections,omitempty"`
+}
+
+// MaxFieldConnections bounds the declarations one connection field accepts.
+const MaxFieldConnections = 8
+
+// ConnectionValues returns the top-level connection field values of a
+// normalized document, keyed by field key.
+func ConnectionValues(fields []Field, values map[string]any) map[string]string {
+	out := map[string]string{}
+	for _, field := range fields {
+		if field.Control != ControlConnection {
+			continue
+		}
+		if text, ok := values[field.Key].(string); ok && text != "" {
+			out[field.Key] = text
+		}
+	}
+	return out
 }
 
 // SelectOption is one select choice.

@@ -8,34 +8,42 @@ import "context"
 // ServerServices are the registry capabilities a bundled Plugin Manifest
 // API 3 plugin may declare in "services" and call through Services.
 var ServerServices = []ServerService{
+	{ID: "http.fetch", Version: 1, Name: "Outbound HTTP", Description: "Send HTTP requests through this plugin's own host connections.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "http.fetch@1/request", Title: "Send request", Description: "Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 1463640, MaxOutputBytes: 22435160},
+	}},
 	{ID: "instance.read", Version: 1, Name: "Installation details", Description: "Read installation facts such as the public address and release version.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
-		{Name: "instance.read@1/get", Title: "Read installation", Description: "Read installation facts such as the public address and release version.", Mutating: false, Contexts: []string{"studio", "background"}},
+		{Name: "instance.read@1/get", Title: "Read installation", Description: "Read installation facts such as the public address and release version.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "organization.read", Version: 1, Name: "Organization details", Description: "Read the organization's name and identifier.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
-		{Name: "organization.read@1/get", Title: "Read organization", Description: "Read the organization's name and identifier.", Mutating: false, Contexts: []string{"studio", "background"}},
+		{Name: "organization.read@1/get", Title: "Read organization", Description: "Read the organization's name and identifier.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "screens.read", Version: 1, Name: "Screen directory", Description: "List screens and read non-secret screen facts and reported player capabilities.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
-		{Name: "screens.read@1/list", Title: "List screens", Description: "List screens with non-secret facts and reported player capabilities.", Mutating: false, Contexts: []string{"studio", "background"}},
-		{Name: "screens.read@1/get", Title: "Read screen", Description: "Read one screen's non-secret facts and reported player capabilities.", Mutating: false, Contexts: []string{"studio", "background"}},
+		{Name: "screens.read@1/list", Title: "List screens", Description: "List screens with non-secret facts and reported player capabilities.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "screens.read@1/get", Title: "Read screen", Description: "Read one screen's non-secret facts and reported player capabilities.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "secrets.read", Version: 1, Name: "Plugin secrets", Description: "Read one of this plugin's own secrets.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
-		{Name: "secrets.read@1/get", Title: "Read secret", Description: "Read one of this plugin's secrets. An unset or unreadable secret answers secret_unavailable.", Mutating: false, Contexts: []string{"studio", "background", "system"}},
+		{Name: "secrets.read@1/get", Title: "Read secret", Description: "Read one of this plugin's secrets. An unset or unreadable secret answers secret_unavailable.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "settings.read", Version: 1, Name: "Plugin settings", Description: "Read this plugin's own non-secret settings for the organization or one screen.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
-		{Name: "settings.read@1/get", Title: "Read settings", Description: "Read this plugin's non-secret settings and whether each secret is set.", Mutating: false, Contexts: []string{"studio", "background", "system"}},
+		{Name: "settings.read@1/get", Title: "Read settings", Description: "Read this plugin's non-secret settings and whether each secret is set.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "targets.resolve", Version: 1, Name: "Resolve display targets", Description: "Validate screen and group selections and resolve them to screens.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
-		{Name: "targets.resolve@1/resolve", Title: "Resolve targets", Description: "Validate screen and group selections and resolve them to screens.", Mutating: false, Contexts: []string{"studio", "background"}},
+		{Name: "targets.resolve@1/resolve", Title: "Resolve targets", Description: "Validate screen and group selections and resolve them to screens.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
-		{Name: "targets.resolve@2/resolve", Title: "Resolve targets", Description: "Validate explicit all or a nonempty screen, group, and location selection.", Mutating: false, Contexts: []string{"studio", "background"}},
-		{Name: "targets.resolve@2/options", Title: "List target options", Description: "List bounded target names and identifiers within the operator's scope.", Mutating: false, Contexts: []string{"studio"}},
+		{Name: "targets.resolve@2/resolve", Title: "Resolve targets", Description: "Validate explicit all or a nonempty screen, group, and location selection.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "targets.resolve@2/options", Title: "List target options", Description: "List bounded target names and identifiers within the operator's scope.", Mutating: false, Contexts: []string{"studio"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
 	{ID: "users.read-basic", Version: 1, Name: "User directory", Description: "Read basic user directory facts for attribution and workflows.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
-		{Name: "users.read-basic@1/get", Title: "Read user", Description: "Read one user's basic directory facts.", Mutating: false, Contexts: []string{"studio", "background"}},
-		{Name: "users.read-basic@1/search", Title: "Search users", Description: "Search active users by name or username.", Mutating: false, Contexts: []string{"studio", "background"}},
-		{Name: "users.read-basic@1/list-by-role", Title: "List users by role", Description: "List users holding one role.", Mutating: false, Contexts: []string{"studio", "background"}},
+		{Name: "users.read-basic@1/get", Title: "Read user", Description: "Read one user's basic directory facts.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "users.read-basic@1/search", Title: "Search users", Description: "Search active users by name or username.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "users.read-basic@1/list-by-role", Title: "List users by role", Description: "List users holding one role.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
+}
+
+// HttpFetchRequest calls http.fetch@1/request: Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time
+func (s *Services) HttpFetchRequest(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "http.fetch@1/request", input, output)
 }
 
 // InstanceReadGet calls instance.read@1/get: Read installation facts such as the public address and release version

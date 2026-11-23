@@ -46,8 +46,9 @@ function validTimeZone(text: string): boolean {
 
 /**
  * Normalizes a configuration document the way the Server does, without the
- * resource lookups. Secret and connection values are refused: a secret
- * travels only through the secret store.
+ * resource lookups. A secret value is refused: a secret travels only
+ * through the secret store. A connection value is a connection record ID;
+ * the Server checks that the record belongs to the plugin.
  */
 export function normalizeConfigValues(
   fields: readonly ConfigField[],
@@ -82,12 +83,10 @@ function normalizeObject(
     const path = prefix + field.key;
     let value = input[field.key];
     let present = Object.hasOwn(input, field.key);
-    if (field.control === "secret" || field.control === "connection") {
+    if (field.control === "secret") {
       if (present && value !== null && value !== undefined) {
         throw new ValueProblem(
-          field.control === "secret"
-            ? `${field.label} is a secret and is written through the secret store`
-            : `${field.label} needs an outbound connection, which this release does not provide`,
+          `${field.label} is a secret and is written through the secret store`,
           path,
         );
       }
@@ -129,7 +128,8 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
     case "data_source":
     case "data_source_field":
     case "media_asset":
-    case "font": {
+    case "font":
+    case "connection": {
       if (typeof value !== "string") return fail(`${field.label} must be text`);
       let text = value.trim();
       const length = byteLength(text);
@@ -214,6 +214,13 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
           if (text === "" && !field.required) break;
           if (!uuidPattern.test(text) || /^0{8}-(0{4}-){3}0{12}$/.test(text)) {
             return fail(`${field.label} must identify a library font`);
+          }
+          text = text.toLowerCase();
+          break;
+        case "connection":
+          if (text === "" && !field.required) break;
+          if (!uuidPattern.test(text) || /^0{8}-(0{4}-){3}0{12}$/.test(text)) {
+            return fail(`${field.label} must identify a connection`);
           }
           text = text.toLowerCase();
           break;

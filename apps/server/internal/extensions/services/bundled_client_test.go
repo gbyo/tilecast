@@ -36,7 +36,7 @@ func TestBundledCallersAreExplicit(t *testing.T) {
 			if !bundled || !capability.AllowsCaller(CallerPackage) {
 				t.Errorf("%s@%d should serve packages and bundled plugins", capability.ID, capability.Version)
 			}
-		case "settings.read", "secrets.read":
+		case "settings.read", "secrets.read", "http.fetch":
 			if !bundled || capability.AllowsCaller(CallerPackage) {
 				t.Errorf("%s@%d should serve bundled plugins only", capability.ID, capability.Version)
 			}

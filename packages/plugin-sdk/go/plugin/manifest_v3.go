@@ -108,7 +108,7 @@ var (
 )
 
 // reservedKindPaths are segments the host uses below a plugin's base path.
-var reservedKindPaths = set("settings", "secrets", "status", "install", "kinds")
+var reservedKindPaths = set("settings", "secrets", "status", "install", "kinds", "connections")
 
 // InstanceKindByName returns a declared kind.
 func (m Manifest) InstanceKindByName(kind string) (InstanceKind, bool) {
@@ -139,7 +139,7 @@ func (m Manifest) validateV3() error {
 		return fmt.Errorf("capabilities.playerManifest is a Plugin API 1 member; declare player.state instead")
 	}
 	if len(m.Capabilities.Network) > 0 {
-		return fmt.Errorf("capabilities.network is not a Plugin Manifest API 3 member; outbound access arrives with host connections")
+		return fmt.Errorf("capabilities.network is not a Plugin Manifest API 3 member; declare connections instead")
 	}
 	if m.Runtime != nil {
 		return fmt.Errorf("runtime is a Plugin API 1 member; declare a player contribution instead")
@@ -237,6 +237,9 @@ func (m Manifest) validateV3() error {
 			}
 		}
 	}
+	if err := m.validateConnections(); err != nil {
+		return err
+	}
 	if len(m.Instances) > 0 {
 		if m.API == nil {
 			return fmt.Errorf("instances need api.basePaths: the host mounts their routes below the first base path")
@@ -253,7 +256,8 @@ func (m Manifest) validateV3() error {
 
 // validatePluginFields checks one API 3 field list: the shared schema rules
 // for the plugin profile, the bound on fields, and the rules this release
-// adds because their runtime does not exist yet.
+// adds because their runtime does not exist yet. Connection fields are
+// checked against the manifest's connections in validateConnections.
 func validatePluginFields(where string, fields []configschema.Field) error {
 	if len(fields) > MaxSchemaFields {
 		return fmt.Errorf("%s declares %d fields; the limit is %d", where, len(fields), MaxSchemaFields)
@@ -264,9 +268,6 @@ func validatePluginFields(where string, fields []configschema.Field) error {
 	var walk func([]configschema.Field) error
 	walk = func(fields []configschema.Field) error {
 		for _, field := range fields {
-			if field.Control == configschema.ControlConnection {
-				return fmt.Errorf("%s field %q is a connection; host connections arrive in a later Plugin Model V3 phase", where, field.Key)
-			}
 			if field.Personal != nil && field.Required {
 				// The host removes a personal value when its retention ends.
 				// A required value could not be removed without making the

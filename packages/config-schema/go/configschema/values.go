@@ -28,6 +28,14 @@ type References interface {
 	Font(ctx context.Context, field Field, id uuid.UUID) error
 }
 
+// ConnectionReferences checks a connection value: the record exists,
+// belongs to the plugin, and has a declaration the field accepts. A
+// non-nil References that does not implement it refuses every connection
+// value, so a caller cannot skip the check by accident.
+type ConnectionReferences interface {
+	Connection(ctx context.Context, field Field, id uuid.UUID) error
+}
+
 // Normalize validates a configuration document against fields and returns
 // the normalized document: defaults applied, text trimmed, identifiers and
 // colors canonical, datetimes in UTC, integers as int, weekdays sorted. It
@@ -51,12 +59,9 @@ func normalizeObject(ctx context.Context, fields []Field, input map[string]any, 
 	output := make(map[string]any, len(fields))
 	for _, field := range fields {
 		value, present := input[field.Key]
-		if field.Control == ControlSecret || field.Control == ControlConnection {
+		if field.Control == ControlSecret {
 			if present && value != nil {
-				if field.Control == ControlSecret {
-					return nil, fmt.Errorf("%s is a secret and is written through the secret store", field.Label)
-				}
-				return nil, fmt.Errorf("%s needs an outbound connection, which this release does not provide", field.Label)
+				return nil, fmt.Errorf("%s is a secret and is written through the secret store", field.Label)
 			}
 			continue
 		}
@@ -80,7 +85,7 @@ func normalizeObject(ctx context.Context, fields []Field, input map[string]any, 
 
 func normalizeField(ctx context.Context, field Field, value any, path string, refs References) (any, error) {
 	switch field.Control {
-	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "time", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset", "font":
+	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "time", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset", "font", ControlConnection:
 		text, ok := value.(string)
 		if !ok {
 			return nil, fmt.Errorf("%s must be text", field.Label)
@@ -274,6 +279,24 @@ func normalizeText(ctx context.Context, field Field, text string, refs Reference
 		}
 		if refs != nil {
 			if err := refs.Font(ctx, field, id); err != nil {
+				return nil, err
+			}
+		}
+		text = id.String()
+	case ControlConnection:
+		if text == "" && !field.Required {
+			break
+		}
+		id, err := uuid.Parse(text)
+		if err != nil || id == uuid.Nil {
+			return nil, fmt.Errorf("%s must identify a connection", field.Label)
+		}
+		if refs != nil {
+			checker, ok := refs.(ConnectionReferences)
+			if !ok {
+				return nil, fmt.Errorf("%s names a connection, which this configuration does not accept", field.Label)
+			}
+			if err := checker.Connection(ctx, field, id); err != nil {
 				return nil, err
 			}
 		}

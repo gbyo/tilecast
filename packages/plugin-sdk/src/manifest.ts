@@ -8,8 +8,9 @@
  * whose Shared Runtime and native parts request versioned Player services.
  * A surface is one of those services, not what defines a plugin. Plugin
  * Manifest API 3 keeps the v2 Player contribution and adds host-owned
- * settings and instance kinds described with `@tilecast/config-schema`, and
- * the Server services the plugin's typed Go client calls.
+ * settings and instance kinds described with `@tilecast/config-schema`, the
+ * Server services the plugin's typed Go client calls, and host-owned
+ * outbound connections.
  *
  * This Zod schema is the source of the portable JSON Schema in
  * `schema/tilecast-plugin.schema.json` (Draft 2020-12). The Go SDK parses the
@@ -26,6 +27,16 @@ import {
   type ConfigField,
 } from "@tilecast/config-schema";
 import serverServices from "../server-services.json" with { type: "json" };
+import {
+  connectionProblems,
+  MAX_CONNECTION_ORIGINS,
+  MAX_CONNECTIONS,
+  MAX_MAX_RESPONSE_BYTES,
+  MAX_ORIGIN_LENGTH,
+  MAX_TIMEOUT_SECONDS,
+  MIN_MAX_RESPONSE_BYTES,
+  OPERATOR_ORIGIN,
+} from "./connections.ts";
 import {
   parseServiceReference,
   serviceReferencePattern,
@@ -71,7 +82,14 @@ export const reservedInstanceKeys = [
   "createdBy",
 ] as const;
 
-const reservedKindPaths = ["settings", "secrets", "status", "install", "kinds"];
+const reservedKindPaths = [
+  "settings",
+  "secrets",
+  "status",
+  "install",
+  "kinds",
+  "connections",
+];
 
 /** Server services a bundled API 3 plugin may declare, from the registry. */
 export const bundledServerServices: readonly {
@@ -563,6 +581,59 @@ const instanceKind = z.strictObject({
   fields: pluginFields,
 });
 
+const networkRule = z.enum(["refused", "allowed"]);
+
+const connectionDeclaration = z.strictObject({
+  id: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,39}$/)
+    .describe("Identifier that connection records and connection fields name. It never changes."),
+  title: text(80),
+  description: text(280).optional(),
+  type: z
+    .enum(["http"])
+    .describe("http: requests through http.fetch@1."),
+  origins: z
+    .union([
+      z.literal(OPERATOR_ORIGIN),
+      z
+        .array(z.string().min(1).max(MAX_ORIGIN_LENGTH))
+        .min(1)
+        .max(MAX_CONNECTION_ORIGINS),
+    ])
+    .describe(
+      'A fixed list of canonical https origins (scheme, host, and port), or "operator": an Owner or Administrator enters one origin in Studio.',
+    ),
+  privateNetwork: networkRule
+    .optional()
+    .describe(
+      "allowed makes private addresses possible after a separate operator consent. Loopback and link-local addresses are never reached.",
+    ),
+  plainHttp: networkRule
+    .optional()
+    .describe(
+      'allowed makes an operator-entered http origin on private addresses possible after its own consent. Needs origins "operator" and privateNetwork "allowed".',
+    ),
+  allowPlaintextSecret: z
+    .boolean()
+    .optional()
+    .describe(
+      "Lets a secret header travel over plain HTTP after a third consent. Needs plainHttp allowed.",
+    ),
+  maxResponseBytes: z
+    .int()
+    .min(MIN_MAX_RESPONSE_BYTES)
+    .max(MAX_MAX_RESPONSE_BYTES)
+    .optional()
+    .describe("Response body bound. Default 1 MiB, at most 16 MiB. The install review shows a larger value."),
+  timeoutSeconds: z
+    .int()
+    .min(1)
+    .max(MAX_TIMEOUT_SECONDS)
+    .optional()
+    .describe("Time bound of one request, redirects and body included. Default 10 seconds."),
+});
+
 const v3Members = {
   apiVersion: z
     .literal(3)
@@ -571,7 +642,7 @@ const v3Members = {
     .strictObject({ backgroundWorkers: z.boolean().default(false) })
     .default({ backgroundWorkers: false })
     .describe(
-      "Server declarations. Outbound access arrives with host connections in a later phase.",
+      "Server declarations. Outbound access is declared with connections.",
     ),
   studio: z
     .strictObject({
@@ -609,6 +680,13 @@ const v3Members = {
     .max(MAX_INSTANCE_KINDS)
     .default([])
     .describe("Host-owned instance kinds."),
+  connections: z
+    .array(connectionDeclaration)
+    .max(MAX_CONNECTIONS)
+    .default([])
+    .describe(
+      "Host-owned outbound connections. Plugin code names a connection record and never states an origin, an address rule, or a credential.",
+    ),
 };
 
 export const pluginManifestV1Schema = z
@@ -657,6 +735,7 @@ export type PluginManifestV1 = Extract<PluginManifest, { apiVersion: 1 }>;
 export type PluginManifestV2 = Extract<PluginManifest, { apiVersion: 2 }>;
 export type PluginManifestV3 = Extract<PluginManifest, { apiVersion: 3 }>;
 export type InstanceKind = PluginManifestV3["instances"][number];
+export type ConnectionDeclaration = PluginManifestV3["connections"][number];
 
 /** Problems of one API 3 field list beyond the shared schema rules. */
 export function pluginFieldProblems(
@@ -668,10 +747,6 @@ export function pluginFieldProblems(
   );
   const walk = (fields: readonly ConfigField[]) => {
     for (const field of fields) {
-      if (field.control === "connection")
-        problems.push(
-          `${where} field "${field.key}" is a connection; host connections arrive in a later Plugin Model V3 phase`,
-        );
       if (field.personal && field.required)
         problems.push(
           `${where} field "${field.key}" is personal and required; a personal value must be removable when its retention ends`,
@@ -761,6 +836,29 @@ export function manifestV3Problems(
           `instance kind "${kind.kind}" field "${field.key}" uses a key the host owns`,
         );
   }
+  const connections = new Set<string>();
+  for (const connection of manifest.connections ?? []) {
+    if (connections.has(connection.id))
+      problems.push(`connection "${connection.id}" is declared twice`);
+    connections.add(connection.id);
+    problems.push(...connectionProblems(connection));
+  }
+  const checkConnectionFields = (where: string, fields: readonly ConfigField[]) => {
+    for (const field of fields)
+      if (field.control === "connection")
+        for (const id of field.connections ?? [])
+          if (!connections.has(id))
+            problems.push(
+              `${where} field "${field.key}" accepts connection "${id}", which the manifest does not declare`,
+            );
+  };
+  checkConnectionFields(
+    "settings.organization",
+    (manifest.settings?.organization ?? []) as ConfigField[],
+  );
+  checkConnectionFields("settings.screen", (manifest.settings?.screen ?? []) as ConfigField[]);
+  for (const kind of manifest.instances ?? [])
+    checkConnectionFields(`instances.${kind.kind}`, (kind.fields ?? []) as ConfigField[]);
   if ((manifest.instances ?? []).length > 0) {
     if (!manifest.api)
       problems.push(

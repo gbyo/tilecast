@@ -35,13 +35,17 @@ type ServerService struct {
 	Operations  []ServerOperation
 }
 
-// ServerOperation is one fixed operation of a capability.
+// ServerOperation is one fixed operation of a capability. MaxInputBytes
+// and MaxOutputBytes are its transport bounds: the encoded input and the
+// encoded answer.
 type ServerOperation struct {
-	Name        string
-	Title       string
-	Description string
-	Mutating    bool
-	Contexts    []string
+	Name           string
+	Title          string
+	Description    string
+	Mutating       bool
+	Contexts       []string
+	MaxInputBytes  int
+	MaxOutputBytes int
 }
 
 // LookupServerService returns a capability a bundled plugin may declare.

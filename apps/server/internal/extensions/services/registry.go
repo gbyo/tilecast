@@ -50,7 +50,54 @@ type Operation struct {
 	Description       string
 	Mutating          bool
 	Contexts          []string
+	// Limits bounds the encoded input and the encoded answer of one call.
+	// Zero members use the default transport bounds. An operation asks for
+	// more only when its domain needs it, and only bundled-only operations
+	// do in this release, so the package call window does not change.
+	Limits TransportLimits
 }
+
+// TransportLimits are the wire bounds of one call: the JSON input, and the
+// JSON envelope or data of the answer. They are not domain limits. A domain
+// limit, such as the raw size of an HTTP body, is checked by the operation;
+// the transport limit only has room for the bounded JSON representation of
+// it, base64 included.
+type TransportLimits struct {
+	MaxInputBytes  int
+	MaxOutputBytes int
+}
+
+// MaxTransportBytes is the largest transport bound any operation may ask
+// for. It is above the largest Phase 2 answer: a 16 MiB HTTP body in base64
+// with its metadata.
+const MaxTransportBytes = 24 << 20
+
+// LimitsOf returns an operation's transport bounds with the defaults
+// applied.
+func LimitsOf(operation Operation) TransportLimits {
+	limits := operation.Limits
+	if limits.MaxInputBytes <= 0 {
+		limits.MaxInputBytes = MaxInputBytes
+	}
+	if limits.MaxOutputBytes <= 0 {
+		limits.MaxOutputBytes = MaxOutputBytes
+	}
+	return limits
+}
+
+// OperationLimits returns the transport bounds of an operation token, or
+// the defaults for a token the registry does not know. The Wasm host uses
+// it to bound a read before the dispatcher resolves the call.
+func OperationLimits(name string) TransportLimits {
+	operation, _, ok := LookupOperation(name)
+	if !ok {
+		return TransportLimits{MaxInputBytes: MaxInputBytes, MaxOutputBytes: MaxOutputBytes}
+	}
+	return LimitsOf(operation)
+}
+
+// base64Size is the length of standard base64 for n bytes.
+func base64Size(n int) int { return (n + 2) / 3 * 4 }
 
 // Callers of a capability. A package calls through tilecast.call_v1 and
 // holds an install-time grant; a bundled API 3 plugin calls through the
@@ -293,7 +340,31 @@ var capabilities = []Capability{
 			{Name: "secrets.read@1/get", CapabilityID: "secrets.read", CapabilityVersion: 1, Title: "Read secret", Description: "Read one of this plugin's secrets. An unset or unreadable secret answers secret_unavailable.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
 		},
 	},
+	{
+		// Bundled only until installed-plugin parity (ADR phase 6). The old
+		// package http_fetch import keeps its own contract.
+		ID:          "http.fetch",
+		Version:     1,
+		Name:        "Outbound HTTP",
+		Description: "Send HTTP requests through this plugin's own host connections.",
+		Category:    CategoryRead,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "http.fetch@1/request", CapabilityID: "http.fetch", CapabilityVersion: 1, Title: "Send request", Description: "Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxInputBytes: HTTPFetchMaxInputBytes, MaxOutputBytes: HTTPFetchMaxOutputBytes}},
+		},
+	},
 }
+
+// http.fetch@1 transport bounds. The input holds a body of at most 1 MiB in
+// base64, the URL, and at most 16 KiB of headers. The answer holds a body of
+// at most 16 MiB in base64 and bounded response headers.
+const (
+	httpFetchEnvelopeRoom   = 64 << 10
+	HTTPFetchMaxInputBytes  = (1<<20+2)/3*4 + httpFetchEnvelopeRoom
+	HTTPFetchMaxOutputBytes = (16<<20+2)/3*4 + httpFetchEnvelopeRoom
+)
 
 // All returns the registry in stable ID order.
 func All() []Capability {

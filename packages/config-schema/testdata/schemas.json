@@ -37,7 +37,47 @@
     "name": "widget refuses connection",
     "profile": "widget",
     "valid": false,
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["calendar"] }]
+  },
+  {
+    "name": "plugin connection without accepted declarations",
+    "profile": "plugin",
+    "valid": false,
     "fields": [{ "key": "service", "label": "Service", "control": "connection" }]
+  },
+  {
+    "name": "plugin connection with nine declarations",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [
+      { "key": "service", "label": "Service", "control": "connection", "connections": ["a", "b", "c", "d", "e", "f", "g", "h", "i"] }
+    ]
+  },
+  {
+    "name": "plugin connection with a repeated declaration",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["a", "a"] }]
+  },
+  {
+    "name": "plugin connection with an invalid declaration ID",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["Calendar"] }]
+  },
+  {
+    "name": "plugin connection with a default",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [
+      { "key": "service", "label": "Service", "control": "connection", "connections": ["a"], "default": "00000000-0000-4000-8000-000000000001" }
+    ]
+  },
+  {
+    "name": "connections on a text field",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [{ "key": "name", "label": "Name", "control": "text", "connections": ["a"] }]
   },
   {
     "name": "widget refuses personal",
@@ -53,7 +93,7 @@
     "valid": true,
     "fields": [
       { "key": "token", "label": "Token", "control": "secret", "required": true, "maxLength": 512 },
-      { "key": "service", "label": "Service", "control": "connection" },
+      { "key": "service", "label": "Service", "control": "connection", "connections": ["calendar"] },
       { "key": "visitor", "label": "Visitor", "control": "text", "personal": { "retentionDays": 30 } }
     ]
   },
