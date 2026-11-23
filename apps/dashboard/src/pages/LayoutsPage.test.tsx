@@ -107,6 +107,12 @@ const newAnnouncementLayout = {
 };
 
 beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(any-hover: hover) and (any-pointer: fine)",
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
   HTMLDialogElement.prototype.showModal = function showModal() {
     this.open = true;
     this.setAttribute("open", "");
@@ -137,6 +143,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function renderPage() {
