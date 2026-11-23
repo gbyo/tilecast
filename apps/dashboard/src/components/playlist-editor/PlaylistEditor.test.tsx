@@ -12,7 +12,7 @@ import {
 import { Link, createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
-import type { Playlist } from "../../api/types";
+import type { LayoutSummary, Playlist } from "../../api/types";
 import * as authModule from "../../auth/AuthProvider";
 import { toast } from "../ui/toast";
 import { PlaylistEditorPage } from "./PlaylistEditor";
@@ -97,7 +97,7 @@ function mockServer(overrides: Partial<Playlist> = {}) {
     isLoading: false,
   } as unknown as ReturnType<typeof authModule.useAuth>);
   vi.spyOn(api, "playlist").mockResolvedValue({ ...playlist(), ...overrides });
-  vi.spyOn(api, "layouts").mockResolvedValue({
+  vi.spyOn(api, "layoutPage").mockResolvedValue({
     items: [],
     total: 0,
     page: 1,
@@ -379,6 +379,64 @@ describe("PlaylistEditor panes", () => {
     expect(
       await screen.findByRole("dialog", { name: "Add published Layout" }),
     ).toBeInTheDocument();
+  });
+
+  it("searches published Layouts on demand and confirms before adding one", async () => {
+    mockDesktop();
+    mockServer();
+    const layout = (id: string, name: string, revision: number) =>
+      ({
+        id,
+        name,
+        description: "",
+        draftRevision: revision + 1,
+        publishedRevision: revision,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      }) as LayoutSummary;
+    const published = layout("l1", "Cafeteria layout", 3);
+    const draft = layout("l2", "Draft layout", 0);
+    const list = vi.mocked(api.layoutPage).mockImplementation((search) =>
+      Promise.resolve({
+        items: search ? [published, draft] : [],
+        total: search ? 2 : 0,
+        page: 1,
+        pageSize: 100,
+      }),
+    );
+    const add = vi.spyOn(api, "addPlaylistItem").mockResolvedValue(playlist());
+    renderEditor();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "More ways to add" }),
+    );
+    expect(list).not.toHaveBeenCalled();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Published Layout" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add published Layout",
+    });
+    fireEvent.change(within(dialog).getByPlaceholderText("Search layouts"), {
+      target: { value: "Cafeteria" },
+    });
+    const choice = await within(dialog).findByRole("button", {
+      name: /Cafeteria layout/,
+    });
+    expect(list).toHaveBeenCalledWith("Cafeteria", 1);
+    expect(within(dialog).queryByText("Draft layout")).not.toBeInTheDocument();
+    fireEvent.click(choice);
+    expect(add).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add to playlist" }),
+    );
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({ layoutId: "l1", durationMs: 30000 }),
+        "token",
+      ),
+    );
   });
 
   it("confirms before removing an item from the row menu", async () => {
