@@ -86,7 +86,7 @@ describe("SiteHeader", () => {
     const notifications = screen.getByRole("button", { name: /Notifications/ });
     expect(search.className).toContain("size-11");
     expect(notifications.className).toContain("size-11");
-    expect(search.textContent).not.toContain("Search Tilecast");
+    expect(screen.getByText("Search Tilecast").className).toContain("sr-only");
   });
 
   it("shows an editor's draft name in the last breadcrumb only", async () => {

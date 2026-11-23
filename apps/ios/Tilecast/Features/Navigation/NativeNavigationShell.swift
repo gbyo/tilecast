@@ -37,8 +37,9 @@ struct NativeTabNavigation: View {
                 }
             }
             Tab(value: NavigationTab.more) {
-                // Studio is behind the tabs and this container is transparent,
-                // so the list and Studio take turns instead of stacking.
+                // The list and Studio take turns in the same adaptive tab.
+                // iPhone composites Studio behind the tab container; iPad
+                // overlays Studio only inside this tab's measured content slot.
                 if navigation.frontendTab == .more {
                     NavigationStack {
                         StudioSlotView(extendsBelowTabBar: true)
@@ -67,9 +68,9 @@ struct NativeTabNavigation: View {
         .background(.clear)
     }
 
-    /// Studio appears in exactly one tab at a time. Its slot reaches beneath
-    /// the floating tab bar, and the web view is drawn behind the tabs, so
-    /// the glass samples the page itself.
+    /// Studio appears in exactly one tab at a time. On iPhone its slot reaches
+    /// beneath the floating tab bar so the glass samples the page. On iPad the
+    /// slot instead bounds the overlay to the system tab/sidebar detail area.
     @ViewBuilder private func studio(in tab: NavigationTab) -> some View {
         NavigationStack {
             if navigation.frontendTab == tab {

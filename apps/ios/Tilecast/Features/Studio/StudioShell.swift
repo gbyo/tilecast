@@ -21,10 +21,10 @@ struct StudioShell: View {
     var body: some View {
         // The one web view is a sibling of the shell, never a child of a
         // layout, so changing the order does not rebuild it. It is above the
-        // shell in the fallback layout. With native navigation it is behind
-        // the transparent adaptive tab container, so iPhone's bottom tab bar
-        // and iPadOS's top tab bar/sidebar can remain system-owned without
-        // rebuilding or duplicating the WebView.
+        // shell in the fallback layout. On iPhone native navigation it moves
+        // behind the transparent tab container so the floating bottom bar can
+        // sample Studio. On iPad it stays above the shell but only inside the
+        // selected content slot, leaving the system tab bar/sidebar exposed.
         ZStack {
             shell.zIndex(webViewBehindTabs ? 1 : 0)
             StudioOverlay().zIndex(webViewBehindTabs ? 0 : 1)
