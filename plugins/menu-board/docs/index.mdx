@@ -1,0 +1,64 @@
+---
+title: Square Menu Board
+description: Show a menu with prices, pictures, and sold-out items from your Square item library.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+**Square Menu Board** shows your Square item library as a menu: categories, names, prices, and pictures. It reads the library with read-only access and never changes an item or a price.
+
+## Before you start
+
+- Set `TILECAST_PUBLIC_URL` to the `https` address people use to reach Studio. Square only sends a sign-in result to an `https` address.
+- You need a Square Developer application. Tilecast does not ship a shared Square application.
+
+## Set up Square
+
+<Steps>
+
+1. Install **Square Menu Board** from **Operations** > **Plugins**, open it, and select **Connections** > **New connection**. Choose **Square** and name it.
+2. Copy the **Redirect URI** from the connection's **Provider account** section.
+3. In the Square Developer Dashboard, open your application's **OAuth** page and set that address as the **Redirect URL**.
+4. Back in Tilecast, enter the application ID as **Client ID** and the application secret as **Client secret**, select **Save client**, then select **Connect** and sign in to the Square account that owns the item library. Tilecast asks only for permission to read items (`ITEMS_READ`).
+5. For pictures, create a second connection of kind **Square item images**. It needs no sign-in and sends no Square credential.
+
+</Steps>
+
+Square has no standard address to revoke access from Tilecast. When you select **Disconnect**, Tilecast deletes its own tokens; remove the application's access in your Square account too.
+
+## Add a menu
+
+<Steps>
+
+1. On the plugin page, select **New menu** and choose the Square connection and, for pictures, the images connection.
+2. Optionally enter your **Square location ID**. Then items that location does not sell are left out, and items sold out there show as unavailable.
+3. Save. The menu appears within a few seconds, and pictures follow shortly after.
+
+</Steps>
+
+To try a screen before you connect Square, turn on **Show a sample menu**. Demo Mode uses the same sample.
+
+## Show the menu
+
+Each menu publishes a Data Source. Add the **Square Menu** Widget to a playlist or Layout zone and choose that menu's Data Source. You can set a heading, the sold-out label, whether to show descriptions and pictures, and how many items to show.
+
+## Change what the sign shows
+
+Open **Feeds** on the plugin page and select **View** on an item. Square stays in charge of what must be right at the register; you decide how the sign looks:
+
+| Field | Who decides | Why |
+| --- | --- | --- |
+| Price, currency, availability | Square, always | A sign must never show a price or availability your register does not have. |
+| Square ID | Square, always | It identifies the item. |
+| Name, description | You, until Square changes it | A clearer name for the sign stays until the item itself changes in Square. |
+| Sign label, sign order, show on signs | You | These only affect signs, so your choice always wins. |
+
+## Pictures
+
+Tilecast downloads each item's first picture itself after every update, over HTTPS only, and keeps it privately for this plugin. Pictures never appear in your Media library. A picture that no item uses any more is deleted after 24 hours. If a picture can't be downloaded, the item shows without one and the feed page says why.
+
+## How syncing works
+
+Tilecast reads the item library about every ten minutes, page by page, with the Square API version `2026-11-18`. It keeps only a short summary of the last read on your server; the menu itself is the published feed. If Square can't be reached, screens keep the last menu, and after an hour the menu says that prices may be out of date.
+
+See [Data that plugins publish](/operations/plugins/#data-that-plugins-publish) and [Plugin feeds](https://github.com/gbyo/tilecast/blob/main/docs/plugin-feeds.md) for the exact rules.

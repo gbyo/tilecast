@@ -7,6 +7,8 @@ import (
 	countdownbar "github.com/tilecast/tilecast/plugins/countdown-bar"
 	emergencyalerts "github.com/tilecast/tilecast/plugins/emergency-alerts"
 	forms "github.com/tilecast/tilecast/plugins/forms"
+	menuboard "github.com/tilecast/tilecast/plugins/menu-board"
+	roomsign "github.com/tilecast/tilecast/plugins/room-sign"
 )
 
 // Bundled returns every first-party plugin compiled into this release, in
@@ -17,5 +19,7 @@ func Bundled() []plugin.Plugin {
 		countdownbar.New(),
 		emergencyalerts.New(),
 		forms.New(),
+		menuboard.New(),
+		roomsign.New(),
 	}
 }
