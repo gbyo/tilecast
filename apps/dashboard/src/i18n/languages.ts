@@ -9,6 +9,7 @@ export const SUPPORTED_LANGUAGES = [
   "hi",
   "pt",
   "bn",
+  "zh",
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -27,6 +28,7 @@ export const NATIVE_LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   hi: "हिन्दी",
   pt: "Português",
   bn: "বাংলা",
+  zh: "简体中文",
 };
 
 const cacheKey = "tilecast.language";

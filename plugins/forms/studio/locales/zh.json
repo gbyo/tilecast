@@ -49,6 +49,7 @@
   },
   "builder": {
     "actions": {
+      "move": "移动",
       "moveUp": "上移",
       "moveDown": "下移",
       "moveTop": "移至顶部",

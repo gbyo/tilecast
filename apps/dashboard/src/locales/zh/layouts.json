@@ -191,7 +191,12 @@
     "snapOff": "吸附：关闭",
     "safeAreaOn": "安全区域：开启",
     "safeAreaOff": "安全区域：关闭",
-    "zoomPresets": "缩放预设"
+    "zoomPresets": "缩放预设",
+    "toastPublishFailed": "布局未发布。",
+    "toastSubmitFailed": "布局未提交审核。",
+    "toastRenameFailed": "布局未重命名。",
+    "toastRestoreFailed": "布局修订版未恢复。",
+    "menuDistribute": "分布"
   },
   "orientation": {
     "landscape": "横向",

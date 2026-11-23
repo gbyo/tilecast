@@ -3,7 +3,7 @@
 Tilecast Studio is translated with [i18next](https://www.i18next.com/) and
 [react-i18next](https://react.i18next.com/). English is the source language.
 Spanish (`es`), Russian (`ru`), French (`fr`), Hindi (`hi`), Portuguese
-(`pt`), and Bengali (`bn`) ship alongside it.
+(`pt`), Bengali (`bn`), and Simplified Chinese (`zh`) ship alongside it.
 
 All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
 `common`, `content`, `errors`, `forms`, `layouts`, `navigation`, `playlists`,
@@ -44,7 +44,7 @@ are translated in Studio by error code (see [API errors](#api-errors)).
 ### Choosing the language
 
 The per-user setting `preference.language` lives in the server settings
-registry: `system`, `en`, `es`, `ru`, `fr`, `hi`, `pt`, or `bn`, defaulting to `system`. People change
+registry: `system`, `en`, `es`, `ru`, `fr`, `hi`, `pt`, `bn`, or `zh`, defaulting to `system`. People change
 it under **My Account → Preferences**, and the choice previews live until they
 save or cancel.
 

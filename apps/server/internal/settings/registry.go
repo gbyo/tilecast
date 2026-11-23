@@ -186,7 +186,7 @@ var definitions = []Definition{
 	{Key: "preference.appearance", Category: "interface", Type: "enum", Default: "system", Allowed: []string{"system", "light", "dark"}, Scope: ScopePreference, Title: "Appearance", Immediate: true},
 	// "system" follows the browser. Studio falls back to English for any
 	// language it does not ship, so this list grows only with a locale.
-	{Key: "preference.language", Category: "interface", Type: "enum", Default: "system", Allowed: []string{"system", "en", "es", "ru", "fr", "hi", "pt", "bn"}, Scope: ScopePreference, Title: "Language", Immediate: true},
+	{Key: "preference.language", Category: "interface", Type: "enum", Default: "system", Allowed: []string{"system", "en", "es", "ru", "fr", "hi", "pt", "bn", "zh"}, Scope: ScopePreference, Title: "Language", Immediate: true},
 	{Key: "preference.density", Category: "interface", Type: "enum", Default: "comfortable", Allowed: []string{"comfortable", "compact"}, Scope: ScopePreference, Title: "Interface density", Immediate: true},
 	{Key: "preference.reduced_motion", Category: "interface", Type: "bool", Default: false, Scope: ScopePreference, Title: "Reduced motion", Immediate: true},
 	{Key: "preference.time_format", Category: "interface", Type: "enum", Default: "organization", Allowed: []string{"organization", "12-hour", "24-hour"}, Scope: ScopePreference, Title: "Time format"},

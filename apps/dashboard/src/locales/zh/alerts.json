@@ -250,6 +250,10 @@
     "liveBadge": "直播",
     "targetLine": "目标为 <strong>{{target}}</strong>。实际刷新取决于播放器和网络。",
     "privacyNote": "此直播仅在此窗口打开时中继。帧不会保存到快照、实时预览、活动或备份中。",
-    "stopWatching": "停止观看"
+    "stopWatching": "停止观看",
+    "negotiating": "正在为此播放器和浏览器选择最佳流格式。",
+    "targetNegotiating": "双方均支持的最佳格式",
+    "targetValueH264": "{{fps}} FPS · {{width}}×{{height}} · H.264（约 {{megabits}} Mbit/s）",
+    "targetValueMjpeg": "{{fps}} FPS · {{width}}×{{height}} · MJPEG"
   }
 }

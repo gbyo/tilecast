@@ -45,7 +45,12 @@
       "edit": "编辑计划",
       "open": "打开计划",
       "delete": "删除计划",
-      "actionsFor": "{{name}} 的操作"
+      "actionsFor": "{{name}} 的操作",
+      "enable": "启用日程",
+      "disable": "停用日程",
+      "enabled": "日程已启用。",
+      "disabled": "日程已停用。",
+      "toggleFailed": "无法更改日程状态。"
     }
   },
   "agenda": {

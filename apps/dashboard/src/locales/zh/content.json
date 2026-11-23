@@ -459,7 +459,16 @@
       "selection": "选择",
       "titleCreate": "创建手动表格数据源",
       "titleEdit": "编辑手动表格数据源",
-      "typeForColumn": "{{label}} 的类型"
+      "typeForColumn": "{{label}} 的类型",
+      "entryMode": "输入模式",
+      "simpleList": "简单列表",
+      "simpleListUnavailable": "简单列表仅适用于恰好包含一个文本列且没有多行单元格的表格。",
+      "tableMode": "表格",
+      "textListCount": "条目：{{count}}/200",
+      "textListHint": "每行输入或粘贴一个条目。空行将被忽略，顺序会被保留。",
+      "textListLabel": "文本条目",
+      "textListTooLong": "每个列表条目最多可包含 500 个字符。",
+      "textListTooMany": "列表最多可包含 200 个非空行。"
     },
     "options": {
       "agenda": "日程",
@@ -787,7 +796,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "移除 {{label}} {{index}}",
         "addEntry": "添加条目",
-        "noEntries": "无"
+        "noEntries": "无",
+        "tilecastFont": "Tilecast 字体"
       },
       "data": {
         "none": "未连接数据",
@@ -1274,7 +1284,9 @@
   },
   "media": {
     "action": {
-      "deletePermanently": "永久删除"
+      "deletePermanently": "永久删除",
+      "editDetails": "编辑详情",
+      "organize": "整理…"
     },
     "archiveDialog": {
       "description": "归档项目会保持可用，直到您恢复或永久删除。",

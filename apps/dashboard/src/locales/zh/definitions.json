@@ -217,6 +217,14 @@
       "customUserAgent": {
         "label": "自定义用户代理",
         "description": "留空以使用播放器的标准用户代理。覆盖设置可能导致网站无法正常运行。"
+      },
+      "dataSourceId": {
+        "label": "数据源",
+        "description": "可选。使用 {data.room} 获取第一条记录的 room 字段，使用 {data.room:1} 获取第二条记录，或使用 {data.json} 以 JSON 格式获取所有记录。还可使用：{screen.id}、{date}、{time}、{datetime}。"
+      },
+      "urlTemplatesEnabled": {
+        "label": "启用 URL 变量",
+        "description": "替换屏幕、日期、时间和数据源变量。需要兼容的播放器。"
       }
     }
   },

@@ -26,7 +26,9 @@ describe("language resolution", () => {
   it("matches the first shipped browser language on its primary subtag", () => {
     expect(detectBrowserLanguage(["de-DE", "es-MX", "ru"])).toBe("es");
     expect(detectBrowserLanguage(["RU-ru"])).toBe("ru");
-    expect(detectBrowserLanguage(["de", "fr"])).toBe("en");
+    expect(detectBrowserLanguage(["de", "fr"])).toBe("fr");
+    expect(detectBrowserLanguage(["zh-CN"])).toBe("zh");
+    expect(detectBrowserLanguage(["de"])).toBe("en");
     expect(detectBrowserLanguage([])).toBe("en");
   });
 

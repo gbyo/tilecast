@@ -52,7 +52,13 @@
       "hoursAgo_other": "{{count}} 小时前更新",
       "daysAgo_other": "{{count}} 天前更新",
       "onDate": "更新于 {{date}}"
-    }
+    },
+    "actions": {
+      "edit": "编辑播放列表",
+      "open": "打开播放列表",
+      "duplicate": "复制"
+    },
+    "actionsFor": "{{name}}的操作"
   },
   "preview": {
     "preparingWidget": "正在准备小组件…",
@@ -363,7 +369,8 @@
     "emptyPlaylistTitle": "此播放列表为空",
     "actions": {
       "inspect": "检查",
-      "remove": "从播放列表移除"
+      "remove": "从播放列表移除",
+      "move": "移动"
     }
   },
   "history": {
