@@ -13,6 +13,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { toast } from "../components/ui/toast";
 import * as authModule from "../auth/AuthProvider";
 import type { Asset, Layout, LayoutDocument } from "../api/types";
 import * as previewCapture from "../content/widgetPreviewCapture";
@@ -71,12 +72,13 @@ function buildLayout(): Layout {
   };
 }
 
-function mockAuth() {
+function mockAuth(canPublish = false) {
   vi.spyOn(authModule, "useAuth").mockReturnValue({
     status: {
       authenticated: true,
       user: { id: "u1", name: "User", username: "user", role: "owner" },
       csrfToken: "tok",
+      capabilities: canPublish ? ["layout.edit", "layout.publish"] : [],
     },
     isLoading: false,
   } as unknown as ReturnType<typeof authModule.useAuth>);
@@ -379,6 +381,68 @@ describe("Layout editor chrome", () => {
     expect(screen.getByRole("menuitem", { name: /Save now/ })).toHaveAttribute(
       "data-disabled",
     );
+  });
+
+  it("keeps publishing visible on tablet layouts while secondary commands stay in the file menu", async () => {
+    mockAuth(true);
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+    const fileActions = screen.getByRole("button", {
+      name: "Layout file actions",
+    });
+    fireEvent.click(fileActions);
+    expect(await screen.findByText("Draft only")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Preview" })).toBeVisible();
+  });
+
+  it("reports review-required publication as a submission", async () => {
+    mockAuth(true);
+    mockDesktop();
+    const add = vi.spyOn(toast, "add");
+    const publish = vi.spyOn(api, "publishLayout").mockResolvedValue({
+      id: "submission-1",
+      contentType: "layout",
+      contentId: "layout-1",
+      workingRevision: 1,
+      snapshot: {},
+      snapshotSha256: "c".repeat(64),
+      submittedAt: "2026-09-30T06:30:00.000Z",
+      status: "in_review",
+      reviewRequired: true,
+      allowSelfApproval: false,
+      newerWorkingDraft: false,
+      affectedScreenCount: 2,
+      affectedLocationCount: 2,
+    });
+    renderLayoutEditor();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Publish" }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Layout submitted for review.",
+          description: "2 screens across 2 locations",
+        }),
+      ),
+    );
+    expect(publish).toHaveBeenCalledWith("layout-1", 1, "tok");
+    expect(add).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Layout published." }),
+    );
+  });
+
+  it("shows the publication state separately from autosave on desktop", async () => {
+    mockAuth(true);
+    mockDesktop();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+
+    expect(screen.getByText("Draft only")).toBeVisible();
+    expect(saveStatus()).toHaveTextContent("Saved");
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
   });
 
   it("reports autosave as status text rather than a disabled button", async () => {

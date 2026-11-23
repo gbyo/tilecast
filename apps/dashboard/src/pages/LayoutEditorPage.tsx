@@ -58,7 +58,9 @@ import { Field, FieldLabel } from "../components/ui/field";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
@@ -97,6 +99,8 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
+import { useNarrowHeader } from "../components/content/widget-editor/header/useNarrowHeader";
 import {
   isEditorCommandShortcutTarget,
   isInteractiveShortcutTarget,
@@ -644,6 +648,7 @@ export function LayoutEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation(["layouts", "common"]);
+  const { t: tReview } = useTranslation("review");
   const nativePresentations = useNativePresentationAvailable();
   // Library faces must be registered before Layout text can draw in them.
   useLibraryFonts();
@@ -765,6 +770,10 @@ export function LayoutEditorPage() {
   const [panMode, setPanMode] = useState<"idle" | "ready" | "dragging">("idle");
   const zoom = view.zoom;
   const desktop = useDesktopLayout();
+  const phone = usePhoneLayout();
+  // The Layout menubar has more command families than the other editors.
+  const narrowHeader = useNarrowHeader(1000);
+  const fullHeader = desktop && !narrowHeader;
   const [snap, setSnap] = useState(true);
   const [safeArea, setSafeArea] = useState(true);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -1379,23 +1388,43 @@ export function LayoutEditorPage() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
-  const publish = useMutation<unknown, ApiError>({
+  const publish = useMutation<
+    Awaited<ReturnType<typeof api.publishLayout>>,
+    ApiError
+  >({
     mutationFn: () =>
       canPublish
-        ? api.publishLayout(id, serverRevision, csrf)
-        : api.submitContent("layout", id, csrf, undefined, serverRevision),
-    onSuccess: () => {
+        ? api.publishLayout(id, revisionRef.current, csrf)
+        : api.submitContent("layout", id, csrf, undefined, revisionRef.current),
+    onSuccess: async (result) => {
+      // The direct legacy path returns a LayoutRevision; the editorial path
+      // can instead return a submission awaiting review.
+      const submission =
+        "submission" in result
+          ? result.submission
+          : "status" in result
+            ? result
+            : undefined;
+      const published = !submission || submission.status === "published";
       toast.add({
-        title: canPublish
+        title: published
           ? t("editor.toastPublished")
           : t("editor.toastSubmitted"),
+        description: submission
+          ? tReview("submissions.detail.coverage", {
+              screens: submission.affectedScreenCount,
+              locations: submission.affectedLocationCount,
+            })
+          : undefined,
         type: "success",
       });
-      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
-      void queryClient.invalidateQueries({ queryKey: ["content-submissions"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["content-history", "layout", id],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: layoutKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["content-submissions"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["content-history", "layout", id],
+        }),
+      ]);
     },
     onError: (error) => {
       toast.add({
@@ -2412,6 +2441,26 @@ export function LayoutEditorPage() {
         <Skeleton className="h-[60vh]" />
       </div>
     );
+  const publishedRevision = layoutQuery.data?.publishedRevision;
+  const publicationLabel = !publishedRevision
+    ? t("library.publicationDraft")
+    : layoutQuery.data?.hasUnpublishedChanges || saveState !== "saved"
+      ? t("library.publicationChanges")
+      : t("library.publicationPublished", { revision: publishedRevision });
+  const publishDisabled =
+    saveState !== "saved" ||
+    publish.isPending ||
+    zoneIssues.issues.length > 0;
+  const requestPublish = () => {
+    if (
+      canSubmit &&
+      !publishDisabled &&
+      !savingRef.current &&
+      savedChangeVersionRef.current === changeVersionRef.current
+    ) {
+      publish.mutate();
+    }
+  };
   const libraryAssets = [...(contentQuery.data?.items ?? []), ...pickedAssets];
   const libraryPlaylists = [
     ...(playlistsQuery.data?.items ?? []),
@@ -3866,7 +3915,7 @@ export function LayoutEditorPage() {
         left={
           <>
             <div className="flex shrink-0 items-center gap-2">
-              {desktop ? (
+              {fullHeader ? (
                 <Menubar
                   aria-label={t("editor.menubar.label")}
                   className="shrink-0"
@@ -3918,12 +3967,8 @@ export function LayoutEditorPage() {
                         <>
                           <MenubarSeparator />
                           <MenubarItem
-                            disabled={
-                              saveState !== "saved" ||
-                              publish.isPending ||
-                              zoneIssues.issues.length > 0
-                            }
-                            onClick={() => publish.mutate()}
+                            disabled={publishDisabled}
+                            onClick={requestPublish}
                           >
                             {canPublish
                               ? t("editor.publishAction")
@@ -4183,6 +4228,10 @@ export function LayoutEditorPage() {
                     <MoreHorizontal aria-hidden="true" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="min-w-48">
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>{publicationLabel}</DropdownMenuLabel>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       disabled={rename.isPending}
                       onClick={() =>
@@ -4229,12 +4278,8 @@ export function LayoutEditorPage() {
                     </DropdownMenuItem>
                     {canSubmit && (
                       <DropdownMenuItem
-                        disabled={
-                          saveState !== "saved" ||
-                          publish.isPending ||
-                          zoneIssues.issues.length > 0
-                        }
-                        onClick={() => publish.mutate()}
+                        disabled={publishDisabled}
+                        onClick={requestPublish}
                       >
                         {publish.isPending && <Spinner aria-hidden="true" />}
                         {canPublish
@@ -4246,7 +4291,7 @@ export function LayoutEditorPage() {
                 </DropdownMenu>
               )}
             </div>
-            {desktop && (
+            {fullHeader && (
               <ButtonGroup
                 aria-label={t("editor.undoRedoLabel")}
                 className="shrink-0"
@@ -4298,9 +4343,16 @@ export function LayoutEditorPage() {
           </>
         }
         right={
-          desktop ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <LayoutSaveStatus state={saveState} onRetry={() => void save()} />
+          <div className="flex shrink-0 items-center gap-2">
+            {fullHeader && (
+              <Badge variant="outline">{publicationLabel}</Badge>
+            )}
+            <LayoutSaveStatus
+              state={saveState}
+              onRetry={() => void save()}
+              compact={!fullHeader}
+            />
+            {fullHeader && (
               <Button
                 type="button"
                 variant="outline"
@@ -4311,32 +4363,22 @@ export function LayoutEditorPage() {
                 <Play aria-hidden="true" />
                 {t("editor.toolbarPreview")}
               </Button>
-              {canSubmit && (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={
-                    saveState !== "saved" ||
-                    publish.isPending ||
-                    zoneIssues.issues.length > 0
-                  }
-                  aria-busy={publish.isPending || undefined}
-                  onClick={() => publish.mutate()}
-                >
-                  {publish.isPending && <Spinner aria-hidden="true" />}
-                  {canPublish
-                    ? t("editor.publishAction")
-                    : t("editor.submitAction")}
-                </Button>
-              )}
-            </div>
-          ) : (
-            <LayoutSaveStatus
-              state={saveState}
-              onRetry={() => void save()}
-              compact
-            />
-          )
+            )}
+            {!phone && canSubmit && (
+              <Button
+                type="button"
+                size="sm"
+                disabled={publishDisabled}
+                aria-busy={publish.isPending || undefined}
+                onClick={requestPublish}
+              >
+                {publish.isPending && <Spinner aria-hidden="true" />}
+                {canPublish
+                  ? t("editor.publishAction")
+                  : t("editor.submitAction")}
+              </Button>
+            )}
+          </div>
         }
       />
       {saveState === "conflict" && (
@@ -4376,7 +4418,10 @@ export function LayoutEditorPage() {
                   <button
                     type="button"
                     className="underline underline-offset-2"
-                    onClick={() => setSelection(new Set([issue.placementId]))}
+                    onClick={() => {
+                      setSelection(new Set([issue.placementId]));
+                      if (!desktop) setMobileInspectorOpen(true);
+                    }}
                   >
                     {issue.placementName}
                   </button>
