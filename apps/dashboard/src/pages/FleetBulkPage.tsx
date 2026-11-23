@@ -223,6 +223,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
   const preview = currentReview?.preview;
   const locked = apply.isPending || undo.isPending;
   const requestPreview = () => {
+    setReview(undefined);
     apply.reset();
     build.mutate(buildRequest());
   };
@@ -490,7 +491,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
           preview={preview}
           applying={apply.isPending}
           applyError={apply.error}
-          reviewing={build.isPending}
+          reviewing={build.isPending || undo.isPending}
           onApply={() => {
             if (currentReview) apply.mutate(currentReview);
           }}
@@ -809,7 +810,9 @@ function PreviewSection({
           </Button>
           <Button
             type="button"
-            disabled={applying || reviewing || stale || preview.changeCount === 0}
+            disabled={
+              applying || reviewing || stale || preview.changeCount === 0
+            }
             onClick={onApply}
           >
             {applying
