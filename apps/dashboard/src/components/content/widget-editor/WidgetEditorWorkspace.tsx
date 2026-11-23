@@ -21,7 +21,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useCompactLayout } from "@/hooks/use-compact-layout";
 import { useDesktopLayout } from "@/hooks/use-desktop-layout";
 import { usePhoneLayout } from "@/hooks/use-phone-layout";
 import { useAutomaticFieldMapping } from "./fields/useAutomaticFieldMapping";
@@ -63,7 +62,6 @@ export function WidgetEditorWorkspace({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const desktop = useDesktopLayout();
-  const compact = useCompactLayout();
   const phone = usePhoneLayout();
   // Read once: React keeps only the first value, so only the first render
   // should touch browser storage.
@@ -76,7 +74,7 @@ export function WidgetEditorWorkspace({
   });
 
   const preview = (
-    <WidgetPreviewPane session={session} csrf={csrf} compact={compact} />
+    <WidgetPreviewPane session={session} csrf={csrf} compact={phone} />
   );
   const inspector = <WidgetInspector session={session} csrf={csrf} />;
 
