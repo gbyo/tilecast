@@ -784,7 +784,15 @@
       "widgetsUsing_one": "Used by {{count}} Widget",
       "widgetsUsing_other": "Used by {{count}} Widgets",
       "imageIssues_one": "{{count}} image problem",
-      "imageIssues_other": "{{count}} image problems"
+      "imageIssues_other": "{{count}} image problems",
+      "review": {
+        "title": "Data for screens",
+        "perInstance": "Publishes a Data Source ({{provider}}) for each item you create.",
+        "organization": "Publishes one Data Source ({{provider}}).",
+        "images": "Downloads pictures from the provider and keeps them privately for this plugin.",
+        "personal_one": "{{field}} is personal data, deleted {{count}} day after it last changes",
+        "personal_other": "{{field}} is personal data, deleted {{count}} days after it last changes"
+      }
     }
   },
   "secrets": {

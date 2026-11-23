@@ -791,7 +791,16 @@
       "imageIssues_other": "{{count}} problemas de imagen",
       "records_many": "{{count}} registros",
       "widgetsUsing_many": "Usada por {{count}} widgets",
-      "imageIssues_many": "{{count}} problemas de imagen"
+      "imageIssues_many": "{{count}} problemas de imagen",
+      "review": {
+        "title": "Datos para pantallas",
+        "perInstance": "Publica una fuente de datos ({{provider}}) por cada elemento que cree.",
+        "organization": "Publica una fuente de datos ({{provider}}).",
+        "images": "Descarga imágenes del proveedor y las guarda de forma privada para este plugin.",
+        "personal_one": "{{field}} es un dato personal y se elimina {{count}} día después de su último cambio",
+        "personal_many": "{{field}} es un dato personal y se elimina {{count}} días después de su último cambio",
+        "personal_other": "{{field}} es un dato personal y se elimina {{count}} días después de su último cambio"
+      }
     }
   },
   "secrets": {
