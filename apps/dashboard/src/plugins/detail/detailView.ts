@@ -260,6 +260,36 @@ export function capabilityRows(
   return rows;
 }
 
+/**
+ * How a reviewed service grant may run. `unattended` grants work while the
+ * plugin runs automatically, without a signed-in person, so the review says
+ * so in words instead of leaving it to the service name.
+ */
+export type ServiceAccess = {
+  studio: boolean;
+  background: boolean;
+  system: boolean;
+  unattended: boolean;
+};
+
+export function serviceAccess(
+  grant: PackageServiceGrant,
+): ServiceAccess | null {
+  const contexts = new Set(grant.contexts ?? []);
+  for (const operation of grant.operations) {
+    for (const context of operation.contexts ?? []) contexts.add(context);
+  }
+  if (contexts.size === 0) return null;
+  const background = contexts.has("background");
+  const system = contexts.has("system");
+  return {
+    studio: contexts.has("studio"),
+    background,
+    system,
+    unattended: background || system,
+  };
+}
+
 export function capabilityRowKey(row: CapabilityRow): string {
   if (row.kind === "service")
     return `service:${row.grant.id}@${row.grant.version}`;

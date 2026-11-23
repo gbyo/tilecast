@@ -423,6 +423,15 @@
           "directory": "Directory",
           "manage": "Manage",
           "audit": "Audit"
+        },
+        "runsIn": "Runs in: {{places}}",
+        "studioOnly": "Only while a signed-in person uses it in Studio, with that person's access.",
+        "unattendedRead": "Can read this while the plugin runs automatically. That access covers the whole installation and is approved here; it does not come from a signed-in person.",
+        "unattended": "Can use this while the plugin runs automatically, without a signed-in person.",
+        "contexts": {
+          "studio": "Studio",
+          "background": "Background jobs",
+          "system": "System callbacks"
         }
       }
     },

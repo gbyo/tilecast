@@ -16,6 +16,7 @@ import {
   aboutParagraphs,
   capabilityRowKey,
   capabilityRows,
+  type CapabilityRow,
   type ContributionRow,
   type PluginDetailViewModel,
 } from "./detailView";
@@ -148,6 +149,11 @@ export function CapabilitiesSection({
 }) {
   const { t } = useTranslation("plugins");
   const included = view.plugin?.capabilities ?? [];
+  // A Plugin Manifest API 3 plugin's declared Server services render like a
+  // package's service grants, contexts included.
+  const includedServices: CapabilityRow[] = (view.plugin?.services ?? []).map(
+    (grant) => ({ kind: "service", grant }),
+  );
   const rows = capabilities ? capabilityRows(capabilities) : [];
   return (
     <DetailSection
@@ -157,7 +163,7 @@ export function CapabilitiesSection({
       {loading ? (
         <Skeleton className="h-16 rounded-lg" />
       ) : view.sourceKind === "included" ? (
-        included.length === 0 ? (
+        included.length === 0 && includedServices.length === 0 ? (
           <NoSpecialPermissions />
         ) : (
           <ItemGroup render={<ul />} className="gap-0">
@@ -170,6 +176,13 @@ export function CapabilitiesSection({
                   <ItemTitle>{capability}</ItemTitle>
                 </ItemContent>
               </ItemRow>
+            ))}
+            {includedServices.map((row, index) => (
+              <CapabilityItem
+                key={capabilityRowKey(row)}
+                row={row}
+                separated={included.length + index > 0}
+              />
             ))}
           </ItemGroup>
         )

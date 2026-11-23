@@ -8355,6 +8355,8 @@ export interface components {
       /** @description Inbound webhooks a Plugin Manifest API 3 plugin declares. Empty for other plugins. */
       webhooks?: components["schemas"]["PluginWebhookReview"][];
       providers?: components["schemas"]["PluginProviderReview"];
+      /** @description Server services a Plugin Manifest API 3 plugin declares, with registry-resolved display metadata. Empty for other plugins. */
+      services?: components["schemas"]["ServiceGrantReview"][];
     };
     /** @description The core provider slots a Plugin Manifest API 3 plugin fills. Empty lists for other plugins. A notification channel delivers notifications Tilecast already decided to send; a Content Health check reads one item of the listed kinds at a time. */
     PluginProviderReview: {
@@ -8808,21 +8810,27 @@ export interface components {
         entry: string;
       };
       /** @description Requested Tilecast service grants with registry-resolved display metadata. */
-      services?: {
-        id: string;
-        version: number;
+      services?: components["schemas"]["ServiceGrantReview"][];
+    };
+    /** @description One requested Server service grant with registry-resolved display metadata. Contexts say where it may run: studio calls act for the signed-in operator; background and system calls run without one, under the installation-wide view this grant approves. */
+    ServiceGrantReview: {
+      id: string;
+      version: number;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      category: "read" | "directory" | "manage" | "audit";
+      contexts: components["schemas"]["ServiceInvocationContext"][];
+      operations: {
         name: string;
+        title: string;
         description: string;
-        /** @enum {string} */
-        category: "read" | "directory" | "manage" | "audit";
-        operations: {
-          name: string;
-          title: string;
-          description: string;
-          mutating: boolean;
-        }[];
+        mutating: boolean;
+        contexts: components["schemas"]["ServiceInvocationContext"][];
       }[];
     };
+    /** @description studio runs for a signed-in operator; background runs a scheduled or queued job; system runs a host callback such as an event or webhook. */
+    ServiceInvocationContext: string;
     PluginConnectionConsent: {
       /** @description The declaration makes this consent possible. */
       available: boolean;

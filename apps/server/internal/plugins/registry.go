@@ -65,6 +65,9 @@ type Definition struct {
 	Webhooks []WebhookReview
 	// Providers are the provider slots of a Plugin Manifest API 3 plugin.
 	Providers ProviderReview
+	// Services are the Server services a Plugin Manifest API 3 plugin
+	// declares.
+	Services []ServiceReview
 }
 
 // Requirement is declarative context shown before installation. It is never
@@ -130,7 +133,7 @@ func definitionFromManifest(m plugin.Manifest) Definition {
 		Documentation: documentation, Installable: m.IsInstallable(),
 		PlayerFacing: m.PlayerFacing(), Connections: connectionReviews(m), Feeds: feedReviews(m),
 		Events: eventReview(m), Webhooks: webhookReviews(m),
-		Providers: providerReview(m),
+		Providers: providerReview(m), Services: serviceReviews(m),
 	}
 }
 

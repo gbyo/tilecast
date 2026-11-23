@@ -20,7 +20,9 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "../../components/ui/item";
+import type { PackageServiceGrant } from "../../api/types";
 import type { CapabilityRow, ContributionRow } from "./detailView";
+import { serviceAccess } from "./detailView";
 import { formatSecondsCadence } from "./format";
 
 const noClamp = "line-clamp-none";
@@ -148,6 +150,38 @@ function serviceCategoryLabel(
 }
 
 /**
+ * Where a service grant may run, in words. Unattended access is
+ * installation-wide and approved here; it is never borrowed from the person
+ * who installs or configures the plugin.
+ */
+function ServiceAccessLine({ grant }: { grant: PackageServiceGrant }) {
+  const { t } = useTranslation("plugins");
+  const access = serviceAccess(grant);
+  if (!access) return null;
+  const places = [
+    access.studio && t("storeDetail.capabilities.service.contexts.studio"),
+    access.background &&
+      t("storeDetail.capabilities.service.contexts.background"),
+    access.system && t("storeDetail.capabilities.service.contexts.system"),
+  ].filter(Boolean);
+  const summary = !access.unattended
+    ? t("storeDetail.capabilities.service.studioOnly")
+    : grant.category === "read"
+      ? t("storeDetail.capabilities.service.unattendedRead")
+      : t("storeDetail.capabilities.service.unattended");
+  return (
+    <>
+      <span className="block">{summary}</span>
+      <span className="block text-xs text-foreground/70">
+        {t("storeDetail.capabilities.service.runsIn", {
+          places: places.join(" · "),
+        })}
+      </span>
+    </>
+  );
+}
+
+/**
  * One reviewed capability in plain language. Background activity names how
  * many jobs run, not their schedule: the Background jobs section owns that
  * operational detail once the package is installed.
@@ -179,6 +213,7 @@ export function CapabilityItem({
               · {serviceCategoryLabel(row.grant.category, t)}
             </span>
             <span className="block">{row.grant.description}</span>
+            <ServiceAccessLine grant={row.grant} />
             {row.grant.operations.map((operation) => (
               <span key={operation.name} className="block">
                 {operation.mutating

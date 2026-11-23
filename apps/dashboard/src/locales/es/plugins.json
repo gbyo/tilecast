@@ -427,6 +427,15 @@
           "directory": "Directorio",
           "manage": "Gestión",
           "audit": "Auditoría"
+        },
+        "runsIn": "Se ejecuta en: {{places}}",
+        "studioOnly": "Solo mientras una persona con sesión iniciada lo usa en Studio, con el acceso de esa persona.",
+        "unattendedRead": "Puede leer esto mientras el complemento se ejecuta automáticamente. Ese acceso abarca toda la instalación y se aprueba aquí; no proviene de una persona con sesión iniciada.",
+        "unattended": "Puede usar esto mientras el complemento se ejecuta automáticamente, sin una persona con sesión iniciada.",
+        "contexts": {
+          "studio": "Studio",
+          "background": "Tareas en segundo plano",
+          "system": "Llamadas del sistema"
         }
       }
     },
