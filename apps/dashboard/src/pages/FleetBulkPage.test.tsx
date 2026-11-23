@@ -197,7 +197,9 @@ describe("Fleet bulk changes", () => {
     await user.click(
       await screen.findByRole("checkbox", { name: /Cafeteria/ }),
     );
-    await user.click(screen.getByRole("button", { name: /Preview the change/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Preview the change/ }),
+    );
     await waitFor(() =>
       expect(build).toHaveBeenCalledWith({
         screenIds: ["s1"],
@@ -218,7 +220,9 @@ describe("Fleet bulk changes", () => {
     await user.click(
       await screen.findByRole("checkbox", { name: /Cafeteria/ }),
     );
-    await user.click(screen.getByRole("button", { name: /Preview the change/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Preview the change/ }),
+    );
     await waitFor(() =>
       expect(build).toHaveBeenCalledWith({
         screenIds: ["s1"],
