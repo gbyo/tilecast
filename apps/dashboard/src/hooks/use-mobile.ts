@@ -7,7 +7,6 @@ import { useMediaQuery } from "./use-media-query";
 // a quarter of their usable width away.
 const MOBILE_QUERY = "(max-width: 1279px)";
 
-
 export function useIsMobile() {
   return useMediaQuery(MOBILE_QUERY);
 }
