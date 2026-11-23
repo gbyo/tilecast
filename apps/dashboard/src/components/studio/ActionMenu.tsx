@@ -24,6 +24,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "../ui/context-menu";
+import { useFineHoverPointer } from "../../hooks/use-media-query";
 import { ActionIcon } from "./actionIcons";
 
 /**
@@ -187,9 +188,10 @@ export function ActionMenuButton({
 }
 
 /**
- * A right-click and long-press menu for a whole row or card. Renders its
- * trigger disabled without actions. Keep the element mounted so entering
- * batch selection does not discard checkbox focus or preview observers.
+ * A pointer context menu for a whole row or card. It is enabled only when
+ * the primary pointer can actually hover; touch users use the visible action
+ * button instead of having to discover a long-press gesture. Keep the trigger
+ * mounted so entering batch selection does not discard focus or observers.
  */
 export function ActionContextMenu({
   label,
@@ -211,8 +213,9 @@ export function ActionContextMenu({
 }) {
   const visible = actionsForSurface(actions, "context");
   const count = visible.length;
+  const canHover = useFineHoverPointer();
   return (
-    <ContextMenu disabled={count === 0}>
+    <ContextMenu disabled={count === 0 || !canHover}>
       <ContextMenuTrigger
         suppressModifiedClick={count > 0}
         className={
