@@ -214,11 +214,14 @@ function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
 }
 
 export function PlaylistLibraryPage() {
-  const { t } = useTranslation(["playlists", "common"]);
+  const { t } = useTranslation(["playlists", "common", "schedules"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = hasCapability(auth.status, "playlist.edit");
+  const canSchedule =
+    hasCapability(auth.status, "schedule.read") &&
+    hasCapability(auth.status, "schedule.edit");
   const navigate = useNavigate();
   const client = useQueryClient();
   const { confirm, dialog } = useConfirm();
@@ -275,6 +278,21 @@ export function PlaylistLibraryPage() {
             ]
           : []),
       ],
+    },
+    {
+      actions: canSchedule
+        ? [
+            {
+              id: "schedule",
+              label: t("schedules:page.create"),
+              icon: "schedules",
+              onSelect: () =>
+                void navigate(
+                  `/schedules/new?playlist=${encodeURIComponent(playlist.id)}`,
+                ),
+            },
+          ]
+        : [],
     },
     {
       actions: canManage
