@@ -172,13 +172,13 @@ struct NativeTabNavigation: View {
     /// Studio appears in exactly one tab at a time. Compact navigation maps
     /// secondary destinations into More; regular-width iPad maps every
     /// destination to its own sidebarAdaptable tab. In both cases the
-    /// confirmed frame stays put until
-    /// Studio acknowledges the route after paint.
+    /// confirmed frame stays put until Studio acknowledges the route after
+    /// paint.
     @ViewBuilder
     private func studio(in tab: NavigationTab, adaptive: Bool) -> some View {
-        let compactFrontendTab =
+        let frontendTab =
             adaptive ? navigation.adaptiveFrontendTab : navigation.compactFrontendTab
-        let compactSelectedTab =
+        let selectedTab =
             adaptive ? navigation.adaptiveSelectedTab : navigation.compactSelectedTab
         let selectionPending =
             adaptive
@@ -186,11 +186,11 @@ struct NativeTabNavigation: View {
                 : navigation.isCompactSelectionPending
 
         NavigationStack {
-            if compactFrontendTab == tab {
+            if frontendTab == tab {
                 StudioSlotView(extendsBelowTabBar: extendsBelowFloatingTabBar)
                     .studioBackBar(navigation)
                     .containerBackground(.clear, for: .navigation)
-            } else if compactSelectedTab == tab && selectionPending {
+            } else if selectedTab == tab && selectionPending {
                 Color(uiColor: .systemBackground)
                     .ignoresSafeArea()
                     .toolbar(.hidden, for: .navigationBar)

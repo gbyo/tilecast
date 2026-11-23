@@ -8,8 +8,8 @@ import TilecastCore
 /// So the shell creates exactly one `WebView` for the page's whole life, at
 /// its root, and never moves it between containers. Each layout (the
 /// fallback chrome, a compact More tab, or an adaptive destination tab)
-/// marks where Studio belongs with a `StudioSlotView`, and the root places the web view
-/// over the active slot.
+/// marks where Studio belongs with a `StudioSlotView`, and the root places
+/// the web view over the active slot.
 @MainActor
 @Observable
 final class StudioSlot {

@@ -21,7 +21,7 @@ public enum NavigationTab: Hashable, Sendable {
 @MainActor
 @Observable
 public final class NativeNavigationModel {
-    /// Tabs for primary destinations; More is always the last tab.
+    /// Compact tabs before More, in catalog order.
     public static let maximumPrimaryTabs = 4
 
     public private(set) var catalog: NavigationCatalog?
@@ -31,8 +31,9 @@ public final class NativeNavigationModel {
     /// What compact navigation highlights: a primary destination or More.
     /// A tab tap updates this immediately so the control responds natively.
     public private(set) var compactSelectedTab: NavigationTab = .more
-    /// The compact slot allowed to expose the confirmed Studio frame. It changes only
-    /// after Studio acknowledges navigation, so a stale WebKit frame is never
+    /// The compact slot allowed to expose the confirmed Studio frame. It
+    /// changes only after Studio acknowledges navigation, so a stale WebKit
+    /// frame is never
     /// revealed under an optimistically selected tab.
     private var compactSettledTab: NavigationTab = .more
     /// The actual destination whose Studio frame is settled. Compact
@@ -58,7 +59,7 @@ public final class NativeNavigationModel {
     /// navigation instead of its fallback chrome.
     public var isAvailable: Bool { catalog != nil }
 
-    /// Tabs before More, in catalog order.
+    /// Primary destinations that fit in compact navigation before More.
     public var primaryDestinations: [NavigationCatalog.Destination] {
         Array((catalog?.destinations ?? []).filter { $0.placement == .primary }.prefix(Self.maximumPrimaryTabs))
     }
@@ -98,8 +99,9 @@ public final class NativeNavigationModel {
         return .more
     }
 
-    /// The regular-width iPad tab whose content slot may expose the confirmed Studio frame.
-    /// It never follows an optimistic selection before Studio acknowledges it.
+    /// The regular-width iPad tab whose content slot may expose the confirmed
+    /// Studio frame. It never follows an optimistic selection before Studio
+    /// acknowledges it.
     public var adaptiveFrontendTab: NavigationTab? {
         guard let settledDestinationID, catalog?.destination(withID: settledDestinationID) != nil else {
             return nil
@@ -107,8 +109,8 @@ public final class NativeNavigationModel {
         return .destination(settledDestinationID)
     }
 
-    /// True while regular-width iPad selection has moved ahead of Studio's painted
-    /// destination.
+    /// True while regular-width iPad selection has moved ahead of Studio's
+    /// painted destination.
     public var isAdaptiveSelectionPending: Bool {
         guard case .destination(let selectedID) = adaptiveSelectedTab else { return false }
         return selectedID != settledDestinationID
@@ -190,8 +192,9 @@ public final class NativeNavigationModel {
         }
     }
 
-    /// A direct destination selection from regular-width iPad's sidebarAdaptable TabView.
-    /// The system sidebar can select every destination, not only compact
+    /// A direct destination selection from regular-width iPad's
+    /// sidebarAdaptable TabView. The system sidebar can select every
+    /// destination, not only compact
     /// primary tabs.
     public func selectAdaptiveTab(_ tab: NavigationTab) {
         guard case .destination(let id) = tab,
