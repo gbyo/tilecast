@@ -455,6 +455,10 @@
       "player_releases": {
         "label": "Player releases",
         "description": "Check, cache, and remove Player releases."
+      },
+      "plugins_deliveries_manage": {
+        "label": "Parked plugin deliveries",
+        "description": "Retry or discard plugin work that failed eight times."
       }
     },
     "summary": {

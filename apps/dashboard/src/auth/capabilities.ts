@@ -59,6 +59,7 @@ export const capabilityKeys = [
   "system.backups",
   "integrations.manage",
   "player.releases",
+  "plugins.deliveries.manage",
 ] as const;
 
 export type Capability = (typeof capabilityKeys)[number];

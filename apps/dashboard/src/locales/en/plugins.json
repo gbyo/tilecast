@@ -560,7 +560,8 @@
       "newConnection": "New connection",
       "connection": "Connection",
       "feeds": "Feeds",
-      "feedRecords": "Records"
+      "feedRecords": "Records",
+      "status": "Status"
     },
     "connections": {
       "title": "Connections",
@@ -792,6 +793,50 @@
         "images": "Downloads pictures from the provider and keeps them privately for this plugin.",
         "personal_one": "{{field}} is personal data, deleted {{count}} day after it last changes",
         "personal_other": "{{field}} is personal data, deleted {{count}} days after it last changes"
+      }
+    },
+    "status": {
+      "title": "Status",
+      "description": "The work Tilecast runs for this plugin, and problems you can act on.",
+      "loadError": "The status could not be loaded.",
+      "open": "Status",
+      "deliveries": {
+        "title": "Plugin work",
+        "healthy": "No problems",
+        "parked_one": "{{count}} needs attention",
+        "parked_other": "{{count}} need attention",
+        "pending_one": "{{count}} waiting",
+        "pending_other": "{{count}} waiting",
+        "running_one": "{{count}} running",
+        "running_other": "{{count}} running",
+        "lastFailure": "Last failure: {{reason}} ({{date}})",
+        "expiredTitle_one": "{{count}} item expired",
+        "expiredTitle_other": "{{count}} items expired",
+        "expiredDescription": "The plugin never received this work: it waited more than 7 days, or it failed and nobody retried it within 14 days. Last expiry: {{date}}."
+      },
+      "parked": {
+        "title_one": "{{count}} item failed 8 times",
+        "title_other": "{{count}} items failed 8 times",
+        "description": "Retry runs the plugin again with the same item. Discard removes the item; the plugin never receives it.",
+        "ownerOnly": "Only an Owner can retry or discard these items.",
+        "meta": "{{reason}} · {{attempts}} attempts · Failed {{parked}} · Removed {{expires}}",
+        "retry": "Retry",
+        "discard": "Discard",
+        "discardTitle": "Discard this item?",
+        "discardBody": "The plugin never receives it. You cannot undo this.",
+        "retriedToast": "The item will run again.",
+        "discardedToast": "The item was discarded."
+      },
+      "kinds": {
+        "timer": "Timer",
+        "event": "Event",
+        "webhook": "Webhook request"
+      },
+      "failures": {
+        "handler_error": "The plugin reported an error",
+        "handler_timeout": "The plugin did not finish within 30 seconds",
+        "handler_panic": "The plugin stopped unexpectedly",
+        "lease_expired": "The Server stopped while the plugin ran"
       }
     }
   },

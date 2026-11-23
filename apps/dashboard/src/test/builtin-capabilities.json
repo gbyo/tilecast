@@ -134,6 +134,7 @@
     "playlist.edit",
     "playlist.publish",
     "playlist.read",
+    "plugins.deliveries.manage",
     "plugins.manage",
     "plugins.use",
     "roles.manage",

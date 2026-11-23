@@ -456,6 +456,10 @@
       "player_releases": {
         "label": "Versiones del reproductor",
         "description": "Comprobar, almacenar en caché y quitar versiones del reproductor."
+      },
+      "plugins_deliveries_manage": {
+        "label": "Entregas de plugins detenidas",
+        "description": "Reintentar o descartar trabajo de plugins que falló ocho veces."
       }
     },
     "summary": {
