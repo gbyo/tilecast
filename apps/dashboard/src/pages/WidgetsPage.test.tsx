@@ -43,9 +43,7 @@ const COMPACT_QUERY = "(max-width: 1023px)";
 
 function stubViewport(compact: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches:
-      compact &&
-      (query === COMPACT_QUERY || query === "(max-width: 639px)"),
+    matches: compact && (query === COMPACT_QUERY || query === "(max-width: 639px)"),
     media: query,
     onchange: null,
     addListener: () => undefined,
