@@ -37,7 +37,7 @@ function stubViewport({ desktop = false, compact = false } = {}) {
     matches:
       query === "(min-width: 1024px)"
         ? desktop
-        : query === "(max-width: 639px)"
+        : query === "(max-width: 1023px)"
           ? compact
           : false,
     media: query,
