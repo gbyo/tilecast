@@ -72,8 +72,13 @@ async function choose(
   option: string | RegExp,
 ) {
   await user.click(await screen.findByLabelText(label));
-  await user.click(await screen.findByRole("button", { name: option }));
+  await user.click(
+    await screen.findByRole("button", {
+      name: typeof option === "string" ? new RegExp(option) : option,
+    }),
+  );
   await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 }
 
 function renderPage(initialEntry = "/screens/bulk") {
