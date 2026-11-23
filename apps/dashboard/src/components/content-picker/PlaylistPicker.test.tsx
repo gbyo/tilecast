@@ -124,14 +124,14 @@ describe("PlaylistPicker", () => {
   });
 
   it("keeps an explicit selection visible and confirmable outside the search results", async () => {
-    vi.spyOn(api, "playlistPage").mockImplementation(async (search) => {
+    vi.spyOn(api, "playlistPage").mockImplementation((search) => {
       const found = search ? [items[0]!] : items;
-      return {
+      return Promise.resolve({
         items: found,
         total: found.length,
         page: 1,
         pageSize: 100,
-      };
+      });
     });
     const confirm = vi.fn();
     picker(confirm);
