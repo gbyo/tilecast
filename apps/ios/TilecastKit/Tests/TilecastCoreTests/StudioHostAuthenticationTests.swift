@@ -159,6 +159,38 @@ import WebKit
         host.page?.close()
     }
 
+    @Test func switchingAwayDuringRefreshReusesTheSameAuthSession() async throws {
+        let a = try addServer("a.example.org")
+        let b = try addServer("b.example.org")
+        let server = servers["a.example.org"]
+        server.lifetime = 30
+        let host = makeHost()
+        await host.activate(a.id)
+        _ = try await signIn(host)
+        let firstAuth = try #require(host.nativeAuth)
+
+        let gate = Gate()
+        server.refreshGate = gate
+        let first = Task { try await firstAuth.accessToken() }
+        try await eventually("the refresh starts") { server.refreshCalls.count == 1 }
+
+        await host.activate(b.id)
+        await host.activate(a.id)
+        let reused = try #require(host.nativeAuth)
+        #expect(reused === firstAuth)
+
+        let second = Task { try await reused.accessToken() }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(server.refreshCalls.count == 1, "switching back did not present the same refresh token twice")
+
+        gate.open()
+        #expect(try await first.value == "tca_access2")
+        #expect(try await second.value == "tca_access2")
+        #expect(server.refreshCalls.count == 1)
+        #expect(!server.grantRevoked)
+        host.page?.close()
+    }
+
     @Test func studioSignOutDeletesTheCredentialAndWaitsForTheUser() async throws {
         let profile = try addServer("a.example.org")
         let host = makeHost()
