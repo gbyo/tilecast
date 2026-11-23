@@ -57,6 +57,21 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         #expect(model.moreGroups.flatMap(\.destinations).map(\.id) == ["bravo"])
     }
 
+    @Test func movingASecondaryDestinationToPrimaryRemapsOnlyCompactNavigation() {
+        let (model, _) = makeModel(
+            catalog(primary: ["alpha"], more: ["charlie"]),
+            active: "charlie"
+        )
+        #expect(model.selectedTab == .more)
+        #expect(model.adaptiveSelectedTab == .destination("charlie"))
+
+        model.apply(catalog(primary: ["alpha", "charlie"], more: []))
+        #expect(model.selectedTab == .destination("charlie"))
+        #expect(model.frontendTab == .destination("charlie"))
+        #expect(model.adaptiveSelectedTab == .destination("charlie"))
+        #expect(model.adaptiveFrontendTab == .destination("charlie"))
+    }
+
     @Test func startsOnTheActiveDestination() {
         let (model, _) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["charlie"]), active: "bravo")
         #expect(model.selectedTab == .destination("bravo"))

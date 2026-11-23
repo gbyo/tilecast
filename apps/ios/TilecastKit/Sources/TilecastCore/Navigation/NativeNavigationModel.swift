@@ -131,9 +131,12 @@ public final class NativeNavigationModel {
         }
         if first {
             showInitialSelection()
-        } else if let settledDestinationID, self.catalog?.destination(withID: settledDestinationID) == nil {
+        } else if let settledDestinationID,
+                  self.catalog?.destination(withID: settledDestinationID) == nil {
             showInitialSelection()
-        } else if case .destination(let id) = selectedTab, !primaryDestinations.contains(where: { $0.id == id }) {
+        } else if !moreShowsList {
+            // Placement metadata can change between catalog snapshots. Keep
+            // the settled destination, but remap the compact iPhone slot.
             reconcile()
         }
     }
