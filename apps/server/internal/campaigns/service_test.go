@@ -6,7 +6,56 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 )
+
+func TestNormalizeSnapshotKeepsOnlySelectedBlockTiming(t *testing.T) {
+	start := time.Date(2026, 11, 9, 8, 0, 0, 0, mustLocation(t, "Asia/Vladivostok"))
+	end := start.Add(4 * time.Minute)
+	dailyStart, dailyEnd := "08:00", "08:04"
+	for _, kind := range []string{"weekly", "one_time"} {
+		t.Run(kind, func(t *testing.T) {
+			snapshot := Snapshot{Timezone: "Asia/Vladivostok", Blocks: []Block{{
+				Type: kind, ContentType: "playlist", ContentID: uuid.New(), Enabled: true,
+				OneTimeStart: &start, OneTimeEnd: &end,
+				DailyStart: &dailyStart, DailyEnd: &dailyEnd, DaysOfWeek: []int{1},
+			}}}
+			normalizeSnapshot(&snapshot)
+			block := snapshot.Blocks[0]
+			if kind == "weekly" {
+				if block.OneTimeStart != nil || block.OneTimeEnd != nil {
+					t.Fatal("weekly block retains hidden one-time fields")
+				}
+				if block.DailyStart != &dailyStart || block.DailyEnd != &dailyEnd || len(block.DaysOfWeek) != 1 || block.DaysOfWeek[0] != 1 {
+					t.Fatal("weekly window changed")
+				}
+			} else {
+				if block.DailyStart != nil || block.DailyEnd != nil || len(block.DaysOfWeek) != 0 {
+					t.Fatal("one-time block retains hidden weekly fields")
+				}
+				if block.OneTimeStart != &start || block.OneTimeEnd != &end {
+					t.Fatal("one-time window changed")
+				}
+			}
+			schedule := scheduling.Schedule{
+				Type: scheduling.Kind(block.Type), Timezone: block.Timezone, Enabled: block.Enabled,
+				OneTimeStart: block.OneTimeStart, OneTimeEnd: block.OneTimeEnd,
+				DailyStart: block.DailyStart, DailyEnd: block.DailyEnd, DaysOfWeek: block.DaysOfWeek,
+			}
+			if err := scheduling.Validate(schedule); err != nil {
+				t.Fatal(err)
+			}
+			for _, at := range []time.Time{start, end.Add(-time.Second)} {
+				if active, ok := scheduling.ActiveAt(schedule, at); !ok || !active.Start.Equal(start) || !active.End.Equal(end) {
+					t.Fatalf("window at %v = %#v, %v", at, active, ok)
+				}
+			}
+			if _, ok := scheduling.ActiveAt(schedule, end); ok {
+				t.Fatal("block remains active after four minutes")
+			}
+		})
+	}
+}
 
 func TestNormalizeSnapshotCreatesStableAuthoringDefaults(t *testing.T) {
 	snapshot := Snapshot{Name: "Morning", Destinations: nil, Blocks: []Block{{ContentType: "playlist", ContentID: uuid.New()}}}

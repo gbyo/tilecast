@@ -38,6 +38,8 @@ If Studio can't load the Campaign list, select **Retry**. Studio shows the empty
 
 Preflight checks the referenced content, schedule windows, and destination membership before publishing changes to schedules. For a Campaign that reaches more than 10 screens, schedule-overlap checks sample 10 screens; Preflight still validates all destinations and content references. Review any sampling warning and verify the affected screens' schedules separately.
 
+For a four-minute video window every Monday, choose **Weekly window**, select Monday, and set the start to **08:00** and the end to **08:04**. Set the block's timezone to the timezone of the screens. When you change the schedule type, saving the draft clears the timing fields from the previous type.
+
 ## What publication changes
 
 Each release has an immutable record of the Campaign draft, its destinations, and the published content revisions selected for its blocks. If a selected Playlist or Layout changes while the Campaign is under review, Tilecast rejects that publication; refresh the draft and submit it again. Publishing a new Campaign release replaces the schedules created by its previous release. Playlist and Layout changes are published from their own editors.
