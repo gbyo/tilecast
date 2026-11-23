@@ -34,6 +34,8 @@ type Service struct {
 	playlists       *playlists.Service
 	notifier        Notifier
 	maximumDuration time.Duration
+	// now is the clock of expiry and cancellation. Tests replace it.
+	now func() time.Time
 	// events receives the Takeover lifecycle events in the caller's
 	// transaction. Nil drops them.
 	events coreevents.Sink
@@ -42,9 +44,19 @@ type Service struct {
 // SetEvents wires the core event sink.
 func (s *Service) SetEvents(events coreevents.Sink) { s.events = events }
 
+// NewService returns the Takeover service and makes it the expiry owner of
+// the manifest builder, so a manifest build never expires a Takeover
+// through a second lifecycle path.
 func NewService(db *pgxpool.Pool, playlists *playlists.Service, notifier Notifier, maximumDuration time.Duration) *Service {
-	return &Service{db: db, playlists: playlists, notifier: notifier, maximumDuration: maximumDuration}
+	s := &Service{db: db, playlists: playlists, notifier: notifier, maximumDuration: maximumDuration, now: time.Now}
+	if playlists != nil {
+		playlists.SetTakeoverExpirer(s)
+	}
+	return s
 }
+
+// SetClock replaces the clock of expiry and cancellation.
+func (s *Service) SetClock(now func() time.Time) { s.now = now }
 
 func (s *Service) MaximumDuration() time.Duration { return s.maximumDuration }
 
@@ -265,7 +277,7 @@ func (s *Service) CancelInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor
 	if err != nil {
 		return nil, err
 	}
-	if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, id, coreevents.TakeoverCancelled, nil, time.Now().UTC()); err != nil {
+	if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, id, coreevents.TakeoverCancelled, nil, s.now().UTC()); err != nil {
 		return nil, err
 	}
 	if actorID != uuid.Nil {
@@ -357,56 +369,122 @@ func nullableUser(id uuid.UUID) *uuid.UUID {
 
 // Sweep expires every active Takeover whose end has passed. The notify
 // worker runs it every 30 seconds, so takeover.ended@1 does not wait for a
-// Player to ask for its manifest. A manifest build still expires the
-// Takeovers of its own screen at once.
+// Player to ask for its manifest.
 func (s *Service) Sweep(ctx context.Context) error {
-	_, err := s.ExpireDue(ctx, time.Now().UTC())
+	_, err := s.ExpireDue(ctx, s.now().UTC())
 	return err
 }
 
-// ExpireDue expires the Takeovers whose end is at or before now, retires
-// their screen states, bumps the manifests of those screens, and emits
-// takeover.ended@1, all in one transaction. It returns the expired IDs.
+// ExpireDue expires every active Takeover whose end is at or before now. It
+// returns the IDs this call expired.
 func (s *Service) ExpireDue(ctx context.Context, now time.Time) ([]uuid.UUID, error) {
+	return s.expire(ctx, now, nil)
+}
+
+// ExpireDueOnScreen expires the due Takeovers that target screenID. A
+// manifest build calls it before it reads the manifest version, so an
+// unchanged ETag never hides the end of a Takeover. Each Takeover it finds
+// ends as a whole, through the same transition as ExpireDue: the other
+// screens of that Takeover end with it.
+func (s *Service) ExpireDueOnScreen(ctx context.Context, screenID uuid.UUID, now time.Time) error {
+	_, err := s.expire(ctx, now, &screenID)
+	return err
+}
+
+func (s *Service) expire(ctx context.Context, now time.Time, screen *uuid.UUID) ([]uuid.UUID, error) {
 	var expired []uuid.UUID
-	var notify []plugin.AfterCommit
+	var done plugin.AfterCommit
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `UPDATE takeovers SET status='expired',updated_at=now()
-			WHERE status='active' AND expires_at<=$1 RETURNING id`, now)
-		if err != nil {
-			return err
-		}
-		if expired, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID]); err != nil {
-			return err
-		}
-		for _, id := range expired {
-			rows, err := tx.Query(ctx, `UPDATE takeover_screen_states SET state='expired',restored_at=now(),last_updated_at=now()
-				WHERE takeover_id=$1 AND state NOT IN ('restored','cancelled','expired') RETURNING screen_id`, id)
-			if err != nil {
-				return err
-			}
-			screens, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
-			if err != nil {
-				return err
-			}
-			versions, err := s.bumpTakeoverScreens(ctx, tx, screens, "takeover.expired", uuid.Nil)
-			if err != nil {
-				return err
-			}
-			notify = append(notify, s.afterCommit(id, versions))
-			if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, id, coreevents.TakeoverExpired, nil, now); err != nil {
-				return err
-			}
-		}
-		return nil
+		var err error
+		expired, done, err = s.expireDueInTx(ctx, tx, now, screen)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	for _, done := range notify {
-		if done != nil {
-			done()
-		}
+	if done != nil {
+		done()
 	}
 	return expired, nil
+}
+
+// expireDueInTx is the one expiry transition. It locks the due Takeovers in
+// ID order, so a concurrent expiry waits and then re-reads the status: each
+// Takeover changes from active to expired in exactly one transaction, and
+// that transaction alone retires its screen states, bumps the manifests of
+// those screens, and emits its takeover.ended@1. A nil screen selects every
+// due Takeover.
+func (s *Service) expireDueInTx(ctx context.Context, tx pgx.Tx, now time.Time, screen *uuid.UUID) ([]uuid.UUID, plugin.AfterCommit, error) {
+	rows, err := tx.Query(ctx, `SELECT t.id, t.expires_at FROM takeovers t
+		WHERE t.status='active' AND t.expires_at<=$1
+			AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM takeover_screen_states st WHERE st.takeover_id=t.id AND st.screen_id=$2))
+		ORDER BY t.id FOR UPDATE OF t`, now, screen)
+	if err != nil {
+		return nil, nil, err
+	}
+	type due struct {
+		id        uuid.UUID
+		expiresAt time.Time
+	}
+	dueRows, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (due, error) {
+		var d due
+		return d, row.Scan(&d.id, &d.expiresAt)
+	})
+	if err != nil || len(dueRows) == 0 {
+		return nil, nil, err
+	}
+	ids := make([]uuid.UUID, len(dueRows))
+	for i, d := range dueRows {
+		ids[i] = d.id
+	}
+	if _, err = tx.Exec(ctx, `UPDATE takeovers SET status='expired',updated_at=now() WHERE id=ANY($1)`, ids); err != nil {
+		return nil, nil, err
+	}
+	rows, err = tx.Query(ctx, `UPDATE takeover_screen_states SET state='expired',restored_at=now(),last_updated_at=now()
+		WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired') RETURNING takeover_id, screen_id`, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	screensOf := map[uuid.UUID][]uuid.UUID{}
+	all := []uuid.UUID{}
+	for rows.Next() {
+		var takeover, target uuid.UUID
+		if err = rows.Scan(&takeover, &target); err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+		screensOf[takeover] = append(screensOf[takeover], target)
+		all = append(all, target)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	// Bump each screen once, in ID order, however many of its Takeovers end
+	// here.
+	all = unique(all)
+	sort.Slice(all, func(i, j int) bool { return all[i].String() < all[j].String() })
+	versions, err := s.bumpTakeoverScreens(ctx, tx, all, "takeover.expired", uuid.Nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	notify := make([]plugin.AfterCommit, 0, len(dueRows))
+	for _, d := range dueRows {
+		// The event says when the Takeover ended, not when a sweep or a
+		// manifest build noticed it, so the payload is the same whichever
+		// path wins.
+		if err = coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, d.id, coreevents.TakeoverExpired, nil, d.expiresAt); err != nil {
+			return nil, nil, err
+		}
+		own := map[uuid.UUID]int64{}
+		for _, target := range screensOf[d.id] {
+			own[target] = versions[target]
+		}
+		notify = append(notify, s.afterCommit(d.id, own))
+	}
+	return ids, func() {
+		for _, done := range notify {
+			done()
+		}
+	}, nil
 }

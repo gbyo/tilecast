@@ -411,7 +411,6 @@ func serve() {
 	// transaction of its change, and the plugin service queues a delivery
 	// for each subscriber.
 	deviceService.SetEvents(pluginService)
-	playlistService.SetEvents(pluginService)
 	takeoverService.SetEvents(pluginService)
 	schedulingService.SetEvents(pluginService)
 	contentHealthService.SetEvents(pluginService)
