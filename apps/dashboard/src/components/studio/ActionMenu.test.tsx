@@ -85,7 +85,7 @@ describe("ActionMenuButton in a browser", () => {
     ).not.toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Open", exact: true }),
+      screen.getByRole("button", { name: "Open" }),
     );
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
