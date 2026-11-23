@@ -236,8 +236,8 @@ caller list is for packages only, as before. Phase 1 gives bundled plugins:
 `organization.read@1`, `instance.read@1`, `screens.read@1`, `targets.resolve@1`,
 `targets.resolve@2`, `users.read-basic@1`, and the new `settings.read@1` and
 `secrets.read@1`. Phase 2 adds `http.fetch@1`, `storage.kv@1`,
-`timers.schedule@1`, and `timers.cancel@1`. The new services are for bundled
-plugins only.
+`timers.schedule@1`, `timers.cancel@1`, and `feeds.publish@1`. The new
+services are for bundled plugins only.
 
 The call uses the same dispatcher, so it gets the same operation, context,
 validation, authorization decision, and audit as a package call. A test holds
@@ -308,6 +308,15 @@ A plugin keeps small values with `storage.kv@1`: 128-byte keys, 64 KiB values,
 `timers.schedule@1` implements `HandleTimer(ctx, plugin.Timer) error`; the host
 calls it at least once for each due timer, in the `system` context. See
 [Plugin storage and timers](plugin-storage.md).
+
+## Feeds
+
+A plugin declares the datasets it publishes in `feeds` and publishes them
+with `feeds.publish@1`. Each dataset is an ordinary Data Source with the
+provider `<plugin id>.<feed id>`. The host stores the records, applies
+operator overrides by policy, imports remote images as private plugin
+assets, and reports late feeds in Content Health. See
+[Plugin feeds](plugin-feeds.md).
 
 ## Personal data
 
@@ -409,4 +418,4 @@ serial or GPIO or printer services, stream connections, TCP, installed-package
 parity for `plugin-runtime.state@1`, content services for plugins, or editor
 action slots. A `data_source` field is not valid in a plugin manifest. Phase 2
 adds host connections, `http.fetch@1`, OAuth 2.0 connections, `storage.kv@1`,
-and durable timers; feeds follow in a later change.
+durable timers, and feeds.

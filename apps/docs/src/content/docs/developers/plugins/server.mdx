@@ -110,3 +110,24 @@ _, err = p.services.ScheduleTimer(ctx, "sync:"+instanceID, time.Now().Add(5*time
 Implement `HandleTimer(ctx context.Context, timer plugin.Timer) error` on your plugin. Tilecast calls it with no signed-in person, for at most 30 seconds, and calls it **at least once**: after a crash or an error the same timer can run again, so make the handler safe to repeat. Returning an error retries the timer with a growing delay, up to ten attempts.
 
 Limits: keys up to 128 bytes, values up to 64 KiB, 1 MiB of values per plugin, timer payloads up to 4 KiB, and 1,000 pending timers. Values and timers are kept when the plugin is removed; timers wait until it is installed again. If you bump `definitionVersion`, Tilecast drops timers from the old definition, so schedule the ones you need again. See [Plugin storage and timers](https://github.com/gbyo/tilecast/blob/main/docs/plugin-storage.md) for every rule.
+
+## Publish a feed (Plugin Manifest API 3)
+
+Publish the complete set of records each time. Tilecast replaces the dataset and keeps operator changes according to each field's policy.
+
+```go
+revision, err := p.services.FeedRevision(ctx, "items", instanceID)
+published, err := p.services.PublishFeed(ctx, plugin.FeedPublication{
+	Feed:        "items",
+	Instance:    instanceID,
+	Replaces:    revision,
+	Records:     []plugin.FeedRecord{{ID: "item-123", Values: map[string]any{"name": "Tea", "price": 3.5, "photo": "https://images.example.com/tea.png"}}},
+	Connections: map[string]uuid.UUID{"images": imagesConnectionID},
+})
+if errors.Is(err, plugin.ErrFeedConflict) {
+	// Another publication won. Read the revision again and retry once.
+}
+```
+
+Use stable record IDs from the provider. A publication holds at most 2,000 records and 512 KiB. Tilecast fetches images after the publication commits; you never download image bytes yourself.
+

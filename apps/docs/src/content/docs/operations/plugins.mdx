@@ -131,6 +131,28 @@ Select **Disconnect** to stop using the account. Tilecast asks the provider to r
 
 A sign-in that takes longer than ten minutes, or that someone else started, doesn't finish. Select **Connect** again.
 
+## Data that plugins publish
+
+Some plugins publish data for your screens, such as a room's meetings or a menu. Each set of data is a **feed**, and each feed is an ordinary Data Source: choose it in a Widget like any other source. The plugin keeps it up to date. Open **Feeds** on the plugin's page to see each feed, when it was last published, how many records it has, and which Widgets use it.
+
+If a plugin stops publishing for twice as long as it normally takes, the feed is marked late, and **Content Health** reports it like any other Data Source that stopped refreshing. It recovers on its own at the next publication.
+
+### Change what a screen shows
+
+Open a feed and select **View** on a record to see each field: the value from the provider, the value screens show, and whether you can change it. The plugin decides which fields you may change:
+
+- **Provider only**: the value always comes from the provider. A price or an availability flag usually works this way, so a screen never shows a stale price.
+- **Your value wins**: your value stays until you remove it, whatever the provider sends.
+- **Yours until the provider changes it**: your value stays while the provider keeps sending the same value. When the provider changes that field, Tilecast removes your value, shows the new one, and the record says why.
+
+Tilecast keeps the provider's values and yours apart, so removing your value always brings back the provider's. When a record disappears from the provider, your changes to it go too.
+
+### Images from a provider
+
+When a feed includes images, Tilecast downloads them itself after each publication, over HTTPS only, and stores them privately for the plugin. They never appear in your Media library, and a screen receives an image only while a current record uses it. An image that no record uses is deleted after 24 hours. If an image can't be downloaded, the record shows no image, the feed page says why, and the plugin shows a notice.
+
+Feed images and records are part of your backups. A feed field that holds personal data, such as a meeting organizer, is deleted after the retention period the plugin declares; it stays in older backups until they expire.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:
