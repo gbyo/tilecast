@@ -106,7 +106,7 @@ Native code loads a URL only to start the page, to restore the last path at laun
 
 The same `StudioPage` and `WebPage` stay in use while the user moves between native tabs, More, and sidebar rows. A destination change does not reload the page.
 
-A `WebPage` can have only one `WebView`. SwiftUI can build a new view before it removes an old view, for example when the selected tab changes. The app therefore creates one `WebView` for the page and never moves it. Each layout marks the area for Studio with a `StudioSlotView`: the fallback content area, the selected tab, the More tab, or the split view detail. `StudioOverlay` places the one web view over the active area. While the More list covers Studio, the web view stays in place but is hidden.
+A `WebPage` can have only one `WebView`. SwiftUI can build a new view before it removes an old view, for example when the selected tab changes. The app therefore creates one `WebView` for the page and never moves it. Each layout marks the area for Studio with a `StudioSlotView`: the fallback content area, the selected tab, or the More tab. `StudioOverlay` places the one web view over the active area. While the More list covers Studio, the web view stays in place but is hidden.
 
 Native back and forward gestures are off, because React Router owns history. Link previews are off, because a preview loads outside the navigation policy.
 
@@ -290,7 +290,7 @@ This follows Apple's current iPadOS guidance: keep functionality stable as space
 
 Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. In the native host, that shared topbar stays compact and keeps search/notification controls at touch-sized hit targets instead of expanding the desktop search field at tablet widths. When iPadOS expands the adaptable navigation into a sidebar, the sidebar header restores the active-server menu without forcing that sidebar to remain visible. The app shows no second navigation bar above Studio while native navigation is active.
 
-Studio also keeps presentation width separate from workspace density. Phone-sized content areas (up to 639px) use bottom drawers for transient details and filters. Narrow workspaces below 1024px still simplify toolbars, editors, and dense tables, but iPad-sized medium widths use anchored popovers and tablet/desktop detail panels instead of inheriting phone modal behavior.
+Studio also keeps presentation width separate from workspace density. Phone-sized content areas (up to 639px) use bottom drawers for transient details and filters. Narrow workspaces below 1024px still simplify toolbars, editors, and dense tables, but iPad-sized medium widths use anchored popovers and tablet/desktop detail panels instead of inheriting phone modal behavior. Browser navigation stays off-canvas through 1279px; at 1280px the 16rem sidebar can appear while leaving roughly 1024px for the desktop workspace.
 
 #### Studio beneath the tab bar
 
@@ -736,13 +736,13 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | Milestone | Scope                                                                                                                                                                   |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                                                  |
-| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
+| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, adaptive iPhone/iPad navigation                    |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
 | 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                           |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
-| 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |
+| 8A        | Implemented: system share, semantic haptics, deep links, native media intake, and Studio composition beneath the iPhone floating tab bar                                  |
 | 8B        | Push notifications, notification actions, App Intents and Shortcuts, and screen quick actions. See [ADR: push and quick actions](adr/ios-m8b-push-and-quick-actions.md) |
 
 Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio. Milestone 8A adds no native product screen: the app has no native Media library.
@@ -753,7 +753,6 @@ Everything not listed as native stays in Studio. After Milestone 8 most of the p
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
 - Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
-- Studio ends above the floating tab bar. It does not extend beneath it. See [Studio above the tab bar](#studio-above-the-tab-bar).
 - Native media intake is the only workflow that calls the native API. Milestone 3 is the foundation for later native workflows.
 - Native uploads run while the app is in the foreground. The app does not promise that an upload continues after iOS suspends or ends the app. See [Native media intake](#native-media-intake).
 - The Keychain tests need a signed test process. They are skipped by `swift test` on macOS and in the unsigned CI build, where the in-memory store tests cover the same logic.
@@ -769,4 +768,4 @@ An iOS bridge test requires an application bundle as its process host.
 CI keeps the bridge suite in a separate step with its existing time limits and retry policy.
 The macOS `swift test` command still uses the package target.
 
-See `apps/ios/README.md` for commands. CI runs the `ios_ci` job in `.github/workflows/ci-ios.yml` on `macos-26` when a pull request changes `apps/ios/`, `packages/native-bridge-schema/`, the OpenAPI contract (`docs/openapi/` and `docs/openapi.yaml`), or the shared server address corpus. A change to the bridge schema also runs the dashboard checks, because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app, because the app loads Studio from the server at runtime. This includes Studio's own bridge code in `apps/dashboard/src/native-host/`, which the dashboard tests cover. `scripts/ci/affected.mjs` records these edges. Add one when the app starts to compile or test against another contract, such as the settings schema.
+See `apps/ios/README.md` for commands. The `ios_ci` job in `.github/workflows/ci-ios.yml` runs in Extended validation on `macos-26`: nightly against `main` and on demand for a branch. Normal pull-request validation intentionally stays on deterministic checks. The affected-area graph still records which contracts belong to iOS — `apps/ios/`, `packages/native-bridge-schema/`, the OpenAPI contract, Studio's navigation icon mapping, and the shared server-address corpus — so a full validation selects the app when any of those inputs change. A change to the bridge schema also runs the dashboard checks because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app because the app loads Studio from the server at runtime. Add an affected-area edge when the app starts to compile or test against another contract, such as the settings schema.

@@ -19,9 +19,11 @@ function stubWidth(width: number) {
         ? width <= 639
         : query === "(max-width: 1023px)"
           ? width <= 1023
-          : query === "(min-width: 1024px)"
-            ? width >= 1024
-            : false,
+          : query === "(max-width: 1279px)"
+            ? width <= 1279
+            : query === "(min-width: 1024px)"
+              ? width >= 1024
+              : false,
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -61,8 +63,17 @@ describe("Studio layout breakpoints", () => {
     });
   });
 
-  it("switches to the desktop workspace at 1024px", () => {
+  it("uses desktop page layouts without pinning navigation at 1024px", () => {
     expect(layoutAt(1024)).toEqual({
+      phone: false,
+      compact: false,
+      offcanvasNavigation: true,
+      desktop: true,
+    });
+  });
+
+  it("pins browser navigation only when the viewport can spare its width", () => {
+    expect(layoutAt(1280)).toEqual({
       phone: false,
       compact: false,
       offcanvasNavigation: false,

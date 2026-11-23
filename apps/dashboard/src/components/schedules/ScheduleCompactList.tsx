@@ -20,7 +20,7 @@ import {
 import { schedulePath, type ScheduleRow } from "./scheduleLibraryModel";
 
 /**
- * Phones: a native list with a fixed reading order. Name and actions first,
+ * Narrow workspaces: a native list with a fixed reading order. Name and actions first,
  * then status and what it presents, then when, then where and priority.
  */
 export function ScheduleCompactList({

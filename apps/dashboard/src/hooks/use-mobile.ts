@@ -1,10 +1,11 @@
 import * as React from "react";
 
 // The sidebar primitive calls this state "mobile", but it is really the
-// off-canvas navigation boundary. Keeping navigation off-canvas below the
-// desktop workspace threshold stops it consuming a large share of an iPad or
-// a resized window.
-const MOBILE_QUERY = "(max-width: 1023px)";
+// off-canvas navigation boundary. Keep navigation off-canvas until the
+// viewport can fit both Tilecast's 16rem sidebar and a roughly 1024px desktop
+// workspace. This avoids enabling desktop editors and then immediately taking
+// a quarter of their usable width away.
+const MOBILE_QUERY = "(max-width: 1279px)";
 
 function subscribe(onChange: () => void) {
   const query = window.matchMedia(MOBILE_QUERY);
