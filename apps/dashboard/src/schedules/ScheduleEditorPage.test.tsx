@@ -39,6 +39,18 @@ async function openExisting(role = "owner") {
 }
 
 describe("Schedule editor session", () => {
+  it("uses the full save label on tablets with room in the header", async () => {
+    setViewport("tablet");
+    await openExisting();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  });
+
+  it("keeps the save control compact on phones", async () => {
+    setViewport("phone");
+    await openExisting();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
   it("opens a saved schedule clean, with one heading and nothing to save", async () => {
     await openExisting();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
