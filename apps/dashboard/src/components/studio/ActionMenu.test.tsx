@@ -217,23 +217,25 @@ describe("ActionContextMenu", () => {
     );
   }
 
-
-  it("does not make long-press context actions a hidden touch requirement", () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: query === "(any-pointer: coarse)",
-      media: query,
-      onchange: null,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      dispatchEvent: () => false,
-    }));
-    renderCard(groups({}));
-    fireEvent.contextMenu(screen.getByTestId("card"));
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(screen.getByTestId("card")).toBeVisible();
-  });
+  it(
+    "does not make long-press context actions a hidden touch requirement",
+    () => {
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: query === "(any-pointer: coarse)",
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      }));
+      renderCard(groups({}));
+      fireEvent.contextMenu(screen.getByTestId("card"));
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(screen.getByTestId("card")).toBeVisible();
+    },
+  );
 
   it("opens the web menu on right-click", async () => {
     const onOpen = vi.fn();
