@@ -154,12 +154,14 @@ describe("SubmissionEditor image previews", () => {
 
   it("does not save an existing record until its automatic image upload settles", async () => {
     let finishUpload!: (detail: FormRecordDetail) => void;
-    const upload = vi.spyOn(formsApi, "uploadFormRecordAttachment").mockImplementation(
-      () =>
-        new Promise<FormRecordDetail>((resolve) => {
-          finishUpload = resolve;
-        }),
-    );
+    const upload = vi
+      .spyOn(formsApi, "uploadFormRecordAttachment")
+      .mockImplementation(
+        () =>
+          new Promise<FormRecordDetail>((resolve) => {
+            finishUpload = resolve;
+          }),
+      );
     const update = vi
       .spyOn(formsApi, "updateFormRecord")
       .mockResolvedValue(detail(3, true));
