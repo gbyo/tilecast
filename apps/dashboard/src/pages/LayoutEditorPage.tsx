@@ -926,7 +926,9 @@ export function LayoutEditorPage() {
   const fitZoom = useCallback(
     (animate = true) => {
       const viewport = getViewport();
-      if (!viewport || !canvasWidth || !canvasHeight) return;
+      const canvas = document?.canvas;
+      if (!viewport || !canvas?.width || !canvas.height) return;
+      const { width, height } = canvas;
       if (!viewport.clientWidth || !viewport.clientHeight) return;
       const availW = Math.max(
         1,
@@ -938,17 +940,17 @@ export function LayoutEditorPage() {
       );
       const fitValue = Math.max(
         MIN_ZOOM,
-        Math.min(1, availW / canvasWidth, availH / canvasHeight),
+        Math.min(1, availW / width, availH / height),
       );
       const next = {
         zoom: fitValue,
-        panX: STAGE_PADDING.left + (availW - canvasWidth * fitValue) / 2,
-        panY: STAGE_PADDING.top + (availH - canvasHeight * fitValue) / 2,
+        panX: STAGE_PADDING.left + (availW - width * fitValue) / 2,
+        panY: STAGE_PADDING.top + (availH - height * fitValue) / 2,
       };
       if (animate) animateViewport(next);
       else setViewport(next);
     },
-    [canvasWidth, canvasHeight, animateViewport, setViewport, getViewport],
+    [document?.canvas, animateViewport, setViewport, getViewport],
   );
   // Fit on load, when the pane or window resizes, and when the canvas
   // orientation or size changes.
