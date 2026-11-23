@@ -84,9 +84,7 @@ describe("ActionMenuButton in a browser", () => {
       screen.queryByRole("menuitem", { name: "Open" }),
     ).not.toBeInTheDocument();
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "Open" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
 
@@ -217,9 +215,7 @@ describe("ActionContextMenu", () => {
     );
   }
 
-  it(
-    "does not make long-press context actions a hidden touch requirement",
-    () => {
+  it("does not hide context actions behind touch long-press", () => {
       vi.stubGlobal("matchMedia", (query: string) => ({
         matches: query === "(any-pointer: coarse)",
         media: query,
@@ -233,9 +229,8 @@ describe("ActionContextMenu", () => {
       renderCard(groups({}));
       fireEvent.contextMenu(screen.getByTestId("card"));
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-      expect(screen.getByTestId("card")).toBeVisible();
-    },
-  );
+    expect(screen.getByTestId("card")).toBeVisible();
+  });
 
   it("opens the web menu on right-click", async () => {
     const onOpen = vi.fn();
