@@ -36,8 +36,7 @@ const PHONE_QUERY = "(max-width: 639px)";
 function stubViewport(compact: boolean, phone = false) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches:
-      (compact && query === COMPACT_QUERY) ||
-      (phone && query === PHONE_QUERY),
+      (compact && query === COMPACT_QUERY) || (phone && query === PHONE_QUERY),
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -418,18 +417,21 @@ describe("Schedules library", () => {
       await waitFor(() => expect(lastParams(spy).enabled).toBe(""));
     });
 
-    it("keeps the Filters Popover in a compact iPad-width workspace", async () => {
-      stubViewport(true);
-      mockSchedules();
-      renderPage();
-      const user = userEvent.setup();
-      await screen.findByText("Morning Broadcast");
+    it(
+      "keeps the Filters Popover in a compact iPad-width workspace",
+      async () => {
+        stubViewport(true);
+        mockSchedules();
+        renderPage();
+        const user = userEvent.setup();
+        await screen.findByText("Morning Broadcast");
 
-      await openFilters(user);
-      const dialog = await screen.findByRole("dialog", { name: "Filters" });
-      expect(dialog).toHaveAttribute("data-slot", "popover-content");
-      expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
-    });
+        await openFilters(user);
+        const dialog = await screen.findByRole("dialog", { name: "Filters" });
+        expect(dialog).toHaveAttribute("data-slot", "popover-content");
+        expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
+      },
+    );
 
     it("renders the Drawer instead of a Popover on phones", async () => {
       stubViewport(true, true);

@@ -120,9 +120,7 @@ export function TopbarUserMenu(props: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon" className="size-11" />
-        }
+        render={<Button variant="ghost" size="icon" className="size-11" />}
         aria-label={t("userMenu.openLabel", { name: user.name })}
       >
         <Avatar className="size-7 rounded-md">
