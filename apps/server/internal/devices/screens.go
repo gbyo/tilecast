@@ -311,7 +311,7 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	if err != nil {
 		return fmt.Errorf("remove archived screen schedule targets: %w", err)
 	}
-	if err := coreevents.EmitSchedules(ctx, tx, s.events, coreevents.ScheduleUpdated, true, retargeted...); err != nil {
+	if err := coreevents.EmitSchedules(ctx, tx, s.events, coreevents.ScheduleUpdated, true, s.now(), retargeted...); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM takeover_targets WHERE target_type='screen' AND screen_id=$1`, id); err != nil {

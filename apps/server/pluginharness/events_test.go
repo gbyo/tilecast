@@ -464,6 +464,48 @@ func TestScheduleChangedOnRealChangesOnly(t *testing.T) {
 	}
 }
 
+// A screen that joins a sync group moves its screen-targeted schedules to
+// the group, and leaving moves them back: both change the schedule's
+// targets, so both are schedule.changed@1 with targetsChanged, dated by the
+// scheduling clock.
+func TestScheduleChangedWhenSyncGroupMovesTargets(t *testing.T) {
+	e := newEnv(t)
+	e.h.Install()
+	service := e.h.Scheduling()
+	screen := e.h.Screen("Lobby")
+	playlist := e.h.ReadyPlaylist("Lunch")
+	start, end := "07:00", "08:00"
+	record, err := service.Create(e.h.Ctx, e.h.OwnerID, scheduling.Input{Name: "Lunch", PlaylistID: playlist, Type: scheduling.Weekly,
+		Timezone: "UTC", Enabled: true, DailyStart: &start, DailyEnd: &end, DaysOfWeek: []int{1},
+		Targets: []scheduling.Target{{Type: "screen", ID: screen}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := service.CreateGroup(e.h.Ctx, e.h.OwnerID, "Downstairs", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AddScreen(e.h.Ctx, group.ID, screen, e.h.OwnerID); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.RemoveScreen(e.h.Ctx, group.ID, screen, e.h.OwnerID); err != nil {
+		t.Fatal(err)
+	}
+	e.drain(t)
+	changes := []string{}
+	for _, item := range e.subscriber.Received(plugin.CoreScheduleChanged) {
+		var payload coreevents.Schedule
+		_ = item.Event.Decode(&payload)
+		if payload.ScheduleID != record.ID || !payload.At.Equal(e.clock.Now().UTC()) {
+			t.Fatalf("event = %+v", payload)
+		}
+		changes = append(changes, fmt.Sprintf("%s:%v", payload.Change, payload.TargetsChanged))
+	}
+	if fmt.Sprint(changes) != "[created:false updated:true updated:true]" {
+		t.Fatalf("changes = %v", changes)
+	}
+}
+
 func TestFeedStaleReachesOnlyTheOwner(t *testing.T) {
 	e := newEnv(t)
 	e.h.Install()

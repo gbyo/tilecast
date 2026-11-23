@@ -53,6 +53,9 @@ func (h *Harness) Connectivity() *connectivity.Sweeper {
 func (h *Harness) Scheduling() *scheduling.Service {
 	service := scheduling.NewService(h.Pool, nil, scheduling.Limits{MaxSchedules: 100, MaxTargetsPerSchedule: 100, MaxGroupsPerScreen: 10, PrefetchDays: 1})
 	service.SetEvents(h.service)
+	if h.clock != nil {
+		service.SetClock(func() time.Time { return h.clock.Now().UTC() })
+	}
 	return service
 }
 

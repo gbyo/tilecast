@@ -221,6 +221,9 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	// them.
 	h.clock = chosen.clock
 	h.takeovers.SetEvents(h.service)
+	if h.clock != nil {
+		h.takeovers.SetClock(h.clock.Now)
+	}
 	providers, err := h.service.DataSourceProviders()
 	if err != nil {
 		t.Fatal(err)

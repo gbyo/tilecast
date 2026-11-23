@@ -34,6 +34,18 @@ type Service struct {
 	// events receives incident.opened@1, incident.recovered@1, and
 	// feed.stale@1 in the sweep's transaction. Nil drops them.
 	events coreevents.Sink
+	// now dates those events. Tests replace it.
+	now func() time.Time
+}
+
+// SetClock replaces the clock that dates the sweep's core events.
+func (s *Service) SetClock(now func() time.Time) { s.now = now }
+
+func (s *Service) clock() time.Time {
+	if s.now == nil {
+		return time.Now().UTC()
+	}
+	return s.now().UTC()
 }
 
 // SetEvents wires the core event sink.
@@ -49,12 +61,12 @@ func (s *Service) emitIDs(ctx context.Context, tx pgx.Tx, rows pgx.Rows, err err
 	if err != nil {
 		return err
 	}
-	return coreevents.EmitIncidents(ctx, tx, s.events, name, reason, time.Now().UTC(), ids...)
+	return coreevents.EmitIncidents(ctx, tx, s.events, name, reason, s.clock(), ids...)
 }
 
 // NewService builds the content health service.
 func NewService(db *pgxpool.Pool, reader SettingsReader) *Service {
-	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad()}
+	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad(), now: time.Now}
 }
 
 // SetContentDefinitions shares the release catalog used for playback projection.
@@ -244,7 +256,7 @@ func (s *Service) sweepFeeds(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
+	now := s.clock()
 	for _, item := range stale {
 		// The dataset crossed into the stale state: its incident opened now.
 		if err := coreevents.EmitIncidents(ctx, tx, s.events, plugin.CoreIncidentOpened, coreevents.IncidentDetected, now, item.incident); err != nil {
