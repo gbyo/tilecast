@@ -165,7 +165,10 @@ function TouchActionGroups({
       {entry.label}
     </>
   );
-  const actionButton = (action: StudioAction) => (
+  const actionButton = (
+    action: StudioAction,
+    disabled = action.disabled ?? false,
+  ) => (
     <DrawerClose
       key={action.id}
       render={
@@ -173,7 +176,7 @@ function TouchActionGroups({
           type="button"
           variant={action.role === "destructive" ? "destructive" : "ghost"}
           className="w-full justify-start"
-          disabled={action.disabled}
+          disabled={disabled}
         />
       }
       onClick={() => action.onSelect()}
@@ -195,7 +198,9 @@ function TouchActionGroups({
                 <p className="flex min-h-8 items-center gap-2 px-2.5 text-xs font-medium text-muted-foreground">
                   {label(entry)}
                 </p>
-                {entry.items.map(actionButton)}
+                {entry.items.map((action) =>
+                  actionButton(action, Boolean(entry.disabled || action.disabled)),
+                )}
               </div>
             ) : (
               actionButton(entry)
