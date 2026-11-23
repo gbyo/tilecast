@@ -67,6 +67,17 @@ describe("SiteHeader", () => {
     ).toBeTruthy();
   });
 
+  it("keeps touch targets large in the narrow browser header", () => {
+    renderHeader([{ label: "Screens", to: "/screens" }]);
+
+    const navigation = screen.getByRole("button", { name: /navigation/i });
+    const search = screen.getByRole("button", { name: /Search Tilecast/ });
+    const notifications = screen.getByRole("button", { name: /Notifications/ });
+    expect(navigation.className).toContain("size-11");
+    expect(search.className).toContain("size-11");
+    expect(notifications.className).toContain("size-11");
+  });
+
   it("keeps native-host toolbar actions compact but touch-sized", () => {
     render(
       <MemoryRouter>

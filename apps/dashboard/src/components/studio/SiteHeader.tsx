@@ -144,7 +144,10 @@ export function SiteHeader({
       )}
     >
       {navigationTrigger && (
-        <SidebarTrigger aria-label={t("header.toggleNavigation")} />
+        <SidebarTrigger
+          className="size-11 lg:size-8"
+          aria-label={t("header.toggleNavigation")}
+        />
       )}
       {navigationTrigger && editor && (
         <Separator
@@ -236,7 +239,7 @@ export function SiteHeader({
         className={cn(
           nativeHost
             ? "size-11 text-muted-foreground"
-            : "size-8 text-muted-foreground",
+            : "size-11 text-muted-foreground lg:size-8",
           !editor &&
             !nativeHost &&
             "lg:w-56 lg:justify-start lg:gap-2 lg:px-2.5",
@@ -269,7 +272,10 @@ export function SiteHeader({
             <Button
               variant="ghost"
               size="icon"
-              className={cn("relative", nativeHost && "size-11")}
+              className={cn(
+                "relative size-11",
+                !nativeHost && "lg:size-8",
+              )}
               aria-label={
                 notifications.count
                   ? t("header.notificationsWithCount", {
