@@ -227,7 +227,10 @@ test.describe("coarse pointer", () => {
       expect(box!.width).toBeGreaterThanOrEqual(44);
       expect(box!.height).toBeGreaterThanOrEqual(44);
       await action.tap();
-      await expect(page.getByRole("menu")).toBeVisible();
+      const actions = page.getByRole("dialog", {
+        name: "Actions for Morning Broadcast",
+      });
+      await expect(actions).toHaveAttribute("data-slot", "drawer-content");
       await page.keyboard.press("Escape");
     }
     await page.goto("/layouts/de300006-0000-4000-8000-000000000001");
