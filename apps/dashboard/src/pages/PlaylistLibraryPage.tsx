@@ -222,6 +222,7 @@ export function PlaylistLibraryPage() {
   const navigate = useNavigate();
   const client = useQueryClient();
   const { confirm, dialog } = useConfirm();
+  const { t: tScreens } = useTranslation("screens");
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicatePlaylist(id, csrf),
     onSuccess: (created) => {
@@ -263,6 +264,19 @@ export function PlaylistLibraryPage() {
           icon: canManage ? "edit" : "open",
           onSelect: () => void navigate(`/playlists/${playlist.id}`),
         },
+        ...(hasCapability(auth.status, "screen.manage")
+          ? [
+              {
+                id: "assign-content",
+                label: tScreens("grid.assignContent"),
+                icon: "screens",
+                onSelect: () =>
+                  void navigate(
+                    `/screens/bulk?playlist=${encodeURIComponent(playlist.id)}`,
+                  ),
+              },
+            ]
+          : []),
         ...(canManage
           ? [
               {

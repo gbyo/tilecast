@@ -5,7 +5,7 @@ import { playlistQueries } from "../data/playlists";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, History, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
   BulkAction,
@@ -15,6 +15,10 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
+import {
+  PlaylistPicker,
+  type PlaylistPickerChoice,
+} from "../components/content-picker";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -120,6 +124,19 @@ export function FleetBulkPage() {
   const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const canManage = hasCapability(auth.status, "screen.manage");
+  const [params] = useSearchParams();
+  const playlistId = params.get("playlist") ?? "";
+  const layoutId = playlistId ? "" : (params.get("layout") ?? "");
+  const playlist = useQuery({
+    ...playlistQueries.detail(playlistId),
+    enabled: canManage && Boolean(playlistId),
+    retry: false,
+  });
+  const layout = useQuery({
+    ...layoutQueries.detail(layoutId),
+    enabled: canManage && Boolean(layoutId),
+    retry: false,
+  });
 
   if (!canManage) {
     return (
@@ -130,26 +147,99 @@ export function FleetBulkPage() {
     );
   }
 
-  return <FleetBulkWorkspace csrf={auth.status?.csrfToken ?? ""} />;
+  const source = playlistId ? playlist : layout;
+  if ((playlistId || layoutId) && !source.data) {
+    return (
+      <div className="grid w-full max-w-[1180px] min-w-0 gap-6">
+        <PageHeader title={t("bulk.title")} description={t("bulk.body")} />
+        {source.isPending ? (
+          <div role="status" aria-label={t("common:status.loading")}>
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              {apiErrorMessage(source.error)}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void source.refetch()}
+              >
+                {t("common:actions.retry")}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+    );
+  }
+  if (layoutId && !layout.data?.publishedRevision) {
+    return (
+      <div className="grid w-full max-w-[1180px] min-w-0 gap-6">
+        <PageHeader title={t("bulk.title")} description={t("bulk.body")} />
+        <BulkError>{t("bulk.layoutHint")}</BulkError>
+        <Button
+          className="w-fit"
+          variant="outline"
+          render={<Link to="/screens/bulk" />}
+        >
+          {t("common:actions.back")}
+        </Button>
+      </div>
+    );
+  }
+
+  const initialChoice: PlaylistPickerChoice | undefined =
+    playlistId && playlist.data
+      ? { kind: "playlist", playlist: playlist.data }
+      : layoutId && layout.data
+        ? { kind: "layout", layout: layout.data }
+        : undefined;
+  return (
+    <FleetBulkWorkspace
+      key={playlistId ? `playlist:${playlistId}` : `layout:${layoutId}`}
+      csrf={auth.status?.csrfToken ?? ""}
+      initialChoice={initialChoice}
+    />
+  );
 }
 
-function FleetBulkWorkspace({ csrf }: { csrf: string }) {
+function FleetBulkWorkspace({
+  csrf,
+  initialChoice,
+}: {
+  csrf: string;
+  initialChoice?: PlaylistPickerChoice;
+}) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const client = useQueryClient();
 
   const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
-  const playlists = useQuery(playlistQueries.list());
-  const layouts = useQuery(layoutQueries.list());
   const operations = useQuery({
     queryKey: ["bulk-operations"],
     queryFn: () => api.bulkOperations(5),
   });
 
   const [selected, setSelected] = useState<string[]>([]);
-  const [action, setAction] = useState<BulkAction>("assign_playlist");
-  const [playlistId, setPlaylistId] = useState("");
-  const [layoutId, setLayoutId] = useState("");
+  const [action, setAction] = useState<BulkAction>(
+    initialChoice?.kind === "layout" ? "assign_layout" : "assign_playlist",
+  );
+  const [playlist, setPlaylist] = useState(
+    initialChoice?.kind === "playlist" ? initialChoice.playlist : undefined,
+  );
+  const [layout, setLayout] = useState(
+    initialChoice?.kind === "layout" ? initialChoice.layout : undefined,
+  );
+  const [picker, setPicker] = useState<"playlist" | "layout">();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const openPicker = (kind: "playlist" | "layout") => {
+    setPicker(kind);
+    setPickerOpen(true);
+  };
+  const playlistId = playlist?.id ?? "";
+  const layoutId = layout?.id ?? "";
   const [enabled, setEnabled] = useState(true);
   const [commandType, setCommandType] = useState("sync_now");
   const [review, setReview] = useState<{
@@ -396,40 +486,40 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
             </FieldSet>
 
             {action === "assign_playlist" && (
-              <BulkSelect
-                disabled={locked}
-                id="bulk-playlist"
-                label={t("bulk.playlistLabel")}
-                value={playlistId}
-                onChange={(value) => {
-                  setPlaylistId(value);
-                  setReview(undefined);
-                }}
-                options={(playlists.data?.items ?? []).map((playlist) => ({
-                  value: playlist.id,
-                  label: playlist.name,
-                }))}
-                placeholder={t("bulk.pickPlaylist")}
-              />
+              <Field>
+                <FieldLabel htmlFor="bulk-playlist">
+                  {t("bulk.playlistLabel")}
+                </FieldLabel>
+                <Button
+                  id="bulk-playlist"
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-w-0 justify-start whitespace-normal py-2 text-start [overflow-wrap:anywhere]"
+                  disabled={locked}
+                  onClick={() => openPicker("playlist")}
+                >
+                  {playlist?.name ?? t("bulk.pickPlaylist")}
+                </Button>
+              </Field>
             )}
 
             {action === "assign_layout" && (
-              <BulkSelect
-                disabled={locked}
-                id="bulk-layout"
-                label={t("bulk.layoutLabel")}
-                value={layoutId}
-                onChange={(value) => {
-                  setLayoutId(value);
-                  setReview(undefined);
-                }}
-                options={(layouts.data?.items ?? []).map((layout) => ({
-                  value: layout.id,
-                  label: layout.name,
-                }))}
-                placeholder={t("bulk.pickLayout")}
-                hint={t("bulk.layoutHint")}
-              />
+              <Field>
+                <FieldLabel htmlFor="bulk-layout">
+                  {t("bulk.layoutLabel")}
+                </FieldLabel>
+                <Button
+                  id="bulk-layout"
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-w-0 justify-start whitespace-normal py-2 text-start [overflow-wrap:anywhere]"
+                  disabled={locked}
+                  onClick={() => openPicker("layout")}
+                >
+                  {layout?.name ?? t("bulk.pickLayout")}
+                </Button>
+                <FieldDescription>{t("bulk.layoutHint")}</FieldDescription>
+              </Field>
             )}
 
             {action === "set_enabled" && (
@@ -483,6 +573,28 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
           </div>
         </section>
       </div>
+
+      {picker && (
+        <PlaylistPicker
+          open={pickerOpen}
+          allowedKinds={[picker]}
+          title={
+            picker === "playlist" ? t("bulk.pickPlaylist") : t("bulk.pickLayout")
+          }
+          confirmLabel={t("common:actions.confirm")}
+          selectedId={picker === "playlist" ? playlistId : layoutId}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
+          onConfirm={(choice) => {
+            if (choice.kind === "playlist") setPlaylist(choice.playlist);
+            else setLayout(choice.layout);
+            setReview(undefined);
+            setPickerOpen(false);
+          }}
+        />
+      )}
 
       {preview && (
         <PreviewSection
