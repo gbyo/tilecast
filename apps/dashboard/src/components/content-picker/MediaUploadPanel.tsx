@@ -1,6 +1,7 @@
 import { formatDurationClock } from "../../lib/formatDuration";
 import { formatBytes } from "../../lib/formatBytes";
 import {
+import { newUuid } from "../../lib/uuid";
   CircleCheck,
   Clock,
   FileUp,
@@ -233,7 +234,7 @@ export function MediaUploadPanel({
   );
 
   const upload = useCallback(
-    async (file: File, id: string = crypto.randomUUID()) => {
+    async (file: File, id: string = newUuid()) => {
       const mimeType = file.type || "application/octet-stream";
       setUploads((current) => {
         const next: MediaUpload = { id, file, uploaded: 0, state: "waiting" };
