@@ -28,6 +28,13 @@ var (
 	ErrInvalidUpload = errors.New("screen preview upload is invalid")
 )
 
+type CaptureTrigger string
+
+const (
+	CaptureTriggerScheduled CaptureTrigger = "scheduled"
+	CaptureTriggerManual    CaptureTrigger = "manual"
+)
+
 type Notifier interface {
 	Notify(screenID uuid.UUID, message map[string]any) bool
 }
@@ -39,11 +46,11 @@ type Service struct {
 	// history receives every successful capture when snapshot history is
 	// enabled. Nil means this installation keeps no history, which is the
 	// default.
-	history func(ctx context.Context, screenID uuid.UUID, upload Upload)
+	history func(ctx context.Context, screenID uuid.UUID, upload Upload, trigger CaptureTrigger)
 }
 
 // SetHistoryRecorder installs the snapshot history recorder.
-func (s *Service) SetHistoryRecorder(record func(ctx context.Context, screenID uuid.UUID, upload Upload)) {
+func (s *Service) SetHistoryRecorder(record func(ctx context.Context, screenID uuid.UUID, upload Upload, trigger CaptureTrigger)) {
 	s.history = record
 }
 
@@ -89,13 +96,21 @@ type Image struct {
 }
 
 func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bool) (Session, error) {
+	return s.renew(ctx, screenID, forceCapture, CaptureTriggerScheduled)
+}
+
+func (s *Service) RenewManual(ctx context.Context, screenID uuid.UUID, forceCapture bool) (Session, error) {
+	return s.renew(ctx, screenID, forceCapture, CaptureTriggerManual)
+}
+
+func (s *Service) renew(ctx context.Context, screenID uuid.UUID, forceCapture bool, trigger CaptureTrigger) (Session, error) {
 	now := s.now().UTC()
 	expiresAt := now.Add(LeaseDuration)
 	var storedScreenID uuid.UUID
 	var requestedAt time.Time
 	err := s.db.QueryRow(ctx, `
-		INSERT INTO screen_previews(screen_id,organization_id,lease_expires_at,capture_requested_at,updated_at)
-		SELECT screens.id,screens.organization_id,$2,$1,$1
+		INSERT INTO screen_previews(screen_id,organization_id,lease_expires_at,capture_requested_at,updated_at,capture_trigger)
+		SELECT screens.id,screens.organization_id,$2,$1,$1,$7
 		FROM screens
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
 		WHERE screens.id=$3
@@ -110,8 +125,17 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 				THEN $1
 				ELSE screen_previews.capture_requested_at
 			END,
+			capture_trigger=CASE
+				WHEN $4 THEN $7
+				WHEN (screen_previews.captured_at IS NULL OR screen_previews.captured_at < $1 - make_interval(secs => $5))
+					AND left(COALESCE(screen_previews.failure_status, ''), 10) <> 'sensitive_'
+					AND screen_previews.capture_requested_at <= $1 - make_interval(secs => $6)
+					AND (screen_previews.attempted_at IS NULL OR screen_previews.attempted_at <= $1 - make_interval(secs => $6))
+				THEN 'scheduled'
+				ELSE screen_previews.capture_trigger
+			END,
 			updated_at=$1
-		RETURNING screen_id, capture_requested_at`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds())).Scan(&storedScreenID, &requestedAt)
+		RETURNING screen_id, capture_requested_at`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds()), string(trigger)).Scan(&storedScreenID, &requestedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}
@@ -175,7 +199,8 @@ func (s *Service) RecordUpload(ctx context.Context, screenID uuid.UUID, upload U
 	}
 	// Failure updates only the attempt and failure status, not the last image.
 	// Unknown or protected failure statuses are hidden by the image endpoint.
-	commandTag, err := s.db.Exec(ctx, `
+	var captureTrigger string
+	err := s.db.QueryRow(ctx, `
 		UPDATE screen_previews preview SET
 			attempted_at=$2,
 			captured_at=CASE WHEN $3='' THEN $10 ELSE preview.captured_at END,
@@ -189,19 +214,20 @@ func (s *Service) RecordUpload(ctx context.Context, screenID uuid.UUID, upload U
 			updated_at=$2
 		FROM screens
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
-		WHERE preview.screen_id=$1 AND screens.id=preview.screen_id AND preview.lease_expires_at>$2`,
-		screenID, now, failureStatus, strings.TrimSpace(upload.PlayerVersion), upload.Width, upload.Height, len(upload.Data), upload.ContentType, upload.Data, capturedAt)
+		WHERE preview.screen_id=$1 AND screens.id=preview.screen_id AND preview.lease_expires_at>$2
+		RETURNING preview.capture_trigger`,
+		screenID, now, failureStatus, strings.TrimSpace(upload.PlayerVersion), upload.Width, upload.Height, len(upload.Data), upload.ContentType, upload.Data, capturedAt).Scan(&captureTrigger)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrLeaseExpired
+	}
 	if err != nil {
 		return fmt.Errorf("store player preview: %w", err)
-	}
-	if commandTag.RowsAffected() == 0 {
-		return ErrLeaseExpired
 	}
 	// Snapshot history, when it is enabled, records the frames that arrive here
 	// rather than capturing separately. One capture path means a manual preview
 	// and a scheduled snapshot cannot disagree about what the screen showed.
 	if s.history != nil && failureStatus == "" && len(upload.Data) > 0 {
-		s.history(ctx, screenID, upload)
+		s.history(ctx, screenID, upload, CaptureTrigger(captureTrigger))
 	}
 	return nil
 }
