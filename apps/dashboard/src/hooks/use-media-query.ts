@@ -30,7 +30,12 @@ export function useAnyCoarsePointer() {
   return useMediaQuery("(any-pointer: coarse)");
 }
 
-/** True only when the primary pointer can accurately hover. */
+/**
+ * True when any available input can hover precisely.
+ *
+ * iPad keeps touch as the primary pointer even when Apple Pencil, a trackpad,
+ * or a mouse is available, so this must use the any-* media features.
+ */
 export function useFineHoverPointer() {
-  return useMediaQuery("(hover: hover) and (pointer: fine)");
+  return useMediaQuery("(any-hover: hover) and (any-pointer: fine)");
 }
