@@ -25,12 +25,20 @@ type WorkerPool struct {
 	wg             sync.WaitGroup
 	cancel         context.CancelFunc
 	gate           func() bool
+	jobPermit      func() (release func(), ok bool)
 	extraProcessor func(context.Context, string, *uuid.UUID, []byte) error
 }
 
 // SetGate installs a check consulted before claiming work. Backup snapshots
 // pause media processing so files cannot mutate while they are archived.
 func (p *WorkerPool) SetGate(gate func() bool) { p.gate = gate }
+
+// SetJobPermit installs a lifetime permit held from before claim until the
+// claimed job's processing and final state write have finished. Backup uses
+// this to drain work that was already running when its guard became active.
+func (p *WorkerPool) SetJobPermit(permit func() (release func(), ok bool)) {
+	p.jobPermit = permit
+}
 
 // SetExtraProcessor lets a feature-owned media job reuse the durable worker
 // lifecycle without adding feature-specific SQL or a second scheduler.
@@ -76,12 +84,22 @@ func (p *WorkerPool) run(ctx context.Context) {
 				if p.gate != nil && !p.gate() {
 					break
 				}
+				release := func() {}
+				if p.jobPermit != nil {
+					var ok bool
+					release, ok = p.jobPermit()
+					if !ok {
+						break
+					}
+				}
 				j, err := p.claim(ctx)
 				if err != nil {
+					release()
 					p.logger.Error("claim media job", "error", err)
 					break
 				}
 				if j == nil {
+					release()
 					break
 				}
 				stopLease := p.keepLease(ctx, *j)
@@ -92,6 +110,7 @@ func (p *WorkerPool) run(ctx context.Context) {
 				} else {
 					p.complete(ctx, *j)
 				}
+				release()
 			}
 		}
 	}
