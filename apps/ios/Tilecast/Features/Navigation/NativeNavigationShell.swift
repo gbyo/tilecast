@@ -106,23 +106,39 @@ struct NativeTabNavigation: View {
                 // adaptable sidebar. The groups and labels come entirely from
                 // Studio's catalog.
                 ForEach(navigation.secondaryGroups) { group in
-                    TabSection {
-                        ForEach(group.destinations) { destination in
-                            Tab(
-                                destination.title,
-                                image: destination.imageName,
-                                value: NavigationTab.destination(destination.id)
-                            ) {
-                                studio(
-                                    in: .destination(destination.id),
-                                    adaptive: true
-                                )
+                    if let title = group.title {
+                        TabSection {
+                            ForEach(group.destinations) { destination in
+                                Tab(
+                                    destination.title,
+                                    image: destination.imageName,
+                                    value: NavigationTab.destination(destination.id)
+                                ) {
+                                    studio(
+                                        in: .destination(destination.id),
+                                        adaptive: true
+                                    )
+                                }
+                                .tabPlacement(.sidebarOnly)
                             }
-                            .tabPlacement(.sidebarOnly)
+                        } header: {
+                            Text(verbatim: title)
                         }
-                    } header: {
-                        if let title = group.title {
-                            Text(title)
+                    } else {
+                        TabSection {
+                            ForEach(group.destinations) { destination in
+                                Tab(
+                                    destination.title,
+                                    image: destination.imageName,
+                                    value: NavigationTab.destination(destination.id)
+                                ) {
+                                    studio(
+                                        in: .destination(destination.id),
+                                        adaptive: true
+                                    )
+                                }
+                                .tabPlacement(.sidebarOnly)
+                            }
                         }
                     }
                 }
@@ -228,7 +244,7 @@ struct MoreView: View {
                         .accessibilityAddTraits(destination.id == navigation.activeDestinationID ? .isSelected : [])
                     }
                 } header: {
-                    if let title = group.title { Text(title).font(.geist(.footnote)) }
+                    if let title = group.title { Text(verbatim: title).font(.geist(.footnote)) }
                 }
             }
             Section {
