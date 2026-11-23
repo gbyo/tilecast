@@ -11216,6 +11216,28 @@ type PluginConnectionUpdate struct {
 	Origin           *string `json:"origin,omitempty"`
 }
 
+// PluginDeliveryStatus defines model for PluginDeliveryStatus.
+type PluginDeliveryStatus struct {
+	// ExpiredCount Deliveries the host expired: pending 7 days after they became due, or parked 14 days.
+	ExpiredCount  int        `json:"expiredCount"`
+	LastExpiredAt *time.Time `json:"lastExpiredAt"`
+	LastFailure   *struct {
+		At time.Time `json:"at"`
+
+		// Code A stable failure code, for example handler_error, handler_timeout, handler_panic, or lease_expired.
+		Code string  `json:"code"`
+		Kind *string `json:"kind,omitempty"`
+	} `json:"lastFailure"`
+
+	// Parked The newest parked deliveries.
+	Parked      []PluginParkedDelivery `json:"parked"`
+	ParkedCount int                    `json:"parkedCount"`
+
+	// Pending Deliveries that wait or run now.
+	Pending int `json:"pending"`
+	Running int `json:"running"`
+}
+
 // PluginFeedDataset defines model for PluginFeedDataset.
 type PluginFeedDataset struct {
 	Feed        string `json:"feed"`
@@ -11332,6 +11354,25 @@ type PluginMarketplaceStatus struct {
 	Stale         bool       `json:"stale"`
 }
 
+// PluginParkedDelivery defines model for PluginParkedDelivery.
+type PluginParkedDelivery struct {
+	Attempts  int       `json:"attempts"`
+	DueAt     time.Time `json:"dueAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Id The stable delivery ID the plugin receives on every attempt.
+	Id        openapi_types.UUID `json:"id"`
+	Kind      string             `json:"kind"`
+	LastError string             `json:"lastError"`
+	ParkedAt  time.Time          `json:"parkedAt"`
+
+	// Source The timer key, the event name, or the webhook ID.
+	Source string `json:"source"`
+
+	// Subject The order key within the kind.
+	Subject string `json:"subject"`
+}
+
 // PluginRequirement defines model for PluginRequirement.
 type PluginRequirement struct {
 	Description *string               `json:"description,omitempty"`
@@ -11354,6 +11395,13 @@ type PluginSecretStatus struct {
 
 	// Unreadable Secrets this server holds no key for. They need new values.
 	Unreadable int `json:"unreadable"`
+}
+
+// PluginStatus defines model for PluginStatus.
+type PluginStatus struct {
+	Deliveries PluginDeliveryStatus `json:"deliveries"`
+	Installed  bool                 `json:"installed"`
+	PluginId   string               `json:"pluginId"`
 }
 
 // PluginStore defines model for PluginStore.
@@ -13715,6 +13763,9 @@ type PackageID = string
 // PluginConnectionID defines model for PluginConnectionID.
 type PluginConnectionID = openapi_types.UUID
 
+// PluginDeliveryID defines model for PluginDeliveryID.
+type PluginDeliveryID = openapi_types.UUID
+
 // PluginID defines model for PluginID.
 type PluginID = string
 
@@ -15080,6 +15131,18 @@ type DisconnectPluginConnectionOAuthParams struct {
 
 // StartPluginConnectionOAuthParams defines parameters for StartPluginConnectionOAuth.
 type StartPluginConnectionOAuthParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DiscardPluginDeliveryParams defines parameters for DiscardPluginDelivery.
+type DiscardPluginDeliveryParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RetryPluginDeliveryParams defines parameters for RetryPluginDelivery.
+type RetryPluginDeliveryParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
@@ -19469,6 +19532,16 @@ type ClientInterface interface {
 	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
 	StartPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DiscardPluginDelivery performs a DELETE /api/v1/plugins/{pluginId}/deliveries/{deliveryId} (the `DiscardPluginDelivery` operationId) request.
+	//
+	// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Deletes a parked delivery. The plugin never receives it. The audit event names the delivery, its kind, and its subject, never its payload.
+	DiscardPluginDelivery(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *DiscardPluginDeliveryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RetryPluginDelivery performs a POST /api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry (the `RetryPluginDelivery` operationId) request.
+	//
+	// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Returns a parked delivery to the end of its subject's queue with the same delivery ID; its attempts start again. The audit event names the delivery, its kind, and its subject, never its payload.
+	RetryPluginDelivery(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *RetryPluginDeliveryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListPluginFeeds performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
 	//
 	// Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
@@ -19500,6 +19573,11 @@ type ClientInterface interface {
 	//
 	// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
 	RemovePlugin(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPluginStatus performs a GET /api/v1/plugins/{pluginId}/status (the `GetPluginStatus` operationId) request.
+	//
+	// Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
+	GetPluginStatus(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPresentationNetworks List Presentation Networks
 	//
@@ -27212,6 +27290,36 @@ func (c *Client) StartPluginConnectionOAuth(ctx context.Context, pluginId Plugin
 	return c.Client.Do(req)
 }
 
+// DiscardPluginDelivery performs a DELETE /api/v1/plugins/{pluginId}/deliveries/{deliveryId} (the `DiscardPluginDelivery` operationId) request.
+//
+// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Deletes a parked delivery. The plugin never receives it. The audit event names the delivery, its kind, and its subject, never its payload.
+func (c *Client) DiscardPluginDelivery(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *DiscardPluginDeliveryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDiscardPluginDeliveryRequest(c.Server, pluginId, deliveryId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RetryPluginDelivery performs a POST /api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry (the `RetryPluginDelivery` operationId) request.
+//
+// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Returns a parked delivery to the end of its subject's queue with the same delivery ID; its attempts start again. The audit event names the delivery, its kind, and its subject, never its payload.
+func (c *Client) RetryPluginDelivery(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *RetryPluginDeliveryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetryPluginDeliveryRequest(c.Server, pluginId, deliveryId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListPluginFeeds performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
 //
 // Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
@@ -27294,6 +27402,21 @@ func (c *Client) InstallPlugin(ctx context.Context, pluginId PluginID, params *I
 // Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
 func (c *Client) RemovePlugin(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRemovePluginRequest(c.Server, pluginId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPluginStatus performs a GET /api/v1/plugins/{pluginId}/status (the `GetPluginStatus` operationId) request.
+//
+// Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
+func (c *Client) GetPluginStatus(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPluginStatusRequest(c.Server, pluginId)
 	if err != nil {
 		return nil, err
 	}
@@ -45781,6 +45904,118 @@ func NewStartPluginConnectionOAuthRequest(server string, pluginId PluginID, conn
 	return req, nil
 }
 
+// NewDiscardPluginDeliveryRequest constructs an http.Request for the DiscardPluginDelivery method
+func NewDiscardPluginDeliveryRequest(server string, pluginId PluginID, deliveryId PluginDeliveryID, params *DiscardPluginDeliveryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "deliveryId", deliveryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/deliveries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRetryPluginDeliveryRequest constructs an http.Request for the RetryPluginDelivery method
+func NewRetryPluginDeliveryRequest(server string, pluginId PluginID, deliveryId PluginDeliveryID, params *RetryPluginDeliveryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "deliveryId", deliveryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/deliveries/%s/retry", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListPluginFeedsRequest constructs an http.Request for the ListPluginFeeds method
 func NewListPluginFeedsRequest(server string, pluginId PluginID) (*http.Request, error) {
 	var err error
@@ -46057,6 +46292,40 @@ func NewRemovePluginRequest(server string, pluginId PluginID, params *RemovePlug
 			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewGetPluginStatusRequest constructs an http.Request for the GetPluginStatus method
+func NewGetPluginStatusRequest(server string, pluginId PluginID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -55535,6 +55804,20 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	StartPluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*StartPluginConnectionOAuthResponse, error)
 
+	// DiscardPluginDeliveryWithResponse performs a DELETE /api/v1/plugins/{pluginId}/deliveries/{deliveryId} (the `DiscardPluginDelivery` operationId) request.
+	//
+	// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Deletes a parked delivery. The plugin never receives it. The audit event names the delivery, its kind, and its subject, never its payload.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DiscardPluginDeliveryWithResponse(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *DiscardPluginDeliveryParams, reqEditors ...RequestEditorFn) (*DiscardPluginDeliveryResponse, error)
+
+	// RetryPluginDeliveryWithResponse performs a POST /api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry (the `RetryPluginDelivery` operationId) request.
+	//
+	// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Returns a parked delivery to the end of its subject's queue with the same delivery ID; its attempts start again. The audit event names the delivery, its kind, and its subject, never its payload.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RetryPluginDeliveryWithResponse(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *RetryPluginDeliveryParams, reqEditors ...RequestEditorFn) (*RetryPluginDeliveryResponse, error)
+
 	// ListPluginFeedsWithResponse performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
 	//
 	// Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
@@ -55576,6 +55859,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RemovePluginWithResponse(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*RemovePluginResponse, error)
+
+	// GetPluginStatusWithResponse performs a GET /api/v1/plugins/{pluginId}/status (the `GetPluginStatus` operationId) request.
+	//
+	// Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetPluginStatusWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*GetPluginStatusResponse, error)
 
 	// ListPresentationNetworksWithResponse List Presentation Networks
 	//
@@ -70213,6 +70503,96 @@ func (r StartPluginConnectionOAuthResponse) ContentType() string {
 	return ""
 }
 
+type DiscardPluginDeliveryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginParkedDelivery `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DiscardPluginDeliveryResponse) GetJSON200() *struct {
+	Data PluginParkedDelivery `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r DiscardPluginDeliveryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DiscardPluginDeliveryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DiscardPluginDeliveryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DiscardPluginDeliveryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RetryPluginDeliveryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginParkedDelivery `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RetryPluginDeliveryResponse) GetJSON200() *struct {
+	Data PluginParkedDelivery `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r RetryPluginDeliveryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RetryPluginDeliveryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RetryPluginDeliveryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RetryPluginDeliveryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPluginFeedsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -70445,6 +70825,51 @@ func (r RemovePluginResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RemovePluginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPluginStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPluginStatusResponse) GetJSON200() *struct {
+	Data PluginStatus `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPluginStatusResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPluginStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPluginStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPluginStatusResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -82309,6 +82734,32 @@ func (c *ClientWithResponses) StartPluginConnectionOAuthWithResponse(ctx context
 	return ParseStartPluginConnectionOAuthResponse(rsp)
 }
 
+// DiscardPluginDeliveryWithResponse performs a DELETE /api/v1/plugins/{pluginId}/deliveries/{deliveryId} (the `DiscardPluginDelivery` operationId) request.
+//
+// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Deletes a parked delivery. The plugin never receives it. The audit event names the delivery, its kind, and its subject, never its payload.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DiscardPluginDeliveryWithResponse(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *DiscardPluginDeliveryParams, reqEditors ...RequestEditorFn) (*DiscardPluginDeliveryResponse, error) {
+	rsp, err := c.DiscardPluginDelivery(ctx, pluginId, deliveryId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDiscardPluginDeliveryResponse(rsp)
+}
+
+// RetryPluginDeliveryWithResponse performs a POST /api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry (the `RetryPluginDelivery` operationId) request.
+//
+// Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Returns a parked delivery to the end of its subject's queue with the same delivery ID; its attempts start again. The audit event names the delivery, its kind, and its subject, never its payload.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RetryPluginDeliveryWithResponse(ctx context.Context, pluginId PluginID, deliveryId PluginDeliveryID, params *RetryPluginDeliveryParams, reqEditors ...RequestEditorFn) (*RetryPluginDeliveryResponse, error) {
+	rsp, err := c.RetryPluginDelivery(ctx, pluginId, deliveryId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRetryPluginDeliveryResponse(rsp)
+}
+
 // ListPluginFeedsWithResponse performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
 //
 // Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
@@ -82385,6 +82836,19 @@ func (c *ClientWithResponses) RemovePluginWithResponse(ctx context.Context, plug
 		return nil, err
 	}
 	return ParseRemovePluginResponse(rsp)
+}
+
+// GetPluginStatusWithResponse performs a GET /api/v1/plugins/{pluginId}/status (the `GetPluginStatus` operationId) request.
+//
+// Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetPluginStatusWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*GetPluginStatusResponse, error) {
+	rsp, err := c.GetPluginStatus(ctx, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPluginStatusResponse(rsp)
 }
 
 // ListPresentationNetworksWithResponse List Presentation Networks
@@ -94030,6 +94494,74 @@ func ParseStartPluginConnectionOAuthResponse(rsp *http.Response) (*StartPluginCo
 	return response, nil
 }
 
+// ParseDiscardPluginDeliveryResponse parses an HTTP response from a DiscardPluginDeliveryWithResponse call
+func ParseDiscardPluginDeliveryResponse(rsp *http.Response) (*DiscardPluginDeliveryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DiscardPluginDeliveryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginParkedDelivery `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseRetryPluginDeliveryResponse parses an HTTP response from a RetryPluginDeliveryWithResponse call
+func ParseRetryPluginDeliveryResponse(rsp *http.Response) (*RetryPluginDeliveryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RetryPluginDeliveryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginParkedDelivery `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseListPluginFeedsResponse parses an HTTP response from a ListPluginFeedsWithResponse call
 func ParseListPluginFeedsResponse(rsp *http.Response) (*ListPluginFeedsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -94207,6 +94739,37 @@ func ParseRemovePluginResponse(rsp *http.Response) (*RemovePluginResponse, error
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPluginStatusResponse parses an HTTP response from a GetPluginStatusWithResponse call
+func ParseGetPluginStatusResponse(rsp *http.Response) (*GetPluginStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPluginStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
 
 	}
 
