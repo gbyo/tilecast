@@ -583,22 +583,19 @@ describe("PlaylistEditor panes", () => {
     mockDesktop();
     mockServer();
     let finish!: (value: Playlist) => void;
+    const response = new Promise<Playlist>((resolve) => {
+      finish = resolve;
+    });
     const bulk = vi
       .spyOn(api, "bulkUpdatePlaylistItems")
-      .mockReturnValue(
-        new Promise((resolve) => {
-          finish = resolve;
-        }),
-      );
-    const publish = vi
-      .spyOn(api, "publishPlaylist")
-      .mockResolvedValue(publication);
+      .mockReturnValue(response);
+    const publish = vi.spyOn(api, "publishPlaylist");
+    publish.mockResolvedValue(publication);
     renderEditor();
 
     const button = await screen.findByRole("button", { name: "Publish" });
-    const duration = screen.getByLabelText(
-      "Playlist image duration in seconds",
-    );
+    const durationLabel = "Playlist image duration in seconds";
+    const duration = screen.getByLabelText(durationLabel);
     fireEvent.change(duration, { target: { value: "12" } });
     fireEvent.blur(duration);
     await waitFor(() => expect(bulk).toHaveBeenCalled());
@@ -610,9 +607,9 @@ describe("PlaylistEditor panes", () => {
     finish({ ...playlist(), draftRevision: 4 });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
-    await waitFor(() =>
-      expect(publish).toHaveBeenCalledWith("p1", 4, "token"),
-    );
+    await waitFor(() => {
+      expect(publish).toHaveBeenCalledWith("p1", 4, "token");
+    });
   });
 
   it("reports publishing with a toast instead of an inline success alert", async () => {
