@@ -40,23 +40,23 @@ Tests can use Studio paths and destination identifiers as data.
 
 ## Components
 
-| Part                     | Location                                                | Responsibility                                                                                                |
-| ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Part                     | Location                                                | Responsibility                                                                                                        |
+| ------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | App target               | `apps/ios/Tilecast/`                                    | SwiftUI scenes, adaptive tab/sidebar navigation, server switching, add-server flow, connection states, localized text |
-| `TilecastCore`           | `apps/ios/TilecastKit/Sources/TilecastCore/`            | Server profiles, address policy, installation identity, WebKit storage, navigation policy, hosting            |
-| Native authentication    | `apps/ios/TilecastKit/Sources/TilecastCore/Auth/`       | Sign-in callback checks, the iOS session client, the credential store, `NativeAuthSession`, bearer transport  |
-| `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code            |
-| Native bridge            | `apps/ios/TilecastKit/Sources/TilecastCore/Bridge/`     | The only code that handles page scripting: the message handler, protocol validation, and the receiver call    |
-| Native navigation model  | `apps/ios/TilecastKit/Sources/TilecastCore/Navigation/` | The navigation catalog, selection that follows Studio, and icon tokens                                        |
-| Deep links               | `apps/ios/TilecastKit/Sources/TilecastCore/DeepLinks/`  | The `tilecast-ios://open` URL, its path rules, and the resolver that `StudioHost` runs                        |
-| Media intake             | `apps/ios/TilecastKit/Sources/TilecastCore/Media/`      | Temporary staging, the resumable uploader, and the intake coordinator. It has no user interface               |
-| System integrations      | `apps/ios/Tilecast/Features/System/`, `Features/Media/` | Semantic haptics, the share adapter, the deep-link notice, and the media pickers and progress sheet           |
-| Bridge contract          | `packages/native-bridge-schema/`                        | The language-neutral protocol, icon tokens, and the shared fixtures that Studio and the app run               |
-| Studio native host       | `apps/dashboard/src/native-host/`                       | Studio's side of the bridge: detection, capability negotiation, catalog, state, and requests                  |
-| Core tests               | `apps/ios/TilecastKit/Tests/TilecastCoreTests/`         | Swift Testing suites; run on macOS with `swift test` and on the iOS Simulator                                 |
-| UI tests                 | `apps/ios/TilecastUITests/`                             | Smoke tests against a loopback fixture server; no network access                                              |
-| Build settings           | `apps/ios/Config/*.xcconfig`                            | All build settings; the project file holds none                                                               |
-| CI and repository checks | `apps/ios/scripts/`                                     | Simulator selection, localization parity, architecture boundaries                                             |
+| `TilecastCore`           | `apps/ios/TilecastKit/Sources/TilecastCore/`            | Server profiles, address policy, installation identity, WebKit storage, navigation policy, hosting                    |
+| Native authentication    | `apps/ios/TilecastKit/Sources/TilecastCore/Auth/`       | Sign-in callback checks, the iOS session client, the credential store, `NativeAuthSession`, bearer transport          |
+| `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code                    |
+| Native bridge            | `apps/ios/TilecastKit/Sources/TilecastCore/Bridge/`     | The only code that handles page scripting: the message handler, protocol validation, and the receiver call            |
+| Native navigation model  | `apps/ios/TilecastKit/Sources/TilecastCore/Navigation/` | The navigation catalog, selection that follows Studio, and icon tokens                                                |
+| Deep links               | `apps/ios/TilecastKit/Sources/TilecastCore/DeepLinks/`  | The `tilecast-ios://open` URL, its path rules, and the resolver that `StudioHost` runs                                |
+| Media intake             | `apps/ios/TilecastKit/Sources/TilecastCore/Media/`      | Temporary staging, the resumable uploader, and the intake coordinator. It has no user interface                       |
+| System integrations      | `apps/ios/Tilecast/Features/System/`, `Features/Media/` | Semantic haptics, the share adapter, the deep-link notice, and the media pickers and progress sheet                   |
+| Bridge contract          | `packages/native-bridge-schema/`                        | The language-neutral protocol, icon tokens, and the shared fixtures that Studio and the app run                       |
+| Studio native host       | `apps/dashboard/src/native-host/`                       | Studio's side of the bridge: detection, capability negotiation, catalog, state, and requests                          |
+| Core tests               | `apps/ios/TilecastKit/Tests/TilecastCoreTests/`         | Swift Testing suites; run on macOS with `swift test` and on the iOS Simulator                                         |
+| UI tests                 | `apps/ios/TilecastUITests/`                             | Smoke tests against a loopback fixture server; no network access                                                      |
+| Build settings           | `apps/ios/Config/*.xcconfig`                            | All build settings; the project file holds none                                                                       |
+| CI and repository checks | `apps/ios/scripts/`                                     | Simulator selection, localization parity, architecture boundaries                                                     |
 
 `TilecastCore` holds no user-visible strings, so the app target maps each Core error value to localized text.
 
