@@ -148,7 +148,7 @@ export function FleetBulkPage() {
   }
 
   const source = playlistId ? playlist : layout;
-  if ((playlistId || layoutId) && (source.isPending || source.isError)) {
+  if ((playlistId || layoutId) && !source.data) {
     return (
       <div className="grid w-full max-w-[1180px] min-w-0 gap-6">
         <PageHeader title={t("bulk.title")} description={t("bulk.body")} />
@@ -233,6 +233,11 @@ function FleetBulkWorkspace({
     initialChoice?.kind === "layout" ? initialChoice.layout : undefined,
   );
   const [picker, setPicker] = useState<"playlist" | "layout">();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const openPicker = (kind: "playlist" | "layout") => {
+    setPicker(kind);
+    setPickerOpen(true);
+  };
   const playlistId = playlist?.id ?? "";
   const layoutId = layout?.id ?? "";
   const [enabled, setEnabled] = useState(true);
@@ -492,7 +497,7 @@ function FleetBulkWorkspace({
                   variant="outline"
                   className="h-auto min-w-0 justify-start whitespace-normal py-2 text-start [overflow-wrap:anywhere]"
                   disabled={locked}
-                  onClick={() => setPicker("playlist")}
+                  onClick={() => openPicker("playlist")}
                 >
                   {playlist?.name ?? t("bulk.pickPlaylist")}
                 </Button>
@@ -510,7 +515,7 @@ function FleetBulkWorkspace({
                   variant="outline"
                   className="h-auto min-w-0 justify-start whitespace-normal py-2 text-start [overflow-wrap:anywhere]"
                   disabled={locked}
-                  onClick={() => setPicker("layout")}
+                  onClick={() => openPicker("layout")}
                 >
                   {layout?.name ?? t("bulk.pickLayout")}
                 </Button>
@@ -572,7 +577,7 @@ function FleetBulkWorkspace({
 
       {picker && (
         <PlaylistPicker
-          open
+          open={pickerOpen}
           allowedKinds={[picker]}
           title={
             picker === "playlist"
@@ -581,12 +586,15 @@ function FleetBulkWorkspace({
           }
           confirmLabel={t("common:actions.confirm")}
           selectedId={picker === "playlist" ? playlistId : layoutId}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
           onConfirm={(choice) => {
             if (choice.kind === "playlist") setPlaylist(choice.playlist);
             else setLayout(choice.layout);
             setReview(undefined);
-            setPicker(undefined);
+            setPickerOpen(false);
           }}
         />
       )}
