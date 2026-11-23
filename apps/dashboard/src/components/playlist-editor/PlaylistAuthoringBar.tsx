@@ -41,16 +41,18 @@ const transitionOptions = [
 // action stays one click away and Layouts sit behind the adjacent menu. The
 // authoring bar and the empty timeline both render it.
 export function PlaylistAddButton({
+  disabled = false,
   onAddContent,
   onAddLayout,
 }: {
+  disabled?: boolean;
   onAddContent: () => void;
   onAddLayout: () => void;
 }) {
   const { t } = useTranslation("playlists");
   return (
     <ButtonGroup aria-label={t("authoring.addGroup")}>
-      <Button type="button" onClick={onAddContent}>
+      <Button type="button" disabled={disabled} onClick={onAddContent}>
         <Plus aria-hidden="true" />
         {t("timeline.addContent")}
       </Button>
@@ -61,6 +63,7 @@ export function PlaylistAddButton({
             <Button
               type="button"
               size="icon"
+              disabled={disabled}
               aria-label={t("authoring.moreWaysToAdd")}
             />
           }
@@ -89,6 +92,7 @@ export function PlaylistAuthoringBar({
   transition,
   imageDuration,
   pending,
+  addPending = false,
   onTransitionChange,
   onImageDurationChange,
   onAddContent,
@@ -101,6 +105,7 @@ export function PlaylistAuthoringBar({
   transition: PlaylistTransition;
   imageDuration: ImageDurationSummary;
   pending: boolean;
+  addPending?: boolean;
   onTransitionChange: (value: PlaylistItem["transition"]) => void;
   onImageDurationChange: (seconds: number) => void;
   onAddContent: () => void;
@@ -151,6 +156,7 @@ export function PlaylistAuthoringBar({
       ) : (
         canManage && (
           <PlaylistAddButton
+            disabled={addPending}
             onAddContent={onAddContent}
             onAddLayout={onAddLayout}
           />

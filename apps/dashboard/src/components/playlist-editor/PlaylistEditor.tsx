@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { playlistKeys, playlistQueries } from "../../data/playlists";
-import { PanelsTopLeft } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
@@ -21,24 +20,13 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Button } from "../ui/button";
 import { useNavigationWarning } from "../../settings/useNavigationWarning";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "../ui/resizable";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
-import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "../ui/item";
 import { ScrollArea } from "../ui/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -65,7 +53,11 @@ import { api } from "../../api/client";
 import { apiErrorMessage } from "../../i18n";
 import { toast } from "../ui/toast";
 import { useAuth } from "../../auth/AuthProvider";
-import { ContentPicker, type ContentPickerResult } from "../content-picker";
+import {
+  ContentPicker,
+  PlaylistPicker,
+  type ContentPickerResult,
+} from "../content-picker";
 import { UsedByPanel } from "../../content/UsedByPanel";
 import { PlaylistRevisionsPanel } from "../PlaylistRevisionsPanel";
 import { useDesktopLayout } from "../../hooks/use-desktop-layout";
@@ -123,6 +115,8 @@ export function PlaylistEditorPage() {
   const [tagRuleDirty, setTagRuleDirty] = useState(false);
   const [picker, setPicker] = useState(false);
   const [layoutPicker, setLayoutPicker] = useState(false);
+  const [layoutPickerSession, setLayoutPickerSession] = useState(0);
+  const layoutAddLock = useRef(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsTab, setDetailsTab] = useState<PlaylistDetailsTab>("general");
@@ -147,10 +141,6 @@ export function PlaylistEditorPage() {
   const [chrome, setChrome] = useState<HTMLDivElement | null>(null);
   const editorHeight = useViewportFillHeight(desktop ? chrome : null);
 
-  const layouts = useQuery({
-    queryKey: ["layouts", "playlist-items"],
-    queryFn: () => api.layouts(""),
-  });
   const tags = useQuery({
     queryKey: ["content-tags"],
     queryFn: api.contentTags,
@@ -464,6 +454,9 @@ export function PlaylistEditorPage() {
   }, [canManage, searchParams]);
 
   const addLayout = async (layoutId: string) => {
+    if (layoutAddLock.current) return;
+    layoutAddLock.current = true;
+    setLayoutPicker(false);
     setAddWrites((count) => count + 1);
     try {
       const items = query.data?.items ?? [];
@@ -485,7 +478,6 @@ export function PlaylistEditorPage() {
         csrf,
       );
       update(next);
-      setLayoutPicker(false);
       setAddFailure("");
       toast.add({ title: t("editor.toasts.layoutAdded"), type: "success" });
     } catch (error) {
@@ -495,6 +487,7 @@ export function PlaylistEditorPage() {
           : t("editor.layoutAddError"),
       );
     } finally {
+      layoutAddLock.current = false;
       setAddWrites((count) => count - 1);
     }
   };
@@ -582,9 +575,6 @@ export function PlaylistEditorPage() {
   const selectedItem = items.find((item) => item.id === selectedItemId);
   const selectedIndex = selectedItem ? items.indexOf(selectedItem) : -1;
   const removingItem = items.find((item) => item.id === removingItemId);
-  const publishedLayouts = (layouts.data?.items ?? []).filter(
-    (layout) => layout.publishedRevision,
-  );
 
   const openHistory = () => {
     setHistoryOpen(true);
@@ -624,6 +614,7 @@ export function PlaylistEditorPage() {
   };
   const openLayoutPicker = () => {
     setAddFailure("");
+    setLayoutPickerSession((session) => session + 1);
     setLayoutPicker(true);
   };
   const inspectorProps = selectedItem && {
@@ -651,6 +642,7 @@ export function PlaylistEditorPage() {
       emptyAction={
         editableTimeline ? (
           <PlaylistAddButton
+            disabled={addWrites > 0 || publish.isPending}
             onAddContent={openPicker}
             onAddLayout={openLayoutPicker}
           />
@@ -779,6 +771,7 @@ export function PlaylistEditorPage() {
           transition={commonTransition}
           imageDuration={imageDuration}
           pending={bulkUpdate.isPending}
+          addPending={addWrites > 0 || publish.isPending}
           onTransitionChange={(transition) => bulkUpdate.mutate({ transition })}
           onImageDurationChange={(seconds) =>
             bulkUpdate.mutate({ durationMs: Math.round(seconds * 1000) })
@@ -975,65 +968,18 @@ export function PlaylistEditorPage() {
         }
       />
 
-      <Dialog
+      <PlaylistPicker
+        key={layoutPickerSession}
         open={layoutPicker}
-        onOpenChange={(open) => {
-          if (!open) setLayoutPicker(false);
+        allowedKinds={["layout"]}
+        title={t("editor.addLayoutTitle")}
+        description={t("editor.addLayoutDescription")}
+        confirmLabel={t("editor.pickerConfirm")}
+        onConfirm={(choice) => {
+          if (choice.kind === "layout") void addLayout(choice.layout.id);
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("editor.addLayoutTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("editor.addLayoutDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          {publishedLayouts.length > 0 ? (
-            <ItemGroup className="gap-1">
-              {publishedLayouts.map((layout) => (
-                <Item
-                  key={layout.id}
-                  role="listitem"
-                  size="sm"
-                  variant="outline"
-                  render={
-                    <button
-                      type="button"
-                      onClick={() => void addLayout(layout.id)}
-                    />
-                  }
-                  className="text-left hover:bg-muted"
-                >
-                  <ItemMedia variant="icon">
-                    <PanelsTopLeft aria-hidden="true" />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{layout.name}</ItemTitle>
-                  </ItemContent>
-                </Item>
-              ))}
-            </ItemGroup>
-          ) : (
-            <Empty className="border border-dashed py-8">
-              <EmptyHeader>
-                <EmptyTitle>{t("editor.noPublishedLayoutsTitle")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("editor.noPublishedLayouts")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setLayoutPicker(false)}
-            >
-              {t("common:actions.cancel")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onClose={() => setLayoutPicker(false)}
+      />
 
       <AlertDialog
         open={removingItem != null}
