@@ -107,6 +107,7 @@ export function SubmissionEditor({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState<"" | "draft" | "submit">("");
+  const [activeImageUploads, setActiveImageUploads] = useState(0);
 
   const dirty = JSON.stringify(values) !== baseline || pendingKeys.length > 0;
 
@@ -264,6 +265,7 @@ export function SubmissionEditor({
       },
     }));
     if (recordId === null) return; // deferred until the draft is created
+    setActiveImageUploads((count) => count + 1);
     try {
       const detail = await formsApi.uploadFormRecordAttachment(
         form.id,
@@ -287,6 +289,8 @@ export function SubmissionEditor({
           error: conflictAwareMessage(error, tErrors),
         },
       }));
+    } finally {
+      setActiveImageUploads((count) => Math.max(0, count - 1));
     }
   }
 
@@ -490,7 +494,7 @@ export function SubmissionEditor({
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          if (!editable || busy !== "") return;
+          if (!editable || busy !== "" || activeImageUploads > 0) return;
           if (canSubmit) void submit();
           else void saveDraft();
         }}
@@ -515,7 +519,7 @@ export function SubmissionEditor({
             <Button
               type="button"
               variant="secondary"
-              disabled={busy !== ""}
+              disabled={busy !== "" || activeImageUploads > 0}
               aria-busy={busy === "draft" || undefined}
               onClick={() => void saveDraft()}
             >
@@ -526,7 +530,7 @@ export function SubmissionEditor({
               <Button
                 type="submit"
                 variant="default"
-                disabled={busy !== ""}
+                disabled={busy !== "" || activeImageUploads > 0}
                 aria-busy={busy === "submit" || undefined}
               >
                 {busy === "submit" && <Spinner aria-hidden="true" />}

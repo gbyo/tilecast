@@ -91,7 +91,7 @@ function detail(version: number, withImage: boolean): FormRecordDetail {
   };
 }
 
-function renderEditor() {
+function renderEditor(initialDetail?: FormRecordDetail) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -100,7 +100,12 @@ function renderEditor() {
       {
         path: "/",
         element: (
-          <SubmissionEditor form={form()} csrf="token" onCompleted={() => {}} />
+          <SubmissionEditor
+            form={form()}
+            initialDetail={initialDetail}
+            csrf="token"
+            onCompleted={() => {}}
+          />
         ),
       },
     ],
@@ -145,6 +150,38 @@ describe("SubmissionEditor image previews", () => {
     expect(revoked).toEqual([]);
     view.unmount();
     expect(revoked).toEqual(["blob:preview-1"]);
+  });
+
+  it("does not save an existing record until its automatic image upload settles", async () => {
+    let finishUpload!: (detail: FormRecordDetail) => void;
+    const upload = vi
+      .spyOn(formsApi, "uploadFormRecordAttachment")
+      .mockImplementation(
+        () =>
+          new Promise<FormRecordDetail>((resolve) => {
+            finishUpload = resolve;
+          }),
+      );
+    const update = vi
+      .spyOn(formsApi, "updateFormRecord")
+      .mockResolvedValue(detail(3, true));
+    vi.spyOn(formsApi, "getFormRecord").mockResolvedValue(detail(3, true));
+
+    renderEditor(detail(1, false));
+    choose("a.png");
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce());
+
+    const save = screen.getByRole("button", { name: "Save draft" });
+    expect(save).toBeDisabled();
+    fireEvent.submit(save.closest("form")!);
+    expect(update).not.toHaveBeenCalled();
+
+    finishUpload(detail(2, true));
+    await waitFor(() => expect(save).toBeEnabled());
+
+    fireEvent.click(save);
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update.mock.calls[0]?.[2]).toMatchObject({ version: 2 });
   });
 
   it("revokes the preview once the image is committed by a save", async () => {
