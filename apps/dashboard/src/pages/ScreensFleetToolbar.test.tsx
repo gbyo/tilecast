@@ -651,6 +651,61 @@ describe("Fleet states", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 
+  it("reviews selected screens even when the filter hides them", async () => {
+    stubViewport({ desktop: true });
+    const user = userEvent.setup();
+    renderList();
+    await user.click(screen.getByRole("checkbox", { name: /^Select Lobby/ }));
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search screens" }),
+      "Cafeteria",
+    );
+
+    await user.click(screen.getByRole("button", { name: "1 selected" }));
+    const dialog = await screen.findByRole("dialog", { name: "1 selected" });
+    expect(within(dialog).getByText("Lobby")).toBeVisible();
+    expect(within(dialog).queryByText("Cafeteria")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("does not send a restart until the exact selected screens are confirmed", async () => {
+    stubViewport({ desktop: true });
+    const command = vi
+      .spyOn(api, "createScreenCommand")
+      .mockResolvedValue(
+        {} as Awaited<ReturnType<typeof api.createScreenCommand>>,
+      );
+    const user = userEvent.setup();
+    renderList();
+    await user.click(screen.getByRole("checkbox", { name: /^Select Lobby/ }));
+    await user.click(screen.getByRole("button", { name: "Restart" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Restart player",
+    });
+    expect(within(dialog).getByText("Lobby")).toBeVisible();
+    expect(command).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(command).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Restart" }));
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Restart",
+      }),
+    );
+    await waitFor(() =>
+      expect(command).toHaveBeenCalledExactlyOnceWith(
+        "s1",
+        "restart_player_process",
+        {},
+        "",
+      ),
+    );
+    await waitFor(() => expect(screen.queryByText("1 selected")).toBeNull());
+  });
+
   it("keeps bulk selection available above the fleet", async () => {
     stubViewport({ desktop: true });
     const user = userEvent.setup();
