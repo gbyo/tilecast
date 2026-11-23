@@ -154,11 +154,7 @@ function ActionGroups({
   );
 }
 
-function TouchActionGroups({
-  groups,
-}: {
-  groups: StudioActionGroup[];
-}) {
+function TouchActionGroups({ groups }: { groups: StudioActionGroup[] }) {
   const label = (entry: StudioMenuEntry) => (
     <>
       {entry.icon && <ActionIcon token={entry.icon} />}
