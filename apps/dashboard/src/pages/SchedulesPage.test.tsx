@@ -926,6 +926,7 @@ describe("Schedules library", () => {
     });
 
     it("shortens Create but keeps its full accessible name", async () => {
+      stubViewport(true, true);
       mockSchedules();
       renderPage();
       await screen.findByText("Morning Broadcast");
