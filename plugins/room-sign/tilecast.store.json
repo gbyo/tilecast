@@ -1,0 +1,20 @@
+{
+  "publisher": {
+    "name": "Tilecast",
+    "url": "https://tilecast.org"
+  },
+  "longDescription": "Room Sign shows whether a meeting room is free, the meeting that is on now, and the next one, from the room's Google Calendar. Put the Room Sign Widget on the screen beside the door, or on a lobby display with one sign for each room.\n\nYou register your own Google OAuth client and connect it once. Tilecast reads the calendar with read-only access, keeps the sign current every few minutes, and keeps changing from busy to free at the right minute even when a screen loses its connection. Titles can be hidden for private rooms, and a room can show sample meetings before you connect a calendar.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      {
+        "src": "./store/01-in-use.webp",
+        "alt": "A Room Sign for the Board Room at 9:25 AM reading \"In use\", with the current meeting \"Budget review\" from 9:00 to 10:00 AM and the next meeting at 11:00 AM."
+      },
+      {
+        "src": "./store/02-available.webp",
+        "alt": "A Room Sign for the Board Room reading \"Available\" with no more meetings."
+      }
+    ]
+  }
+}

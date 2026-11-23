@@ -1,0 +1,119 @@
+{
+  "$schema": "../../../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "room_sign_room-sign",
+  "version": 1,
+  "name": "Room Sign",
+  "description": "Show whether a room is free, the current meeting, and the next one.",
+  "category": "Information",
+  "icon": "calendar-clock",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Room meetings",
+        "description": "The Room Sign feed of one room.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "titleField",
+        "label": "Title field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "title",
+        "ui": { "section": "data", "order": 2, "semanticRole": "title" }
+      },
+      {
+        "key": "startField",
+        "label": "Start field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["datetime"],
+        "default": "start",
+        "ui": { "section": "data", "order": 3, "semanticRole": "start" }
+      },
+      {
+        "key": "endField",
+        "label": "End field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["datetime"],
+        "default": "end",
+        "ui": { "section": "data", "order": 4, "semanticRole": "end" }
+      },
+      {
+        "key": "roomName",
+        "label": "Room name",
+        "control": "text",
+        "maxLength": 80,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "freeLabel",
+        "label": "Free label",
+        "control": "text",
+        "maxLength": 40,
+        "default": "Available",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "busyLabel",
+        "label": "Busy label",
+        "control": "text",
+        "maxLength": 40,
+        "default": "In use",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "accentColor",
+        "label": "Accent",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 1 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "titleField": "title",
+    "startField": "start",
+    "endField": "end",
+    "roomName": "",
+    "freeLabel": "Available",
+    "busyLabel": "In use",
+    "accentColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "deprecation": {},
+  "component": {
+    "type": "roomsign.room-sign",
+    "version": 1,
+    "tagName": "tc-widget-roomsign-room-sign",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "titleField": { "$config": "titleField", "default": "title" },
+      "startField": { "$config": "startField", "default": "start" },
+      "endField": { "$config": "endField", "default": "end" },
+      "roomName": { "$config": "roomName", "default": "" },
+      "freeLabel": { "$config": "freeLabel", "default": "Available" },
+      "busyLabel": { "$config": "busyLabel", "default": "In use" },
+      "accent": { "$config": "accentColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "render"
+  },
+  "compatibility": {
+    "fallback": "none"
+  }
+}

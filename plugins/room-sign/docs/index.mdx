@@ -1,0 +1,58 @@
+---
+title: Room Sign
+description: Show whether a meeting room is free, the meeting on now, and the next one, from Google Calendar.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+**Room Sign** shows a room's calendar on the screen beside its door: **Available** or **In use**, the meeting that is on now, and the next one. It reads Google Calendar with read-only access and never changes a calendar.
+
+## Before you start
+
+- Set `TILECAST_PUBLIC_URL` to the `https` address people use to reach Studio. Google only sends a sign-in result to an `https` address.
+- You need a Google Cloud project where you can create an OAuth client. Tilecast does not ship a shared Google client.
+- You need the calendar address of each room, for example the room's resource email from Google Workspace, and a Google account that can see those calendars.
+
+## Set up Google
+
+<Steps>
+
+1. Install **Room Sign** from **Operations** > **Plugins**, open it, and select **Connections** > **New connection**. Choose **Google Calendar** and name it, for example "Facilities Google".
+2. Copy the **Redirect URI** from the connection's **Provider account** section.
+3. In the Google Cloud console, enable the Google Calendar API. Create an OAuth client of type **Web application** and add the redirect URI as an authorized redirect URI. If Google asks for scopes on the consent screen, add only `calendar.events.readonly`.
+4. Back in Tilecast, enter the **Client ID** and **Client secret**, select **Save client**, then select **Connect** and sign in with the Google account that can read the room calendars.
+
+</Steps>
+
+Tilecast asks Google for offline access, so it can renew access without you signing in again. If Google stops accepting the connection, for example after someone removes Tilecast's access, the connection shows **Reconnect required**; select **Reconnect**.
+
+## Add a room
+
+<Steps>
+
+1. On the Room Sign page, select **New room**.
+2. Choose the Google connection and enter the room's **Calendar ID**. Use `primary` for the signed-in account's own calendar.
+3. Choose how many days ahead to publish. Turn off **Show meeting titles** for rooms where titles are private; those rooms show every meeting as **Busy**.
+4. Save. The room's meetings appear within a few seconds.
+
+</Steps>
+
+To try a sign before you connect Google, turn on **Show sample meetings**. The room then shows a fixed set of sample meetings. Demo Mode uses the same sample.
+
+## Show the sign
+
+Each room publishes a Data Source named after the room. Add the **Room Sign** Widget to a playlist or Layout zone and choose that room's Data Source. Set the room name and, if you like, the labels for free and busy.
+
+The sign changes from busy to free at the right minute even while a screen is offline, because it uses the screen's own clock. If Tilecast can't reach Google for a while, the sign keeps the last schedule and says that it may be out of date. **Content Health** also reports the room's Data Source as not refreshing.
+
+## How syncing works
+
+Tilecast reads each room about every five minutes. The first read gets the whole calendar; later reads ask Google only for changes. If Google no longer accepts the saved change token, Tilecast reads the whole calendar again. Cancelled meetings disappear from the sign.
+
+## Privacy and data
+
+- Tilecast stores the Google tokens encrypted on your server. Plugin code and screens never receive them.
+- Meeting titles are personal data. Tilecast keeps them for 7 days after they last change, and they stay in older backups until those backups expire.
+- Select **Disconnect** on the connection to stop. Tilecast asks Google to revoke its access and deletes its tokens either way.
+
+See [Data that plugins publish](/operations/plugins/#data-that-plugins-publish) for the feed page, and [Plugin feeds](https://github.com/gbyo/tilecast/blob/main/docs/plugin-feeds.md) for the exact rules.
