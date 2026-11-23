@@ -6,11 +6,41 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
+
+// recordedEvents is a core event sink that keeps what producers emit.
+type recordedEvents struct {
+	mu     sync.Mutex
+	events []coreevents.Event
+}
+
+func (r *recordedEvents) Emit(_ context.Context, _ pgx.Tx, event coreevents.Event) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.events = append(r.events, event)
+	return nil
+}
+
+// reasons lists the incident reasons of one event name, in order.
+func (r *recordedEvents) reasons(name string) []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := []string{}
+	for _, event := range r.events {
+		if event.Name == name {
+			out = append(out, event.Payload.(coreevents.Incident).Reason)
+		}
+	}
+	return out
+}
 
 func activityEvent(sequence int64, eventType string, at time.Time) playerActivityEventInput {
 	return playerActivityEventInput{
@@ -53,6 +83,8 @@ func actOnIncident(t *testing.T, env activityTestEnvironment, id uuid.UUID, inpu
 // one problem, not one problem per event.
 func TestRepeatedFailuresBecomeOneIncident(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
+		recorded := &recordedEvents{}
+		env.server.events = recorded
 		start := time.Now().UTC().Add(-time.Hour)
 		events := []playerActivityEventInput{}
 		for index := 0; index < 5; index++ {
@@ -70,6 +102,10 @@ func TestRepeatedFailuresBecomeOneIncident(t *testing.T) {
 		}
 		if !playback[0].LastSeenAt.After(playback[0].OpenedAt) {
 			t.Fatal("a repeat must move last seen forward without reopening the incident")
+		}
+		// One incident is one incident.opened@1: a recurrence is no event.
+		if got := recorded.reasons(plugin.CoreIncidentOpened); len(got) != 1 || got[0] != coreevents.IncidentDetected {
+			t.Fatalf("opened events = %v, want one", got)
 		}
 	})
 }
@@ -185,6 +221,8 @@ func TestHealthyHeartbeatRecoversStalePlaybackIncident(t *testing.T) {
 
 func TestIncidentActionsFollowTheLifecycle(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
+		recorded := &recordedEvents{}
+		env.server.events = recorded
 		start := time.Now().UTC().Add(-time.Hour)
 		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{
 			activityEvent(1, "storage.pressure", start),
@@ -242,6 +280,14 @@ func TestIncidentActionsFollowTheLifecycle(t *testing.T) {
 		}
 		if audited != 3 {
 			t.Fatalf("audit rows = %d, want one each for acknowledge, resolve and reopen", audited)
+		}
+		// Acknowledging changes no lifecycle; resolving closes an active
+		// incident, and reopening opens it again.
+		if got := recorded.reasons(plugin.CoreIncidentOpened); len(got) != 2 || got[0] != coreevents.IncidentDetected || got[1] != coreevents.IncidentReopened {
+			t.Fatalf("opened events = %v", got)
+		}
+		if got := recorded.reasons(plugin.CoreIncidentRecovered); len(got) != 1 || got[0] != coreevents.IncidentResolved {
+			t.Fatalf("recovered events = %v", got)
 		}
 	})
 }

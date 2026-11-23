@@ -8,6 +8,9 @@ import "context"
 // ServerServices are the registry capabilities a bundled Plugin Manifest
 // API 3 plugin may declare in "services" and call through Services.
 var ServerServices = []ServerService{
+	{ID: "events.publish", Version: 1, Name: "Event publication", Description: "Publish one of this plugin's declared events, at most 4 KiB, to the plugins that subscribe to it.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "events.publish@1/publish", Title: "Publish event", Description: "Publish one occurrence of a declared event with a subject and a payload that matches the declared schema.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
 	{ID: "feeds.publish", Version: 1, Name: "Feed publication", Description: "Publish the complete record set of one of this plugin's feed datasets.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "feeds.publish@1/publish", Title: "Publish feed", Description: "Replace the records of one dataset. The publication names the revision it replaces; a concurrent publication fails with a conflict.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 655360, MaxOutputBytes: 65536},
 		{Name: "feeds.publish@1/revision", Title: "Read feed revision", Description: "Read the current revision of one dataset, the one the next publication replaces.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
@@ -59,6 +62,11 @@ var ServerServices = []ServerService{
 		{Name: "users.read-basic@1/search", Title: "Search users", Description: "Search active users by name or username.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "users.read-basic@1/list-by-role", Title: "List users by role", Description: "List users holding one role.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
+}
+
+// EventsPublishPublish calls events.publish@1/publish: Publish one occurrence of a declared event with a subject and a payload that matches the declared schema
+func (s *Services) EventsPublishPublish(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "events.publish@1/publish", input, output)
 }
 
 // FeedsPublishPublish calls feeds.publish@1/publish: Replace the records of one dataset. The publication names the revision it replaces; a concurrent publication fails with a conflict

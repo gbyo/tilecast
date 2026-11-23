@@ -14,7 +14,7 @@ var connectionIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,39}$`)
 // shape check for Widget definitions (apps/server/internal/contentdefs) and
 // for Plugin Manifest API 3 settings and instance schemas (the plugin SDK).
 func ValidateFields(fields []Field, profile Profile) error {
-	if profile != ProfileWidget && profile != ProfilePlugin {
+	if profile != ProfileWidget && profile != ProfilePlugin && profile != ProfileEvent {
 		return fmt.Errorf("unknown configuration profile %q", profile)
 	}
 	if err := validateLevel(fields, profile, 0); err != nil {
@@ -34,7 +34,7 @@ func validateLevel(fields []Field, profile Profile, depth int) error {
 		}
 		seen[field.Key] = true
 		if !Supported(profile, field.Control) {
-			if pluginControls[field.Control] {
+			if pluginControls[field.Control] && profile != ProfileEvent {
 				return fmt.Errorf("configuration schema uses the plugin-only control %q", field.Control)
 			}
 			return fmt.Errorf("configuration schema uses unsupported form control %q", field.Control)

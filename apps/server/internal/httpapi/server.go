@@ -12,6 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tilecast/tilecast/apps/server/internal/connectivity"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
+
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -104,36 +107,42 @@ type OperationsConfig struct {
 }
 
 type server struct {
-	auth                          *auth.Service
-	authz                         *authz.Authorizer
-	registeredObjectRules         map[string]bool
-	devices                       *devices.Service
-	media                         *media.Service
-	fonts                         *fonts.Service
-	playlists                     *playlists.Service
-	playbackPlan                  *playbackplan.Inspector
-	playbackAgenda                *playbackplan.SnapshotCurrent
-	campaigns                     *campaigns.Service
-	presentations                 *presentations.Service
-	plugins                       *plugins.Service
-	marketplace                   *catalog.Service
-	installer                     *installer.Service
-	packages                      *pipeline.Service
-	wasm                          *wasm.Service
-	layouts                       *layouts.Service
-	scheduling                    *scheduling.Service
-	db                            *pgxpool.Pool
-	logger                        *slog.Logger
-	cookieName                    string
-	secureCookies                 bool
-	authLimiter                   *rateLimiter
-	pairingLimiter                *rateLimiter
-	codeLimiter                   *rateLimiter
-	operationsLimiter             *rateLimiter
-	operations                    OperationsConfig
-	settings                      *settings.Service
-	updates                       *updates.Service
-	takeovers                     *takeovers.Service
+	auth                  *auth.Service
+	authz                 *authz.Authorizer
+	registeredObjectRules map[string]bool
+	devices               *devices.Service
+	media                 *media.Service
+	fonts                 *fonts.Service
+	playlists             *playlists.Service
+	playbackPlan          *playbackplan.Inspector
+	playbackAgenda        *playbackplan.SnapshotCurrent
+	campaigns             *campaigns.Service
+	presentations         *presentations.Service
+	plugins               *plugins.Service
+	marketplace           *catalog.Service
+	installer             *installer.Service
+	packages              *pipeline.Service
+	wasm                  *wasm.Service
+	layouts               *layouts.Service
+	scheduling            *scheduling.Service
+	db                    *pgxpool.Pool
+	logger                *slog.Logger
+	cookieName            string
+	secureCookies         bool
+	authLimiter           *rateLimiter
+	pairingLimiter        *rateLimiter
+	codeLimiter           *rateLimiter
+	operationsLimiter     *rateLimiter
+	operations            OperationsConfig
+	settings              *settings.Service
+	updates               *updates.Service
+	takeovers             *takeovers.Service
+	// events receives core events in the transaction of each change; the
+	// plugin service implements it. Nil drops them.
+	events coreevents.Sink
+	// connectivity records screen connectivity transitions; see
+	// connectivitySweeper.
+	connectivity                  *connectivity.Sweeper
 	notifications                 *notify.Service
 	contentHealthService          *contenthealth.Service
 	fleet                         *fleetops.Service
@@ -227,6 +236,9 @@ func New(deps Dependencies) *API {
 		backupLimits:         deps.BackupLimits,
 		demo:                 deps.Demo,
 	}
+	if deps.Plugins != nil {
+		s.events = deps.Plugins
+	}
 	if s.fleet != nil {
 		// The command path lives on the server, so bulk sending and single
 		// sending share one implementation.
@@ -264,6 +276,15 @@ func New(deps Dependencies) *API {
 		s.playbackPlan = playbackplan.NewInspector(s.playbackAgenda, playbackplan.NewHistory(s.db))
 	}
 	return &API{Handler: s.routes(), server: s}
+}
+
+// connectivitySweeper is the connectivity sweep of incident reads. The
+// notify worker runs the same sweep in the background.
+func (s *server) connectivitySweeper() *connectivity.Sweeper {
+	if s.connectivity == nil {
+		s.connectivity = connectivity.NewSweeper(s.db, s.events)
+	}
+	return s.connectivity
 }
 
 // requireCapability refuses a request whose principal's role does not grant

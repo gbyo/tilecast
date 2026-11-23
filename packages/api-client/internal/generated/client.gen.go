@@ -7464,6 +7464,9 @@ type CatalogPlugin struct {
 	Description   string                   `json:"description"`
 	Documentation *string                  `json:"documentation,omitempty"`
 
+	// Events Server events a Plugin Manifest API 3 plugin publishes and receives. Empty lists for other plugins.
+	Events *PluginEventReview `json:"events,omitempty"`
+
 	// Feeds Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins.
 	Feeds *[]PluginFeedReview `json:"feeds,omitempty"`
 
@@ -11238,6 +11241,22 @@ type PluginDeliveryStatus struct {
 	Running int `json:"running"`
 }
 
+// PluginEventReview Server events a Plugin Manifest API 3 plugin publishes and receives. Empty lists for other plugins.
+type PluginEventReview struct {
+	Publishes []struct {
+		// Event The full name, plugin.<plugin id>.<name>@<version>.
+		Event  string `json:"event"`
+		Fields int    `json:"fields"`
+		Title  string `json:"title"`
+	} `json:"publishes"`
+	Subscribes []struct {
+		Event string `json:"event"`
+
+		// Publisher core, or the ID of the publishing plugin.
+		Publisher string `json:"publisher"`
+	} `json:"subscribes"`
+}
+
 // PluginFeedDataset defines model for PluginFeedDataset.
 type PluginFeedDataset struct {
 	Feed        string `json:"feed"`
@@ -11399,9 +11418,29 @@ type PluginSecretStatus struct {
 
 // PluginStatus defines model for PluginStatus.
 type PluginStatus struct {
-	Deliveries PluginDeliveryStatus `json:"deliveries"`
-	Installed  bool                 `json:"installed"`
-	PluginId   string               `json:"pluginId"`
+	Deliveries      PluginDeliveryStatus `json:"deliveries"`
+	Installed       bool                 `json:"installed"`
+	PluginId        string               `json:"pluginId"`
+	PublishedEvents []struct {
+		Event string `json:"event"`
+
+		// SchemaChanged The declared payload differs from the one this installation recorded for the same version; the host refuses to publish it.
+		SchemaChanged bool `json:"schemaChanged"`
+
+		// Subscribers Installed plugins that receive it.
+		Subscribers int    `json:"subscribers"`
+		Title       string `json:"title"`
+	} `json:"publishedEvents"`
+
+	// Subscriptions The events the plugin receives. An inactive subscription receives nothing and says why.
+	Subscriptions []struct {
+		Event string `json:"event"`
+
+		// Publisher core, or the ID of the publishing plugin.
+		Publisher string  `json:"publisher"`
+		Reason    *string `json:"reason,omitempty"`
+		State     string  `json:"state"`
+	} `json:"subscriptions"`
 }
 
 // PluginStore defines model for PluginStore.

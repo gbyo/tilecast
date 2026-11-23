@@ -243,6 +243,13 @@ func (m Manifest) validateV3() error {
 	if err := m.validateFeeds(); err != nil {
 		return err
 	}
+	if err := m.validateEvents(); err != nil {
+		return err
+	}
+	publishes := m.Events != nil && len(m.Events.Publishes) > 0
+	if publishes != declaresServiceName(m, "events.publish") {
+		return fmt.Errorf("a plugin that publishes events declares events.publish@1, and only such a plugin does")
+	}
 	if len(m.Instances) > 0 {
 		if m.API == nil {
 			return fmt.Errorf("instances need api.basePaths: the host mounts their routes below the first base path")
@@ -324,4 +331,13 @@ func (k InstanceKind) OperationID(verb string) string {
 	default:
 		return strings.ToLower(verb) + k.Operations.Singular
 	}
+}
+
+func declaresServiceName(m Manifest, name string) bool {
+	for _, value := range m.Services {
+		if reference, ok := ParseServiceReference(value); ok && reference.Name == name {
+			return true
+		}
+	}
+	return false
 }

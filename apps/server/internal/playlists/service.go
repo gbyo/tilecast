@@ -16,15 +16,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"github.com/tilecast/tilecast/apps/server/internal/span"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 type Service struct {
+	// events receives takeover.ended@1 for a Takeover a manifest build
+	// expires. Nil drops it.
+	events                coreevents.Sink
 	db                    *pgxpool.Pool
 	notifier              Notifier
 	scheduling            *scheduling.Service
@@ -1631,6 +1636,9 @@ func (s *Service) projectSpanVideo(ctx context.Context, screenID, assetID, sourc
 	return panel.ID, nil
 }
 
+// SetEvents wires the core event sink.
+func (s *Service) SetEvents(events coreevents.Sink) { s.events = events }
+
 func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manifest, string, error) {
 	if err := s.reconcilePresentationCatalog(ctx); err != nil {
 		return Manifest{}, "", err
@@ -1651,6 +1659,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	defer tx.Rollback(ctx)
 	var expired bool
+	var ended []uuid.UUID
 	if err = tx.QueryRow(ctx, `WITH changed AS (
 		UPDATE takeovers e SET status='expired',updated_at=now()
 		WHERE e.status='active' AND e.expires_at<=now() AND EXISTS(SELECT 1 FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.screen_id=$1)
@@ -1658,8 +1667,13 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		updated AS (
 		UPDATE takeover_screen_states es SET state='expired',restored_at=now(),last_updated_at=now()
 		WHERE es.screen_id=$1 AND es.takeover_id IN(SELECT id FROM changed) RETURNING true)
-		SELECT EXISTS(SELECT 1 FROM changed) OR EXISTS(SELECT 1 FROM updated)`, screenID).Scan(&expired); err != nil {
+		SELECT EXISTS(SELECT 1 FROM changed) OR EXISTS(SELECT 1 FROM updated), COALESCE((SELECT array_agg(id) FROM changed),'{}')`, screenID).Scan(&expired, &ended); err != nil {
 		return Manifest{}, "", err
+	}
+	for _, id := range ended {
+		if err = coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, id, coreevents.TakeoverExpired, nil, now); err != nil {
+			return Manifest{}, "", err
+		}
 	}
 	expirationNotes := []notification{}
 	if expired {

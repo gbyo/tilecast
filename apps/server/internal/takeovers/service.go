@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers/precedence"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
@@ -33,7 +34,13 @@ type Service struct {
 	playlists       *playlists.Service
 	notifier        Notifier
 	maximumDuration time.Duration
+	// events receives the Takeover lifecycle events in the caller's
+	// transaction. Nil drops them.
+	events coreevents.Sink
 }
+
+// SetEvents wires the core event sink.
+func (s *Service) SetEvents(events coreevents.Sink) { s.events = events }
 
 func NewService(db *pgxpool.Pool, playlists *playlists.Service, notifier Notifier, maximumDuration time.Duration) *Service {
 	return &Service{db: db, playlists: playlists, notifier: notifier, maximumDuration: maximumDuration}
@@ -120,6 +127,21 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('tilecast.takeover.activate',0))`); err != nil {
 		return plugin.TakeoverResult{}, nil, err
 	}
+	// The active Takeovers on these screens, and where each one shows now,
+	// so the activation can report the ones it suspends.
+	rows, err = tx.Query(ctx, `SELECT DISTINCT st.takeover_id FROM takeover_screen_states st JOIN takeovers t ON t.id=st.takeover_id
+		WHERE st.screen_id=ANY($1) AND t.status='active' AND st.state NOT IN ('restored','cancelled','expired')`, screens)
+	if err != nil {
+		return plugin.TakeoverResult{}, nil, err
+	}
+	overlapping, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return plugin.TakeoverResult{}, nil, err
+	}
+	before, err := coreevents.EffectiveCounts(ctx, tx, overlapping, request.ActivatedAt)
+	if err != nil {
+		return plugin.TakeoverResult{}, nil, err
+	}
 	id := uuid.New()
 	actor := nullableUser(request.ActivatedBy)
 	_, err = tx.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,description,playlist_id,status,activated_by,activated_at,expires_at,class) VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8,$9)`, id, org, request.Name, request.Description, request.PlaylistID, actor, request.ActivatedAt, request.ExpiresAt, string(request.Class))
@@ -154,6 +176,9 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 	if err != nil {
 		return plugin.TakeoverResult{}, nil, err
 	}
+	if err := s.emitActivation(ctx, tx, id, overlapping, before, request.ActivatedAt); err != nil {
+		return plugin.TakeoverResult{}, nil, err
+	}
 	action := request.AuditAction
 	if action == "" {
 		action = "takeover.activated"
@@ -171,6 +196,32 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 		return plugin.TakeoverResult{}, nil, err
 	}
 	return plugin.TakeoverResult{ID: id, AffectedCount: len(screens), ScreenIDs: screens, SuspendedScreenIDs: suspended}, s.afterCommit(id, versions), nil
+}
+
+// emitActivation emits takeover.started@1 for the new Takeover and
+// takeover.suspended@1 for each other Takeover that showed on at least one
+// screen before the activation and on none after it. A new Takeover that a
+// stronger one hides is started, not suspended: its effective screen count
+// says where it shows.
+func (s *Service) emitActivation(ctx context.Context, tx pgx.Tx, id uuid.UUID, overlapping []uuid.UUID, before map[uuid.UUID]int, at time.Time) error {
+	if s.events == nil {
+		return nil
+	}
+	if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverStarted, id, "", nil, at); err != nil {
+		return err
+	}
+	after, err := coreevents.EffectiveCounts(ctx, tx, overlapping, at)
+	if err != nil {
+		return err
+	}
+	for _, other := range overlapping {
+		if before[other] > 0 && after[other] == 0 {
+			if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverSuspended, other, "", &id, at); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // suspendedScreens answers the screens where Takeover id is not the one the
@@ -212,6 +263,9 @@ func (s *Service) CancelInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor
 	}
 	versions, err := s.bumpTakeoverScreens(ctx, tx, screens, "takeover.cancelled", uuid.Nil)
 	if err != nil {
+		return nil, err
+	}
+	if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, id, coreevents.TakeoverCancelled, nil, time.Now().UTC()); err != nil {
 		return nil, err
 	}
 	if actorID != uuid.Nil {
@@ -299,4 +353,60 @@ func nullableUser(id uuid.UUID) *uuid.UUID {
 		return nil
 	}
 	return &id
+}
+
+// Sweep expires every active Takeover whose end has passed. The notify
+// worker runs it every 30 seconds, so takeover.ended@1 does not wait for a
+// Player to ask for its manifest. A manifest build still expires the
+// Takeovers of its own screen at once.
+func (s *Service) Sweep(ctx context.Context) error {
+	_, err := s.ExpireDue(ctx, time.Now().UTC())
+	return err
+}
+
+// ExpireDue expires the Takeovers whose end is at or before now, retires
+// their screen states, bumps the manifests of those screens, and emits
+// takeover.ended@1, all in one transaction. It returns the expired IDs.
+func (s *Service) ExpireDue(ctx context.Context, now time.Time) ([]uuid.UUID, error) {
+	var expired []uuid.UUID
+	var notify []plugin.AfterCommit
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `UPDATE takeovers SET status='expired',updated_at=now()
+			WHERE status='active' AND expires_at<=$1 RETURNING id`, now)
+		if err != nil {
+			return err
+		}
+		if expired, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID]); err != nil {
+			return err
+		}
+		for _, id := range expired {
+			rows, err := tx.Query(ctx, `UPDATE takeover_screen_states SET state='expired',restored_at=now(),last_updated_at=now()
+				WHERE takeover_id=$1 AND state NOT IN ('restored','cancelled','expired') RETURNING screen_id`, id)
+			if err != nil {
+				return err
+			}
+			screens, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+			if err != nil {
+				return err
+			}
+			versions, err := s.bumpTakeoverScreens(ctx, tx, screens, "takeover.expired", uuid.Nil)
+			if err != nil {
+				return err
+			}
+			notify = append(notify, s.afterCommit(id, versions))
+			if err := coreevents.EmitTakeover(ctx, tx, s.events, plugin.CoreTakeoverEnded, id, coreevents.TakeoverExpired, nil, now); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, done := range notify {
+		if done != nil {
+			done()
+		}
+	}
+	return expired, nil
 }

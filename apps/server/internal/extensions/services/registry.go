@@ -416,6 +416,21 @@ var capabilities = []Capability{
 		},
 	},
 	{
+		// Bundled only. The publisher is the calling plugin; the host adds
+		// its identity to the event name and queues one delivery for each
+		// installed subscriber in one transaction.
+		ID:          "events.publish",
+		Version:     1,
+		Name:        "Event publication",
+		Description: "Publish one of this plugin's declared events, at most 4 KiB, to the plugins that subscribe to it.",
+		Category:    CategoryManage,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "events.publish@1/publish", CapabilityID: "events.publish", CapabilityVersion: 1, Title: "Publish event", Description: "Publish one occurrence of a declared event with a subject and a payload that matches the declared schema.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
+		},
+	},
+	{
 		// Bundled only. A timer callback or another hook without an
 		// instance in hand reads one of the plugin's own instances.
 		ID:          "instances.read",

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
@@ -35,6 +36,7 @@ type OrganizationSettingsProvider interface {
 	OrganizationValues(context.Context) (map[string]any, error)
 }
 type Service struct {
+	events             coreevents.Sink
 	db                 *pgxpool.Pool
 	notifier           Notifier
 	limits             Limits
@@ -296,7 +298,15 @@ func (s *Service) DeleteGroup(ctx context.Context, id, user uuid.UUID) error {
 	// Schedules and Quick Presents that targeted the group can no longer reach
 	// any screen. Disable the schedules and stop the sessions, so the lists do
 	// not show them as active and their Stop action does not fail later.
-	if _, err = tx.Exec(ctx, `UPDATE schedules SET enabled=FALSE,updated_at=now() WHERE deleted_at IS NULL AND enabled AND id IN (SELECT schedule_id FROM schedule_targets WHERE target_type='group' AND screen_group_id=$1)`, id); err != nil {
+	rows, err := tx.Query(ctx, `UPDATE schedules SET enabled=FALSE,updated_at=now() WHERE deleted_at IS NULL AND enabled AND id IN (SELECT schedule_id FROM schedule_targets WHERE target_type='group' AND screen_group_id=$1) RETURNING id`, id)
+	if err != nil {
+		return err
+	}
+	disabled, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	if err = s.EmitChangesInTx(ctx, tx, disabled, coreevents.ScheduleDisabled); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE presentation_overrides SET stopped_at=now() WHERE target_type='group' AND target_id=$1 AND stopped_at IS NULL`, id); err != nil {
@@ -875,6 +885,12 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 	if err != nil {
 		return err
 	}
+	var before scheduleSnapshot
+	if !create {
+		if before, err = snapshotSchedule(ctx, tx, id); err != nil {
+			return err
+		}
+	}
 	if create {
 		_, err = tx.Exec(ctx, `INSERT INTO schedules(id,organization_id,name,description,playlist_id,layout_id,display_action,type,timezone,priority,enabled,start_date,end_date,one_time_start,one_time_end,daily_start,daily_end,days_of_week,created_by)SELECT $1,id,$2,$3,NULLIF($4,$19::uuid),$5,$6::jsonb,$7,$8,$9,$10,$11::date,$12::date,$13,$14,$15::time,$16::time,COALESCE($17::smallint[],'{}'::smallint[]),$18 FROM organization_settings WHERE singleton`, id, strings.TrimSpace(in.Name), in.Description, in.PlaylistID, in.LayoutID, displayActionJSON(in.DisplayAction), in.Type, in.Timezone, in.Priority, in.Enabled, in.StartDate, in.EndDate, in.OneTimeStart, in.OneTimeEnd, in.DailyStart, in.DailyEnd, in.DaysOfWeek, user, uuid.Nil)
 	} else {
@@ -912,6 +928,18 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 	if err != nil {
 		return err
 	}
+	after, err := snapshotSchedule(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if create {
+		err = s.emitChange(ctx, tx, id, coreevents.ScheduleCreated, after.enabled, false)
+	} else if change, changed := before.change(after); changed {
+		err = s.emitChange(ctx, tx, id, change, after.enabled, before.targets != after.targets)
+	}
+	if err != nil {
+		return err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
@@ -944,6 +972,9 @@ func (s *Service) Delete(ctx context.Context, id, user uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	if err = s.emitChange(ctx, tx, id, coreevents.ScheduleDeleted, false, false); err != nil {
+		return err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
@@ -961,6 +992,12 @@ func (s *Service) SetEnabled(ctx context.Context, id, user uuid.UUID, enabled bo
 	if err != nil {
 		return Record{}, err
 	}
+	var previous bool
+	if err := tx.QueryRow(ctx, `SELECT enabled FROM schedules WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&previous); errors.Is(err, pgx.ErrNoRows) {
+		return Record{}, ErrNotFound
+	} else if err != nil {
+		return Record{}, err
+	}
 	tag, err := tx.Exec(ctx, `UPDATE schedules SET enabled=$2,updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, id, enabled)
 	if err != nil {
 		return Record{}, err
@@ -971,6 +1008,15 @@ func (s *Service) SetEnabled(ctx context.Context, id, user uuid.UUID, enabled bo
 	notes, err := bumpScreens(ctx, tx, ids, "schedule.enabled_changed")
 	if err != nil {
 		return Record{}, err
+	}
+	if previous != enabled {
+		change := coreevents.ScheduleDisabled
+		if enabled {
+			change = coreevents.ScheduleEnabled
+		}
+		if err = s.emitChange(ctx, tx, id, change, enabled, false); err != nil {
+			return Record{}, err
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Record{}, err
@@ -1387,4 +1433,57 @@ func (s *Service) ConfigFor(ctx context.Context) (int, int, int, error) {
 		clock = value
 	}
 	return prefetch, grace, clock, nil
+}
+
+// SetEvents wires the core event sink. schedule.changed@1 is emitted in the
+// transaction of each schedule mutation.
+func (s *Service) SetEvents(events coreevents.Sink) { s.events = events }
+
+func (s *Service) emitChange(ctx context.Context, tx pgx.Tx, id uuid.UUID, change string, _ bool, targetsChanged bool) error {
+	return coreevents.EmitSchedules(ctx, tx, s.events, change, targetsChanged, id)
+}
+
+// EmitChangesInTx emits schedule.changed@1 for schedules that another
+// owner changed in tx: a Campaign publication or archive, or a deleted
+// group that disables the schedules that targeted it.
+func (s *Service) EmitChangesInTx(ctx context.Context, tx pgx.Tx, ids []uuid.UUID, change string) error {
+	if s == nil {
+		return nil
+	}
+	return coreevents.EmitSchedules(ctx, tx, s.events, change, false, ids...)
+}
+
+// scheduleSnapshot is a schedule's stored definition and targets, without
+// its timestamps, for the before and after of one write.
+type scheduleSnapshot struct {
+	definition string
+	enabled    bool
+	targets    string
+}
+
+func snapshotSchedule(ctx context.Context, tx pgx.Tx, id uuid.UUID) (scheduleSnapshot, error) {
+	var snapshot scheduleSnapshot
+	err := tx.QueryRow(ctx, `SELECT (to_jsonb(s) - 'updated_at' - 'created_at' - 'enabled')::text, s.enabled,
+			COALESCE((SELECT string_agg(t.target_type||':'||COALESCE(t.screen_id,t.screen_group_id)::text, ',' ORDER BY t.target_type, COALESCE(t.screen_id,t.screen_group_id))
+				FROM schedule_targets t WHERE t.schedule_id=s.id),'')
+		FROM schedules s WHERE s.id=$1 FOR UPDATE`, id).Scan(&snapshot.definition, &snapshot.enabled, &snapshot.targets)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return snapshot, ErrNotFound
+	}
+	return snapshot, err
+}
+
+// change names the meaningful change between two snapshots: enabled or
+// disabled when only the switch moved, updated for anything else, and none
+// for a save that changed nothing.
+func (before scheduleSnapshot) change(after scheduleSnapshot) (string, bool) {
+	switch {
+	case before.definition == after.definition && before.targets == after.targets && before.enabled == after.enabled:
+		return "", false
+	case before.definition == after.definition && before.targets == after.targets && after.enabled:
+		return coreevents.ScheduleEnabled, true
+	case before.definition == after.definition && before.targets == after.targets:
+		return coreevents.ScheduleDisabled, true
+	}
+	return coreevents.ScheduleUpdated, true
 }

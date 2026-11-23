@@ -8,6 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/connectivity"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // Incidents group related events into one operational problem. The rule that
@@ -111,7 +114,7 @@ func incidentSignalFor(event playerActivityEventInput) (incidentSignal, bool) {
 // opened for an event that was rolled back.
 func (s *server) deriveIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) error {
 	if playsSuccessfully(event) {
-		return recoverPlaybackIncidentForContent(r, tx, screenID, event)
+		return recoverPlaybackIncidentForContent(r, tx, s.events, screenID, event)
 	}
 	signal, ok := incidentSignalFor(event)
 	if !ok {
@@ -119,9 +122,9 @@ func (s *server) deriveIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, 
 	}
 	key := incidentDedupeKey(screenID, signal.Type)
 	if !signal.Opens {
-		return recoverIncident(r, tx, key, event, signal.ResolutionHint)
+		return recoverIncident(r, tx, s.events, key, event, signal.ResolutionHint)
 	}
-	return openOrRepeatIncident(r, tx, screenID, key, event, signal)
+	return openOrRepeatIncident(r, tx, s.events, screenID, key, event, signal)
 }
 
 // playsSuccessfully reports whether an event is evidence that content which
@@ -155,26 +158,34 @@ func playsSuccessfully(event playerActivityEventInput) bool {
 // healthy image on the same screen says nothing about the video that keeps
 // failing, and closing the incident on it would reopen it on the next failure
 // as a stream of separate one-second outages.
-func recoverPlaybackIncidentForContent(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) error {
+func recoverPlaybackIncidentForContent(r *http.Request, tx pgx.Tx, events coreevents.Sink, screenID uuid.UUID, event playerActivityEventInput) error {
 	ctx := activityContextWithoutCancel(r.Context())
 	const hint = "The content played to a normal end again."
 	key := incidentDedupeKey(screenID, incidentPlayback)
-	tag, err := tx.Exec(ctx, `
+	rows, err := tx.Query(ctx, `
 		UPDATE incidents SET status='recovered',recovered_at=$2,recovery_event_id=$3,
 			recovery_mode='automatic',resolution_reason=COALESCE(NULLIF(resolution_reason,''),$4),updated_at=now()
-		WHERE dedupe_key=$1 AND status IN('open','acknowledged') AND related_id=$5`,
+		WHERE dedupe_key=$1 AND status IN('open','acknowledged') AND related_id=$5
+		RETURNING id`,
 		key, event.OccurredAt, event.ID, hint, event.ContentID)
-	if err != nil || tag.RowsAffected() == 0 {
+	if err != nil {
 		return err
 	}
-	return appendIncidentEvent(ctx, tx, key, event, "recovered", hint)
+	recovered, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil || len(recovered) == 0 {
+		return err
+	}
+	if err := appendIncidentEvent(ctx, tx, key, event, "recovered", hint); err != nil {
+		return err
+	}
+	return coreevents.EmitIncidents(ctx, tx, events, plugin.CoreIncidentRecovered, coreevents.IncidentAutomatic, event.OccurredAt, recovered...)
 }
 
 func incidentDedupeKey(screenID uuid.UUID, incidentType string) string {
 	return incidentType + ":screen:" + screenID.String()
 }
 
-func openOrRepeatIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, key string, event playerActivityEventInput, signal incidentSignal) error {
+func openOrRepeatIncident(r *http.Request, tx pgx.Tx, events coreevents.Sink, screenID uuid.UUID, key string, event playerActivityEventInput, signal incidentSignal) error {
 	ctx := activityContextWithoutCancel(r.Context())
 	description := signal.Description
 	if event.FailureMessage != "" {
@@ -205,7 +216,7 @@ func openOrRepeatIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, key st
 	// new one: the condition genuinely returned, and the mean-time-to-recover
 	// figures should see two separate outages rather than one long one.
 	incidentID := uuid.New()
-	_, err = tx.Exec(ctx, `
+	rows, err := tx.Query(ctx, `
 		INSERT INTO incidents(
 			id,incident_type,severity,status,title,description,opened_at,last_seen_at,
 			primary_screen_id,location_id,group_id,device_model,player_version,
@@ -216,30 +227,51 @@ func openOrRepeatIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, key st
 		       s.device_model,s.player_version,
 		       $7,$8,$9,$10,$11,$12::jsonb
 		FROM screens s WHERE s.id=$13
-		ON CONFLICT DO NOTHING`,
+		ON CONFLICT DO NOTHING
+		RETURNING id`,
 		incidentID, signal.Type, signal.Severity, signal.Title, description, event.OccurredAt,
 		event.FailureCode, signal.ProbableCause, event.ContentType, event.ContentID, key, string(metadata), screenID)
 	if err != nil {
 		return err
 	}
-	return appendIncidentEvent(ctx, tx, key, event, "opened", signal.Title)
+	opened, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	if len(opened) == 0 {
+		// Another transaction opened the same incident first: this event is
+		// a recurrence of it, not a second opening.
+		return appendIncidentEvent(ctx, tx, key, event, "recurrence", "Condition reported again.")
+	}
+	if err := appendIncidentEvent(ctx, tx, key, event, "opened", signal.Title); err != nil {
+		return err
+	}
+	return coreevents.EmitIncidents(ctx, tx, events, plugin.CoreIncidentOpened, coreevents.IncidentDetected, event.OccurredAt, opened...)
 }
 
-func recoverIncident(r *http.Request, tx pgx.Tx, key string, event playerActivityEventInput, hint string) error {
+func recoverIncident(r *http.Request, tx pgx.Tx, events coreevents.Sink, key string, event playerActivityEventInput, hint string) error {
 	ctx := activityContextWithoutCancel(r.Context())
 	// Recovered, not resolved: the condition ended on its own, so this is a
 	// record of an outage that fixed itself, not a task. Nobody is asked to
 	// acknowledge it; the distinction from a person closing the matter by hand
 	// is kept only because the recovery figures depend on it.
-	tag, err := tx.Exec(ctx, `
+	rows, err := tx.Query(ctx, `
 		UPDATE incidents SET status='recovered',recovered_at=$2,recovery_event_id=$3,
 			recovery_mode='automatic',resolution_reason=COALESCE(NULLIF(resolution_reason,''),$4),updated_at=now()
-		WHERE dedupe_key=$1 AND status IN('open','acknowledged')`,
+		WHERE dedupe_key=$1 AND status IN('open','acknowledged')
+		RETURNING id`,
 		key, event.OccurredAt, event.ID, hint)
-	if err != nil || tag.RowsAffected() == 0 {
+	if err != nil {
 		return err
 	}
-	return appendIncidentEvent(ctx, tx, key, event, "recovered", hint)
+	recovered, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil || len(recovered) == 0 {
+		return err
+	}
+	if err := appendIncidentEvent(ctx, tx, key, event, "recovered", hint); err != nil {
+		return err
+	}
+	return coreevents.EmitIncidents(ctx, tx, events, plugin.CoreIncidentRecovered, coreevents.IncidentAutomatic, event.OccurredAt, recovered...)
 }
 
 func appendIncidentEvent(ctx context.Context, tx pgx.Tx, key string, event playerActivityEventInput, role, summary string) error {
@@ -251,48 +283,13 @@ func appendIncidentEvent(ctx context.Context, tx pgx.Tx, key string, event playe
 	return err
 }
 
-// syncOfflineIncidents opens and recovers connectivity incidents from current
-// state rather than from events. A screen that stops reporting sends nothing,
-// so without this sweep the very outage operators most need to see would only
-// ever appear once the screen came back and its gap event arrived.
-//
-// It is deliberately idempotent: the partial unique index means a screen that
-// has been offline for a week still has exactly one open incident.
+// syncOfflineIncidents runs the connectivity sweep before an incident read,
+// so the list is current even between background sweeps. The sweep opens
+// and recovers connectivity incidents from current state rather than from
+// events: a screen that stops reporting sends nothing. See
+// internal/connectivity.
 func (s *server) syncOfflineIncidents(ctx context.Context) error {
-	// Open one for every measured screen that is now past the grace period.
-	if _, err := s.db.Exec(ctx, `
-		INSERT INTO incidents(
-			id,incident_type,severity,status,title,description,opened_at,last_seen_at,
-			primary_screen_id,location_id,group_id,device_model,player_version,dedupe_key,metadata)
-		SELECT gen_random_uuid(),$1,'error','open',$2,
-		       'The Player has not reported within the heartbeat grace period.',
-		       -- Opened when reporting actually stopped, not when the sweep
-		       -- noticed, so time-to-recover measures the outage.
-		       s.last_heartbeat_at + $3::interval, now(),
-		       s.id,s.location_id,
-		       (SELECT m.screen_group_id FROM screen_group_memberships m WHERE m.screen_id=s.id ORDER BY m.screen_group_id LIMIT 1),
-		       s.device_model,s.player_version,
-		       $1||':screen:'||s.id::text,'{"source":"offline_sweep"}'::jsonb
-		FROM screens s
-		WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL
-		  AND s.last_heartbeat_at IS NOT NULL AND s.last_heartbeat_at < now()-$3::interval
-		  AND EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL)
-		ON CONFLICT DO NOTHING`,
-		incidentConnectivity, incidentTitleForType(incidentConnectivity), fleetHeartbeatGrace); err != nil {
-		return err
-	}
-	// Recover the ones whose screen is reporting again. The heartbeat is the
-	// evidence, so this is an automatic recovery.
-	_, err := s.db.Exec(ctx, `
-		UPDATE incidents i SET status='recovered',recovered_at=s.last_heartbeat_at,
-			recovery_mode='automatic',
-			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'Screen is reporting again.'),
-			updated_at=now()
-		FROM screens s
-		WHERE s.id=i.primary_screen_id AND i.incident_type=$1 AND i.status IN('open','acknowledged')
-		  AND s.last_heartbeat_at IS NOT NULL AND s.last_heartbeat_at >= now()-$2::interval`,
-		incidentConnectivity, fleetHeartbeatGrace)
-	return err
+	return s.connectivitySweeper().Sweep(ctx)
 }
 
 // incidentTitleForType keeps the event-driven and sweep-driven paths from
@@ -300,7 +297,7 @@ func (s *server) syncOfflineIncidents(ctx context.Context) error {
 func incidentTitleForType(incidentType string) string {
 	switch incidentType {
 	case incidentConnectivity:
-		return "Screen stopped reporting"
+		return connectivity.IncidentTitle
 	case incidentPlayback:
 		return "Playback is failing"
 	case incidentStorage:

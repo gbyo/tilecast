@@ -8283,6 +8283,21 @@ export interface components {
       connections: components["schemas"]["PluginConnectionReview"][];
       /** @description Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins. */
       feeds?: components["schemas"]["PluginFeedReview"][];
+      events?: components["schemas"]["PluginEventReview"];
+    };
+    /** @description Server events a Plugin Manifest API 3 plugin publishes and receives. Empty lists for other plugins. */
+    PluginEventReview: {
+      publishes: {
+        /** @description The full name, plugin.<plugin id>.<name>@<version>. */
+        event: string;
+        title: string;
+        fields: number;
+      }[];
+      subscribes: {
+        event: string;
+        /** @description core, or the ID of the publishing plugin. */
+        publisher: string;
+      }[];
     };
     PluginFeedReview: {
       id: string;
@@ -8729,6 +8744,22 @@ export interface components {
       pluginId: string;
       installed: boolean;
       deliveries: components["schemas"]["PluginDeliveryStatus"];
+      /** @description The events the plugin receives. An inactive subscription receives nothing and says why. */
+      subscriptions: {
+        event: string;
+        state: string;
+        reason?: string;
+        /** @description core, or the ID of the publishing plugin. */
+        publisher: string;
+      }[];
+      publishedEvents: {
+        event: string;
+        title: string;
+        /** @description Installed plugins that receive it. */
+        subscribers: number;
+        /** @description The declared payload differs from the one this installation recorded for the same version; the host refuses to publish it. */
+        schemaChanged: boolean;
+      }[];
     };
     PluginDeliveryStatus: {
       /** @description Deliveries that wait or run now. */

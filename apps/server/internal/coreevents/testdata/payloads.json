@@ -1,0 +1,79 @@
+{
+  "feed.stale@1": [
+    "datasetId uuid.UUID",
+    "expectedRefreshSeconds int",
+    "feed string",
+    "instanceId *uuid.UUID",
+    "publishedAt *time.Time",
+    "staleSince time.Time"
+  ],
+  "incident.opened@1": [
+    "at time.Time",
+    "failureCode string",
+    "incidentId uuid.UUID",
+    "reason string",
+    "relatedId string",
+    "relatedType string",
+    "screenId *uuid.UUID",
+    "severity string",
+    "type string"
+  ],
+  "incident.recovered@1": [
+    "at time.Time",
+    "failureCode string",
+    "incidentId uuid.UUID",
+    "reason string",
+    "relatedId string",
+    "relatedType string",
+    "screenId *uuid.UUID",
+    "severity string",
+    "type string"
+  ],
+  "schedule.changed@1": [
+    "at time.Time",
+    "change string",
+    "enabled bool",
+    "scheduleId uuid.UUID",
+    "targetsChanged bool"
+  ],
+  "screen.status.changed@1": [
+    "changedAt time.Time",
+    "lastContactAt *time.Time",
+    "previousStatus string",
+    "screenId uuid.UUID",
+    "status string"
+  ],
+  "takeover.ended@1": [
+    "activatedAt time.Time",
+    "at time.Time",
+    "class string",
+    "effectiveScreenCount int",
+    "expiresAt time.Time",
+    "reason string",
+    "screenCount int",
+    "suspendedBy *uuid.UUID",
+    "takeoverId uuid.UUID"
+  ],
+  "takeover.started@1": [
+    "activatedAt time.Time",
+    "at time.Time",
+    "class string",
+    "effectiveScreenCount int",
+    "expiresAt time.Time",
+    "reason string",
+    "screenCount int",
+    "suspendedBy *uuid.UUID",
+    "takeoverId uuid.UUID"
+  ],
+  "takeover.suspended@1": [
+    "activatedAt time.Time",
+    "at time.Time",
+    "class string",
+    "effectiveScreenCount int",
+    "expiresAt time.Time",
+    "reason string",
+    "screenCount int",
+    "suspendedBy *uuid.UUID",
+    "takeoverId uuid.UUID"
+  ]
+}

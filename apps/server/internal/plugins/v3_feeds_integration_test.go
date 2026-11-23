@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/durable"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/outbound"
@@ -549,6 +551,8 @@ func TestFeedIsAnOrdinaryDataSourceWithContentHealth(t *testing.T) {
 			t.Fatal(err)
 		}
 		health := contenthealth.NewService(e.pool, staticSettings{})
+		recorded := &recordedSink{}
+		health.SetEvents(recorded)
 		status := func() string {
 			var state string
 			err := e.pool.QueryRow(e.ctx, `SELECT status FROM incidents WHERE dedupe_key='data_source:source:'||$1::text ORDER BY opened_at DESC LIMIT 1`, first.Dataset).Scan(&state)
@@ -566,12 +570,25 @@ func TestFeedIsAnOrdinaryDataSourceWithContentHealth(t *testing.T) {
 		if err := health.Sweep(e.ctx); err != nil || status() != "open" {
 			t.Fatalf("late feed = %s %v", status(), err)
 		}
+		// Crossing into stale is one feed.stale@1 for the owner and one
+		// incident.opened@1; staying stale is nothing more.
+		if err := health.Sweep(e.ctx); err != nil {
+			t.Fatal(err)
+		}
+		stale := recorded.named(plugin.CoreFeedStale)
+		if len(stale) != 1 || stale[0].Owner != samplefeeds.ID || stale[0].Payload.(coreevents.FeedStale).DatasetID != first.Dataset ||
+			len(recorded.named(plugin.CoreIncidentOpened)) != 1 {
+			t.Fatalf("stale events = %+v", recorded.events)
+		}
 		var code string
 		_ = e.pool.QueryRow(e.ctx, `SELECT failure_code FROM incidents WHERE dedupe_key='data_source:source:'||$1::text`, first.Dataset).Scan(&code)
 		e.clock.Set(time.Now().UTC())
 		e.publish(t, first.Revision, item("a", "Tea", nil))
 		if err := health.Sweep(e.ctx); err != nil || status() != "recovered" || code != "feed_stale" {
 			t.Fatalf("after a publication = %s %s %v", status(), code, err)
+		}
+		if recovered := recorded.named(plugin.CoreIncidentRecovered); len(recovered) != 1 {
+			t.Fatalf("recovered events = %d", len(recovered))
 		}
 		listed, err := e.service.ListFeedDatasets(e.ctx, samplefeeds.ID)
 		if err != nil || len(listed) != 1 || listed[0].WidgetsUsing != 1 || listed[0].Stale {
@@ -766,4 +783,29 @@ func TestFeedImageFailuresAndStaleImports(t *testing.T) {
 			t.Fatalf("the newer revision's image = %s %v", source, err)
 		}
 	})
+}
+
+// recordedSink is a core event sink that keeps what producers emit.
+type recordedSink struct {
+	mu     sync.Mutex
+	events []coreevents.Event
+}
+
+func (r *recordedSink) Emit(_ context.Context, _ pgx.Tx, event coreevents.Event) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.events = append(r.events, event)
+	return nil
+}
+
+func (r *recordedSink) named(name string) []coreevents.Event {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := []coreevents.Event{}
+	for _, event := range r.events {
+		if event.Name == name {
+			out = append(out, event)
+		}
+	}
+	return out
 }

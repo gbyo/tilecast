@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 type incidentRecord struct {
@@ -405,6 +408,11 @@ func (s *server) updateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
+	var previous string
+	if err := tx.QueryRow(r.Context(), `SELECT status FROM incidents WHERE id=$1 FOR UPDATE`, id).Scan(&previous); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.internalError(w, r, err)
+		return
+	}
 	tag, err := tx.Exec(r.Context(), statement, args...)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -412,6 +420,10 @@ func (s *server) updateIncident(w http.ResponseWriter, r *http.Request) {
 	}
 	if tag.RowsAffected() == 0 {
 		writeError(w, http.StatusConflict, "incident_action_not_applicable", "That action does not apply to this incident's current status.")
+		return
+	}
+	if err := s.emitOperatorIncidentTransition(r.Context(), tx, id, input.Action, previous); err != nil {
+		s.internalError(w, r, err)
 		return
 	}
 	if _, err := tx.Exec(r.Context(), `
@@ -577,4 +589,22 @@ func incidentRecoveryPath(record incidentRecord) string {
 	default:
 		return "Not recovered yet."
 	}
+}
+
+// emitOperatorIncidentTransition emits the core event of an operator action
+// that moves an incident between active (open or acknowledged) and closed.
+// Resolving or ignoring an active incident closes it; reopening a closed
+// one opens it. Acknowledging, assigning, and notes change no lifecycle.
+func (s *server) emitOperatorIncidentTransition(ctx context.Context, tx pgx.Tx, id uuid.UUID, action, previous string) error {
+	active := previous == "open" || previous == "acknowledged"
+	now := time.Now().UTC()
+	switch {
+	case action == "resolve" && active:
+		return coreevents.EmitIncidents(ctx, tx, s.events, plugin.CoreIncidentRecovered, coreevents.IncidentResolved, now, id)
+	case action == "ignore" && active:
+		return coreevents.EmitIncidents(ctx, tx, s.events, plugin.CoreIncidentRecovered, coreevents.IncidentIgnored, now, id)
+	case action == "reopen" && !active:
+		return coreevents.EmitIncidents(ctx, tx, s.events, plugin.CoreIncidentOpened, coreevents.IncidentReopened, now, id)
+	}
+	return nil
 }

@@ -1631,6 +1631,72 @@
             ],
             "additionalProperties": false
           }
+        },
+        "events": {
+          "description": "Server events the plugin publishes with events.publish@1, and the events it receives in HandleEvent.",
+          "type": "object",
+          "properties": {
+            "publishes": {
+              "maxItems": 16,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 999,
+                    "description": "The event version. A changed payload is a new version."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "description": { "type": "string", "maxLength": 200 },
+                  "fields": {
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/__schema2" }
+                  }
+                },
+                "required": ["name", "version", "title", "fields"],
+                "additionalProperties": false
+              }
+            },
+            "subscribes": {
+              "description": "Full event names: a core event such as incident.opened@1, or plugin.<plugin id>.<name>@<version>.",
+              "maxItems": 32,
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "screen.status.changed@1",
+                      "takeover.started@1",
+                      "takeover.ended@1",
+                      "takeover.suspended@1",
+                      "incident.opened@1",
+                      "incident.recovered@1",
+                      "schedule.changed@1",
+                      "feed.stale@1"
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^plugin\\.([a-z][a-z0-9_]{0,79})\\.([a-z][a-z0-9_]{0,39})@([1-9][0-9]{0,2})$"
+                  }
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -1772,6 +1838,108 @@
           "additionalProperties": { "$ref": "#/$defs/__schema1" }
         }
       ]
+    },
+    "__schema2": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "labelKey": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionKey": { "type": "string" },
+        "control": {
+          "type": "string",
+          "enum": [
+            "text",
+            "multiline_text",
+            "number",
+            "integer",
+            "boolean",
+            "select",
+            "color",
+            "date",
+            "datetime",
+            "local_datetime",
+            "time",
+            "timezone",
+            "currency_code",
+            "url",
+            "string_list",
+            "weekdays"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "default": { "$ref": "#/$defs/__schema1" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "label": { "type": "string" },
+              "labelKey": { "type": "string" }
+            },
+            "required": ["value", "label"],
+            "additionalProperties": false
+          }
+        },
+        "acceptedDataSourceKinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "requiredFields": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "type": "string" }
+        },
+        "dataSourceFieldTypes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "dataSourceKey": { "type": "string" },
+        "mediaTypes": { "type": "array", "items": { "type": "string" } },
+        "maximumItems": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "itemFields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/__schema2" }
+        },
+        "ui": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema1" }
+        },
+        "personal": {
+          "type": "object",
+          "properties": {
+            "retentionDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3650
+            }
+          },
+          "required": ["retentionDays"],
+          "additionalProperties": false
+        },
+        "connections": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["key", "label", "control"],
+      "additionalProperties": false
     }
   }
 }

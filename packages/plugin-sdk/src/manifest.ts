@@ -53,6 +53,16 @@ import {
   OVERRIDE_POLICIES,
 } from "./feeds.ts";
 import {
+  CORE_EVENTS,
+  eventProblems,
+  pluginEventPattern,
+  MAX_EVENT_FIELDS,
+  MAX_EVENT_SUBSCRIPTIONS,
+  MAX_EVENT_VERSION,
+  MAX_PUBLISHED_EVENTS,
+  serverEventNamePattern,
+} from "./events.ts";
+import {
   parseServiceReference,
   serviceReferencePattern,
   serviceReferenceProblem,
@@ -592,7 +602,9 @@ const instanceKind = z.strictObject({
       default: z.int().min(-1000000).max(1000000),
     })
     .optional()
-    .describe("Gives each instance a priority. The host projects the strongest first."),
+    .describe(
+      "Gives each instance a priority. The host projects the strongest first.",
+    ),
   fields: pluginFields,
 });
 
@@ -602,7 +614,9 @@ const connectionDeclaration = z.strictObject({
   id: z
     .string()
     .regex(/^[a-z][a-z0-9_]{0,39}$/)
-    .describe("Identifier that connection records and connection fields name. It never changes."),
+    .describe(
+      "Identifier that connection records and connection fields name. It never changes.",
+    ),
   title: text(80),
   description: text(280).optional(),
   type: z
@@ -642,33 +656,50 @@ const connectionDeclaration = z.strictObject({
     .min(MIN_MAX_RESPONSE_BYTES)
     .max(MAX_MAX_RESPONSE_BYTES)
     .optional()
-    .describe("Response body bound. Default 1 MiB, at most 16 MiB. The install review shows a larger value."),
+    .describe(
+      "Response body bound. Default 1 MiB, at most 16 MiB. The install review shows a larger value.",
+    ),
   timeoutSeconds: z
     .int()
     .min(1)
     .max(MAX_TIMEOUT_SECONDS)
     .optional()
-    .describe("Time bound of one request, redirects and body included. Default 10 seconds."),
+    .describe(
+      "Time bound of one request, redirects and body included. Default 10 seconds.",
+    ),
   oauth: z
     .strictObject({
       authorizationEndpoint: z.string().min(1).max(MAX_OAUTH_ENDPOINT_LENGTH),
       tokenEndpoint: z.string().min(1).max(MAX_OAUTH_ENDPOINT_LENGTH),
-      revocationEndpoint: z.string().min(1).max(MAX_OAUTH_ENDPOINT_LENGTH).optional(),
+      revocationEndpoint: z
+        .string()
+        .min(1)
+        .max(MAX_OAUTH_ENDPOINT_LENGTH)
+        .optional(),
       scopes: z
         .array(z.string().min(1).max(MAX_OAUTH_SCOPE_LENGTH))
         .min(1)
         .max(MAX_OAUTH_SCOPES),
-      tokenEndpointAuthMethod: z.enum(["client_secret_basic", "client_secret_post", "none"]),
+      tokenEndpointAuthMethod: z.enum([
+        "client_secret_basic",
+        "client_secret_post",
+        "none",
+      ]),
       tokenRequestFormat: z
         .enum(["form", "json"])
         .optional()
-        .describe("Token request body encoding. RFC 6749 uses form; some providers take JSON."),
+        .describe(
+          "Token request body encoding. RFC 6749 uses form; some providers take JSON.",
+        ),
       authorizationParameters: z
         .record(z.string(), z.string().min(1).max(MAX_OAUTH_PARAMETER_VALUE))
         .optional()
-        .refine((value) => Object.keys(value ?? {}).length <= MAX_OAUTH_PARAMETERS, {
-          message: `at most ${MAX_OAUTH_PARAMETERS} authorization parameters`,
-        }),
+        .refine(
+          (value) => Object.keys(value ?? {}).length <= MAX_OAUTH_PARAMETERS,
+          {
+            message: `at most ${MAX_OAUTH_PARAMETERS} authorization parameters`,
+          },
+        ),
     })
     .optional()
     .describe(
@@ -691,23 +722,58 @@ const feedField = z.strictObject({
   maxLength: z.int().min(0).optional(),
   options: z
     .array(
-      z.strictObject({ value: z.string(), label: z.string(), labelKey: z.string().optional() }),
+      z.strictObject({
+        value: z.string(),
+        label: z.string(),
+        labelKey: z.string().optional(),
+      }),
     )
     .optional(),
-  personal: z.strictObject({ retentionDays: z.int().min(1).max(3650) }).optional(),
+  personal: z
+    .strictObject({ retentionDays: z.int().min(1).max(3650) })
+    .optional(),
   override: z.enum(OVERRIDE_POLICIES).optional(),
   image: z.strictObject({ connection: z.string() }).optional(),
 });
 
 const feedDeclaration = z.strictObject({
   id: z.string().regex(feedIdPattern),
-  version: z.int().min(1).describe("The feed version. A schema change is a new version."),
+  version: z
+    .int()
+    .min(1)
+    .describe("The feed version. A schema change is a new version."),
   title: z.string().min(1).max(80),
   description: z.string().max(280).optional(),
   dataset: z.enum(["organization", "instance"]),
   instanceKind: z.string().optional(),
-  expectedRefreshSeconds: z.int().min(MIN_FEED_REFRESH_SECONDS).max(MAX_FEED_REFRESH_SECONDS),
+  expectedRefreshSeconds: z
+    .int()
+    .min(MIN_FEED_REFRESH_SECONDS)
+    .max(MAX_FEED_REFRESH_SECONDS),
   fields: z.array(feedField).min(1).max(MAX_FEED_FIELDS),
+});
+
+const publishedEvent = z.strictObject({
+  name: z.string().regex(serverEventNamePattern),
+  version: z
+    .int()
+    .min(1)
+    .max(MAX_EVENT_VERSION)
+    .describe("The event version. A changed payload is a new version."),
+  title: z.string().min(1).max(80),
+  description: z.string().max(200).optional(),
+  fields: z.array(configFieldSchema("event")).min(1).max(MAX_EVENT_FIELDS),
+});
+
+const eventsDeclaration = z.strictObject({
+  publishes: z.array(publishedEvent).max(MAX_PUBLISHED_EVENTS).optional(),
+  subscribes: z
+    .array(z.union([z.enum(CORE_EVENTS), z.string().regex(pluginEventPattern)]))
+    .max(MAX_EVENT_SUBSCRIPTIONS)
+    .optional()
+    .describe(
+      "Full event names: a core event such as incident.opened@1, or plugin.<plugin id>.<name>@<version>.",
+    ),
 });
 
 const v3Members = {
@@ -725,7 +791,9 @@ const v3Members = {
       route: z
         .string()
         .regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/)
-        .describe("The Studio route that manages the plugin and holds its generated pages."),
+        .describe(
+          "The Studio route that manages the plugin and holds its generated pages.",
+        ),
       entrypoint: z
         .literal(conventionalEntrypoints.studio)
         .optional()
@@ -733,7 +801,9 @@ const v3Members = {
           "Optional Studio module. Omit it when the host's generated pages are all the plugin needs.",
         ),
       additionalRoutes: z
-        .array(z.string().regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/, "must be /path"))
+        .array(
+          z.string().regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/, "must be /path"),
+        )
         .optional(),
     })
     .optional(),
@@ -769,6 +839,11 @@ const v3Members = {
     .default([])
     .describe(
       "Datasets the plugin publishes with feeds.publish@1. Each appears as the Data Source provider <plugin id>.<feed id>.",
+    ),
+  events: eventsDeclaration
+    .optional()
+    .describe(
+      "Server events the plugin publishes with events.publish@1, and the events it receives in HandleEvent.",
     ),
 };
 
@@ -820,6 +895,7 @@ export type PluginManifestV3 = Extract<PluginManifest, { apiVersion: 3 }>;
 export type InstanceKind = PluginManifestV3["instances"][number];
 export type ConnectionDeclaration = PluginManifestV3["connections"][number];
 export type FeedManifestDeclaration = PluginManifestV3["feeds"][number];
+export type EventsManifestDeclaration = NonNullable<PluginManifestV3["events"]>;
 
 /** Problems of one API 3 field list beyond the shared schema rules. */
 export function pluginFieldProblems(
@@ -835,7 +911,10 @@ export function pluginFieldProblems(
         problems.push(
           `${where} field "${field.key}" is personal and required; a personal value must be removable when its retention ends`,
         );
-      if (field.control === "data_source" || field.control === "data_source_field")
+      if (
+        field.control === "data_source" ||
+        field.control === "data_source_field"
+      )
         problems.push(
           `${where} field "${field.key}" uses a Data Source control, which plugin settings do not support yet`,
         );
@@ -870,7 +949,8 @@ export function manifestV3Problems(
     if (
       !bundledServerServices.some(
         (service) =>
-          service.id === reference.name && service.version === reference.version,
+          service.id === reference.name &&
+          service.version === reference.version,
       )
     )
       problems.push(
@@ -891,14 +971,22 @@ export function manifestV3Problems(
   const paths = new Set<string>();
   const operations = new Set<string>();
   for (const kind of manifest.instances ?? []) {
-    if (kinds.has(kind.kind)) problems.push(`instance kind "${kind.kind}" is declared twice`);
+    if (kinds.has(kind.kind))
+      problems.push(`instance kind "${kind.kind}" is declared twice`);
     kinds.add(kind.kind);
     if (reservedKindPaths.includes(kind.path))
-      problems.push(`instance kind "${kind.kind}" has a reserved path "${kind.path}"`);
-    if (paths.has(kind.path)) problems.push(`instance path "${kind.path}" is declared twice`);
+      problems.push(
+        `instance kind "${kind.kind}" has a reserved path "${kind.path}"`,
+      );
+    if (paths.has(kind.path))
+      problems.push(`instance path "${kind.path}" is declared twice`);
     paths.add(kind.path);
     const { singular, plural } = kind.operations;
-    if (singular === plural || operations.has(singular) || operations.has(plural))
+    if (
+      singular === plural ||
+      operations.has(singular) ||
+      operations.has(plural)
+    )
       problems.push(`instance kind "${kind.kind}" repeats an operation name`);
     operations.add(singular);
     operations.add(plural);
@@ -909,9 +997,12 @@ export function manifestV3Problems(
     const priority = kind.priority;
     if (
       priority &&
-      (priority.minimum > priority.default || priority.default > priority.maximum)
+      (priority.minimum > priority.default ||
+        priority.default > priority.maximum)
     )
-      problems.push(`instance kind "${kind.kind}" has an invalid priority range`);
+      problems.push(
+        `instance kind "${kind.kind}" has an invalid priority range`,
+      );
     const fields = (kind.fields ?? []) as ConfigField[];
     problems.push(...pluginFieldProblems(`instances.${kind.kind}`, fields));
     for (const field of fields)
@@ -920,7 +1011,12 @@ export function manifestV3Problems(
           `instance kind "${kind.kind}" field "${field.key}" uses a key the host owns`,
         );
   }
-  problems.push(...feedProblems(manifest as Parameters<typeof feedProblems>[0]));
+  problems.push(
+    ...feedProblems(manifest as Parameters<typeof feedProblems>[0]),
+  );
+  problems.push(
+    ...eventProblems(manifest as Parameters<typeof eventProblems>[0]),
+  );
   const connections = new Set<string>();
   for (const connection of manifest.connections ?? []) {
     if (connections.has(connection.id))
@@ -928,7 +1024,10 @@ export function manifestV3Problems(
     connections.add(connection.id);
     problems.push(...connectionProblems(connection));
   }
-  const checkConnectionFields = (where: string, fields: readonly ConfigField[]) => {
+  const checkConnectionFields = (
+    where: string,
+    fields: readonly ConfigField[],
+  ) => {
     for (const field of fields)
       if (field.control === "connection")
         for (const id of field.connections ?? [])
@@ -941,16 +1040,24 @@ export function manifestV3Problems(
     "settings.organization",
     (manifest.settings?.organization ?? []) as ConfigField[],
   );
-  checkConnectionFields("settings.screen", (manifest.settings?.screen ?? []) as ConfigField[]);
+  checkConnectionFields(
+    "settings.screen",
+    (manifest.settings?.screen ?? []) as ConfigField[],
+  );
   for (const kind of manifest.instances ?? [])
-    checkConnectionFields(`instances.${kind.kind}`, (kind.fields ?? []) as ConfigField[]);
+    checkConnectionFields(
+      `instances.${kind.kind}`,
+      (kind.fields ?? []) as ConfigField[],
+    );
   if ((manifest.instances ?? []).length > 0) {
     if (!manifest.api)
       problems.push(
         "instances need api.basePaths: the host mounts their routes below the first base path",
       );
     if (!manifest.studio)
-      problems.push("instances need a studio route: the host mounts their pages there");
+      problems.push(
+        "instances need a studio route: the host mounts their pages there",
+      );
   }
   if (
     manifest.studio &&

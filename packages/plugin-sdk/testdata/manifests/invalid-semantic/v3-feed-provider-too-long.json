@@ -6,9 +6,7 @@
   "description": "Show a menu from a catalog.",
   "category": "Display",
   "icon": "utensils",
-  "maintainers": [
-    "@gbyo"
-  ],
+  "maintainers": ["@gbyo"],
   "instanceNoun": {
     "singular": "menu",
     "plural": "menus"
@@ -17,25 +15,18 @@
     "entrypoint": "./plugin.go"
   },
   "api": {
-    "basePaths": [
-      "/plugins/long"
-    ]
+    "basePaths": ["/plugins/long"]
   },
   "studio": {
     "route": "/plugins/long"
   },
-  "services": [
-    "http.fetch@1",
-    "feeds.publish@1"
-  ],
+  "services": ["http.fetch@1", "feeds.publish@1"],
   "connections": [
     {
       "id": "catalog",
       "title": "Catalog",
       "type": "http",
-      "origins": [
-        "https://catalog.example.com"
-      ]
+      "origins": ["https://catalog.example.com"]
     }
   ],
   "instances": [

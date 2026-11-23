@@ -5282,10 +5282,18 @@ paths:
                     type: object
                     required: [items, total]
                     properties:
-                      items: { type: array, items: { $ref: "#/components/schemas/PluginConnection" } }
+                      items:
+                        {
+                          type: array,
+                          items:
+                            { $ref: "#/components/schemas/PluginConnection" },
+                        }
                       total: { type: integer, minimum: 0 }
         "401": { description: Dashboard authentication required }
-        "404": { description: "plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no connections" }
+        "404":
+          {
+            description: "plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no connections",
+          }
     post:
       operationId: createPluginConnection
       security: [{ sessionCookie: [] }, { userBearer: [] }]
@@ -5308,10 +5316,16 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginConnection" }
-        "400": { description: "invalid_plugin_connection — unknown declaration, or an origin the declaration does not accept" }
+        "400":
+          {
+            description: "invalid_plugin_connection — unknown declaration, or an origin the declaration does not accept",
+          }
         "403": { description: plugins.manage and CSRF token required }
         "404": { description: plugin_not_found }
-        "409": { description: "plugin_not_installed, or plugin_connection_limit — a plugin has at most 50 records" }
+        "409":
+          {
+            description: "plugin_not_installed, or plugin_connection_limit — a plugin has at most 50 records",
+          }
   /api/v1/plugins/{pluginId}/connections/{connectionId}:
     get:
       operationId: getPluginConnection
@@ -5357,7 +5371,10 @@ paths:
         "400": { description: invalid_plugin_connection }
         "403": { description: plugins.manage and CSRF token required }
         "404": { description: plugin_not_found or plugin_connection_not_found }
-        "409": { description: "plugin_connection_revision_conflict, with error.details.currentRevision" }
+        "409":
+          {
+            description: "plugin_connection_revision_conflict, with error.details.currentRevision",
+          }
         "428": { description: expected_revision_required }
     delete:
       operationId: deletePluginConnection
@@ -5375,7 +5392,8 @@ paths:
           description: plugin_connection_in_use — error.details.references lists the settings and instances that use it; plugin_connection_connected — disconnect the OAuth connection first
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/PluginConnectionInUseError" }
+              schema:
+                { $ref: "#/components/schemas/PluginConnectionInUseError" }
   /api/v1/plugins/{pluginId}/connections/{connectionId}/consents:
     put:
       operationId: setPluginConnectionConsents
@@ -5393,7 +5411,8 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/PluginConnectionConsentsWrite" }
+            schema:
+              { $ref: "#/components/schemas/PluginConnectionConsentsWrite" }
       responses:
         "200":
           description: Consents written
@@ -5437,10 +5456,16 @@ paths:
                     required: [authorizationUrl]
                     properties:
                       authorizationUrl: { type: string, format: uri }
-        "400": { description: "invalid_plugin_connection — the connection does not use OAuth" }
+        "400":
+          {
+            description: "invalid_plugin_connection — the connection does not use OAuth",
+          }
         "403": { description: plugins.manage and CSRF token required }
         "404": { description: plugin_not_found or plugin_connection_not_found }
-        "409": { description: "plugin_connection_oauth_unavailable — error.details.reason is public_url_https_required, client_id_required, or client_secret_required" }
+        "409":
+          {
+            description: "plugin_connection_oauth_unavailable — error.details.reason is public_url_https_required, client_id_required, or client_secret_required",
+          }
         "503": { description: secrets_unavailable }
   /api/v1/plugins/{pluginId}/connections/{connectionId}/callback:
     get:
@@ -5454,9 +5479,24 @@ paths:
         destination. The response has Referrer-Policy no-referrer and Cache-Control no-store.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
-        - { in: path, name: connectionId, required: true, schema: { type: string } }
-        - { in: query, name: state, required: false, schema: { type: string, maxLength: 256 } }
-        - { in: query, name: code, required: false, schema: { type: string, maxLength: 4096 } }
+        - {
+            in: path,
+            name: connectionId,
+            required: true,
+            schema: { type: string },
+          }
+        - {
+            in: query,
+            name: state,
+            required: false,
+            schema: { type: string, maxLength: 256 },
+          }
+        - {
+            in: query,
+            name: code,
+            required: false,
+            schema: { type: string, maxLength: 4096 },
+          }
         - { in: query, name: error, required: false, schema: { type: string } }
       responses:
         "303":
@@ -5482,7 +5522,8 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/PluginConnectionOAuthCallback" }
+            schema:
+              { $ref: "#/components/schemas/PluginConnectionOAuthCallback" }
       responses:
         "200":
           description: The connection is connected.
@@ -5527,9 +5568,17 @@ paths:
                     type: object
                     required: [items, total]
                     properties:
-                      items: { type: array, items: { $ref: "#/components/schemas/PluginFeedDataset" } }
+                      items:
+                        {
+                          type: array,
+                          items:
+                            { $ref: "#/components/schemas/PluginFeedDataset" },
+                        }
                       total: { type: integer, minimum: 0 }
-        "404": { description: "plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no feeds" }
+        "404":
+          {
+            description: "plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no feeds",
+          }
   /api/v1/plugins/{pluginId}/feeds/{datasetId}/records:
     get:
       operationId: listPluginFeedRecords
@@ -5540,9 +5589,24 @@ paths:
         removed an override and the code of a failed image import.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
-        - { in: path, name: datasetId, required: true, schema: { type: string, format: uuid } }
-        - { in: query, name: offset, required: false, schema: { type: integer, minimum: 0 } }
-        - { in: query, name: limit, required: false, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - {
+            in: path,
+            name: datasetId,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: query,
+            name: offset,
+            required: false,
+            schema: { type: integer, minimum: 0 },
+          }
+        - {
+            in: query,
+            name: limit,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 200 },
+          }
       responses:
         "200":
           description: Records
@@ -5553,7 +5617,8 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginFeedRecords" }
-        "404": { description: plugin_not_found or plugin_feed_dataset_not_found }
+        "404":
+          { description: plugin_not_found or plugin_feed_dataset_not_found }
   /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides:
     put:
       operationId: setPluginFeedOverride
@@ -5565,7 +5630,12 @@ paths:
         The host never rewrites the upstream value.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
-        - { in: path, name: datasetId, required: true, schema: { type: string, format: uuid } }
+        - {
+            in: path,
+            name: datasetId,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
         required: true
@@ -5578,7 +5648,10 @@ paths:
               properties:
                 recordId: { type: string, minLength: 1, maxLength: 80 }
                 field: { type: string }
-                value: { description: "The override value, or null to remove the override." }
+                value:
+                  {
+                    description: "The override value, or null to remove the override.",
+                  }
       responses:
         "200":
           description: The record after the change
@@ -5589,9 +5662,15 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginFeedRecord" }
-        "400": { description: "invalid_plugin_feed — the field takes no override or the value is invalid; invalid_json" }
+        "400":
+          {
+            description: "invalid_plugin_feed — the field takes no override or the value is invalid; invalid_json",
+          }
         "403": { description: plugins.manage and CSRF token required }
-        "404": { description: "plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found" }
+        "404":
+          {
+            description: "plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found",
+          }
   /api/v1/plugins/{pluginId}/status:
     get:
       operationId: getPluginStatus
@@ -5612,7 +5691,10 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginStatus" }
-        "404": { description: "plugin_not_found — the plugin is unknown or is not on Plugin Manifest API 3" }
+        "404":
+          {
+            description: "plugin_not_found — the plugin is unknown or is not on Plugin Manifest API 3",
+          }
   /api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry:
     post:
       operationId: retryPluginDelivery
@@ -5635,8 +5717,12 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginParkedDelivery" }
-        "403": { description: plugins.deliveries.manage and CSRF token required }
-        "404": { description: "plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID" }
+        "403":
+          { description: plugins.deliveries.manage and CSRF token required }
+        "404":
+          {
+            description: "plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID",
+          }
   /api/v1/plugins/{pluginId}/deliveries/{deliveryId}:
     delete:
       operationId: discardPluginDelivery
@@ -5659,8 +5745,12 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginParkedDelivery" }
-        "403": { description: plugins.deliveries.manage and CSRF token required }
-        "404": { description: "plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID" }
+        "403":
+          { description: plugins.deliveries.manage and CSRF token required }
+        "404":
+          {
+            description: "plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID",
+          }
   /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect:
     post:
       operationId: disconnectPluginConnectionOAuth
@@ -5684,7 +5774,10 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginConnection" }
-        "400": { description: "invalid_plugin_connection — the connection does not use OAuth" }
+        "400":
+          {
+            description: "invalid_plugin_connection — the connection does not use OAuth",
+          }
         "403": { description: plugins.manage and CSRF token required }
         "404": { description: plugin_not_found or plugin_connection_not_found }
         "503": { description: secrets_unavailable }
@@ -12459,7 +12552,14 @@ components:
     PluginSecretStatus:
       type: object
       required:
-        [currentKekId, kekIds, exportAcknowledged, secrets, pendingMigration, unreadable]
+        [
+          currentKekId,
+          kekIds,
+          exportAcknowledged,
+          secrets,
+          pendingMigration,
+          unreadable,
+        ]
       properties:
         currentKekId: { type: string }
         kekIds: { type: array, items: { type: string } }
@@ -13075,16 +13175,55 @@ components:
           type: array
           description: Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins.
           items: { $ref: "#/components/schemas/PluginFeedReview" }
+        events: { $ref: "#/components/schemas/PluginEventReview" }
+    PluginEventReview:
+      type: object
+      description: Server events a Plugin Manifest API 3 plugin publishes and receives. Empty lists for other plugins.
+      required: [publishes, subscribes]
+      properties:
+        publishes:
+          type: array
+          items:
+            type: object
+            required: [event, title, fields]
+            properties:
+              event:
+                {
+                  type: string,
+                  description: "The full name, plugin.<plugin id>.<name>@<version>.",
+                }
+              title: { type: string }
+              fields: { type: integer, minimum: 1 }
+        subscribes:
+          type: array
+          items:
+            type: object
+            required: [event, publisher]
+            properties:
+              event: { type: string }
+              publisher:
+                {
+                  type: string,
+                  description: "core, or the ID of the publishing plugin.",
+                }
     PluginFeedReview:
       type: object
       required: [id, title, provider, dataset, fields, personal, images]
       properties:
         id: { type: string }
         title: { type: string }
-        provider: { type: string, description: "The Data Source provider, <plugin id>.<feed id>." }
+        provider:
+          {
+            type: string,
+            description: "The Data Source provider, <plugin id>.<feed id>.",
+          }
         dataset: { type: string, x-extensible-enum: [organization, instance] }
         fields: { type: integer, minimum: 1, maximum: 16 }
-        images: { type: boolean, description: The feed downloads remote images through a connection. }
+        images:
+          {
+            type: boolean,
+            description: The feed downloads remote images through a connection.,
+          }
         personal:
           type: array
           description: Fields that hold personal data, deleted after their retention.
@@ -13097,29 +13236,72 @@ components:
               retentionDays: { type: integer, minimum: 1 }
     PluginConnectionReview:
       type: object
-      required: [id, title, type, operatorOrigin, origins, privateNetwork, plainHttp, plaintextSecret, maxResponseBytes, timeoutSeconds]
+      required:
+        [
+          id,
+          title,
+          type,
+          operatorOrigin,
+          origins,
+          privateNetwork,
+          plainHttp,
+          plaintextSecret,
+          maxResponseBytes,
+          timeoutSeconds,
+        ]
       properties:
         id: { type: string }
         title: { type: string }
         description: { type: string }
         type: { type: string, x-extensible-enum: [http, oauth2] }
-        operatorOrigin: { type: boolean, description: An Owner or Administrator enters the one origin. }
-        origins: { type: array, items: { type: string }, description: The fixed https origins. Empty for an operator connection. }
-        privateNetwork: { type: boolean, description: "Private addresses are possible after a separate consent." }
-        plainHttp: { type: boolean, description: "Plain HTTP on the local network is possible after its own consent." }
-        plaintextSecret: { type: boolean, description: "A secret header over plain HTTP is possible after a third consent." }
+        operatorOrigin:
+          {
+            type: boolean,
+            description: An Owner or Administrator enters the one origin.,
+          }
+        origins:
+          {
+            type: array,
+            items: { type: string },
+            description: The fixed https origins. Empty for an operator connection.,
+          }
+        privateNetwork:
+          {
+            type: boolean,
+            description: "Private addresses are possible after a separate consent.",
+          }
+        plainHttp:
+          {
+            type: boolean,
+            description: "Plain HTTP on the local network is possible after its own consent.",
+          }
+        plaintextSecret:
+          {
+            type: boolean,
+            description: "A secret header over plain HTTP is possible after a third consent.",
+          }
         maxResponseBytes: { type: integer, minimum: 1024, maximum: 16777216 }
         timeoutSeconds: { type: integer, minimum: 1, maximum: 60 }
         oauth:
           type: object
           description: The provider side of an oauth2 connection.
-          required: [authorizationEndpoint, tokenEndpoint, scopes, tokenEndpointAuthMethod]
+          required:
+            [
+              authorizationEndpoint,
+              tokenEndpoint,
+              scopes,
+              tokenEndpointAuthMethod,
+            ]
           properties:
             authorizationEndpoint: { type: string, format: uri }
             tokenEndpoint: { type: string, format: uri }
             revocationEndpoint: { type: string, format: uri }
             scopes: { type: array, items: { type: string } }
-            tokenEndpointAuthMethod: { type: string, enum: [client_secret_basic, client_secret_post, none] }
+            tokenEndpointAuthMethod:
+              {
+                type: string,
+                enum: [client_secret_basic, client_secret_post, none],
+              }
     PluginAutomationOperation:
       type: object
       required: [operationId, method, path, risk, cliPath, mcpAction]
@@ -13637,27 +13819,61 @@ components:
       type: object
       required: [available, given]
       properties:
-        available: { type: boolean, description: The declaration makes this consent possible. }
+        available:
+          {
+            type: boolean,
+            description: The declaration makes this consent possible.,
+          }
         given: { type: boolean, description: The consent applies now. }
         givenAt: { type: string, format: date-time }
         givenBy: { type: string, format: uuid }
     PluginConnection:
       type: object
-      required: [id, plugin, definition, name, origins, consents, status, reasons, notices, references, revision, createdAt, updatedAt]
+      required:
+        [
+          id,
+          plugin,
+          definition,
+          name,
+          origins,
+          consents,
+          status,
+          reasons,
+          notices,
+          references,
+          revision,
+          createdAt,
+          updatedAt,
+        ]
       properties:
         id: { type: string, format: uuid }
         plugin: { type: string }
-        definition: { type: string, description: The connection declaration of the plugin manifest. }
+        definition:
+          {
+            type: string,
+            description: The connection declaration of the plugin manifest.,
+          }
         name: { type: string, minLength: 1, maxLength: 120 }
-        origin: { type: string, description: The configured origin of an operator connection. }
-        origins: { type: array, items: { type: string }, description: The approved origins now. }
+        origin:
+          {
+            type: string,
+            description: The configured origin of an operator connection.,
+          }
+        origins:
+          {
+            type: array,
+            items: { type: string },
+            description: The approved origins now.,
+          }
         consents:
           type: object
           required: [privateNetwork, plainHttp, plaintextSecret]
           properties:
-            privateNetwork: { $ref: "#/components/schemas/PluginConnectionConsent" }
+            privateNetwork:
+              { $ref: "#/components/schemas/PluginConnectionConsent" }
             plainHttp: { $ref: "#/components/schemas/PluginConnectionConsent" }
-            plaintextSecret: { $ref: "#/components/schemas/PluginConnectionConsent" }
+            plaintextSecret:
+              { $ref: "#/components/schemas/PluginConnectionConsent" }
         status:
           type: string
           description: ready, or the first reason the connection cannot be used.
@@ -13680,7 +13896,13 @@ components:
           type: array
           items:
             type: string
-            x-extensible-enum: [consents_need_confirmation, private_addresses_need_consent, oauth_refresh_failing, oauth_revocation_failed]
+            x-extensible-enum:
+              [
+                consents_need_confirmation,
+                private_addresses_need_consent,
+                oauth_refresh_failing,
+                oauth_revocation_failed,
+              ]
         references:
           type: array
           items: { $ref: "#/components/schemas/PluginConnectionReference" }
@@ -13691,11 +13913,24 @@ components:
     PluginConnectionOAuth:
       type: object
       description: The OAuth 2.0 state of an oauth2 connection. It never holds a token or the client secret.
-      required: [status, clientSecretRequired, clientSecret, connectAvailable, authorizationEndpoint, scopes]
+      required:
+        [
+          status,
+          clientSecretRequired,
+          clientSecret,
+          connectAvailable,
+          authorizationEndpoint,
+          scopes,
+        ]
       properties:
-        status: { type: string, enum: [not_connected, connected, reconnect_required] }
+        status:
+          { type: string, enum: [not_connected, connected, reconnect_required] }
         clientId: { type: string, maxLength: 256 }
-        clientSecretRequired: { type: boolean, description: The declaration authenticates the client with a secret. }
+        clientSecretRequired:
+          {
+            type: boolean,
+            description: The declaration authenticates the client with a secret.,
+          }
         clientSecret:
           type: string
           enum: [set, not_set, needs_value, not_required]
@@ -13705,7 +13940,16 @@ components:
           format: uri
           description: The exact redirect URI to register with the provider. Absent without an https TILECAST_PUBLIC_URL.
         connectAvailable: { type: boolean }
-        connectUnavailableReason: { type: string, enum: [public_url_https_required, client_id_required, client_secret_required] }
+        connectUnavailableReason:
+          {
+            type: string,
+            enum:
+              [
+                public_url_https_required,
+                client_id_required,
+                client_secret_required,
+              ],
+          }
         authorizationEndpoint: { type: string, format: uri }
         scopes: { type: array, items: { type: string } }
         connectedAt: { type: string, format: date-time }
@@ -13728,19 +13972,79 @@ components:
       properties:
         state: { type: string, maxLength: 256 }
         code: { type: string, maxLength: 4096 }
-        error: { type: string, maxLength: 64, description: The provider's error code. Never the provider's description. }
+        error:
+          {
+            type: string,
+            maxLength: 64,
+            description: The provider's error code. Never the provider's description.,
+          }
     PluginStatus:
       type: object
-      required: [pluginId, installed, deliveries]
+      required:
+        [pluginId, installed, deliveries, subscriptions, publishedEvents]
       properties:
         pluginId: { type: string }
         installed: { type: boolean }
         deliveries: { $ref: "#/components/schemas/PluginDeliveryStatus" }
+        subscriptions:
+          type: array
+          description: The events the plugin receives. An inactive subscription receives nothing and says why.
+          items:
+            type: object
+            required: [event, state, publisher]
+            properties:
+              event: { type: string }
+              state: { type: string, x-extensible-enum: [active, inactive] }
+              reason:
+                type: string
+                x-extensible-enum:
+                  [
+                    publisher_unknown,
+                    publisher_not_installed,
+                    event_not_declared,
+                    no_own_feeds,
+                  ]
+              publisher:
+                {
+                  type: string,
+                  description: "core, or the ID of the publishing plugin.",
+                }
+        publishedEvents:
+          type: array
+          items:
+            type: object
+            required: [event, title, subscribers, schemaChanged]
+            properties:
+              event: { type: string }
+              title: { type: string }
+              subscribers:
+                {
+                  type: integer,
+                  minimum: 0,
+                  description: "Installed plugins that receive it.",
+                }
+              schemaChanged:
+                type: boolean
+                description: The declared payload differs from the one this installation recorded for the same version; the host refuses to publish it.
     PluginDeliveryStatus:
       type: object
-      required: [pending, running, parkedCount, parked, expiredCount, lastExpiredAt, lastFailure]
+      required:
+        [
+          pending,
+          running,
+          parkedCount,
+          parked,
+          expiredCount,
+          lastExpiredAt,
+          lastFailure,
+        ]
       properties:
-        pending: { type: integer, minimum: 0, description: "Deliveries that wait or run now." }
+        pending:
+          {
+            type: integer,
+            minimum: 0,
+            description: "Deliveries that wait or run now.",
+          }
         running: { type: integer, minimum: 0 }
         parkedCount: { type: integer, minimum: 0 }
         parked:
@@ -13748,7 +14052,12 @@ components:
           maxItems: 50
           description: The newest parked deliveries.
           items: { $ref: "#/components/schemas/PluginParkedDelivery" }
-        expiredCount: { type: integer, minimum: 0, description: "Deliveries the host expired: pending 7 days after they became due, or parked 14 days." }
+        expiredCount:
+          {
+            type: integer,
+            minimum: 0,
+            description: "Deliveries the host expired: pending 7 days after they became due, or parked 14 days.",
+          }
         lastExpiredAt: { type: [string, "null"], format: date-time }
         lastFailure:
           oneOf:
@@ -13756,16 +14065,41 @@ components:
             - type: object
               required: [code, at]
               properties:
-                code: { type: string, description: "A stable failure code, for example handler_error, handler_timeout, handler_panic, or lease_expired." }
-                kind: { type: string, x-extensible-enum: [timer, event, webhook] }
+                code:
+                  {
+                    type: string,
+                    description: "A stable failure code, for example handler_error, handler_timeout, handler_panic, or lease_expired.",
+                  }
+                kind:
+                  { type: string, x-extensible-enum: [timer, event, webhook] }
                 at: { type: string, format: date-time }
     PluginParkedDelivery:
       type: object
-      required: [id, kind, source, subject, attempts, lastError, dueAt, parkedAt, expiresAt]
+      required:
+        [
+          id,
+          kind,
+          source,
+          subject,
+          attempts,
+          lastError,
+          dueAt,
+          parkedAt,
+          expiresAt,
+        ]
       properties:
-        id: { type: string, format: uuid, description: "The stable delivery ID the plugin receives on every attempt." }
+        id:
+          {
+            type: string,
+            format: uuid,
+            description: "The stable delivery ID the plugin receives on every attempt.",
+          }
         kind: { type: string, x-extensible-enum: [timer, event, webhook] }
-        source: { type: string, description: "The timer key, the event name, or the webhook ID." }
+        source:
+          {
+            type: string,
+            description: "The timer key, the event name, or the webhook ID.",
+          }
         subject: { type: string, description: "The order key within the kind." }
         attempts: { type: integer, minimum: 0 }
         lastError: { type: string }
@@ -13774,9 +14108,28 @@ components:
         expiresAt: { type: string, format: date-time }
     PluginFeedDataset:
       type: object
-      required: [id, feed, feedVersion, title, provider, name, revision, records, stale, imageIssues, overrides, widgetsUsing]
+      required:
+        [
+          id,
+          feed,
+          feedVersion,
+          title,
+          provider,
+          name,
+          revision,
+          records,
+          stale,
+          imageIssues,
+          overrides,
+          widgetsUsing,
+        ]
       properties:
-        id: { type: string, format: uuid, description: "The dataset ID, which is also its Data Source ID." }
+        id:
+          {
+            type: string,
+            format: uuid,
+            description: "The dataset ID, which is also its Data Source ID.",
+          }
         feed: { type: string }
         feedVersion: { type: integer, minimum: 1 }
         title: { type: string }
@@ -13787,7 +14140,11 @@ components:
         records: { type: integer, minimum: 0 }
         publishedAt: { type: string, format: date-time }
         validUntil: { type: string, format: date-time }
-        stale: { type: boolean, description: No publication for twice the feed's expected refresh interval. }
+        stale:
+          {
+            type: boolean,
+            description: No publication for twice the feed's expected refresh interval.,
+          }
         imageIssues: { type: integer, minimum: 0 }
         overrides: { type: integer, minimum: 0 }
         widgetsUsing: { type: integer, minimum: 0 }
@@ -13815,7 +14172,8 @@ components:
               labelKey: { type: string }
     PluginFeedRecord:
       type: object
-      required: [id, upstream, overrides, effective, removedOverrides, imageFailures]
+      required:
+        [id, upstream, overrides, effective, removedOverrides, imageFailures]
       properties:
         id: { type: string }
         upstream: { type: object, additionalProperties: true }
@@ -13827,20 +14185,42 @@ components:
             type: object
             required: [reason, removedAt]
             properties:
-              reason: { type: string, x-extensible-enum: [upstream_changed, feed_version_changed, retention] }
+              reason:
+                {
+                  type: string,
+                  x-extensible-enum:
+                    [upstream_changed, feed_version_changed, retention],
+                }
               removedAt: { type: string, format: date-time }
         imageFailures:
           type: object
           additionalProperties:
             type: string
-            x-extensible-enum: [http_refused, auth_required, fetch_failed, invalid_image, image_too_large, processing_failed, quota_exceeded]
+            x-extensible-enum:
+              [
+                http_refused,
+                auth_required,
+                fetch_failed,
+                invalid_image,
+                image_too_large,
+                processing_failed,
+                quota_exceeded,
+              ]
     PluginFeedRecords:
       type: object
       required: [dataset, fields, items, total]
       properties:
         dataset: { $ref: "#/components/schemas/PluginFeedDataset" }
-        fields: { type: array, items: { $ref: "#/components/schemas/PluginFeedField" } }
-        items: { type: array, items: { $ref: "#/components/schemas/PluginFeedRecord" } }
+        fields:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/PluginFeedField" },
+          }
+        items:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/PluginFeedRecord" },
+          }
         total: { type: integer, minimum: 0 }
     PluginConnectionReference:
       type: object
@@ -13857,23 +14237,49 @@ components:
       properties:
         definition: { type: string }
         name: { type: string, minLength: 1, maxLength: 120 }
-        origin: { type: string, maxLength: 300, description: Required for an operator connection; refused otherwise. }
-        clientId: { type: string, maxLength: 256, description: The OAuth client ID of an oauth2 connection. Refused otherwise. }
-        clientSecret: { type: string, maxLength: 4096, writeOnly: true, description: The OAuth client secret. Write-only. }
+        origin:
+          {
+            type: string,
+            maxLength: 300,
+            description: Required for an operator connection; refused otherwise.,
+          }
+        clientId:
+          {
+            type: string,
+            maxLength: 256,
+            description: The OAuth client ID of an oauth2 connection. Refused otherwise.,
+          }
+        clientSecret:
+          {
+            type: string,
+            maxLength: 4096,
+            writeOnly: true,
+            description: The OAuth client secret. Write-only.,
+          }
         clearClientSecret: { type: boolean }
     PluginConnectionUpdate:
       type: object
       additionalProperties: false
       required: [name, expectedRevision]
       properties:
-        definition: { type: string, description: Optional. A record's declaration never changes. }
+        definition:
+          {
+            type: string,
+            description: Optional. A record's declaration never changes.,
+          }
         name: { type: string, minLength: 1, maxLength: 120 }
         origin: { type: string, maxLength: 300 }
         clientId:
           type: string
           maxLength: 256
           description: An oauth2 connection's client ID. An empty string removes it. A new client ID deletes the tokens and an attempt in progress.
-        clientSecret: { type: string, maxLength: 4096, writeOnly: true, description: Replaces the write-only client secret. The tokens stay. }
+        clientSecret:
+          {
+            type: string,
+            maxLength: 4096,
+            writeOnly: true,
+            description: Replaces the write-only client secret. The tokens stay.,
+          }
         clearClientSecret: { type: boolean }
         expectedRevision: { type: integer, minimum: 1 }
     PluginConnectionConsentsWrite:
@@ -13901,7 +14307,8 @@ components:
               properties:
                 references:
                   type: array
-                  items: { $ref: "#/components/schemas/PluginConnectionReference" }
+                  items:
+                    { $ref: "#/components/schemas/PluginConnectionReference" }
     PluginInUseError:
       type: object
       required: [error]
