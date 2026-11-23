@@ -279,11 +279,11 @@ No page needs code for this. The trail comes from the route metadata that Studio
 The app uses one SwiftUI `TabView` with the `sidebarAdaptable` style. Studio's catalog is the hierarchy; Tilecast does not maintain a second list of iPad destinations.
 
 - The first destinations that Studio marks `primary` become top-level tabs, up to four. Studio marks Overview, Fleet, and Media as `primary`.
-- On iPhone, the last tab is the app's compact More tab. It contains every other destination in Studio's groups plus server switching, Add Server, Manage Servers, Reload, and Sign Out. Opening one of those destinations keeps More selected.
-- On iPad, there is no app-owned More tab. Every non-primary destination becomes a real SwiftUI `Tab` inside a `TabSection` built from Studio's group. Those tabs use `.tabPlacement(.sidebarOnly)`, so they stay out of the content-first top tab bar but appear directly in the system sidebar.
-- iPhone uses the system bottom tab bar.
-- iPadOS defaults to the content-first top tab bar and can adapt it into the system sidebar as the person changes the representation, rotates the device, or resizes the window. Tilecast does not force the sidebar open just because the horizontal size class is regular.
-- The native selection model keeps the actual Studio destination separately from iPhone's compact More slot. A secondary route therefore highlights its own sidebar row on iPad while mapping to More on iPhone, without changing the bridge contract.
+- In compact navigation — iPhone and horizontally compact iPad windows — the last tab is the app's More tab. It contains every other destination in Studio's groups plus server switching, Add Server, Manage Servers, Reload, and Sign Out. Opening one of those destinations keeps More selected.
+- On regular-width iPad, there is no app-owned More tab. Every non-primary destination becomes a real SwiftUI `Tab` inside a `TabSection` built from Studio's group. Those tabs use `.tabPlacement(.sidebarOnly)`, so they stay out of the content-first top tab bar but appear directly in the system sidebar.
+- iPhone and horizontally compact iPad windows use the compact bottom-tab representation. This intentionally changes the tab structure instead of letting every secondary `TabSection` item spill into the compact bar.
+- Regular-width iPadOS defaults to the content-first top tab bar and can adapt it into the system sidebar as the person changes the representation or resizes the window. Tilecast does not force the sidebar open just because the horizontal size class is regular.
+- The native selection model keeps the actual Studio destination separately from the compact More slot. A secondary route therefore highlights its own sidebar row on regular-width iPad while mapping to More in compact navigation, without changing the bridge contract.
 
 This follows Apple's current iPadOS guidance: keep functionality stable as space changes, expose more UI when room is available, and prefer a tab bar first when a permanent sidebar would unnecessarily reduce content space.
 
@@ -299,8 +299,8 @@ The one Studio web view is a sibling of the shell in `StudioShell`, and it is no
 
 - In the fallback layout, the web view is above the shell. `StudioOverlay` places it over the active slot.
 - On iPhone with native navigation, the web view is behind the adaptive tab container. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the floating bottom tab bar is drawn above the page.
-- On iPad with native navigation, the web view stays above the shell but is constrained to the selected tab's content slot. The system's top tab bar or adaptable sidebar remains outside that slot, so it stays visible and interactive without relying on UIKit sidebar internals.
-- On iPhone, the More tab shows either the More list or Studio, because the list is opaque. iPad secondary destinations each have their own system tab content slot.
+- On iPad with native navigation, including a horizontally compact iPad window, the web view stays above the shell and is constrained to the selected tab's content slot. The system tab bar or adaptable sidebar remains outside that slot, so it stays visible and interactive without relying on UIKit sidebar internals.
+- In compact navigation, the More tab shows either the More list or Studio, because the list is opaque. Regular-width iPad secondary destinations each have their own system tab content slot.
 - `StudioShell` changes only `zIndex`, so the web view is not rebuilt and no second `WebView` exists.
 - `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom inset that the tab bar causes, and adds the inset to the frame. On iPhone, `StudioOverlay` applies the same inset with `safeAreaPadding(.bottom, _)`, so content scrolls under the bar and stops above it.
 
@@ -326,7 +326,7 @@ Studio also falls back by itself. If negotiation fails, times out, or reports no
 
 Do not edit these files. After you change the Studio mapping or update `lucide-react`, run `npm run ios:icons:generate`. `make generated-check` fails when the files are out of date. The Lucide ISC license ships in the app bundle in `Resources/Licenses/`.
 
-Tabs, the iPhone More list, the adaptable iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
+Tabs, the compact More list, the adaptable iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
 
 ### Plugins
 
@@ -334,7 +334,7 @@ Plugin pages are always Studio pages. A plugin page below `/plugins/` opens in t
 
 ### Adding a destination
 
-To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. A `primary` destination can occupy one of the compact top-level tabs. Any other destination appears in iPhone More and directly in its Studio group in the iPad adaptable sidebar. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
+To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. A `primary` destination can occupy one of the compact top-level tabs. Any other destination appears in More on iPhone or a horizontally compact iPad window, and directly in its Studio group in the regular-width iPad adaptable sidebar. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
 
 ## Native presentations
 
@@ -682,7 +682,7 @@ The refresh token is never in `UserDefaults`, `ServerDirectory`, JSON files, log
 Sign-out means the whole app session for that server:
 
 - **From Studio.** Studio does its normal cookie and CSRF logout. Before it shows the sign-in page, it sends `auth/signed-out`. The app revokes the grant (best effort), deletes the refresh token, and drops the access token.
-- **From the app.** The Sign Out control is in the iPhone More list, the iPad server menu, and the fallback menu. The app deletes the credential first, then sends `auth/sign-out-request`, and Studio does its normal logout. The app does not need a CSRF token. Then the app deletes this server's cookies. Revoking the grant on the server is best effort. If the server cannot be reached, or the app ends while Studio is asked, the local deletion already occurred. Other website data, such as preferences and caches, stays.
+- **From the app.** The Sign Out control is in the compact More list, the regular-width iPad server menu, and the fallback menu. The app deletes the credential first, then sends `auth/sign-out-request`, and Studio does its normal logout. The app does not need a CSRF token. Then the app deletes this server's cookies. Revoking the grant on the server is best effort. If the server cannot be reached, or the app ends while Studio is asked, the local deletion already occurred. Other website data, such as preferences and caches, stays.
 
 After an explicit sign-out, the profile records `signedOutAt`. The app shows its Sign In control and does not open the browser by itself, also after a relaunch. A completed sign-in clears the record. A missing or expired session still opens the browser, as before.
 

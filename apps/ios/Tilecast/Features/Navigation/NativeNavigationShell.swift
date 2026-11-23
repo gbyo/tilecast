@@ -35,6 +35,13 @@ struct NativeTabNavigation: View {
             || horizontalSizeClass == .compact
     }
 
+    /// Only iPhone places Studio behind the floating tab container. iPad keeps
+    /// the WebView above the shell and inside the system content slot, even
+    /// when a compact iPad window uses the bottom-tab + More structure.
+    private var extendsBelowFloatingTabBar: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
     private var selection: Binding<NavigationTab> {
         Binding(
             get: {
@@ -75,7 +82,7 @@ struct NativeTabNavigation: View {
                     // The More list and Studio take turns in one compact tab.
                     if navigation.frontendTab == .more {
                         NavigationStack {
-                            StudioSlotView(extendsBelowTabBar: true)
+                            StudioSlotView(extendsBelowTabBar: extendsBelowFloatingTabBar)
                                 .studioBackBar(navigation)
                                 .containerBackground(.clear, for: .navigation)
                         }
@@ -164,7 +171,7 @@ struct NativeTabNavigation: View {
 
         NavigationStack {
             if frontendTab == tab {
-                StudioSlotView(extendsBelowTabBar: true)
+                StudioSlotView(extendsBelowTabBar: extendsBelowFloatingTabBar)
                     .studioBackBar(navigation)
                     .containerBackground(.clear, for: .navigation)
             } else if selectedTab == tab && selectionPending {

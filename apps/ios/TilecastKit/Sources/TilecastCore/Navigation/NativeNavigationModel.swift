@@ -3,7 +3,7 @@ import Observation
 
 /// A native navigation selection token. Every Studio destination can be a
 /// direct selection in sidebarAdaptable navigation; `.more` is the compact
-/// iPhone container for secondary destinations and server controls.
+/// container for secondary destinations and server controls.
 public enum NavigationTab: Hashable, Sendable {
     case destination(String)
     case more
@@ -35,9 +35,9 @@ public final class NativeNavigationModel {
     /// after Studio acknowledges navigation, so a stale WebKit frame is never
     /// revealed under an optimistically selected tab.
     private var settledTab: NavigationTab = .more
-    /// The actual destination whose Studio frame is settled. Compact iPhone
-    /// navigation may map this destination into More, while iPad's
-    /// sidebarAdaptable navigation selects the destination directly.
+    /// The actual destination whose Studio frame is settled. Compact
+    /// navigation may map this destination into More, while regular-width
+    /// iPad sidebarAdaptable navigation selects it directly.
     private var settledDestinationID: String?
     /// In the More tab: true shows the destination list, false shows Studio.
     public private(set) var moreShowsList = true
@@ -64,8 +64,8 @@ public final class NativeNavigationModel {
     }
 
     /// Destinations that do not occupy one of the compact primary tab slots,
-    /// kept in Studio's catalog groups. iPhone renders these in More; iPad
-    /// renders them directly as sidebar TabSections.
+    /// kept in Studio's catalog groups. Compact navigation renders these in
+    /// More; regular-width iPad renders them directly as sidebar TabSections.
     public var secondaryGroups: [NavigationCatalog.Group] {
         let primary = Set(primaryDestinations.map(\.id))
         return (catalog?.groups ?? []).compactMap { group in
@@ -81,9 +81,9 @@ public final class NativeNavigationModel {
         settledTab == .more && moreShowsList ? nil : settledTab
     }
 
-    /// The selection for iPad's sidebarAdaptable TabView. Unlike the compact
-    /// iPhone tab bar, every catalog destination has its own native tab in the
-    /// sidebar, including destinations that Studio marks for More on compact
+    /// The selection for regular-width iPad's sidebarAdaptable TabView.
+    /// Unlike compact navigation, every catalog destination has its own native
+    /// tab in the sidebar, including destinations marked for More on compact
     /// layouts. A pending request is reflected optimistically.
     public var adaptiveSelectedTab: NavigationTab {
         if let pendingRequest, catalog?.destination(withID: pendingRequest) != nil {
@@ -98,7 +98,7 @@ public final class NativeNavigationModel {
         return .more
     }
 
-    /// The iPad tab whose content slot may expose the confirmed Studio frame.
+    /// The regular-width iPad tab whose content slot may expose the confirmed Studio frame.
     /// It never follows an optimistic selection before Studio acknowledges it.
     public var adaptiveFrontendTab: NavigationTab? {
         guard let settledDestinationID, catalog?.destination(withID: settledDestinationID) != nil else {
@@ -107,7 +107,7 @@ public final class NativeNavigationModel {
         return .destination(settledDestinationID)
     }
 
-    /// True while iPad's native selection has moved ahead of Studio's painted
+    /// True while regular-width iPad selection has moved ahead of Studio's painted
     /// destination.
     public var isAdaptiveSelectionPending: Bool {
         guard case .destination(let selectedID) = adaptiveSelectedTab else { return false }
@@ -138,7 +138,7 @@ public final class NativeNavigationModel {
             showInitialSelection()
         } else if !moreShowsList {
             // Placement metadata can change between catalog snapshots. Keep
-            // the settled destination, but remap the compact iPhone slot.
+            // the settled destination, but remap the compact navigation slot.
             reconcile()
         }
     }
@@ -190,7 +190,7 @@ public final class NativeNavigationModel {
         }
     }
 
-    /// A direct destination selection from iPad's sidebarAdaptable TabView.
+    /// A direct destination selection from regular-width iPad's sidebarAdaptable TabView.
     /// The system sidebar can select every destination, not only compact
     /// primary tabs.
     public func selectAdaptiveTab(_ tab: NavigationTab) {
