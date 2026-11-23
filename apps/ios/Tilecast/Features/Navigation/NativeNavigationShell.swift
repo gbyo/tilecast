@@ -17,19 +17,23 @@ extension NavigationCatalog.Destination {
     var imageName: String { NavigationIcon.imageName(for: icon) }
 }
 
-/// Adaptive native navigation. iPhone keeps a compact set of primary tabs
-/// plus More. iPadOS uses sidebarAdaptable as the full navigation model:
-/// primary destinations stay in the top tab bar and every other Studio
-/// destination appears directly in the system sidebar, grouped by Studio's
-/// catalog.
+/// Adaptive native navigation. iPhone and horizontally compact iPad windows
+/// keep a compact set of primary tabs plus More. Regular-width iPad uses
+/// sidebarAdaptable as the full navigation model: primary destinations stay
+/// in the top tab bar and every other Studio destination appears directly in
+/// the system sidebar, grouped by Studio's catalog.
 struct NativeTabNavigation: View {
     let page: StudioPage
     let actions: ServerActions
     @Environment(StudioHost.self) private var host
     @Environment(StudioSlot.self) private var slot
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var navigation: NativeNavigationModel { page.bridge.navigation }
-    private var usesCompactMore: Bool { UIDevice.current.userInterfaceIdiom == .phone }
+    private var usesCompactMore: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+            || horizontalSizeClass == .compact
+    }
 
     private var selection: Binding<NavigationTab> {
         Binding(
@@ -142,9 +146,10 @@ struct NativeTabNavigation: View {
         .background(.clear)
     }
 
-    /// Studio appears in exactly one tab at a time. iPhone maps secondary
-    /// destinations into More; iPad maps every destination to its own
-    /// sidebarAdaptable tab. In both cases the confirmed frame stays put until
+    /// Studio appears in exactly one tab at a time. Compact navigation maps
+    /// secondary destinations into More; regular-width iPad maps every
+    /// destination to its own sidebarAdaptable tab. In both cases the
+    /// confirmed frame stays put until
     /// Studio acknowledges the route after paint.
     @ViewBuilder
     private func studio(in tab: NavigationTab, adaptive: Bool) -> some View {
