@@ -561,7 +561,8 @@
       "connection": "Connection",
       "feeds": "Feeds",
       "feedRecords": "Records",
-      "status": "Status"
+      "status": "Status",
+      "webhooks": "Webhooks"
     },
     "connections": {
       "title": "Connections",
@@ -888,6 +889,110 @@
         "pluginEvent": "Plugin event",
         "fields_one": "{{count}} field",
         "fields_other": "{{count}} fields"
+      }
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "Addresses where other systems send requests to this plugin. Tilecast checks each request before the plugin sees it.",
+      "loadError": "The webhooks could not be loaded.",
+      "open": "Webhooks",
+      "endpoint": "Endpoint address",
+      "copy": "Copy {{label}}",
+      "copied": "Copied",
+      "copyFailed": "Could not copy. Select the text and copy it.",
+      "verification": "Verification",
+      "acknowledgement": "Answer",
+      "ackStatus": "HTTP {{status}} after the request is stored",
+      "handshake": "Endpoint check",
+      "signingSecret": "Signing secret",
+      "enterSecret": "Enter it in Settings",
+      "never": "never",
+      "accepted_one": "{{count}} request accepted. Last: {{when}}.",
+      "accepted_other": "{{count}} requests accepted. Last: {{when}}.",
+      "duplicates_one": "{{count}} repeated request ignored.",
+      "duplicates_other": "{{count}} repeated requests ignored.",
+      "pending_one": "{{count}} request waits for the plugin.",
+      "pending_other": "{{count}} requests wait for the plugin.",
+      "lastRefused": "Last refused: {{reason}} ({{when}}).",
+      "authentication": {
+        "token": "Token",
+        "signature": "Signed",
+        "fetch-back": "Fetch back"
+      },
+      "schemes": {
+        "standard-webhooks": "Standard Webhooks signature",
+        "hmac-sha256": "HMAC-SHA256 signature",
+        "verify": "Checked by the plugin"
+      },
+      "handshakes": {
+        "echo-query": "Tilecast answers the provider's check",
+        "echo-json": "Tilecast answers the provider's signed check"
+      },
+      "reachability": {
+        "available": "The public address uses HTTPS. Tilecast cannot test whether the provider can reach it.",
+        "public_https_required": "This webhook needs a public HTTPS address. Set TILECAST_PUBLIC_URL to an HTTPS address that the provider can reach.",
+        "local_network": "The public address uses plain HTTP. Systems on your network that can reach this address can use the webhook.",
+        "public_url_missing": "TILECAST_PUBLIC_URL is not set to a usable address, so this webhook has no endpoint."
+      },
+      "refusals": {
+        "token_invalid": "the token was missing, wrong, or revoked",
+        "signing_secret_unavailable": "the signing secret is not set",
+        "signing_secret_unusable": "the signing secret has the wrong format",
+        "signature_missing": "the request was not signed",
+        "signature_invalid": "the signature did not match",
+        "timestamp_missing": "the signed time was missing",
+        "timestamp_out_of_range": "the signed time was more than 5 minutes off",
+        "delivery_id_missing": "the delivery ID was missing",
+        "verify_failed": "the plugin's check refused it",
+        "verify_timeout": "the plugin's check took longer than 1 second",
+        "verify_panic": "the plugin's check failed",
+        "event_id_invalid": "the event ID was missing or invalid",
+        "rate_limited": "too many requests from one address",
+        "queue_full": "too many requests wait for the plugin",
+        "header_too_large": "a header was too long",
+        "body_too_large": "the body was larger than 64 KiB",
+        "handshake_value_too_large": "the check value was missing or too long"
+      },
+      "secretStates": {
+        "set": "Set",
+        "not_set": "Not set",
+        "needs_value": "Needs a new value"
+      },
+      "tokens": {
+        "title": "Tokens",
+        "description": "A sending system puts the token in the Authorization header after the word Bearer. Each token works only for this webhook.",
+        "shownOnce": "Copy this token now. Tilecast stores only a hash of it and cannot show it again.",
+        "newToken": "New token",
+        "dismiss": "I copied it",
+        "name": "Token name",
+        "create": "Create token",
+        "created": "Token created",
+        "empty": "No tokens yet.",
+        "manageOnly": "Only accounts that manage plugins can create or revoke tokens.",
+        "revoked": "Token revoked",
+        "revokeTitle": "Revoke {{name}}?",
+        "revokeBody": "Systems that use this token stop working at once. A revoked token cannot be turned back on.",
+        "revoke": "Revoke",
+        "revokedBadge": "Revoked",
+        "lastUsed": "last used {{when}}",
+        "neverUsed": "never used"
+      },
+      "status": {
+        "title": "Webhooks",
+        "description": "Whether each inbound address can work here.",
+        "attention": "Needs attention",
+        "ready": "Ready",
+        "lastAccepted": "Last accepted {{when}}",
+        "noneAccepted": "No request accepted yet",
+        "lastRefusal": "last refused: {{reason}}"
+      },
+      "review": {
+        "title": "Webhooks",
+        "description": "Addresses on your Server where other systems send requests to this plugin. Tilecast checks each request; the plugin never chooses its own address.",
+        "publicHttps": "needs a public HTTPS address",
+        "localAllowed": "works from your network",
+        "handshake": "{{handshake}}",
+        "secret": "You enter the provider's signing secret in the plugin's settings. The plugin never reads it."
       }
     }
   },

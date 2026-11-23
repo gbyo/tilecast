@@ -8,6 +8,7 @@ import { DeliverySummary } from "./DeliverySummary";
 import { ParkedDeliveries } from "./ParkedDeliveries";
 import { PublishedEventsSection } from "./PublishedEventsSection";
 import { SubscriptionsSection } from "./SubscriptionsSection";
+import { WebhooksSection } from "./WebhooksSection";
 
 export type HostedStatusProps = {
   pluginId: string;
@@ -21,7 +22,7 @@ const refreshMs = 15_000;
  * The generated Status page: the work the host runs for the plugin, and
  * the problems an operator can act on. Each part is its own section.
  */
-export function HostedStatusPage({ pluginId }: HostedStatusProps) {
+export function HostedStatusPage({ pluginId, manifest }: HostedStatusProps) {
   const { t } = useTranslation("plugins");
   const status = useQuery({
     queryKey: statusKey(pluginId),
@@ -49,6 +50,10 @@ export function HostedStatusPage({ pluginId }: HostedStatusProps) {
           />
           <SubscriptionsSection subscriptions={status.data.subscriptions} />
           <PublishedEventsSection events={status.data.publishedEvents} />
+          <WebhooksSection
+            webhooks={status.data.webhooks}
+            webhooksPath={`${manifest.studio!.route}/webhooks`}
+          />
         </div>
       )}
     </PluginPage>

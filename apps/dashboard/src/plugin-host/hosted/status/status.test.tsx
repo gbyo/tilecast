@@ -49,6 +49,7 @@ const status: PluginStatus = {
   },
   subscriptions: [],
   publishedEvents: [],
+  webhooks: [],
 };
 
 function stub(body: PluginStatus = status) {
@@ -180,6 +181,52 @@ describe("status page", () => {
     expect(
       screen.getByText("Not published: the payload changed"),
     ).toBeInTheDocument();
+  });
+
+  it("shows whether each webhook can work and links to the Webhooks page", async () => {
+    stub({
+      ...status,
+      webhooks: [
+        {
+          id: "changes",
+          title: "Plan changes",
+          authentication: "signature",
+          scheme: "hmac-sha256",
+          ackStatus: 200,
+          reachability: "public_https_required",
+          requiresPublicHttps: true,
+          signingSecret: "needs_value",
+          acceptedCount: 0,
+          duplicateCount: 0,
+          pending: 0,
+          lastRefusal: "signing_secret_unavailable",
+        },
+      ],
+    });
+    renderPluginRoute(
+      <HostedStatusPage
+        pluginId="room_sign"
+        manifest={
+          {
+            ...manifest,
+            webhooks: [
+              { id: "changes", title: "Changes", authentication: "signature" },
+            ],
+          } as unknown as PluginManifestV3
+        }
+      />,
+      { path: "/plugins/room-sign/status", role: "administrator" },
+    );
+    expect(await screen.findByText("Plan changes")).toBeInTheDocument();
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Needs a new value")).toBeInTheDocument();
+    expect(
+      screen.getByText(/last refused: the signing secret is not set/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute(
+      "href",
+      "/plugins/room-sign/webhooks",
+    );
   });
 
   it("shows no event sections without events", async () => {

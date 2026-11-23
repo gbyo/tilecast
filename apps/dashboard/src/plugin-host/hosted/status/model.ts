@@ -9,7 +9,8 @@ const statusServices = ["timers.schedule@1", "events.publish@1"];
 /**
  * Whether the host generates a Status page for a plugin: it has work the
  * host runs for it (timers, received events) or host-owned state an
- * operator reads (event subscriptions, published events and their schema).
+ * operator reads (event subscriptions, published events and their schema,
+ * inbound webhooks).
  */
 export function hasStatusPage(manifest: PluginManifestV3): boolean {
   const events = manifest.events;
@@ -18,7 +19,8 @@ export function hasStatusPage(manifest: PluginManifestV3): boolean {
       statusServices.includes(service),
     ) ||
     (events?.publishes?.length ?? 0) > 0 ||
-    (events?.subscribes?.length ?? 0) > 0
+    (events?.subscribes?.length ?? 0) > 0 ||
+    (manifest.webhooks?.length ?? 0) > 0
   );
 }
 
