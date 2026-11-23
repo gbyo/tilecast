@@ -79,7 +79,7 @@ describe("ActionMenuButton in a browser", () => {
     const drawer = await screen.findByRole("dialog", {
       name: "Actions for Lobby",
     });
-    expect(drawer).toHaveAttribute("data-slot", "drawer-content");
+    expect(drawer).toHaveAttribute("data-slot", "drawer-popup");
     expect(
       screen.queryByRole("menuitem", { name: "Open" }),
     ).not.toBeInTheDocument();
