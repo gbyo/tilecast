@@ -494,3 +494,34 @@ func TestRemovingACheckerRecoversItsConditions(t *testing.T) {
 		t.Fatal("a removed checker ran")
 	}
 }
+
+// A screen goes offline and comes back: the connectivity sweep opens and
+// recovers a core incident, notify decides to send both transitions, and
+// the plugin channel delivers each one. The channel never subscribes to a
+// screen event; the provider slot is its only input.
+func TestOfflineScreenReachesPluginChannel(t *testing.T) {
+	e := newProviderEnv(t)
+	screen := e.h.PairedScreen("Lobby", e.clock.Now().Add(-time.Hour))
+	if err := e.h.Connectivity().Sweep(e.h.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	e.scan(t)
+	e.deliver(t)
+	got := e.channel.Received()
+	if len(got) != 1 || got[0].Category != "incident" || !strings.Contains(got[0].Subject, "Lobby") || !strings.HasSuffix(got[0].EventKey, ":opened") {
+		t.Fatalf("offline notification %+v", got)
+	}
+	e.h.Heartbeat(screen, e.clock.Now())
+	if err := e.h.Connectivity().Sweep(e.h.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	e.scan(t)
+	e.deliver(t)
+	got = e.channel.Received()
+	if len(got) != 2 || !strings.HasSuffix(got[1].EventKey, ":recovered") || !strings.HasPrefix(got[1].Subject, "Recovered: ") {
+		t.Fatalf("recovery notification %+v", got)
+	}
+	if rows := e.rows(t, "plugin"); len(rows) != 2 {
+		t.Fatalf("one delivery for each transition, got %v", rows)
+	}
+}

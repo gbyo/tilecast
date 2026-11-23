@@ -17,7 +17,8 @@ instances, because a timer callback carries only its key and payload. See [plugi
 [plugin feeds](../plugin-feeds.md). The
 OAuth callback hands the provider's answer to Studio, which completes the
 attempt with the session, because the Studio session cookie is
-`SameSite=Strict`. Phase 3 is in progress:
+`SameSite=Strict`. Phase 3 is implemented for bundled plugins. Installed
+plugin parity for its members stays in phase 6:
 
 - Phase 3A is implemented: the shared delivery engine of section 9, and
   durable timers on it. See [plugin delivery](../plugin-delivery.md). An
@@ -44,7 +45,11 @@ attempt with the session, because the Studio session cookie is
   check receives one changed, read-only content model at a time. See
   [plugin provider slots](../plugin-providers.md). Installed
   `check_content` and installed notification providers stay in phase 6.
-- The phase 3 proof plugins (phase 3E) are not implemented.
+- The phase 3 proof plugins of the table in "Phases" (Planning Center sync,
+  an offline notifier, and bell schedule events) are not part of this
+  delivery. The maintainer deferred them. Test-only plugins in the plugin
+  harness prove each contract instead, including a screen that goes offline
+  and reaches a plugin notification channel through a core incident.
 
 Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
