@@ -8,11 +8,11 @@ implemented.
 
 ## Three supported generations
 
-| Generation                  | `apiVersion` | Used by                    |
-| --------------------------- | ------------ | -------------------------- |
-| Plugin API v1               | 1            | Emergency Alerts, Forms    |
-| [Plugin API v2](plugin-api-v2.md) | 2      | No bundled plugin          |
-| Plugin Manifest API 3       | 3            | Countdown Bar, new plugins |
+| Generation                        | `apiVersion` | Used by                    |
+| --------------------------------- | ------------ | -------------------------- |
+| Plugin API v1                     | 1            | Emergency Alerts, Forms    |
+| [Plugin API v2](plugin-api-v2.md) | 2            | No bundled plugin          |
+| Plugin Manifest API 3             | 3            | Countdown Bar, new plugins |
 
 All three load from `plugins/<name>/` and use the same Server contribution
 interfaces, Studio host, migrations, and generated files. Version 1 is frozen.
@@ -60,13 +60,13 @@ security control.
 
 A version 3 manifest adds these members to the shared ones.
 
-| Member               | Meaning                                                              |
-| -------------------- | -------------------------------------------------------------------- |
-| `services`           | Server services (`name@version`) that the typed client may call.     |
-| `settings`           | Host-owned settings: `organization` and `screen` field lists.        |
-| `instances`          | Instance kinds, at most four.                                        |
-| `connections`        | Host-owned outbound connections, at most eight. See [Plugin connections](plugin-connections.md). |
-| `studio.entrypoint`  | Optional. Omit it when the generated pages are enough.               |
+| Member              | Meaning                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| `services`          | Server services (`name@version`) that the typed client may call.                                 |
+| `settings`          | Host-owned settings: `organization` and `screen` field lists.                                    |
+| `instances`         | Instance kinds, at most four.                                                                    |
+| `connections`       | Host-owned outbound connections, at most eight. See [Plugin connections](plugin-connections.md). |
+| `studio.entrypoint` | Optional. Omit it when the generated pages are enough.                                           |
 
 A version 3 manifest does not accept `capabilities.playerManifest`,
 `capabilities.network`, or `runtime`. It requires `api.basePaths` and a
@@ -84,16 +84,16 @@ plugin profile.
 
 ### Instance kinds
 
-| Member       | Meaning                                                                                                    |
-| ------------ | ---------------------------------------------------------------------------------------------------------- |
-| `kind`       | Identifier stored with each instance. It never changes.                                                    |
-| `noun`       | Singular and plural names for Studio.                                                                      |
-| `path`       | URL segment below the API base path and the Studio route.                                                  |
-| `operations` | PascalCase names for the generated operations, for example `CountdownBarInstance`.                          |
-| `targeting`  | `screens` or `none`.                                                                                       |
-| `schedule`   | `none`, `window`, or `weekly`. A schedule needs `targeting: screens`.                                      |
-| `priority`   | Optional `minimum`, `maximum`, and `default`. The host projects the strongest instance first.              |
-| `fields`     | Configuration fields.                                                                                      |
+| Member       | Meaning                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `kind`       | Identifier stored with each instance. It never changes.                                       |
+| `noun`       | Singular and plural names for Studio.                                                         |
+| `path`       | URL segment below the API base path and the Studio route.                                     |
+| `operations` | PascalCase names for the generated operations, for example `CountdownBarInstance`.            |
+| `targeting`  | `screens` or `none`.                                                                          |
+| `schedule`   | `none`, `window`, or `weekly`. A schedule needs `targeting: screens`.                         |
+| `priority`   | Optional `minimum`, `maximum`, and `default`. The host projects the strongest instance first. |
+| `fields`     | Configuration fields.                                                                         |
 
 The names `id`, `kind`, `plugin`, `name`, `enabled`, `priority`, `targetScope`,
 `targetIds`, `schedule`, `revision`, `expectedRevision`, `secrets`,
@@ -135,14 +135,14 @@ does this: its countdown schedule is configuration that the Player evaluates.
 For each kind, the host mounts these routes below the first base path. The API
 uses one flat JSON object: the host members and the kind fields side by side.
 
-| Route                              | Access                      |
-| ---------------------------------- | --------------------------- |
-| `GET    <base>/<path>`             | Viewer                      |
-| `POST   <base>/<path>`             | `plugins.manage`            |
-| `GET    <base>/<path>/{id}`        | Viewer                      |
-| `PUT    <base>/<path>/{id}`        | `plugins.manage`            |
-| `DELETE <base>/<path>/{id}`        | `plugins.manage`            |
-| `GET/PUT <base>/settings/organization`   | Viewer / `plugins.manage` |
+| Route                                        | Access                    |
+| -------------------------------------------- | ------------------------- |
+| `GET    <base>/<path>`                       | Viewer                    |
+| `POST   <base>/<path>`                       | `plugins.manage`          |
+| `GET    <base>/<path>/{id}`                  | Viewer                    |
+| `PUT    <base>/<path>/{id}`                  | `plugins.manage`          |
+| `DELETE <base>/<path>/{id}`                  | `plugins.manage`          |
+| `GET/PUT <base>/settings/organization`       | Viewer / `plugins.manage` |
 | `GET/PUT <base>/settings/screens/{screenId}` | Viewer / `plugins.manage` |
 
 `pluginctl` writes the OpenAPI operations and the automation mapping from the
@@ -404,16 +404,16 @@ plugin's own files with `wc -l`. It does not count the Store artwork, the
 generated `automation.gen.json`, the locale files, or the generated OpenAPI. The
 before revision is `a94e81b1b`, the last commit before the move.
 
-| Category                                                              | Before | After |
-| --------------------------------------------------------------------- | -----: | ----: |
-| Server CRUD, storage, targets, routes (`server/{store,http,plugin}.go`) |    489 |    88 |
-| Migrations                                                            |    117 |   172 |
-| Studio CRUD and editor (`studio/*.ts`, `studio/*.tsx`)                |  1,167 |     6 |
-| API and automation (`api/`, `automation.yaml`)                        |    243 |     0 |
-| Domain validation, projection, demo (`model.go`, `demo.go`, `plugin.go`) |  250 |   145 |
-| Player runtime (`runtime/`)                                           |    725 |   725 |
-| Manifest (`tilecast.plugin.json`)                                     |     76 |   437 |
-| Tests                                                                 |  1,375 |  1,111 |
+| Category                                                                 | Before | After |
+| ------------------------------------------------------------------------ | -----: | ----: |
+| Server CRUD, storage, targets, routes (`server/{store,http,plugin}.go`)  |    489 |    88 |
+| Migrations                                                               |    117 |   172 |
+| Studio CRUD and editor (`studio/*.ts`, `studio/*.tsx`)                   |  1,167 |     6 |
+| API and automation (`api/`, `automation.yaml`)                           |    243 |     0 |
+| Domain validation, projection, demo (`model.go`, `demo.go`, `plugin.go`) |    250 |   145 |
+| Player runtime (`runtime/`)                                              |    725 |   725 |
+| Manifest (`tilecast.plugin.json`)                                        |     76 |   437 |
+| Tests                                                                    |  1,375 | 1,111 |
 
 The `server/plugin.go` file moved from storage code to the two hooks. The manifest
 grew because the field schema now lives there. The after migration count

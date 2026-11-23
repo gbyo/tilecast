@@ -88,7 +88,6 @@ if plugin.IsServiceError(err, plugin.FetchPlaintextSecretRefused) {
 
 Test against `plugintest.Services` with a handler that answers `http.fetch@1/request`, so your tests never reach the internet.
 
-
 ## Keep state and schedule work (Plugin Manifest API 3)
 
 Declare `storage.kv@1` to keep small values, such as a sync cursor, and `timers.schedule@1` (plus `timers.cancel@1`) to run code later. Don't create your own tables or goroutines for this.
