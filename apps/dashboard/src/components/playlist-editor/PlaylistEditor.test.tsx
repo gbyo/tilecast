@@ -493,6 +493,34 @@ describe("PlaylistEditor panes", () => {
     expect(screen.queryByRole("tab", { name: "History" })).toBeNull();
   });
 
+  it("offers a path back to unsaved details instead of publishing them silently", async () => {
+    mockDesktop();
+    mockServer();
+    const publish = vi.spyOn(api, "publishPlaylist");
+    renderEditor();
+
+    await screen.findByRole("button", { name: "Publish" });
+    openMore();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Playlist details" }),
+    );
+    const details = await screen.findByRole("dialog");
+    fireEvent.change(within(details).getByLabelText("Name"), {
+      target: { value: "Updated lobby loop" },
+    });
+    fireEvent.click(within(details).getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(publish).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save details" }));
+    expect(await screen.findByLabelText("Name")).toHaveValue(
+      "Updated lobby loop",
+    );
+  });
+
   it("waits for playback defaults to save before publishing the new revision", async () => {
     mockDesktop();
     mockServer();
