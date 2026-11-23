@@ -7,6 +7,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+  delete (document as Document & { execCommand?: (command: string) => boolean })
+    .execCommand;
 });
 
 const feedback = { success: "Copiado.", failure: "No se pudo copiar." };
@@ -22,9 +24,11 @@ describe("writeTextToClipboard", () => {
 
   it("falls back to execCommand when Clipboard is unavailable", async () => {
     vi.stubGlobal("navigator", {});
-    const execCommand = vi
-      .spyOn(document, "execCommand")
-      .mockReturnValue(true);
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
 
     expect(await writeTextToClipboard("clipboard test")).toBe(true);
     expect(execCommand).toHaveBeenCalledWith("copy");
@@ -35,7 +39,10 @@ describe("writeTextToClipboard", () => {
     vi.stubGlobal("navigator", {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });
-    vi.spyOn(document, "execCommand").mockReturnValue(true);
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: vi.fn().mockReturnValue(true),
+    });
 
     expect(await writeTextToClipboard("clipboard test")).toBe(true);
   });
@@ -64,7 +71,10 @@ describe("copyText", () => {
 
   it("uses supplied localized failure feedback when both copy paths fail", async () => {
     vi.stubGlobal("navigator", {});
-    vi.spyOn(document, "execCommand").mockReturnValue(false);
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: vi.fn().mockReturnValue(false),
+    });
 
     expect(await copyText("clipboard test", feedback)).toBe(false);
     expect(toast.add).toHaveBeenCalledExactlyOnceWith({
