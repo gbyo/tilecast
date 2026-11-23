@@ -86,6 +86,11 @@ func validateLevel(fields []Field, profile Profile, depth int) error {
 			}
 		}
 		if field.Control == ControlConnection {
+			if field.Personal != nil {
+				// A connection value is a record ID, not personal data, and
+				// a removed value would leave its reference behind.
+				return fmt.Errorf("connection field %q cannot be personal", field.Key)
+			}
 			if len(field.Connections) < 1 || len(field.Connections) > MaxFieldConnections {
 				return fmt.Errorf("connection field %q must accept 1 to %d connection declarations", field.Key, MaxFieldConnections)
 			}

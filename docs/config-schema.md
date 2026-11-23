@@ -49,7 +49,8 @@ A field has a `key`, a `label`, and a `control`. These members are optional:
 - A schema has at most four `font` fields, and a repeating group holds none.
 - A `secret` is top level, has no default, and holds at most 4096 bytes. The
   configuration document never holds its value. The secret store does.
-- A `connection` is top level and has no default. `connections` lists 1 to 8
+- A `connection` is top level, has no default, and is never `personal`.
+  `connections` lists 1 to 8
   connection declarations that the field accepts. The value is the ID of a
   connection record. The Server checks that the record belongs to the plugin
   and has an accepted declaration. A non-nil Go `References` that does not

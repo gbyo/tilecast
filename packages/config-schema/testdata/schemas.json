@@ -74,6 +74,14 @@
     ]
   },
   {
+    "name": "personal connection",
+    "profile": "plugin",
+    "valid": false,
+    "fields": [
+      { "key": "service", "label": "Service", "control": "connection", "connections": ["a"], "personal": { "retentionDays": 30 } }
+    ]
+  },
+  {
     "name": "connections on a text field",
     "profile": "plugin",
     "valid": false,

@@ -384,6 +384,8 @@ export function configSchemaProblems(
           break;
       }
       if (field.control === "connection") {
+        if (field.personal)
+          problems.push(`connection field "${field.key}" cannot be personal`);
         const accepted = field.connections ?? [];
         if (accepted.length < 1 || accepted.length > MAX_FIELD_CONNECTIONS) {
           problems.push(
