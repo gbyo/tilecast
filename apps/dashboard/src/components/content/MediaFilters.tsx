@@ -31,7 +31,7 @@ import {
 } from "../ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import { useCompactLayout } from "../../hooks/use-compact-layout";
+import { usePhoneLayout } from "../../hooks/use-phone-layout";
 import {
   activeMediaFacetCount,
   mediaStatusOptions,
@@ -65,7 +65,7 @@ export function MediaFilters({
   sources: MediaFacetSources;
 }) {
   const { t } = useTranslation("content");
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const [open, setOpen] = useState(false);
   const count = activeMediaFacetCount(values);
   const label =
@@ -81,7 +81,7 @@ export function MediaFilters({
     <MediaFilterForm values={values} onChange={onChange} sources={sources} />
   );
 
-  if (compact) {
+  if (phone) {
     return (
       <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
         <DrawerTrigger render={trigger} />

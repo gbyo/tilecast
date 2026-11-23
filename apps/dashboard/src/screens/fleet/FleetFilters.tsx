@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { useCompactLayout } from "../../hooks/use-compact-layout";
+import { usePhoneLayout } from "../../hooks/use-phone-layout";
 import {
   activeFleetFilterCount,
   fleetOrientationOptions,
@@ -85,7 +85,7 @@ export function FleetFilters({
   sources: FleetFilterSources;
 }) {
   const { t } = useTranslation("screens");
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const [open, setOpen] = useState(false);
   const count = activeFleetFilterCount(values);
   const label = count > 0 ? t("list.filtersActive", { count }) : undefined;
@@ -100,7 +100,7 @@ export function FleetFilters({
     <FleetFilterForm values={values} onChange={onChange} sources={sources} />
   );
 
-  if (compact) {
+  if (phone) {
     return (
       <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
         <DrawerTrigger render={trigger} />
