@@ -2056,25 +2056,15 @@ mod tests {
 
     #[test]
     fn only_host_wide_recovered_events_retry_startup_work() {
-        let recovered = bridge::RemoteWebEvent {
-            surface_id: None,
-            kind: "recovered".to_string(),
-            code: None,
-        };
+        let recovered = bridge::RemoteWebEvent { surface_id: None, kind: "recovered".to_string(), code: None };
         assert!(remote_web_recovered(&recovered));
 
-        let surface_loaded = bridge::RemoteWebEvent {
-            surface_id: Some("rw-1".to_string()),
-            kind: "recovered".to_string(),
-            code: None,
-        };
+        let surface_loaded =
+            bridge::RemoteWebEvent { surface_id: Some("rw-1".to_string()), kind: "recovered".to_string(), code: None };
         assert!(!remote_web_recovered(&surface_loaded));
 
-        let terminated = bridge::RemoteWebEvent {
-            surface_id: None,
-            kind: "process-terminated".to_string(),
-            code: None,
-        };
+        let terminated =
+            bridge::RemoteWebEvent { surface_id: None, kind: "process-terminated".to_string(), code: None };
         assert!(!remote_web_recovered(&terminated));
     }
 
