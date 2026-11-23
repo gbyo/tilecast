@@ -132,7 +132,7 @@ function ActionGroups({
   return (
     <>
       {groups.map((group, index) => (
-        <Fragment key={index}>
+        <Fragment key={group.actions.map((entry) => entry.id).join(":")}>
           {index > 0 && <Separator />}
           {group.actions.map((entry) =>
             "items" in entry ? (
@@ -185,7 +185,7 @@ function TouchActionGroups({ groups }: { groups: StudioActionGroup[] }) {
     <div className="grid min-h-0 gap-2 overflow-y-auto px-4 pb-4">
       {groups.map((group, index) => (
         <section
-          key={index}
+          key={group.actions.map((entry) => entry.id).join(":")}
           className={index === 0 ? "grid gap-1" : "grid gap-1 border-t pt-2"}
         >
           {group.actions.map((entry) =>
