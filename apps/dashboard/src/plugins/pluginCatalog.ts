@@ -9,6 +9,7 @@ import type {
   PluginSummary,
 } from "../api/types";
 import { toast } from "../components/ui/toast";
+import { contentKeys } from "../data/content";
 
 export type PluginsT = TFunction<"plugins", undefined>;
 
@@ -199,6 +200,11 @@ export function usePackageLifecycle(csrfToken: string) {
       queryClient.invalidateQueries({ queryKey: packagesQueryKey }),
       queryClient.invalidateQueries({ queryKey: pluginStoreQueryKey }),
     ]);
+  const settleContent = () =>
+    Promise.all([
+      settle(),
+      queryClient.invalidateQueries({ queryKey: contentKeys.definitions }),
+    ]);
   const resolve = useMutation({
     mutationFn: (repository: string) =>
       api.resolveGitHubRepository(repository, csrfToken),
@@ -215,13 +221,20 @@ export function usePackageLifecycle(csrfToken: string) {
       packageId: string;
       repository?: string;
     }) => api.installStorePackage(packageId, csrfToken, repository),
-    onSuccess: () => settle(),
+    onSuccess: () => settleContent(),
   });
   const checkUpdate = useMutation({
     mutationFn: (packageId: string) =>
       api.checkPackageUpdate(packageId, csrfToken),
     onSuccess: () => settle(),
   });
+  const settlePackageJobs = (packageId: string) =>
+    Promise.all([
+      settleContent(),
+      queryClient.invalidateQueries({
+        queryKey: ["package-jobs", packageId],
+      }),
+    ]);
   const applyUpdate = useMutation({
     mutationFn: ({
       packageId,
@@ -230,16 +243,16 @@ export function usePackageLifecycle(csrfToken: string) {
       packageId: string;
       digest: string;
     }) => api.applyPackageUpdate(packageId, digest, csrfToken),
-    onSuccess: () => settle(),
+    onSuccess: (_data, { packageId }) => settlePackageJobs(packageId),
   });
   const rollback = useMutation({
     mutationFn: (packageId: string) =>
       api.rollbackPackage(packageId, csrfToken),
-    onSuccess: () => settle(),
+    onSuccess: (_data, packageId) => settlePackageJobs(packageId),
   });
   const remove = useMutation({
     mutationFn: (packageId: string) => api.removePackage(packageId, csrfToken),
-    onSuccess: () => settle(),
+    onSuccess: () => settleContent(),
   });
   return {
     resolve,
