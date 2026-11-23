@@ -14,6 +14,12 @@
 -- an order with an event subject of the same text. A parked row leaves the
 -- order, so the next row of its subject runs.
 --
+-- Installation: installed_at is the plugin_installations.installed_at of
+-- the installation the item was queued for. A worker runs an item only
+-- while that installation exists, so an item that a removal raced with
+-- never runs, also after a reinstall. Producers do not lock the
+-- installation row, so a producer's transaction never waits for a removal.
+--
 -- Claims: a worker takes a transaction advisory lock for the plugin, counts
 -- the live claims of the plugin against its concurrency bound, and claims
 -- the first row of each free subject with a random claim token and a lease.
@@ -33,6 +39,7 @@ CREATE TABLE plugin_deliveries (
     id UUID PRIMARY KEY,
     plugin_id TEXT NOT NULL CHECK (plugin_id ~ '^[a-z][a-z0-9_]{0,79}$'),
     definition_version INTEGER NOT NULL CHECK (definition_version >= 1),
+    installed_at TIMESTAMPTZ NOT NULL,
     kind TEXT NOT NULL CHECK (kind ~ '^[a-z][a-z_]{0,31}$'),
     source TEXT NOT NULL CHECK (octet_length(source) BETWEEN 1 AND 200),
     subject TEXT NOT NULL CHECK (octet_length(subject) BETWEEN 1 AND 256),
@@ -80,12 +87,12 @@ CREATE TABLE plugin_delivery_status (
 -- plugin that is not installed is not moved: the queue holds nothing for a
 -- plugin that is not installed. Claims are not moved; the Server applies
 -- migrations before it runs work.
-INSERT INTO plugin_deliveries (id, plugin_id, definition_version, kind, source, subject, payload,
+INSERT INTO plugin_deliveries (id, plugin_id, definition_version, installed_at, kind, source, subject, payload,
     due_at, next_attempt_at, attempts, last_error, created_at)
-SELECT t.id, t.plugin_id, t.definition_version, 'timer', t.timer_key, 'timer:' || t.timer_key, t.payload,
+SELECT t.id, t.plugin_id, t.definition_version, i.installed_at, 'timer', t.timer_key, 'timer:' || t.timer_key, t.payload,
     t.due_at, t.due_at, t.attempts, t.last_error, t.created_at
 FROM plugin_timers t
-WHERE EXISTS (SELECT 1 FROM plugin_installations i WHERE i.plugin_id = t.plugin_id)
+JOIN plugin_installations i ON i.plugin_id = t.plugin_id
 ORDER BY t.due_at, t.id;
 
 DROP TABLE plugin_timers;

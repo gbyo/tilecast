@@ -146,14 +146,19 @@ func (item Item) validate() error {
 
 // Enqueue writes one item in the producer's transaction, so the item
 // exists exactly when the producer's change commits. It reports false,
-// and writes nothing, when the target plugin is not installed. It locks
-// the installation row for share, so a concurrent removal waits for this
-// transaction and then deletes the item with the rest of the queue.
+// and writes nothing, when the target plugin is not installed.
+//
+// The item records the installation it was queued for and takes no lock on
+// it, so a producer's transaction never waits for a plugin removal (a
+// removal locks the installation and then touches screens, as many
+// producers do). An item that commits after a concurrent removal belongs to
+// an installation that no longer exists: it never runs, also after a
+// reinstall, and the sweep deletes it.
 func Enqueue(ctx context.Context, tx pgx.Tx, item Item) (bool, error) {
 	if err := item.validate(); err != nil {
 		return false, err
 	}
-	installed, err := lockInstallation(ctx, tx, item.PluginID)
+	installedAt, installed, err := installation(ctx, tx, item.PluginID)
 	if err != nil || !installed {
 		return false, err
 	}
@@ -169,22 +174,24 @@ func Enqueue(ctx context.Context, tx pgx.Tx, item Item) (bool, error) {
 		metadata = json.RawMessage(`{}`)
 	}
 	due := item.DueAt.UTC().Truncate(time.Microsecond)
-	_, err = tx.Exec(ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,kind,source,subject,payload,metadata,due_at,next_attempt_at)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`,
-		item.ID, item.PluginID, item.DefinitionVersion, item.Kind, item.Source, StoredSubject(item.Kind, item.Subject), payload, metadata, due)
+	_, err = tx.Exec(ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,installed_at,kind,source,subject,payload,metadata,due_at,next_attempt_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`,
+		item.ID, item.PluginID, item.DefinitionVersion, installedAt, item.Kind, item.Source, StoredSubject(item.Kind, item.Subject), payload, metadata, due)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func lockInstallation(ctx context.Context, tx pgx.Tx, pluginID string) (bool, error) {
-	var found string
-	err := tx.QueryRow(ctx, `SELECT plugin_id FROM plugin_installations WHERE plugin_id=$1 FOR KEY SHARE`, pluginID).Scan(&found)
+// installation reads the installed_at of a plugin's installation, which
+// identifies it: a reinstall has a later one.
+func installation(ctx context.Context, tx pgx.Tx, pluginID string) (time.Time, bool, error) {
+	var installedAt time.Time
+	err := tx.QueryRow(ctx, `SELECT installed_at FROM plugin_installations WHERE plugin_id=$1`, pluginID).Scan(&installedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+		return time.Time{}, false, nil
 	}
-	return err == nil, err
+	return installedAt, err == nil, err
 }
 
 // CancelSource removes the items of one plugin, kind, and source: every

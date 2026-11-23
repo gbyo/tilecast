@@ -141,7 +141,7 @@ func (e *Engine) dispatch(ctx context.Context, wait bool) (int, error) {
 // duePlugins lists installed plugins with an item that may run now.
 func (e *Engine) duePlugins(ctx context.Context, now time.Time) ([]string, error) {
 	rows, err := e.db.Query(ctx, `SELECT DISTINCT d.plugin_id FROM plugin_deliveries d
-		JOIN plugin_installations i ON i.plugin_id=d.plugin_id
+		JOIN plugin_installations i ON i.plugin_id=d.plugin_id AND i.installed_at=d.installed_at
 		WHERE d.state='pending' AND d.next_attempt_at<=$1 AND (d.claimed_until IS NULL OR d.claimed_until<=$1)
 		ORDER BY d.plugin_id`, now)
 	if err != nil {
@@ -157,14 +157,16 @@ func (e *Engine) claim(ctx context.Context, pluginID string, target Target, now 
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "plugin_deliveries:"+pluginID); err != nil {
 			return err
 		}
-		installed, err := lockInstallation(ctx, tx, pluginID)
+		installedAt, installed, err := installation(ctx, tx, pluginID)
 		if err != nil || !installed {
 			return err
 		}
-		// A cancelled item whose claim ended, or an item of another
-		// definition that no claim holds, never runs.
-		if _, err := tx.Exec(ctx, `DELETE FROM plugin_deliveries WHERE plugin_id=$1 AND (claimed_until IS NULL OR claimed_until<=$2)
-			AND (state='cancelled' OR definition_version<>$3)`, pluginID, now, target.DefinitionVersion()); err != nil {
+		// An item of an earlier installation, a cancelled item whose claim
+		// ended, or an item of another definition that no claim holds,
+		// never runs.
+		if _, err := tx.Exec(ctx, `DELETE FROM plugin_deliveries WHERE plugin_id=$1 AND (installed_at<>$4
+			OR (claimed_until IS NULL OR claimed_until<=$2) AND (state='cancelled' OR definition_version<>$3))`,
+			pluginID, now, target.DefinitionVersion(), installedAt); err != nil {
 			return err
 		}
 		// An item whose last allowed attempt ended without a result parks.

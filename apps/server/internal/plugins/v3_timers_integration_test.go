@@ -169,8 +169,8 @@ func TestTimerValidation(t *testing.T) {
 			t.Fatalf("a plugin without timers = %v", err)
 		}
 		// The pending timer limit counts other keys; replacing a key fits.
-		if _, err := e.pool.Exec(e.ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,kind,source,subject,payload,due_at,next_attempt_at)
-			SELECT gen_random_uuid(),$1,1,'timer','bulk'||n,'timer:bulk'||n,''::bytea,$2,$2 FROM generate_series(2,1000) n`, samplestate.ID, now.Add(time.Hour)); err != nil {
+		if _, err := e.pool.Exec(e.ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,installed_at,kind,source,subject,payload,due_at,next_attempt_at)
+			SELECT gen_random_uuid(),$1,1,(SELECT installed_at FROM plugin_installations WHERE plugin_id=$1),'timer','bulk'||n,'timer:bulk'||n,''::bytea,$2,$2 FROM generate_series(2,1000) n`, samplestate.ID, now.Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 		if _, _, err := e.service.ScheduleTimer(e.ctx, samplestate.ID, "k", now, nil); err != nil {

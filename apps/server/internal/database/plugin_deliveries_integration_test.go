@@ -57,13 +57,14 @@ func TestPluginTimersMoveToTheDeliveryQueue(t *testing.T) {
 		dueAt, nextAttempt    time.Time
 		attempts, version     int
 		lastError, state      string
+		installedMatches      bool
 	)
-	if err := db.QueryRowContext(ctx, `SELECT id,kind,source,subject,payload,due_at,next_attempt_at,attempts,definition_version,last_error,state
-		FROM plugin_deliveries`).Scan(&id, &kind, &source, &subject, &payload, &dueAt, &nextAttempt, &attempts, &version, &lastError, &state); err != nil {
+	if err := db.QueryRowContext(ctx, `SELECT d.id,kind,source,subject,payload,due_at,next_attempt_at,attempts,definition_version,last_error,state,
+		d.installed_at=i.installed_at FROM plugin_deliveries d JOIN plugin_installations i USING (plugin_id)`).Scan(&id, &kind, &source, &subject, &payload, &dueAt, &nextAttempt, &attempts, &version, &lastError, &state, &installedMatches); err != nil {
 		t.Fatal(err)
 	}
 	if id != kept || kind != "timer" || source != "tick" || subject != "timer:tick" || string(payload) != "p" ||
-		!dueAt.Equal(due) || !nextAttempt.Equal(due) || attempts != 2 || version != 1 || lastError != "handler_error" || state != "pending" {
+		!dueAt.Equal(due) || !nextAttempt.Equal(due) || attempts != 2 || version != 1 || lastError != "handler_error" || state != "pending" || !installedMatches {
 		t.Fatalf("moved timer = %v %s %s %s %q %v %v %d %d %s %s", id, kind, source, subject, payload, dueAt, nextAttempt, attempts, version, lastError, state)
 	}
 	var count int

@@ -57,8 +57,8 @@ func TestPluginDeliveryStatusAPI(t *testing.T) {
 		park := func(key, payload string) uuid.UUID {
 			t.Helper()
 			id := uuid.New()
-			if _, err := env.pool.Exec(ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,kind,source,subject,payload,due_at,next_attempt_at,attempts,state,parked_at,last_error)
-				VALUES($1,$2,1,'timer',$3,'timer:'||$3,$4,now(),now(),8,'parked',now(),'handler_error')`, id, samplestate.ID, key, []byte(payload)); err != nil {
+			if _, err := env.pool.Exec(ctx, `INSERT INTO plugin_deliveries(id,plugin_id,definition_version,installed_at,kind,source,subject,payload,due_at,next_attempt_at,attempts,state,parked_at,last_error)
+				SELECT $1,$2,1,installed_at,'timer',$3,'timer:'||$3,$4,now(),now(),8,'parked',now(),'handler_error' FROM plugin_installations WHERE plugin_id=$2`, id, samplestate.ID, key, []byte(payload)); err != nil {
 				t.Fatal(err)
 			}
 			return id

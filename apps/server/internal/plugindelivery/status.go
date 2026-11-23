@@ -58,7 +58,7 @@ func (e *Engine) Sweep(ctx context.Context) (Swept, error) {
 		}
 		gone, err := tx.Exec(ctx, `DELETE FROM plugin_deliveries d
 			WHERE (d.state='cancelled' AND (d.claimed_until IS NULL OR d.claimed_until<=$1))
-				OR NOT EXISTS (SELECT 1 FROM plugin_installations i WHERE i.plugin_id=d.plugin_id)`, now)
+				OR NOT EXISTS (SELECT 1 FROM plugin_installations i WHERE i.plugin_id=d.plugin_id AND i.installed_at=d.installed_at)`, now)
 		if err != nil {
 			return err
 		}

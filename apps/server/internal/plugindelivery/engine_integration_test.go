@@ -583,6 +583,18 @@ func TestNothingQueuesOrRunsForPluginsThatCannotTakeIt(t *testing.T) {
 		t.Fatal("a removed plugin kept its queue")
 	}
 	e.install(testPlugin)
+	// An item that a removal raced with belongs to the earlier installation:
+	// it never runs after a reinstall, and the sweep deletes it.
+	e.enqueue("s", "raced", 0)
+	if _, err := e.pool.Exec(e.ctx, `UPDATE plugin_installations SET installed_at=installed_at+interval '1 second' WHERE plugin_id=$1`, testPlugin); err != nil {
+		t.Fatal(err)
+	}
+	if e.run(e.engine) != 0 {
+		t.Fatal("an item of an earlier installation ran")
+	}
+	if swept, err := e.engine.Sweep(e.ctx); err != nil || swept.Reconciled != 1 || e.count("true") != 0 {
+		t.Fatalf("an item of an earlier installation stayed: %+v %v", swept, err)
+	}
 	// An item of another definition never runs.
 	e.enqueueItem(Item{PluginID: testPlugin, DefinitionVersion: 2, Kind: KindEvent, Source: "x", Subject: "s", DueAt: e.clock.Now()})
 	if e.run(e.engine) != 0 || e.count("true") != 0 {

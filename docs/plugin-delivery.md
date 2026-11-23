@@ -60,10 +60,11 @@ callback.
 
 1. A worker begins a transaction and takes the advisory lock
    `plugin_deliveries:<plugin>`.
-2. It locks the installation row of the plugin for share. A plugin that is
-   not installed gets no claim.
-3. It deletes the items that never run: cancelled items whose claim ended,
-   and items of another `definitionVersion`.
+2. It reads the installation of the plugin. A plugin that is not installed
+   gets no claim.
+3. It deletes the items that never run: items of an earlier installation,
+   cancelled items whose claim ended, and items of another
+   `definitionVersion`.
 4. It parks an item whose eighth claim ended without a result, with the code
    `lease_expired`.
 5. It counts the live claims of the plugin. Live claims of other processes
@@ -138,9 +139,14 @@ The engine runs a sweep at startup and every minute:
 
 The queue holds nothing for a plugin that is not installed:
 
-- `Enqueue` locks the installation row for share. It writes nothing when the
-  plugin is not installed. A concurrent removal waits for the transaction,
-  then deletes the new item with the rest of the queue.
+- `Enqueue` writes nothing when the plugin is not installed.
+- Each item records the `installed_at` of the installation it was queued
+  for. An item runs only while that installation exists. An item that a
+  removal raced with belongs to the earlier installation: it never runs, also
+  after a reinstall, and the sweep deletes it.
+- `Enqueue` takes no lock on the installation. A removal locks the
+  installation and then changes screens, as many producers do. A lock would
+  let a producer and a removal wait for each other.
 - Removal deletes the queue and the status of the plugin in the removal
   transaction.
 
