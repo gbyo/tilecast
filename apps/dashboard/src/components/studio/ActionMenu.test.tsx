@@ -190,7 +190,7 @@ describe("ActionMenuButton in a browser", () => {
 describe("ActionContextMenu", () => {
   beforeEach(() => {
     vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: query === "(hover: hover) and (pointer: fine)",
+      matches: query === "(any-hover: hover) and (any-pointer: fine)",
       media: query,
       onchange: null,
       addListener: () => undefined,
