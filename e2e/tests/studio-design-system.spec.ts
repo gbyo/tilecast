@@ -165,14 +165,11 @@ for (const width of [1440, 1024, 820, 768, 390]) {
 }
 
 for (const touch of [false, true]) {
-  test.describe(
-    `Studio at 820px with ${touch ? "touch" : "a fine pointer"}`,
-    () => {
-      test.use({ hasTouch: touch, viewport: { width: 820, height: 1000 } });
+  const inputLabel = touch ? "touch" : "a fine pointer";
+  test.describe(`Studio at 820px with ${inputLabel}`, () => {
+    test.use({ hasTouch: touch, viewport: { width: 820, height: 1000 } });
 
-      test(
-        "separates spatial layout from input ergonomics",
-        async ({ page }) => {
+    test("keeps layout separate from input ergonomics", async ({ page }) => {
           await page.goto("/schedules");
 
           const search = page.getByRole("searchbox");
@@ -208,10 +205,8 @@ for (const touch of [false, true]) {
             await expect(page.getByRole("menu")).toBeVisible();
             await page.keyboard.press("Escape");
           }
-        },
-      );
-    },
-  );
+    });
+  });
 }
 
 test.describe("coarse pointer", () => {
