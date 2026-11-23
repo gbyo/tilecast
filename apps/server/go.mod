@@ -3,7 +3,7 @@ module github.com/tilecast/tilecast/apps/server
 go 1.27.0
 
 require (
-	github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.0.0
+	github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.1.0
 	github.com/avast/apkparser v0.0.0-20251022140151-7294e274bf65
 	github.com/avast/apkverifier v0.0.0-20260710162049-d0e1a791cd5a
 	github.com/coder/websocket v1.8.15

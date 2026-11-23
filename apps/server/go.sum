@@ -32,8 +32,8 @@ github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 h1:nCYfg
 github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0/go.mod h1:ucUjca2JtSZboY8IoUqyQyuuXvwbMBVwFOm0vdQPNhA=
 github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1 h1:0O6j18nQDoIff6/mtosT5LNU2WehEwp+LqfX6699oqY=
 github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1/go.mod h1:xdYAf5bjkOpsd3auA8riiJW4vneBubt9caavL7626jQ=
-github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.0.0 h1:f4P+fVYmSIWj4b/jvbMdmrmsx/Xb+5xCpYYtVXOdKoc=
-github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.0.0/go.mod h1:nSmbVVQSM4lp9gYvVaaTotnRxSwZXEdFnJARofg5V4g=
+github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.1.0 h1:DRWoLMselUectPtTY82aRvYm8lRsvWydkmsNg5o4btc=
+github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.1.0/go.mod h1:9IzDNQd9nvBviA5OkNLJdEBYjiEmL7+9hn9BEpkSqww=
 github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67IQOfM=
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
