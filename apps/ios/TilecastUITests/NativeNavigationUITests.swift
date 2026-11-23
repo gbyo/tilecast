@@ -85,6 +85,7 @@ final class NativeNavigationUITests: XCTestCase {
     /// above the bar and leaving an empty strip.
     @MainActor
     func testStudioReachesBeneathTheFloatingTabBar() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPadOS uses a top adaptable tab bar")
         launchWithFixtureServer()
         assertStudioReachesBeneathTheTabBar()
     }
@@ -93,6 +94,7 @@ final class NativeNavigationUITests: XCTestCase {
     /// areas differ.
     @MainActor
     func testStudioReachesBeneathTheTabBarInLandscape() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPadOS uses a top adaptable tab bar")
         XCUIDevice.shared.orientation = .landscapeLeft
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         launchWithFixtureServer()

@@ -45,12 +45,12 @@ struct NativeTabNavigation: View {
                             .studioBackBar(navigation)
                             .containerBackground(.clear, for: .navigation)
                     }
-                    .background { TransparentTabContainer(studioVisible: slot.frame != nil) }
+                    .background { StudioTabContainerBackground(studioVisible: slot.frame != nil) }
                 } else {
                     NavigationStack {
                         MoreView(page: page, actions: actions)
                     }
-                    .background { TransparentTabContainer(studioVisible: slot.frame != nil) }
+                    .background { StudioTabContainerBackground(studioVisible: slot.frame != nil) }
                 }
             } label: {
                 Label("More", image: AppIcon.more)
@@ -91,7 +91,21 @@ struct NativeTabNavigation: View {
                     .containerBackground(.clear, for: .navigation)
             }
         }
-        .background { TransparentTabContainer(studioVisible: slot.frame != nil) }
+        .background { StudioTabContainerBackground(studioVisible: slot.frame != nil) }
+    }
+}
+
+/// The transparent-container hit-testing workaround is only needed for
+/// iPhone's floating bottom tab bar. On iPad the WebView sits above the tab
+/// content slot instead, which leaves the system's adaptable sidebar fully
+/// interactive without depending on private sidebar view hierarchy details.
+private struct StudioTabContainerBackground: View {
+    let studioVisible: Bool
+
+    var body: some View {
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            TransparentTabContainer(studioVisible: studioVisible)
+        }
     }
 }
 

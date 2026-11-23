@@ -62,10 +62,13 @@ struct StudioShell: View {
         }
     }
 
-    /// Native navigation is always a TabView now; iPadOS adapts that tab bar
-    /// into a sidebar itself as the window changes.
+    /// iPhone needs the WebView behind the transparent tab container so the
+    /// floating bottom bar samples Studio. On iPad the WebView stays above the
+    /// shell, constrained to the selected tab's content slot; the system top
+    /// tab bar/sidebar remains outside that slot and stays fully interactive.
     private var webViewBehindTabs: Bool {
         host.page?.bridge.navigation.isAvailable == true
+            && UIDevice.current.userInterfaceIdiom == .phone
     }
 
     /// The generic MapKit presentation Studio asked for. The center reports

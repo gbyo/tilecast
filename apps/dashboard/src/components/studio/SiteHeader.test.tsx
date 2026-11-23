@@ -67,7 +67,6 @@ describe("SiteHeader", () => {
     ).toBeTruthy();
   });
 
-
   it("keeps native-host toolbar actions compact but touch-sized", () => {
     render(
       <MemoryRouter>
