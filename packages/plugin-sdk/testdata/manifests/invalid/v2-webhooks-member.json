@@ -1,0 +1,25 @@
+{
+  "apiVersion": 2,
+  "id": "provider_hooks",
+  "definitionVersion": 1,
+  "name": "Provider Hooks",
+  "description": "Inbound webhooks of every Phase 3 mode.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "webhooks": [
+    {
+      "id": "doors",
+      "title": "Door controller",
+      "authentication": "token",
+      "deliveryId": {
+        "header": "X-Event-Id"
+      },
+      "forwardHeaders": ["X-Event-Type"]
+    }
+  ]
+}

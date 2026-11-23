@@ -63,6 +63,21 @@ import {
   serverEventNamePattern,
 } from "./events.ts";
 import {
+  HANDSHAKE_TYPES,
+  MAX_FETCH_BACK_PATTERN_LENGTH,
+  MAX_WEBHOOK_HEADERS,
+  MAX_WEBHOOK_POINTER_LENGTH,
+  MAX_WEBHOOKS,
+  SIGNATURE_ENCODINGS,
+  SIGNATURE_FORMATS,
+  SIGNATURE_SCHEMES,
+  SIGNED_PAYLOADS,
+  WEBHOOK_AUTHENTICATIONS,
+  webhookHeaderPattern,
+  webhookIdPattern,
+  webhookProblems,
+} from "./webhooks.ts";
+import {
   parseServiceReference,
   serviceReferencePattern,
   serviceReferenceProblem,
@@ -776,6 +791,76 @@ const eventsDeclaration = z.strictObject({
     ),
 });
 
+const webhookHeader = z.string().regex(webhookHeaderPattern);
+const webhookPointer = z.string().min(1).max(MAX_WEBHOOK_POINTER_LENGTH);
+
+const webhookDeclaration = z.strictObject({
+  id: z
+    .string()
+    .regex(webhookIdPattern)
+    .describe(
+      "The last segment of the endpoint /api/v1/hooks/{pluginId}/{webhookId}. It never changes.",
+    ),
+  title: z.string().min(1).max(80),
+  description: z.string().max(280).optional(),
+  authentication: z
+    .enum(WEBHOOK_AUTHENTICATIONS)
+    .describe(
+      "token, signature, or fetch-back. The public mode needs moderation and is not part of this release.",
+    ),
+  ackStatus: z
+    .union([z.literal(200), z.literal(202)])
+    .optional()
+    .describe(
+      "The status of an accepted or repeated delivery, after the host queued it durably. Default 202.",
+    ),
+  handshake: z
+    .strictObject({
+      type: z.enum(HANDSHAKE_TYPES),
+      parameter: z.string().max(64).optional(),
+      pointer: webhookPointer.optional(),
+    })
+    .optional()
+    .describe("An endpoint check the host answers itself."),
+  signature: z
+    .strictObject({
+      scheme: z.enum(SIGNATURE_SCHEMES),
+      secret: z
+        .string()
+        .max(64)
+        .optional()
+        .describe(
+          "Key of the organization secret setting that holds the signing secret.",
+        ),
+      header: webhookHeader.optional(),
+      format: z.enum(SIGNATURE_FORMATS).optional(),
+      timestampHeader: webhookHeader.optional(),
+      timestampKey: z.string().max(32).optional(),
+      signatureKey: z.string().max(32).optional(),
+      prefix: z.string().max(16).optional(),
+      encoding: z.enum(SIGNATURE_ENCODINGS).optional(),
+      signedPayload: z.enum(SIGNED_PAYLOADS).optional(),
+      headers: z.array(webhookHeader).max(MAX_WEBHOOK_HEADERS).optional(),
+    })
+    .optional(),
+  deliveryId: z
+    .strictObject({
+      header: webhookHeader.optional(),
+      pointer: webhookPointer.optional(),
+    })
+    .optional()
+    .describe(
+      "The provider's delivery ID: a header or a JSON Pointer into the body.",
+    ),
+  fetchBack: z
+    .strictObject({
+      eventId: webhookPointer,
+      pattern: z.string().min(2).max(MAX_FETCH_BACK_PATTERN_LENGTH),
+    })
+    .optional(),
+  forwardHeaders: z.array(webhookHeader).max(MAX_WEBHOOK_HEADERS).optional(),
+});
+
 const v3Members = {
   apiVersion: z
     .literal(3)
@@ -845,6 +930,13 @@ const v3Members = {
     .describe(
       "Server events the plugin publishes with events.publish@1, and the events it receives in HandleEvent.",
     ),
+  webhooks: z
+    .array(webhookDeclaration)
+    .max(MAX_WEBHOOKS)
+    .optional()
+    .describe(
+      "Inbound endpoints the host owns at /api/v1/hooks/{pluginId}/{webhookId}. The plugin receives each accepted request in HandleWebhook.",
+    ),
 };
 
 export const pluginManifestV1Schema = z
@@ -896,6 +988,9 @@ export type InstanceKind = PluginManifestV3["instances"][number];
 export type ConnectionDeclaration = PluginManifestV3["connections"][number];
 export type FeedManifestDeclaration = PluginManifestV3["feeds"][number];
 export type EventsManifestDeclaration = NonNullable<PluginManifestV3["events"]>;
+export type WebhookManifestDeclaration = NonNullable<
+  PluginManifestV3["webhooks"]
+>[number];
 
 /** Problems of one API 3 field list beyond the shared schema rules. */
 export function pluginFieldProblems(
@@ -1016,6 +1111,9 @@ export function manifestV3Problems(
   );
   problems.push(
     ...eventProblems(manifest as Parameters<typeof eventProblems>[0]),
+  );
+  problems.push(
+    ...webhookProblems(manifest as Parameters<typeof webhookProblems>[0]),
   );
   const connections = new Set<string>();
   for (const connection of manifest.connections ?? []) {

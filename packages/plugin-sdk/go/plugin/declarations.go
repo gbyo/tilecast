@@ -289,6 +289,12 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 	_, consumes := p.(ServiceConsumer)
 	_, handlesEvents := p.(EventHandler)
 	subscribes := m.Events != nil && len(m.Events.Subscribes) > 0
+	_, handlesWebhooks := p.(WebhookHandler)
+	_, verifiesWebhooks := p.(WebhookVerifier)
+	verifyScheme := false
+	for _, webhook := range m.Webhooks {
+		verifyScheme = verifyScheme || (webhook.Signature != nil && webhook.Signature.Scheme == SignatureVerify)
+	}
 	screens := false
 	for _, kind := range m.Instances {
 		screens = screens || kind.Targeting == TargetingScreens
@@ -316,6 +322,14 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 		return fmt.Errorf("subscribes to events but does not implement EventHandler")
 	case handlesEvents && !subscribes:
 		return fmt.Errorf("implements EventHandler without subscribing to an event")
+	case len(m.Webhooks) > 0 && !handlesWebhooks:
+		return fmt.Errorf("declares webhooks but does not implement WebhookHandler")
+	case handlesWebhooks && len(m.Webhooks) == 0:
+		return fmt.Errorf("implements WebhookHandler without declaring a webhook")
+	case verifyScheme && !verifiesWebhooks:
+		return fmt.Errorf("declares a webhook with signature scheme verify but does not implement WebhookVerifier")
+	case verifiesWebhooks && !verifyScheme:
+		return fmt.Errorf("implements WebhookVerifier without a webhook of signature scheme verify")
 	}
 	return nil
 }

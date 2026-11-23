@@ -1,0 +1,136 @@
+{
+  "apiVersion": 3,
+  "id": "provider_hooks",
+  "definitionVersion": 1,
+  "name": "Provider Hooks",
+  "description": "Inbound webhooks of every Phase 3 mode.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "settings": {
+    "organization": [
+      {
+        "key": "signingSecret",
+        "label": "Signing secret",
+        "control": "secret"
+      },
+      {
+        "key": "standardSecret",
+        "label": "Standard Webhooks secret",
+        "control": "secret"
+      },
+      {
+        "key": "region",
+        "label": "Region",
+        "control": "text",
+        "maxLength": 40
+      }
+    ]
+  },
+  "webhooks": [
+    {
+      "id": "doors",
+      "title": "Door controller",
+      "authentication": "token",
+      "deliveryId": {
+        "header": "X-Event-Id"
+      },
+      "forwardHeaders": ["X-Event-Type"]
+    },
+    {
+      "id": "standard",
+      "title": "Standard Webhooks",
+      "authentication": "signature",
+      "signature": {
+        "scheme": "standard-webhooks",
+        "secret": "standardSecret"
+      }
+    },
+    {
+      "id": "changes",
+      "title": "Changes",
+      "authentication": "signature",
+      "ackStatus": 200,
+      "signature": {
+        "scheme": "hmac-sha256",
+        "secret": "signingSecret",
+        "header": "X-PCO-Webhooks-Authenticity",
+        "format": "plain",
+        "encoding": "hex",
+        "signedPayload": "body"
+      },
+      "deliveryId": {
+        "pointer": "/data/0/id"
+      },
+      "forwardHeaders": ["X-PCO-Webhooks-Event"]
+    },
+    {
+      "id": "stripe_like",
+      "title": "Pairs",
+      "authentication": "signature",
+      "signature": {
+        "scheme": "hmac-sha256",
+        "secret": "signingSecret",
+        "header": "Example-Signature",
+        "format": "pairs",
+        "timestampKey": "t",
+        "signatureKey": "v1",
+        "encoding": "hex",
+        "signedPayload": "timestamp.body"
+      },
+      "deliveryId": {
+        "pointer": "/id"
+      },
+      "handshake": {
+        "type": "echo-json",
+        "pointer": "/challenge"
+      }
+    },
+    {
+      "id": "square_like",
+      "title": "URL signed",
+      "authentication": "signature",
+      "signature": {
+        "scheme": "hmac-sha256",
+        "secret": "signingSecret",
+        "header": "x-square-hmacsha256-signature",
+        "format": "plain",
+        "encoding": "base64",
+        "signedPayload": "url.body",
+        "prefix": "v1="
+      },
+      "deliveryId": {
+        "pointer": "/event_id"
+      }
+    },
+    {
+      "id": "custom",
+      "title": "Custom verification",
+      "authentication": "signature",
+      "signature": {
+        "scheme": "verify",
+        "headers": ["X-Custom-Signature"]
+      },
+      "deliveryId": {
+        "header": "X-Custom-Delivery"
+      }
+    },
+    {
+      "id": "graph",
+      "title": "Fetch back",
+      "authentication": "fetch-back",
+      "fetchBack": {
+        "eventId": "/value/0/id",
+        "pattern": "^[A-Za-z0-9-]{1,64}$"
+      },
+      "handshake": {
+        "type": "echo-query",
+        "parameter": "validationToken"
+      }
+    }
+  ]
+}
