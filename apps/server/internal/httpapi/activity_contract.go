@@ -1,38 +1,41 @@
 package httpapi
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/tilecast/tilecast/apps/server/internal/activityreport"
+)
 
 // Activity Event Contract v2. Both players emit this vocabulary; the server
 // accepts the v1 names each player used before and maps them here so a fleet
 // can be upgraded one player at a time. See docs/activity-event-contract.md.
 
+// The session and terminal-reason vocabulary is owned by activityreport,
+// which the Activity reports and the activity.read@1 service share.
 const (
-	sessionTypePresentation    = "presentation"
-	sessionTypeContent         = "content"
-	sessionTypeLayoutPlacement = "layout_placement"
-	sessionTypePlaylistItem    = "playlist_item"
+	sessionTypePresentation    = activityreport.SessionTypePresentation
+	sessionTypeContent         = activityreport.SessionTypeContent
+	sessionTypeLayoutPlacement = activityreport.SessionTypeLayoutPlacement
+	sessionTypePlaylistItem    = activityreport.SessionTypePlaylistItem
 )
 
-// Terminal reasons say why a session ended. The distinction that matters is
-// whether the ending was expected: a schedule transition and a decoder failure
-// both end playback early, but only one of them is an interruption.
 const (
-	terminalExpectedItemBoundary = "expected_item_boundary"
-	terminalCompletedDuration    = "completed_duration"
-	terminalScheduleTransition   = "schedule_transition"
-	terminalManifestReplacement  = "manifest_replacement"
-	terminalDirectAssignment     = "direct_assignment_change"
-	terminalTakeover             = "takeover"
-	terminalPlayerRestart        = "player_restart"
-	terminalProcessExit          = "process_exit"
-	terminalHeartbeatGap         = "heartbeat_gap"
-	terminalRendererFailure      = "renderer_failure"
-	terminalDecoderFailure       = "decoder_failure"
-	terminalManualSkip           = "manual_skip"
-	terminalEmptyContent         = "empty_content"
-	terminalRecoveryAction       = "recovery_action"
-	terminalBoundedTimeout       = "bounded_timeout"
-	terminalUnknown              = "unknown"
+	terminalExpectedItemBoundary = activityreport.TerminalExpectedItemBoundary
+	terminalCompletedDuration    = activityreport.TerminalCompletedDuration
+	terminalScheduleTransition   = activityreport.TerminalScheduleTransition
+	terminalManifestReplacement  = activityreport.TerminalManifestReplacement
+	terminalDirectAssignment     = activityreport.TerminalDirectAssignment
+	terminalTakeover             = activityreport.TerminalTakeover
+	terminalPlayerRestart        = activityreport.TerminalPlayerRestart
+	terminalProcessExit          = activityreport.TerminalProcessExit
+	terminalHeartbeatGap         = activityreport.TerminalHeartbeatGap
+	terminalRendererFailure      = activityreport.TerminalRendererFailure
+	terminalDecoderFailure       = activityreport.TerminalDecoderFailure
+	terminalManualSkip           = activityreport.TerminalManualSkip
+	terminalEmptyContent         = activityreport.TerminalEmptyContent
+	terminalRecoveryAction       = activityreport.TerminalRecoveryAction
+	terminalBoundedTimeout       = activityreport.TerminalBoundedTimeout
+	terminalUnknown              = activityreport.TerminalUnknown
 )
 
 // minimumPlaybackSessionMS is the shortest a piece of content can be on screen
@@ -43,75 +46,15 @@ const (
 // tens of thousands of zero-length sessions that no viewer ever saw.
 const minimumPlaybackSessionMS = 1000
 
-var activityTerminalReasons = []string{
-	terminalExpectedItemBoundary, terminalCompletedDuration, terminalScheduleTransition,
-	terminalManifestReplacement, terminalDirectAssignment, terminalTakeover,
-	terminalPlayerRestart, terminalProcessExit, terminalHeartbeatGap, terminalRendererFailure,
-	terminalDecoderFailure, terminalManualSkip, terminalEmptyContent, terminalRecoveryAction, terminalBoundedTimeout,
-	terminalUnknown,
-}
-
-// expectedTerminalReasons end a session for a reason an operator asked for or
-// that is simply how playback works. They are not interruptions even though the
-// session did not run to its expected duration.
-var expectedTerminalReasons = map[string]bool{
-	terminalExpectedItemBoundary: true,
-	terminalCompletedDuration:    true,
-	terminalScheduleTransition:   true,
-	terminalManifestReplacement:  true,
-	terminalDirectAssignment:     true,
-	terminalTakeover:             true,
-	terminalManualSkip:           true,
-	terminalEmptyContent:         true,
-}
-
-// interruptedTerminalReasons is the complement, minus `unknown`. An unknown
-// reason is not evidence of an interruption, so it is excluded rather than
-// assumed: counting it would inflate the metric with every legacy record.
-func interruptedTerminalReasons() []string {
-	reasons := make([]string, 0, len(activityTerminalReasons))
-	for _, reason := range activityTerminalReasons {
-		if reason == terminalUnknown || expectedTerminalReasons[reason] {
-			continue
-		}
-		reasons = append(reasons, reason)
-	}
-	return reasons
-}
-
-// activityTerminalReasonAliases maps the pre-rename spelling to the canonical
-// one. A Player built before "emergency takeover" became "takeover" still ends
-// sessions with the old reason, and rejecting it would drop those sessions into
-// `unknown` — which is deliberately excluded from the interruption metric, so
-// the loss would be silent rather than visible.
-var activityTerminalReasonAliases = map[string]string{
-	"emergency_takeover": terminalTakeover,
-}
+func interruptedTerminalReasons() []string { return activityreport.InterruptedTerminalReasons() }
 
 func canonicalActivityTerminalReason(value string) string {
-	if canonical, ok := activityTerminalReasonAliases[value]; ok {
-		return canonical
-	}
-	return value
+	return activityreport.CanonicalTerminalReason(value)
 }
 
-func isActivityTerminalReason(value string) bool {
-	for _, reason := range activityTerminalReasons {
-		if canonicalActivityTerminalReason(value) == reason {
-			return true
-		}
-	}
-	return false
-}
+func isActivityTerminalReason(value string) bool { return activityreport.IsTerminalReason(value) }
 
-func isActivitySessionType(value string) bool {
-	switch value {
-	case sessionTypePresentation, sessionTypeContent, sessionTypeLayoutPlacement, sessionTypePlaylistItem:
-		return true
-	default:
-		return false
-	}
-}
+func isActivitySessionType(value string) bool { return activityreport.IsSessionType(value) }
 
 // activityEventAliases maps each player's v1 spelling to the contract v2 name.
 // Both players kept their own vocabulary for the same condition, which made an

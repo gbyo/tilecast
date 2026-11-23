@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tilecast/tilecast/apps/server/internal/activityreport"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 
 	"github.com/google/uuid"
@@ -21,10 +22,8 @@ const (
 	activityMaximumLimit = 250
 )
 
-type activityWindow struct {
-	From time.Time
-	To   time.Time
-}
+// activityWindow is the reporting range owned by activityreport.
+type activityWindow = activityreport.Window
 
 type activityPage struct {
 	Limit  int
@@ -65,29 +64,7 @@ func activityCanExport(visibility activityVisibility) bool {
 }
 
 func parseActivityWindow(r *http.Request) (activityWindow, error) {
-	now := time.Now().UTC()
-	window := activityWindow{From: now.Add(-24 * time.Hour), To: now}
-	if value := strings.TrimSpace(r.URL.Query().Get("from")); value != "" {
-		parsed, err := time.Parse(time.RFC3339, value)
-		if err != nil {
-			return window, errors.New("from must be an RFC 3339 timestamp")
-		}
-		window.From = parsed.UTC()
-	}
-	if value := strings.TrimSpace(r.URL.Query().Get("to")); value != "" {
-		parsed, err := time.Parse(time.RFC3339, value)
-		if err != nil {
-			return window, errors.New("to must be an RFC 3339 timestamp")
-		}
-		window.To = parsed.UTC()
-	}
-	if !window.From.Before(window.To) {
-		return window, errors.New("from must be earlier than to")
-	}
-	if window.To.Sub(window.From) > 5*365*24*time.Hour {
-		return window, errors.New("activity ranges may not exceed five years")
-	}
-	return window, nil
+	return activityreport.ParseWindow(r.URL.Query().Get("from"), r.URL.Query().Get("to"), time.Now())
 }
 
 func parseActivityPage(r *http.Request) (activityPage, error) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/activityreport"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
@@ -449,7 +450,7 @@ func sameInt64(left, right *int64) bool {
 }
 
 func storagePressure(value heartbeatActivityState) bool {
-	return value.CacheUsedBytes != nil && value.CacheLimitBytes != nil && *value.CacheLimitBytes > 0 && *value.CacheUsedBytes*100 >= *value.CacheLimitBytes*90
+	return activityreport.StoragePressure(value.CacheUsedBytes, value.CacheLimitBytes)
 }
 
 func resultFromText(value string) string {
