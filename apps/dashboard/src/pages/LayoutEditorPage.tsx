@@ -648,6 +648,7 @@ export function LayoutEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation(["layouts", "common"]);
+  const { t: tReview } = useTranslation("review");
   const nativePresentations = useNativePresentationAvailable();
   // Library faces must be registered before Layout text can draw in them.
   useLibraryFonts();
@@ -1387,16 +1388,34 @@ export function LayoutEditorPage() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
-  const publish = useMutation<unknown, ApiError>({
+  const publish = useMutation<
+    Awaited<ReturnType<typeof api.publishLayout>>,
+    ApiError
+  >({
     mutationFn: () =>
       canPublish
         ? api.publishLayout(id, revisionRef.current, csrf)
         : api.submitContent("layout", id, csrf, undefined, revisionRef.current),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      // The direct legacy path returns a LayoutRevision; the editorial path
+      // can instead return a submission awaiting review.
+      const submission =
+        "submission" in result
+          ? result.submission
+          : "status" in result
+            ? result
+            : undefined;
+      const published = !submission || submission.status === "published";
       toast.add({
-        title: canPublish
+        title: published
           ? t("editor.toastPublished")
           : t("editor.toastSubmitted"),
+        description: submission
+          ? tReview("submissions.detail.coverage", {
+              screens: submission.affectedScreenCount,
+              locations: submission.affectedLocationCount,
+            })
+          : undefined,
         type: "success",
       });
       await Promise.all([
