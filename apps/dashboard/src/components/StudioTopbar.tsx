@@ -715,6 +715,7 @@ export function StudioTopbar({
         editor={editor}
         demoMode={demoMode}
         navigationTrigger={!nativeNavigation}
+        nativeHost={nativeNavigation}
         accountMenu={
           nativeNavigation && user && onSignOut ? (
             <TopbarUserMenu

@@ -81,8 +81,8 @@ jobs:
           -derivedDataPath "$DERIVED_DATA"
           -only-testing:TilecastUITests
           -resultBundlePath "$RUNNER_TEMP/ui-tests.xcresult"
-      # The same build runs on an iPad, where regular width shows the native
-      # sidebar instead of tabs.
+      # The same build runs on an iPad to exercise the adaptive tab/sidebar
+      # representation and iPad-specific presentation behavior.
       - name: UI tests on iPad
         timeout-minutes: 10
         run: >

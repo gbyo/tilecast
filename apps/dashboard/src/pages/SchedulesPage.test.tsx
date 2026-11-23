@@ -30,11 +30,13 @@ vi.mock("../auth/AuthProvider", () => ({
   }),
 }));
 
-const COMPACT_QUERY = "(max-width: 639px)";
+const COMPACT_QUERY = "(max-width: 1023px)";
+const PHONE_QUERY = "(max-width: 639px)";
 
-function stubViewport(compact: boolean) {
+function stubViewport(compact: boolean, phone = false) {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: compact && query === COMPACT_QUERY,
+    matches:
+      (compact && query === COMPACT_QUERY) || (phone && query === PHONE_QUERY),
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -415,8 +417,21 @@ describe("Schedules library", () => {
       await waitFor(() => expect(lastParams(spy).enabled).toBe(""));
     });
 
-    it("renders the Drawer instead of a Popover on phones", async () => {
+    it("keeps Filters in a Popover at iPad widths", async () => {
       stubViewport(true);
+      mockSchedules();
+      renderPage();
+      const user = userEvent.setup();
+      await screen.findByText("Morning Broadcast");
+
+      await openFilters(user);
+      const dialog = await screen.findByRole("dialog", { name: "Filters" });
+      expect(dialog).toHaveAttribute("data-slot", "popover-content");
+      expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
+    });
+
+    it("renders the Drawer instead of a Popover on phones", async () => {
+      stubViewport(true, true);
       mockSchedules();
       renderPage();
       const user = userEvent.setup();

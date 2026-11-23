@@ -92,7 +92,7 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
         _ = reply(envelope("navigation/catalog", catalogPayload(["alpha", "bravo"], primary: ["alpha", "bravo"])))
         _ = reply(envelope("navigation/state", ["activeDestinationId": "bravo", "path": "/alpha/looks-like-alpha"]))
         #expect(bridge.navigation.activeDestinationID == "bravo")
-        #expect(bridge.navigation.selectedTab == .destination("bravo"))
+        #expect(bridge.navigation.compactSelectedTab == .destination("bravo"))
     }
 
     @Test func treatsFrontendReadyAsIdempotent() {

@@ -21,11 +21,13 @@ vi.mock("../auth/AuthProvider", () => ({
   }),
 }));
 
-const COMPACT_QUERY = "(max-width: 639px)";
+const COMPACT_QUERY = "(max-width: 1023px)";
+const PHONE_QUERY = "(max-width: 639px)";
 
-function stubViewport(compact: boolean) {
+function stubViewport(compact: boolean, phone = false) {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: compact && query === COMPACT_QUERY,
+    matches:
+      (compact && query === COMPACT_QUERY) || (phone && query === PHONE_QUERY),
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -583,7 +585,30 @@ describe("Media library toolbar", () => {
       ).toEqual(["Search media", "Filters", "View options"]);
     });
 
-    it("opens Filters in a Drawer over the same form", async () => {
+    it("keeps Filters in a Popover at iPad-width compact layouts", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await ready();
+
+      await openFilters(user);
+      const popover = await screen.findByRole("dialog", {
+        name: "Filter media",
+      });
+      expect(popover).toHaveAttribute("data-slot", "popover-content");
+      expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
+      await user.click(
+        within(popover).getByRole("radio", { name: "Processing" }),
+      );
+      await waitFor(() =>
+        expect(lastParams().get("status")).toBe("processing"),
+      );
+      expect(
+        screen.getByRole("button", { name: "Filters, 1 active", hidden: true }),
+      ).toBeInTheDocument();
+    });
+
+    it("uses the Drawer only at phone-sized widths", async () => {
+      stubViewport(true, true);
       const user = userEvent.setup();
       renderPage();
       await ready();
@@ -596,15 +621,6 @@ describe("Media library toolbar", () => {
       expect(
         document.querySelector('[data-slot="popover-content"]'),
       ).toBeNull();
-      await user.click(
-        within(drawer).getByRole("radio", { name: "Processing" }),
-      );
-      await waitFor(() =>
-        expect(lastParams().get("status")).toBe("processing"),
-      );
-      expect(
-        screen.getByRole("button", { name: "Filters, 1 active", hidden: true }),
-      ).toBeInTheDocument();
     });
 
     async function openViewOptions(user: ReturnType<typeof userEvent.setup>) {

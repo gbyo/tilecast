@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useDesktopLayout } from "../../hooks/use-desktop-layout";
+import { usePhoneLayout } from "../../hooks/use-phone-layout";
 import {
   Drawer,
   DrawerContent,
@@ -16,9 +16,9 @@ import {
 } from "../../components/ui/sheet";
 
 /**
- * Responsive secondary detail surface for Screen detail: a right-side Sheet
- * on desktop, the Base UI Drawer on narrow/mobile viewports. Opening and
- * closing is owned by the caller's Back-able URL state.
+ * Responsive secondary detail surface for Screen detail. Phone-sized content
+ * uses a bottom Drawer; iPad and desktop use a side Sheet so the underlying
+ * fleet stays visible. Opening and closing is owned by Back-able URL state.
  */
 export function ScreenDetailPanel({
   open,
@@ -33,8 +33,8 @@ export function ScreenDetailPanel({
   description: ReactNode;
   children: ReactNode;
 }) {
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
+  const phone = usePhoneLayout();
+  const header = !phone ? (
     <SheetHeader className="border-b border-border">
       <SheetTitle>{title}</SheetTitle>
       <SheetDescription>{description}</SheetDescription>
@@ -48,7 +48,7 @@ export function ScreenDetailPanel({
   const body = (
     <div
       className={
-        desktop
+        !phone
           ? "min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6"
           : "min-h-0 flex-1 overflow-y-auto px-4 pb-6"
       }
@@ -57,11 +57,11 @@ export function ScreenDetailPanel({
     </div>
   );
 
-  return desktop ? (
+  return !phone ? (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full gap-4 overflow-hidden sm:max-w-2xl"
+        className="w-full gap-4 overflow-hidden sm:max-w-lg lg:max-w-2xl"
       >
         {header}
         {body}

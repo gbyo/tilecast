@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// A tab in the compact-width layout.
+/// A native navigation selection token. Every Studio destination can be a
+/// direct selection in sidebarAdaptable navigation; `.more` is the compact
+/// container for secondary destinations and server controls.
 public enum NavigationTab: Hashable, Sendable {
-    /// A destination Studio marked primary, by its opaque identifier.
     case destination(String)
-    /// The app's More tab: the other destinations and server controls.
     case more
 }
 
@@ -21,22 +21,27 @@ public enum NavigationTab: Hashable, Sendable {
 @MainActor
 @Observable
 public final class NativeNavigationModel {
-    /// Tabs for primary destinations; More is always the last tab.
+    /// Compact tabs before More, in catalog order.
     public static let maximumPrimaryTabs = 4
 
     public private(set) var catalog: NavigationCatalog?
     public private(set) var activeDestinationID: String?
     /// Diagnostics only.
     public private(set) var path: String?
-    /// What the native tab bar highlights. A destination tap updates this
-    /// immediately so the control responds like a native tab bar.
-    public private(set) var selectedTab: NavigationTab = .more
-    /// The tab allowed to expose the confirmed Studio frame. It changes only
-    /// after Studio acknowledges navigation, so a stale WebKit frame is never
+    /// What compact navigation highlights: a primary destination or More.
+    /// A tab tap updates this immediately so the control responds natively.
+    public private(set) var compactSelectedTab: NavigationTab = .more
+    /// The compact slot allowed to expose the confirmed Studio frame. It
+    /// changes only after Studio acknowledges navigation, so a stale WebKit
+    /// frame is never
     /// revealed under an optimistically selected tab.
-    private var settledTab: NavigationTab = .more
-    /// In the More tab: true shows the destination list, false shows Studio.
-    public private(set) var moreShowsList = true
+    private var compactSettledTab: NavigationTab = .more
+    /// The actual destination whose Studio frame is settled. Compact
+    /// navigation may map this destination into More, while regular-width
+    /// iPad sidebarAdaptable navigation selects it directly.
+    private var settledDestinationID: String?
+    /// In compact More: true shows the destination list, false shows Studio.
+    public private(set) var compactMoreShowsList = true
 
     /// The chrome of the current page. Drives the native back bar.
     public private(set) var chrome = NavigationChrome()
@@ -54,13 +59,15 @@ public final class NativeNavigationModel {
     /// navigation instead of its fallback chrome.
     public var isAvailable: Bool { catalog != nil }
 
-    /// Tabs before More, in catalog order.
+    /// Primary destinations that fit in compact navigation before More.
     public var primaryDestinations: [NavigationCatalog.Destination] {
         Array((catalog?.destinations ?? []).filter { $0.placement == .primary }.prefix(Self.maximumPrimaryTabs))
     }
 
-    /// Every other destination, in its catalog group.
-    public var moreGroups: [NavigationCatalog.Group] {
+    /// Destinations that do not occupy one of the compact primary tab slots,
+    /// kept in Studio's catalog groups. Compact navigation renders these in
+    /// More; regular-width iPad renders them directly as sidebar TabSections.
+    public var secondaryGroups: [NavigationCatalog.Group] {
         let primary = Set(primaryDestinations.map(\.id))
         return (catalog?.groups ?? []).compactMap { group in
             let destinations = group.destinations.filter { !primary.contains($0.id) }
@@ -68,17 +75,51 @@ public final class NativeNavigationModel {
         }
     }
 
-    /// The tab that shows the one Studio page, or nil while the More list
-    /// covers it. This follows Studio's confirmed location, not an optimistic
-    /// tab-bar selection.
-    public var frontendTab: NavigationTab? {
-        settledTab == .more && moreShowsList ? nil : settledTab
+    /// The compact slot that shows the one Studio page, or nil while the More
+    /// list covers it. This follows Studio's confirmed location, not an
+    /// optimistic tab selection.
+    public var compactFrontendTab: NavigationTab? {
+        compactSettledTab == .more && compactMoreShowsList ? nil : compactSettledTab
     }
 
-    /// True only during the short interval between an optimistic primary-tab
+    /// The selection for regular-width iPad's sidebarAdaptable TabView.
+    /// Unlike compact navigation, every catalog destination has its own native
+    /// tab in the sidebar, including destinations marked for More on compact
+    /// layouts. A pending request is reflected optimistically.
+    public var adaptiveSelectedTab: NavigationTab {
+        if let pendingRequest, catalog?.destination(withID: pendingRequest) != nil {
+            return .destination(pendingRequest)
+        }
+        if let settledDestinationID, catalog?.destination(withID: settledDestinationID) != nil {
+            return .destination(settledDestinationID)
+        }
+        if let id = primaryDestinations.first?.id ?? catalog?.destinations.first?.id {
+            return .destination(id)
+        }
+        return .more
+    }
+
+    /// The regular-width iPad tab whose content slot may expose the confirmed
+    /// Studio frame. It never follows an optimistic selection before Studio
+    /// acknowledges it.
+    public var adaptiveFrontendTab: NavigationTab? {
+        guard let settledDestinationID, catalog?.destination(withID: settledDestinationID) != nil else {
+            return nil
+        }
+        return .destination(settledDestinationID)
+    }
+
+    /// True while regular-width iPad selection has moved ahead of Studio's
+    /// painted destination.
+    public var isAdaptiveSelectionPending: Bool {
+        guard case .destination(let selectedID) = adaptiveSelectedTab else { return false }
+        return selectedID != settledDestinationID
+    }
+
+    /// True only during the short interval between an optimistic compact-tab
     /// tap and Studio's navigation acknowledgement.
-    public var isTabSelectionPending: Bool {
-        selectedTab != settledTab
+    public var isCompactSelectionPending: Bool {
+        compactSelectedTab != compactSettledTab
     }
 
     // MARK: From Studio
@@ -94,7 +135,12 @@ public final class NativeNavigationModel {
         }
         if first {
             showInitialSelection()
-        } else if case .destination(let id) = selectedTab, !primaryDestinations.contains(where: { $0.id == id }) {
+        } else if let settledDestinationID,
+                  self.catalog?.destination(withID: settledDestinationID) == nil {
+            showInitialSelection()
+        } else if !compactMoreShowsList {
+            // Placement metadata can change between catalog snapshots. Keep
+            // the settled destination, but remap the compact navigation slot.
             reconcile()
         }
     }
@@ -107,7 +153,7 @@ public final class NativeNavigationModel {
         pendingRequest = nil
         // While the More list covers Studio, an unrelated update (a changed
         // query string, say) must not pull the user off the list.
-        if changed || acknowledged || frontendTab != nil { reconcile() }
+        if changed || acknowledged || compactFrontendTab != nil { reconcile() }
     }
 
     public func apply(_ chrome: NavigationChrome) {
@@ -119,30 +165,49 @@ public final class NativeNavigationModel {
         catalog = nil
         activeDestinationID = nil
         path = nil
-        selectedTab = .more
-        settledTab = .more
-        moreShowsList = true
+        compactSelectedTab = .more
+        compactSettledTab = .more
+        settledDestinationID = nil
+        compactMoreShowsList = true
         pendingRequest = nil
     }
 
     // MARK: From the user
 
-    /// A tab bar tap, including a tap on the tab that is already selected.
-    public func selectTab(_ tab: NavigationTab) {
+    /// A compact tab-bar tap, including a tap on the tab already selected.
+    public func selectCompactTab(_ tab: NavigationTab) {
         switch tab {
         case .more:
             // A second tap on More returns to its list. This is app-owned
             // navigation, so it can settle immediately without Studio.
-            selectedTab = .more
-            settledTab = .more
-            moreShowsList = true
+            compactSelectedTab = .more
+            compactSettledTab = .more
+            compactMoreShowsList = true
         case .destination(let id):
             guard catalog?.destination(withID: id) != nil else { return }
             // Give the native control immediate feedback, but leave
-            // settledTab alone until Studio reports the route after paint.
-            selectedTab = .destination(id)
+            // compactSettledTab alone until Studio reports the route after paint.
+            compactSelectedTab = .destination(id)
             open(id)
         }
+    }
+
+    /// A direct destination selection from regular-width iPad's
+    /// sidebarAdaptable TabView. The system sidebar can select every
+    /// destination, not only compact
+    /// primary tabs.
+    public func selectAdaptiveTab(_ tab: NavigationTab) {
+        guard case .destination(let id) = tab,
+              catalog?.destination(withID: id) != nil else { return }
+
+        // Keep the compact projection in sync too. If the iPad window becomes
+        // compact before Studio acknowledges the route, the system can switch
+        // tab structures without briefly highlighting the previous page.
+        compactSelectedTab = primaryDestinations.contains(where: { $0.id == id })
+            ? .destination(id)
+            : .more
+        compactMoreShowsList = false
+        open(id)
     }
 
     /// The bridge could not deliver a request to Studio. Ignore a failure
@@ -151,7 +216,7 @@ public final class NativeNavigationModel {
     func navigationRequestFailed(_ destinationID: String) {
         guard pendingRequest == destinationID else { return }
         pendingRequest = nil
-        selectedTab = settledTab
+        compactSelectedTab = compactSettledTab
     }
 
     /// The native back button. Studio's router decides where it goes.
@@ -174,30 +239,40 @@ public final class NativeNavigationModel {
         guard let catalog else { return }
         if let id = activeDestinationID, primaryDestinations.contains(where: { $0.id == id }) {
             let tab = NavigationTab.destination(id)
-            selectedTab = tab
-            settledTab = tab
-            moreShowsList = false
+            compactSelectedTab = tab
+            compactSettledTab = tab
+            settledDestinationID = id
+            compactMoreShowsList = false
         } else if let id = activeDestinationID, catalog.destination(withID: id) != nil {
-            selectedTab = .more
-            settledTab = .more
-            moreShowsList = false
+            compactSelectedTab = .more
+            compactSettledTab = .more
+            settledDestinationID = id
+            compactMoreShowsList = false
         } else {
             // A location with no destination, such as My Account, stays in
             // whichever tab last showed Studio. An acknowledgement also
             // rolls back any optimistic selection to that confirmed tab.
-            selectedTab = settledTab
-            if frontendTab == nil { moreShowsList = false }
+            compactSelectedTab = compactSettledTab
+            if compactFrontendTab == nil { compactMoreShowsList = false }
         }
     }
 
     private func showInitialSelection() {
         if let id = activeDestinationID, catalog?.destination(withID: id) != nil {
             reconcile()
+        } else if let destination = primaryDestinations.first ?? catalog?.destinations.first {
+            let tab = NavigationTab.destination(destination.id)
+            compactSelectedTab = primaryDestinations.contains(where: { $0.id == destination.id })
+                ? tab
+                : .more
+            compactSettledTab = compactSelectedTab
+            settledDestinationID = destination.id
+            compactMoreShowsList = false
         } else {
-            let tab = primaryDestinations.first.map { NavigationTab.destination($0.id) } ?? .more
-            selectedTab = tab
-            settledTab = tab
-            moreShowsList = false
+            compactSelectedTab = .more
+            compactSettledTab = .more
+            settledDestinationID = nil
+            compactMoreShowsList = true
         }
     }
 }

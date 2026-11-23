@@ -32,14 +32,20 @@ vi.mock("../components/ScreenFleetMap", () => ({
   ),
 }));
 
-function stubViewport({ desktop = false, compact = false } = {}) {
+function stubViewport({
+  desktop = false,
+  compact = false,
+  phone = false,
+} = {}) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches:
       query === "(min-width: 1024px)"
         ? desktop
-        : query === "(max-width: 639px)"
+        : query === "(max-width: 1023px)"
           ? compact
-          : false,
+          : query === "(max-width: 639px)"
+            ? phone
+            : false,
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
@@ -294,8 +300,18 @@ describe("Fleet filters", () => {
     ]);
   });
 
-  it("opens a Drawer on a phone, over the same form", async () => {
+  it("keeps a Popover at iPad-width compact layouts", async () => {
     stubViewport({ compact: true });
+    const user = userEvent.setup();
+    renderList();
+
+    const dialog = await openFilters(user);
+    expect(dialog).toHaveAttribute("data-slot", "popover-content");
+    expect(document.querySelector('[data-slot="drawer-popup"]')).toBeNull();
+  });
+
+  it("opens a Drawer on a phone, over the same form", async () => {
+    stubViewport({ compact: true, phone: true });
     const user = userEvent.setup();
     renderList();
 
@@ -571,7 +587,7 @@ describe("Fleet toolbar", () => {
     expect(rowNames()).toEqual(["Gym", "Library"]);
   });
 
-  it("moves group and sort into one View options menu on a phone", async () => {
+  it("moves group and sort into one View options menu in a narrow workspace", async () => {
     stubViewport({ compact: true });
     const user = userEvent.setup();
     renderList();

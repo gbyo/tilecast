@@ -1,7 +1,17 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { csrfToken, ids, resetDemo } from "../support/demo";
 
 test.beforeEach(async ({ request }) => resetDemo(request));
+
+async function expectTarget(target: Locator, touch: boolean) {
+  await expect(target).toBeVisible();
+  const box = await target.boundingBox();
+  expect(box).not.toBeNull();
+  if (touch) {
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+  }
+}
 
 async function setDensity(page: Page, density: "comfortable" | "compact") {
   const response = await page.request.get("/api/v1/me/preferences");
@@ -154,6 +164,50 @@ for (const width of [1440, 1024, 820, 768, 390]) {
   });
 }
 
+for (const touch of [false, true]) {
+  const inputLabel = touch ? "touch" : "a fine pointer";
+  test.describe(`Studio at 820px with ${inputLabel}`, () => {
+    test.use({ hasTouch: touch, viewport: { width: 820, height: 1000 } });
+
+    test("keeps layout separate from input ergonomics", async ({ page }) => {
+      await page.goto("/schedules");
+
+      const search = page.getByRole("searchbox");
+      const filters = page.getByRole("button", { name: "Filters" });
+      const action = page.getByRole("button", {
+        name: "Actions for Morning Broadcast",
+      });
+
+      await expectTarget(search, touch);
+      await expectTarget(filters, touch);
+      await expectTarget(action, touch);
+      await expect(search).toHaveCSS("font-size", touch ? "16px" : "14px");
+
+      await filters.click();
+      const filterSurface = page.getByRole("dialog", { name: "Filters" });
+      // 820px is still an iPad-sized workspace: touch changes target geometry,
+      // not the spatial decision to preserve context with a Popover.
+      await expect(filterSurface).toHaveAttribute(
+        "data-slot",
+        "popover-content",
+      );
+      await page.keyboard.press("Escape");
+
+      await page.goto("/screens");
+      const link = page.getByRole("link", {
+        name: "Cafeteria East",
+        exact: true,
+      });
+      await link.click({ button: "right" });
+      if (touch) {
+        await expect(page.getByRole("menu")).toHaveCount(0);
+      } else {
+        await expect(page.getByRole("menu")).toBeVisible();
+        await page.keyboard.press("Escape");
+      }
+    });
+  });
+}
 test.describe("coarse pointer", () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
   test("keeps visible row actions and practical touch targets in both densities", async ({
@@ -167,10 +221,13 @@ test.describe("coarse pointer", () => {
       });
       await expect(action).toBeVisible();
       const box = await action.boundingBox();
-      expect(box!.width).toBeGreaterThanOrEqual(36);
-      expect(box!.height).toBeGreaterThanOrEqual(36);
+      expect(box!.width).toBeGreaterThanOrEqual(44);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
       await action.tap();
-      await expect(page.getByRole("menu")).toBeVisible();
+      const actions = page.getByRole("dialog", {
+        name: "Actions for Morning Broadcast",
+      });
+      await expect(actions).toHaveAttribute("data-slot", "drawer-popup");
       await page.keyboard.press("Escape");
     }
     await page.goto("/layouts/de300006-0000-4000-8000-000000000001");

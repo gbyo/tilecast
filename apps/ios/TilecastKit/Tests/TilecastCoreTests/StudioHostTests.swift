@@ -271,13 +271,13 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
             (.more, "charlie"), (nil, "delta"), (.destination("bravo"), "bravo"),
         ]
         for (tab, destination) in steps {
-            if let tab { navigation.selectTab(tab) } else { navigation.open(destination) }
+            if let tab { navigation.selectCompactTab(tab) } else { navigation.open(destination) }
             if tab != .more { studio(page, envelope("navigation/state", ["activeDestinationId": destination])) }
             #expect(host.page === page)
             #expect(host.page?.webPage === webPage)
         }
         #expect(requested == ["alpha", "bravo", "charlie", "delta", "bravo"])
-        #expect(navigation.selectedTab == .destination("bravo"))
+        #expect(navigation.compactSelectedTab == .destination("bravo"))
         page.close()
     }
 }

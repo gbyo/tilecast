@@ -40,23 +40,23 @@ Tests can use Studio paths and destination identifiers as data.
 
 ## Components
 
-| Part                     | Location                                                | Responsibility                                                                                                |
-| ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| App target               | `apps/ios/Tilecast/`                                    | SwiftUI scenes, native tabs and sidebar, server switching, add-server flow, connection states, localized text |
-| `TilecastCore`           | `apps/ios/TilecastKit/Sources/TilecastCore/`            | Server profiles, address policy, installation identity, WebKit storage, navigation policy, hosting            |
-| Native authentication    | `apps/ios/TilecastKit/Sources/TilecastCore/Auth/`       | Sign-in callback checks, the iOS session client, the credential store, `NativeAuthSession`, bearer transport  |
-| `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code            |
-| Native bridge            | `apps/ios/TilecastKit/Sources/TilecastCore/Bridge/`     | The only code that handles page scripting: the message handler, protocol validation, and the receiver call    |
-| Native navigation model  | `apps/ios/TilecastKit/Sources/TilecastCore/Navigation/` | The navigation catalog, selection that follows Studio, and icon tokens                                        |
-| Deep links               | `apps/ios/TilecastKit/Sources/TilecastCore/DeepLinks/`  | The `tilecast-ios://open` URL, its path rules, and the resolver that `StudioHost` runs                        |
-| Media intake             | `apps/ios/TilecastKit/Sources/TilecastCore/Media/`      | Temporary staging, the resumable uploader, and the intake coordinator. It has no user interface               |
-| System integrations      | `apps/ios/Tilecast/Features/System/`, `Features/Media/` | Semantic haptics, the share adapter, the deep-link notice, and the media pickers and progress sheet           |
-| Bridge contract          | `packages/native-bridge-schema/`                        | The language-neutral protocol, icon tokens, and the shared fixtures that Studio and the app run               |
-| Studio native host       | `apps/dashboard/src/native-host/`                       | Studio's side of the bridge: detection, capability negotiation, catalog, state, and requests                  |
-| Core tests               | `apps/ios/TilecastKit/Tests/TilecastCoreTests/`         | Swift Testing suites; run on macOS with `swift test` and on the iOS Simulator                                 |
-| UI tests                 | `apps/ios/TilecastUITests/`                             | Smoke tests against a loopback fixture server; no network access                                              |
-| Build settings           | `apps/ios/Config/*.xcconfig`                            | All build settings; the project file holds none                                                               |
-| CI and repository checks | `apps/ios/scripts/`                                     | Simulator selection, localization parity, architecture boundaries                                             |
+| Part                     | Location                                                | Responsibility                                                                                                        |
+| ------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| App target               | `apps/ios/Tilecast/`                                    | SwiftUI scenes, adaptive tab/sidebar navigation, server switching, add-server flow, connection states, localized text |
+| `TilecastCore`           | `apps/ios/TilecastKit/Sources/TilecastCore/`            | Server profiles, address policy, installation identity, WebKit storage, navigation policy, hosting                    |
+| Native authentication    | `apps/ios/TilecastKit/Sources/TilecastCore/Auth/`       | Sign-in callback checks, the iOS session client, the credential store, `NativeAuthSession`, bearer transport          |
+| `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code                    |
+| Native bridge            | `apps/ios/TilecastKit/Sources/TilecastCore/Bridge/`     | The only code that handles page scripting: the message handler, protocol validation, and the receiver call            |
+| Native navigation model  | `apps/ios/TilecastKit/Sources/TilecastCore/Navigation/` | The navigation catalog, selection that follows Studio, and icon tokens                                                |
+| Deep links               | `apps/ios/TilecastKit/Sources/TilecastCore/DeepLinks/`  | The `tilecast-ios://open` URL, its path rules, and the resolver that `StudioHost` runs                                |
+| Media intake             | `apps/ios/TilecastKit/Sources/TilecastCore/Media/`      | Temporary staging, the resumable uploader, and the intake coordinator. It has no user interface                       |
+| System integrations      | `apps/ios/Tilecast/Features/System/`, `Features/Media/` | Semantic haptics, the share adapter, the deep-link notice, and the media pickers and progress sheet                   |
+| Bridge contract          | `packages/native-bridge-schema/`                        | The language-neutral protocol, icon tokens, and the shared fixtures that Studio and the app run                       |
+| Studio native host       | `apps/dashboard/src/native-host/`                       | Studio's side of the bridge: detection, capability negotiation, catalog, state, and requests                          |
+| Core tests               | `apps/ios/TilecastKit/Tests/TilecastCoreTests/`         | Swift Testing suites; run on macOS with `swift test` and on the iOS Simulator                                         |
+| UI tests                 | `apps/ios/TilecastUITests/`                             | Smoke tests against a loopback fixture server; no network access                                                      |
+| Build settings           | `apps/ios/Config/*.xcconfig`                            | All build settings; the project file holds none                                                                       |
+| CI and repository checks | `apps/ios/scripts/`                                     | Simulator selection, localization parity, architecture boundaries                                                     |
 
 `TilecastCore` holds no user-visible strings, so the app target maps each Core error value to localized text.
 
@@ -106,7 +106,7 @@ Native code loads a URL only to start the page, to restore the last path at laun
 
 The same `StudioPage` and `WebPage` stay in use while the user moves between native tabs, More, and sidebar rows. A destination change does not reload the page.
 
-A `WebPage` can have only one `WebView`. SwiftUI can build a new view before it removes an old view, for example when the selected tab changes. The app therefore creates one `WebView` for the page and never moves it. Each layout marks the area for Studio with a `StudioSlotView`: the fallback content area, the selected tab, the More tab, or the split view detail. `StudioOverlay` places the one web view over the active area. While the More list covers Studio, the web view stays in place but is hidden.
+A `WebPage` can have only one `WebView`. SwiftUI can build a new view before it removes an old view, for example when the selected tab changes. The app therefore creates one `WebView` for the page and never moves it. Each layout marks the area for Studio with a `StudioSlotView`: the fallback content area, the selected tab, or the More tab. `StudioOverlay` places the one web view over the active area. While the More list covers Studio, the web view stays in place but is hidden.
 
 Native back and forward gestures are off, because React Router owns history. Link previews are off, because a preview loads outside the navigation policy.
 
@@ -258,7 +258,7 @@ A native tap never loads a URL. The sequence is:
 2. Studio finds the identifier in its current model. If the identifier is not there, Studio refuses the request and sends its catalog and state again.
 3. Studio calls React Router's `navigate`.
 4. An unsaved-changes blocker can stop the navigation. The user decides in Studio's own dialog.
-5. On iPhone, the native tab highlight changes immediately. The one Studio WebView stays associated with its last confirmed tab, and the newly selected tab masks that stale frame.
+5. In the adaptive tab UI, the native tab highlight changes immediately. The one Studio WebView stays associated with its last confirmed tab, and the newly selected tab masks that stale frame.
 6. When the route changes, Studio waits across a browser paint boundary before sending `navigation/state`. It also sends the state when the location did not change.
 7. The app settles the WebView onto the destination named by that state and removes the mask. If navigation was blocked, the unchanged state rolls the optimistic tab highlight back instead.
 
@@ -274,36 +274,41 @@ The back button sends `navigation/back` with no path. Studio navigates to the pr
 
 No page needs code for this. The trail comes from the route metadata that Studio already has, so a new page with a breadcrumb gets the bar. The bar has no swipe-back gesture yet: the web view has no back stack of its own, and the gesture would have to call `navigation/back`.
 
-### iPhone
+### Adaptive iPhone and iPad navigation
 
-The app uses a SwiftUI `TabView`:
+The app uses one SwiftUI `TabView` with the `sidebarAdaptable` style. Studio's catalog is the hierarchy; Tilecast does not maintain a second list of iPad destinations.
 
-- The first destinations that Studio marks `primary` become tabs, up to four. Studio marks Overview, Fleet, and Media as `primary`.
-- The last tab is the app's own More tab.
-- The first tap on More shows a grouped list of every other destination, in Studio's groups, and the server controls: server switching, Add Server, Manage Servers, and Reload.
-- A destination in the list opens in the same Studio page, inside the More tab. More stays selected while a More destination is open.
-- A tap on More while More is selected shows the list again.
+- The first destinations that Studio marks `primary` become top-level tabs, up to four. Studio marks Overview, Fleet, and Media as `primary`.
+- In compact navigation — iPhone and horizontally compact iPad windows — the last tab is the app's More tab. It contains every other destination in Studio's groups plus server switching, Add Server, Manage Servers, Reload, and Sign Out. Opening one of those destinations keeps More selected.
+- On regular-width iPad, there is no app-owned More tab. Every non-primary destination becomes a real SwiftUI `Tab` inside a `TabSection` built from Studio's group. Those tabs use `.tabPlacement(.sidebarOnly)`, so they stay out of the content-first top tab bar but appear directly in the system sidebar.
+- iPhone and horizontally compact iPad windows use the compact bottom-tab representation. This intentionally changes the tab structure instead of letting every secondary `TabSection` item spill into the compact bar.
+- Regular-width iPadOS defaults to the content-first top tab bar and can adapt it into the system sidebar as the person changes the representation or resizes the window. Tilecast does not force the sidebar open just because the horizontal size class is regular.
+- The native selection model keeps the actual Studio destination separately from the compact More slot. A secondary route therefore highlights its own sidebar row on regular-width iPad while mapping to More in compact navigation, without changing the bridge contract.
 
-Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. The app shows no navigation bar above Studio while native navigation is active.
+This follows Apple's current iPadOS guidance: keep functionality stable as space changes, expose more UI when room is available, and prefer a tab bar first when a permanent sidebar would unnecessarily reduce content space.
+
+Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. In the native host, that shared topbar stays compact and keeps search/notification controls at touch-sized hit targets instead of expanding the desktop search field at tablet widths. When iPadOS expands the adaptable navigation into a sidebar, the sidebar header restores the active-server menu without forcing that sidebar to remain visible. The app shows no second navigation bar above Studio while native navigation is active.
+
+Studio also keeps presentation width separate from workspace density. Phone-sized content areas (up to 639px) use bottom drawers for transient details and filters. Narrow workspaces below 1024px still simplify toolbars, editors, and dense tables, but iPad-sized medium widths use anchored popovers and tablet/desktop detail panels instead of inheriting phone modal behavior. Browser navigation stays off-canvas through 1279px; at 1280px the 16rem sidebar can appear while leaving roughly 1024px for the desktop workspace.
+
+Input capability is a separate axis again. Shared media-query hooks distinguish any coarse pointer from any available fine pointer that can hover. On iPad, touch remains the primary pointer, so hover capability uses `any-hover: hover` together with `any-pointer: fine`; this preserves Apple Pencil hover as well as mouse and trackpad hover. Coarse pointers keep interactive targets at least 44pt, keep form text at 16px where Safari could otherwise zoom, expose actions that desktop may reveal on hover, enlarge editor resize/drag hit regions, and present complex overflow actions as a touch drawer. Fine-hover inputs keep hover previews and pointer context-menu enhancements. An iPad can therefore retain touch-safe target sizes while Apple Pencil or an attached pointing device adds hover affordances.
 
 #### Studio beneath the tab bar
 
 The iOS 26 tab bar floats over its content. Studio must be the content that shows through the glass, so the tab bar does not show an empty strip.
 
-The one Studio web view is a sibling of the shell in `StudioShell`, and it is not a child of any layout. Its layer order depends on the layout:
+The one Studio web view is a sibling of the shell in `StudioShell`, and it is not a child of any layout. Its layer order depends on the platform rendering behavior:
 
-- In every layout but the tabs, the web view is above the shell. `StudioOverlay` places it over the active slot.
-- In the compact tab layout, the web view is behind the shell. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the tab bar is drawn above the page. The More tab shows either the More list or Studio, because the list is opaque.
+- In the fallback layout, the web view is above the shell. `StudioOverlay` places it over the active slot.
+- On iPhone with native navigation, the web view is behind the adaptive tab container. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the floating bottom tab bar is drawn above the page.
+- On iPad with native navigation, including a horizontally compact iPad window, the web view stays above the shell and is constrained to the selected tab's content slot. The system tab bar or adaptable sidebar remains outside that slot, so it stays visible and interactive without relying on UIKit sidebar internals.
+- In compact navigation, the More tab shows either the More list or Studio, because the list is opaque. Regular-width iPad secondary destinations each have their own system tab content slot.
 - `StudioShell` changes only `zIndex`, so the web view is not rebuilt and no second `WebView` exists.
-- `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom inset that the tab bar causes, and adds the inset to the frame. `StudioOverlay` applies the same inset with `safeAreaPadding(.bottom, _)`, so content scrolls under the bar and stops above it.
+- `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom inset that the tab bar causes, and adds the inset to the frame. On iPhone, `StudioOverlay` applies the same inset with `safeAreaPadding(.bottom, _)`, so content scrolls under the bar and stops above it.
 
-`TransparentTabContainer` is the one UIKit adapter for this. `TabView` is a `UITabBarController`, and its container views paint an opaque background that SwiftUI cannot remove. The adapter finds the controller from inside a tab and clears the background color of its container views, never the tab bar. The container views also swallow touches where they are transparent. The adapter gives the controller's view, for that one instance, a runtime subclass with a `hitTest`, and it does the same for each wrapper view that SwiftUI puts around the controller. While Studio shows, the `hitTest` keeps only hits on the tab bar and the navigation bar, so every other touch reaches the web view behind. While the More list shows, it changes nothing. The layering is not verified on a device or a simulator. If Studio is blank in the tabs, a container still paints an opaque background, and the web view must go back above the shell. The regular-width iPad sidebar and the fallback chrome keep the web view above the shell.
+`TransparentTabContainer` is the one UIKit adapter for the iPhone floating-tab composition. `TabView` is a `UITabBarController`, and its container views paint an opaque background that SwiftUI cannot remove. The adapter finds the controller from inside a tab and clears the background color of its container views, never the tab bar. The container views also swallow touches where they are transparent. The adapter gives the controller's view, for that one instance, a runtime subclass with a `hitTest`, and it does the same for each wrapper view that SwiftUI puts around the controller. While Studio shows, the `hitTest` keeps only hits on the tab bar and the navigation bar, so every other touch reaches the web view behind. While the More list shows, it changes nothing. iPad does not install this hit-testing adapter; its system sidebar remains entirely system-owned.
 
 The app does not minimize the tab bar while the page scrolls. A `WebView` does not take part in the tab bar's scroll tracking.
-
-### iPad
-
-On an iPad in regular width, the app uses a `NavigationSplitView`. The sidebar shows the server menu at the top, then every catalog group in order, with the secondary group last. The detail column is the same Studio page. An iPad window in compact width uses the iPhone tabs.
 
 ### Fallback
 
@@ -323,7 +328,7 @@ Studio also falls back by itself. If negotiation fails, times out, or reports no
 
 Do not edit these files. After you change the Studio mapping or update `lucide-react`, run `npm run ios:icons:generate`. `make generated-check` fails when the files are out of date. The Lucide ISC license ships in the app bundle in `Resources/Licenses/`.
 
-Tabs, the More list, the iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
+Tabs, the compact More list, the adaptable iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
 
 ### Plugins
 
@@ -331,7 +336,7 @@ Plugin pages are always Studio pages. A plugin page below `/plugins/` opens in t
 
 ### Adding a destination
 
-To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. On an iPad, the destination appears in its sidebar group. On an iPhone, it appears in More unless its metadata says `primary`. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
+To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. A `primary` destination can occupy one of the compact top-level tabs. Any other destination appears in More on iPhone or a horizontally compact iPad window, and directly in its Studio group in the regular-width iPad adaptable sidebar. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
 
 ## Native presentations
 
@@ -679,7 +684,7 @@ The refresh token is never in `UserDefaults`, `ServerDirectory`, JSON files, log
 Sign-out means the whole app session for that server:
 
 - **From Studio.** Studio does its normal cookie and CSRF logout. Before it shows the sign-in page, it sends `auth/signed-out`. The app revokes the grant (best effort), deletes the refresh token, and drops the access token.
-- **From the app.** The Sign Out control is in the iPhone More list, the iPad server menu, and the fallback menu. The app deletes the credential first, then sends `auth/sign-out-request`, and Studio does its normal logout. The app does not need a CSRF token. Then the app deletes this server's cookies. Revoking the grant on the server is best effort. If the server cannot be reached, or the app ends while Studio is asked, the local deletion already occurred. Other website data, such as preferences and caches, stays.
+- **From the app.** The Sign Out control is in the compact More list, the regular-width iPad server menu, and the fallback menu. The app deletes the credential first, then sends `auth/sign-out-request`, and Studio does its normal logout. The app does not need a CSRF token. Then the app deletes this server's cookies. Revoking the grant on the server is best effort. If the server cannot be reached, or the app ends while Studio is asked, the local deletion already occurred. Other website data, such as preferences and caches, stays.
 
 After an explicit sign-out, the profile records `signedOutAt`. The app shows its Sign In control and does not open the browser by itself, also after a relaunch. A completed sign-in clears the record. A missing or expired session still opens the browser, as before.
 
@@ -732,13 +737,13 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | Milestone | Scope                                                                                                                                                                   |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                                                  |
-| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
+| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, adaptive iPhone/iPad navigation                       |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
 | 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                           |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
-| 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |
+| 8A        | Implemented: system share, semantic haptics, deep links, native media intake, and Studio composition beneath the iPhone floating tab bar                                |
 | 8B        | Push notifications, notification actions, App Intents and Shortcuts, and screen quick actions. See [ADR: push and quick actions](adr/ios-m8b-push-and-quick-actions.md) |
 
 Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio. Milestone 8A adds no native product screen: the app has no native Media library.
@@ -749,7 +754,6 @@ Everything not listed as native stays in Studio. After Milestone 8 most of the p
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
 - Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
-- Studio ends above the floating tab bar. It does not extend beneath it. See [Studio above the tab bar](#studio-above-the-tab-bar).
 - Native media intake is the only workflow that calls the native API. Milestone 3 is the foundation for later native workflows.
 - Native uploads run while the app is in the foreground. The app does not promise that an upload continues after iOS suspends or ends the app. See [Native media intake](#native-media-intake).
 - The Keychain tests need a signed test process. They are skipped by `swift test` on macOS and in the unsigned CI build, where the in-memory store tests cover the same logic.
@@ -765,4 +769,4 @@ An iOS bridge test requires an application bundle as its process host.
 CI keeps the bridge suite in a separate step with its existing time limits and retry policy.
 The macOS `swift test` command still uses the package target.
 
-See `apps/ios/README.md` for commands. CI runs the `ios_ci` job in `.github/workflows/ci-ios.yml` on `macos-26` when a pull request changes `apps/ios/`, `packages/native-bridge-schema/`, the OpenAPI contract (`docs/openapi/` and `docs/openapi.yaml`), or the shared server address corpus. A change to the bridge schema also runs the dashboard checks, because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app, because the app loads Studio from the server at runtime. This includes Studio's own bridge code in `apps/dashboard/src/native-host/`, which the dashboard tests cover. `scripts/ci/affected.mjs` records these edges. Add one when the app starts to compile or test against another contract, such as the settings schema.
+See `apps/ios/README.md` for commands. The `ios_ci` job in `.github/workflows/ci-ios.yml` runs in Extended validation on `macos-26`: nightly against `main` and on demand for a branch. Normal pull-request validation intentionally stays on deterministic checks. The affected-area graph still records which contracts belong to iOS — `apps/ios/`, `packages/native-bridge-schema/`, the OpenAPI contract, Studio's navigation icon mapping, and the shared server-address corpus — so a full validation selects the app when any of those inputs change. A change to the bridge schema also runs the dashboard checks because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app because the app loads Studio from the server at runtime. Add an affected-area edge when the app starts to compile or test against another contract, such as the settings schema.

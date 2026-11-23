@@ -21,16 +21,19 @@ html[data-density="compact"]
   padding-block: 0.375rem;
 }
 
-/* Coarse pointers retain a larger target in both density modes. The glyph,
-   focus ring, validation text, and normal readable font scale stay intact. */
+/* Touch remains a first-class input even when iPad also has a pointer.
+   Apple's 44pt target guidance maps to 2.75rem at Studio's 16px root size.
+   Keep the visible glyph and compact desktop geometry, but never shrink the
+   coarse-pointer hit region below that floor. */
 @media (any-pointer: coarse) {
   [data-slot="calendar"] {
-    --cell-size: 2.25rem;
+    --cell-size: 2.75rem;
   }
 
+  [data-slot="input"],
   [data-slot="input-group"],
   [data-slot="menubar"] {
-    min-height: 2.25rem;
+    min-height: 2.75rem;
   }
 
   [data-slot="input-group-addon"] {
@@ -46,14 +49,14 @@ html[data-density="compact"]
   [data-slot="input-group-button"],
   [data-slot="tabs-trigger"],
   [data-slot="sidebar-menu-button"] {
-    min-height: 2.25rem;
-    min-width: 2.25rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 
   [data-slot="sidebar-menu-action"],
   [data-slot="sidebar-group-action"] {
-    min-height: 1.5rem;
-    min-width: 1.5rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     opacity: 1;
   }
 
@@ -61,6 +64,17 @@ html[data-density="compact"]
   [data-slot="context-menu-item"],
   [data-slot="select-item"],
   [data-slot="combobox-item"] {
-    min-height: 2.25rem;
+    min-height: 2.75rem;
+  }
+
+  /* Small binary controls keep their native visual size, but their invisible
+     hit slop reaches the same 44pt floor. Field labels remain clickable too. */
+  [data-slot="checkbox"]::after,
+  [data-slot="radio-group-item"]::after {
+    inset: -0.875rem;
+  }
+
+  [data-slot="switch"]::after {
+    inset-block: -0.9375rem;
   }
 }

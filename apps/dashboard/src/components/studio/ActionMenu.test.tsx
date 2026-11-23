@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ActionContextMenu,
   ActionMenuButton,
@@ -20,6 +20,7 @@ import {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function groups(listeners: {
@@ -60,6 +61,33 @@ function renderButton(actions: StudioActionGroup[]) {
 }
 
 describe("ActionMenuButton in a browser", () => {
+  it("uses a large action drawer on a coarse pointer", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    const onOpen = vi.fn();
+    renderButton(groups({ onOpen }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
+    const drawer = await screen.findByRole("dialog", {
+      name: "Actions for Lobby",
+    });
+    expect(drawer).toHaveAttribute("data-slot", "drawer-popup");
+    expect(
+      screen.queryByRole("menuitem", { name: "Open" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith();
+  });
+
   it("opens the web menu with grouped actions", async () => {
     const onOpen = vi.fn();
     const onDelete = vi.fn();
@@ -160,6 +188,19 @@ describe("ActionMenuButton in a browser", () => {
 });
 
 describe("ActionContextMenu", () => {
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-hover: hover) and (any-pointer: fine)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+  });
+
   function renderCard(actions: StudioActionGroup[]) {
     return render(
       <StrictMode>
@@ -173,6 +214,23 @@ describe("ActionContextMenu", () => {
       </StrictMode>,
     );
   }
+
+  it("does not hide context actions behind touch long-press", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    renderCard(groups({}));
+    fireEvent.contextMenu(screen.getByTestId("card"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card")).toBeVisible();
+  });
 
   it("opens the web menu on right-click", async () => {
     const onOpen = vi.fn();

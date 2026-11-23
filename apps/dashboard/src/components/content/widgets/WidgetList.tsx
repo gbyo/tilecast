@@ -124,12 +124,12 @@ export function WidgetItems({ rows, actionsFor }: ListProps) {
               actions={actions}
               className="contents"
             >
-              <Item size="sm" variant="outline">
+              <Item size="sm" variant="outline" className="relative">
                 <ItemContent>
                   <ItemTitle className="max-w-full">
                     <Link
                       to={widgetPath(asset)}
-                      className="truncate rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="truncate rounded-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-[3px] focus-visible:after:ring-ring/50"
                     >
                       {asset.name}
                     </Link>
@@ -144,7 +144,7 @@ export function WidgetItems({ rows, actionsFor }: ListProps) {
                     })}
                   </ItemDescription>
                 </ItemContent>
-                <ItemActions>
+                <ItemActions className="relative z-10">
                   <ActionMenuButton
                     label={label}
                     actions={actions}

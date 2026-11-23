@@ -35,7 +35,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
-import { useCompactLayout } from "../hooks/use-compact-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
   galleryDescriptionText,
@@ -333,9 +333,9 @@ export function ConnectDataFlow({
   exclude?: DataSourceProvider[];
   csrf: string;
   /**
-   * A centered dialog, or a side panel beside the work it serves (a Sheet
-   * on wide screens, a Drawer on compact ones) so an author keeps seeing
-   * the Widget they are connecting data to.
+   * A centered dialog, or a side panel beside the work it serves. Phone-sized
+   * content uses a Drawer; iPad and desktop use a Sheet so an author keeps
+   * seeing the Widget they are connecting data to.
    */
   presentation?: "dialog" | "panel";
   onChooseProvider: (provider: DataSourceProvider) => void;
@@ -344,7 +344,7 @@ export function ConnectDataFlow({
   onCreated: (id: string) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const definitions = useDataSourceDefinitions(providers, exclude);
   const definition = definitions.all.find(
     (candidate) => candidate.id === provider,
@@ -395,7 +395,7 @@ export function ConnectDataFlow({
   const onOpenChange = (open: boolean) => {
     if (!open) onClose();
   };
-  if (presentation === "panel" && compact)
+  if (presentation === "panel" && phone)
     return (
       <Drawer open onOpenChange={onOpenChange}>
         <DrawerContent
@@ -417,7 +417,7 @@ export function ConnectDataFlow({
           ref={dialogContentRef}
           side="right"
           showCloseButton={provider !== undefined}
-          className="w-full overflow-y-auto p-6 sm:max-w-3xl"
+          className="w-full overflow-y-auto p-6 sm:max-w-lg lg:max-w-3xl"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{title}</SheetTitle>

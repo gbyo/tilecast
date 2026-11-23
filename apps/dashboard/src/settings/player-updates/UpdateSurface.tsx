@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useDesktopLayout } from "../../hooks/use-desktop-layout";
+import { usePhoneLayout } from "../../hooks/use-phone-layout";
 import {
   Sheet,
   SheetContent,
@@ -42,14 +42,14 @@ export function UpdateSurface({
   footer?: ReactNode;
   presentation?: "sheet" | "dialog";
 }) {
-  const desktop = useDesktopLayout();
+  const phone = usePhoneLayout();
   const body = (
     <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto px-4 pb-4 sm:px-6">
       {children}
     </div>
   );
 
-  if (!desktop) {
+  if (phone) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
         <DrawerContent className="flex max-h-[calc(100dvh-1rem)] flex-col">
@@ -91,7 +91,7 @@ export function UpdateSurface({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-4 sm:max-w-2xl"
+        className="flex w-full flex-col gap-4 sm:max-w-lg lg:max-w-2xl"
       >
         <SheetHeader className="shrink-0">
           <SheetTitle>{title}</SheetTitle>

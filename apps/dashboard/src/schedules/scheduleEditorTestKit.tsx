@@ -49,12 +49,12 @@ export function mockAuth(role = "owner") {
 
 export type Viewport = "desktop" | "tablet" | "phone";
 
-/** What the layout hooks read: desktop is min-width 1024, phone is max-width 639. */
+/** What the layout hooks read: desktop starts at 1024; tablet and phone are compact. */
 export function setViewport(viewport: Viewport) {
   window.matchMedia = (query: string) => ({
     matches:
       (query.includes("min-width: 1024px") && viewport === "desktop") ||
-      (query.includes("max-width: 639px") && viewport === "phone"),
+      (query.includes("max-width: 1023px") && viewport !== "desktop"),
     media: query,
     onchange: null,
     addListener: () => undefined,

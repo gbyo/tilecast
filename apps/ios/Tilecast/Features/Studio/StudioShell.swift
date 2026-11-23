@@ -13,7 +13,6 @@ struct StudioShell: View {
     @State private var managingServers = false
     @State private var addingServer = false
     @State private var slot = StudioSlot()
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var actions: ServerActions {
         ServerActions(add: { addingServer = true }, manage: { managingServers = true })
@@ -22,9 +21,10 @@ struct StudioShell: View {
     var body: some View {
         // The one web view is a sibling of the shell, never a child of a
         // layout, so changing the order does not rebuild it. It is above the
-        // shell in every layout but the tabs. In the tabs it is behind a
-        // transparent tab container, so the floating tab bar shows the page
-        // through its glass instead of being covered by it.
+        // shell in the fallback layout. On iPhone native navigation it moves
+        // behind the transparent tab container so the floating bottom bar can
+        // sample Studio. On iPad it stays above the shell but only inside the
+        // selected content slot, leaving the system tab bar/sidebar exposed.
         ZStack {
             shell.zIndex(webViewBehindTabs ? 1 : 0)
             StudioOverlay().zIndex(webViewBehindTabs ? 0 : 1)
@@ -62,10 +62,13 @@ struct StudioShell: View {
         }
     }
 
-    /// True while native tabs show Studio.
+    /// iPhone needs the WebView behind the transparent tab container so the
+    /// floating bottom bar samples Studio. On iPad the WebView stays above the
+    /// shell, constrained to the selected tab's content slot; the system top
+    /// tab bar/sidebar remains outside that slot and stays fully interactive.
     private var webViewBehindTabs: Bool {
         host.page?.bridge.navigation.isAvailable == true
-            && NativeNavigationShell.usesTabs(horizontalSizeClass: horizontalSizeClass)
+            && UIDevice.current.userInterfaceIdiom == .phone
     }
 
     /// The generic MapKit presentation Studio asked for. The center reports

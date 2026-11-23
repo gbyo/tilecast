@@ -7,9 +7,9 @@ import TilecastCore
 /// new view before it removes an old one, for example when a tab changes.
 /// So the shell creates exactly one `WebView` for the page's whole life, at
 /// its root, and never moves it between containers. Each layout (the
-/// fallback chrome, a tab, More, or the iPad detail column) marks where
-/// Studio belongs with a `StudioSlotView`, and the root places the web view
-/// over the active slot.
+/// fallback chrome, a compact More tab, or an adaptive destination tab)
+/// marks where Studio belongs with a `StudioSlotView`, and the root places
+/// the web view over the active slot.
 @MainActor
 @Observable
 final class StudioSlot {
@@ -47,8 +47,9 @@ nonisolated private struct SlotMeasure: Equatable, Sendable {
 
 /// Marks where Studio appears in a layout. Show at most one at a time.
 struct StudioSlotView: View {
-    /// Extend beneath the tab bar. The iOS 26 tab bar floats over its
-    /// content, so Studio must be what shows through the glass.
+    /// Extend beneath floating tab chrome only when the WebView is layered
+    /// behind that chrome. Tilecast uses this on iPhone; iPad keeps Studio
+    /// inside the system content slot so its tab bar/sidebar owns hit testing.
     var extendsBelowTabBar = false
     @Environment(StudioSlot.self) private var slot
     @State private var id = UUID()

@@ -42,7 +42,7 @@ import {
 import { Skeleton } from "../../components/ui/skeleton";
 import { toast } from "../../components/ui/toast";
 import { screenKeys, screenQueries } from "../../data/screens";
-import { useCompactLayout } from "../../hooks/use-compact-layout";
+import { usePhoneLayout } from "../../hooks/use-phone-layout";
 import { screenStatusText } from "./groupHealthModel";
 import {
   addScreensInBatch,
@@ -51,8 +51,9 @@ import {
 } from "./displayGroupModel";
 
 /**
- * Picks one or more screens to add. A Sheet beside the page on desktop and a
- * Drawer on compact layouts; the body is shared so behavior cannot drift.
+ * Picks one or more screens to add. Phone-sized content uses a bottom Drawer;
+ * iPad and desktop use a Sheet beside the page. The body is shared so behavior
+ * cannot drift.
  */
 export function AddScreensPicker({
   group,
@@ -64,7 +65,7 @@ export function AddScreensPicker({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation(["screens", "common"]);
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const title = t("groups.picker.title");
   const description = t("groups.picker.description", { name: group.name });
   // The body resets with each opening: its search, selection, and failures
@@ -74,7 +75,7 @@ export function AddScreensPicker({
       group={group}
       onDone={() => onOpenChange(false)}
       footer={(actions) =>
-        compact ? (
+        phone ? (
           <DrawerFooter className="border-t border-border">
             {actions}
           </DrawerFooter>
@@ -87,7 +88,7 @@ export function AddScreensPicker({
     />
   ) : null;
 
-  if (compact)
+  if (phone)
     return (
       <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
         <DrawerContent aria-label={title} className="max-h-[calc(100dvh-2rem)]">

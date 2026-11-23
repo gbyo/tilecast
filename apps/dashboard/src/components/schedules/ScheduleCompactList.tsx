@@ -20,7 +20,7 @@ import {
 import { schedulePath, type ScheduleRow } from "./scheduleLibraryModel";
 
 /**
- * Phones: a native list with a fixed reading order. Name and actions first,
+ * Narrow workspaces: a native list with a fixed reading order. Name and actions first,
  * then status and what it presents, then when, then where and priority.
  */
 export function ScheduleCompactList({
@@ -47,13 +47,20 @@ export function ScheduleCompactList({
             label={label}
             title={schedule.name}
             actions={actions}
-            render={<Item size="sm" variant="outline" render={<li />} />}
+            render={
+              <Item
+                size="sm"
+                variant="outline"
+                className="relative"
+                render={<li />}
+              />
+            }
           >
             <ItemContent className="min-w-0">
               <ItemTitle className="max-w-full">
                 <Link
                   to={schedulePath(schedule)}
-                  className="truncate rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="truncate rounded-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-[3px] focus-visible:after:ring-ring/50"
                   title={schedule.name}
                 >
                   {schedule.name}
@@ -74,7 +81,7 @@ export function ScheduleCompactList({
                 </span>
               </ItemDescription>
             </ItemContent>
-            <ItemActions className="self-start">
+            <ItemActions className="relative z-10 self-start">
               <ActionMenuButton
                 label={label}
                 actions={actions}

@@ -112,6 +112,7 @@ export function SiteHeader({
   editor = false,
   demoMode = false,
   navigationTrigger = true,
+  nativeHost = false,
   accountMenu,
 }: {
   breadcrumbs: StudioBreadcrumb[];
@@ -122,6 +123,8 @@ export function SiteHeader({
   demoMode?: boolean;
   /** False when a native host provides navigation instead of the sidebar. */
   navigationTrigger?: boolean;
+  /** True when Studio is embedded in Tilecast's native iOS/iPadOS shell. */
+  nativeHost?: boolean;
   /** The account menu, when the sidebar that normally holds it is absent. */
   accountMenu?: ReactNode;
 }) {
@@ -131,13 +134,20 @@ export function SiteHeader({
     <header
       className={cn(
         "flex shrink-0 items-center border-b border-border",
-        editor
-          ? "h-13 gap-2 pr-2.5 pl-3 max-[360px]:gap-1 max-[360px]:pr-1.5 max-[360px]:pl-2"
-          : "h-14 gap-3 px-4 md:px-6",
+        nativeHost
+          ? editor
+            ? "h-12 gap-1.5 px-2.5 max-[360px]:gap-1 max-[360px]:px-2"
+            : "h-12 gap-1.5 px-2.5"
+          : editor
+            ? "h-13 gap-2 pr-2.5 pl-3 max-[360px]:gap-1 max-[360px]:pr-1.5 max-[360px]:pl-2"
+            : "h-14 gap-3 px-4 md:px-6",
       )}
     >
       {navigationTrigger && (
-        <SidebarTrigger aria-label={t("header.toggleNavigation")} />
+        <SidebarTrigger
+          className="size-11 lg:size-8"
+          aria-label={t("header.toggleNavigation")}
+        />
       )}
       {navigationTrigger && editor && (
         <Separator
@@ -225,10 +235,14 @@ export function SiteHeader({
 
       <Button
         type="button"
-        variant={editor ? "ghost" : "outline"}
+        variant={editor || nativeHost ? "ghost" : "outline"}
         className={cn(
-          "size-8 text-muted-foreground",
-          !editor && "sm:w-56 sm:justify-start sm:gap-2 sm:px-2.5",
+          nativeHost
+            ? "size-11 text-muted-foreground"
+            : "size-11 text-muted-foreground lg:size-8",
+          !editor &&
+            !nativeHost &&
+            "lg:w-56 lg:justify-start lg:gap-2 lg:px-2.5",
         )}
         aria-haspopup="dialog"
         aria-label={editor ? t("header.search") : undefined}
@@ -237,16 +251,16 @@ export function SiteHeader({
         <Search aria-hidden="true" />
         <span
           className={cn(
-            editor
+            editor || nativeHost
               ? "sr-only"
-              : "sr-only sm:not-sr-only sm:flex-1 sm:text-start",
+              : "sr-only lg:not-sr-only lg:flex-1 lg:text-start",
           )}
         >
           {t("header.search")}
         </span>
         {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
-        {!editor && (
-          <Kbd className="hidden shrink-0 sm:inline-flex">
+        {!editor && !nativeHost && (
+          <Kbd className="hidden shrink-0 lg:inline-flex">
             {shortcutLabel()}
           </Kbd>
         )}
@@ -258,7 +272,7 @@ export function SiteHeader({
             <Button
               variant="ghost"
               size="icon"
-              className="relative"
+              className={cn("relative size-11", !nativeHost && "lg:size-8")}
               aria-label={
                 notifications.count
                   ? t("header.notificationsWithCount", {

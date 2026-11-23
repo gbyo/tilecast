@@ -31,7 +31,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
-import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import {
   activityParams,
   ErrorNotice,
@@ -404,8 +404,8 @@ function IncidentDrawer({
   pending: boolean;
   error?: string;
 }) {
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
+  const phone = usePhoneLayout();
+  const header = !phone ? (
     <SheetHeader>
       <SheetTitle>{incident.title}</SheetTitle>
       <SheetDescription>{incident.description}</SheetDescription>
@@ -425,7 +425,7 @@ function IncidentDrawer({
       pending={pending}
       error={error}
       className={
-        desktop
+        !phone
           ? "grid gap-6 px-4 pb-6"
           : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
       }
@@ -436,7 +436,7 @@ function IncidentDrawer({
     if (!nextOpen) onClose();
   };
 
-  return desktop ? (
+  return !phone ? (
     <Sheet
       open={open}
       onOpenChange={handleOpenChange}

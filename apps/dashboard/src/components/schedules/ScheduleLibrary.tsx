@@ -24,8 +24,8 @@ import {
 
 /**
  * The loaded Schedules. Schedules are operational data, so there is one
- * presentation: a table, or on phones a native list instead of a horizontally
- * scrolling table. Exactly one of them is mounted.
+ * presentation: a table, or in a narrow workspace a native list instead of a
+ * horizontally scrolling table. Exactly one of them is mounted.
  */
 export function ScheduleLibrary({
   items,

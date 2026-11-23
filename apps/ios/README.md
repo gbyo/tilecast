@@ -28,7 +28,7 @@ swift test
 
 The full suite runs on the iOS Simulator, as in CI. `TilecastHostTests` compiles the same Core test sources inside `Tilecast.app`, so real WebKit pages receive the application lifecycle and events. Use this app-hosted target for simulator Core tests. The scheme passes `-TilecastEphemeralServers` so the host starts with in-memory server profiles and credentials.
 
-The UI tests start a loopback fixture server (`TilecastUITests/FixtureStudioServer.swift`), so they need no Tilecast server and no network access. Run the UI tests a second time with `scripts/simulator-destination.py --ipad` to test the iPad sidebar.
+The UI tests start a loopback fixture server (`TilecastUITests/FixtureStudioServer.swift`), so they need no Tilecast server and no network access. Run the native navigation and presentation UI tests a second time with `scripts/simulator-destination.py --ipad` to exercise the regular-width `sidebarAdaptable` iPad hierarchy and iPad-specific presentations. Extended validation does this on its dedicated iPad simulator pass.
 
 ```sh
 cd apps/ios
@@ -92,7 +92,7 @@ Native text uses Geist, the Studio typeface. Use `Font.geist(.body)`, `Font.geis
 
 ## Navigation icons
 
-Tabs, the More list, and the iPad sidebar use Studio's Lucide icons. The icon assets and their Swift maps are generated from Studio. Do not edit them. Run `npm run ios:icons:generate` from the repository root after you change `apps/dashboard/src/navigation/NavigationIcon.tsx` or update `lucide-react`. Read [Icons](../../docs/ios-app.md#icons).
+Tabs, the compact More list, and the adaptable iPad sidebar use Studio's Lucide icons. The icon assets and their Swift maps are generated from Studio. Do not edit them. Run `npm run ios:icons:generate` from the repository root after you change `apps/dashboard/src/navigation/NavigationIcon.tsx` or update `lucide-react`. Read [Icons](../../docs/ios-app.md#icons).
 
 ## Localization
 

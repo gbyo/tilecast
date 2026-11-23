@@ -15,7 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "../../components/ui/drawer";
-import { useCompactLayout } from "../../hooks/use-compact-layout";
+import { usePhoneLayout } from "../../hooks/use-phone-layout";
 
 /**
  * A dialog on wide viewports and a bottom drawer on phones, with one shape in
@@ -38,13 +38,13 @@ export function ResponsiveDialog({
   footer: ReactNode;
   children: ReactNode;
 }) {
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   // The body scrolls, so it is also where focus starts: landing on the first
   // control inside it would scroll the body past the top of the review. It is
   // focusable so a keyboard can scroll it.
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  if (compact) {
+  if (phone) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
         <DrawerContent

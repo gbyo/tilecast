@@ -1,6 +1,7 @@
 // ScreenContentChain walks the dependency graph downward from a screen so the operator can see
 // which assigned presentation, widgets, and data sources contribute to its current content.
 import { useQuery } from "@tanstack/react-query";
+import { useFineHoverPointer } from "../hooks/use-media-query";
 import { layoutQueries } from "../data/layouts";
 
 import { playlistQueries } from "../data/playlists";
@@ -303,19 +304,22 @@ function ResourcePreviewLink({
   imageUrl?: string;
   fallback: ReactNode;
 }) {
+  const canHover = useFineHoverPointer();
+  const link = (
+    <Link
+      className="inline-flex min-w-0 items-center gap-2 text-inherit hover:underline"
+      to={to}
+    >
+      {fallback}
+      {title}
+    </Link>
+  );
+
+  if (!canHover) return link;
+
   return (
     <HoverCard>
-      <HoverCardTrigger
-        render={
-          <Link
-            className="inline-flex min-w-0 items-center gap-2 text-inherit hover:underline"
-            to={to}
-          />
-        }
-      >
-        {fallback}
-        {title}
-      </HoverCardTrigger>
+      <HoverCardTrigger render={link} />
       <HoverCardContent side="right" align="start" className="grid w-72 gap-3">
         {imageUrl ? (
           <AspectRatio
