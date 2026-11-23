@@ -51,8 +51,9 @@ import {
 } from "./displayGroupModel";
 
 /**
- * Picks one or more screens to add. A Sheet beside the page on desktop and a
- * Drawer on compact layouts; the body is shared so behavior cannot drift.
+ * Picks one or more screens to add. Phone-sized content uses a bottom Drawer;
+ * iPad and desktop use a Sheet beside the page. The body is shared so behavior
+ * cannot drift.
  */
 export function AddScreensPicker({
   group,

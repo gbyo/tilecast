@@ -18,9 +18,9 @@ import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { PairScreenFlow } from "./PairScreenFlow";
 
 /**
- * The browser host for pairing: a responsive dialog on desktop, a
- * near-full-height drawer on narrow screens. The flow inside is identical,
- * and the shell choice follows responsive layout, never device detection.
+ * The browser host for pairing: a dialog on iPad/desktop widths and a
+ * near-full-height Drawer only on phone-sized content. The flow is identical,
+ * and the choice follows available width rather than device detection.
  */
 export function PairScreenDialog() {
   const { code, requestId } = useParams();

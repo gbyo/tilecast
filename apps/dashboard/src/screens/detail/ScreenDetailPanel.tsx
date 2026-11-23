@@ -16,9 +16,9 @@ import {
 } from "../../components/ui/sheet";
 
 /**
- * Responsive secondary detail surface for Screen detail: a right-side Sheet
- * on desktop, the Base UI Drawer on narrow/mobile viewports. Opening and
- * closing is owned by the caller's Back-able URL state.
+ * Responsive secondary detail surface for Screen detail. Phone-sized content
+ * uses a bottom Drawer; iPad and desktop use a side Sheet so the underlying
+ * fleet stays visible. Opening and closing is owned by Back-able URL state.
  */
 export function ScreenDetailPanel({
   open,
@@ -61,7 +61,7 @@ export function ScreenDetailPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full gap-4 overflow-hidden sm:max-w-2xl"
+        className="w-full gap-4 overflow-hidden sm:max-w-lg lg:max-w-2xl"
       >
         {header}
         {body}
