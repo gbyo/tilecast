@@ -313,6 +313,7 @@ function FleetBulkWorkspace({
   const preview = currentReview?.preview;
   const locked = apply.isPending || undo.isPending;
   const requestPreview = () => {
+    setReview(undefined);
     apply.reset();
     build.mutate(buildRequest());
   };
@@ -580,9 +581,7 @@ function FleetBulkWorkspace({
           open={pickerOpen}
           allowedKinds={[picker]}
           title={
-            picker === "playlist"
-              ? t("bulk.pickPlaylist")
-              : t("bulk.pickLayout")
+            picker === "playlist" ? t("bulk.pickPlaylist") : t("bulk.pickLayout")
           }
           confirmLabel={t("common:actions.confirm")}
           selectedId={picker === "playlist" ? playlistId : layoutId}
@@ -923,7 +922,9 @@ function PreviewSection({
           </Button>
           <Button
             type="button"
-            disabled={applying || reviewing || stale || preview.changeCount === 0}
+            disabled={
+              applying || reviewing || stale || preview.changeCount === 0
+            }
             onClick={onApply}
           >
             {applying
