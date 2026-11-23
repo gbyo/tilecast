@@ -30,7 +30,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function Shell({ width }: { width: { current: number } }) {
+function Shell({
+  width,
+  fullWidth,
+}: {
+  width: { current: number };
+  fullWidth?: number;
+}) {
   const slots = useEditorHeaderSlots();
   return (
     <header
@@ -43,20 +49,20 @@ function Shell({ width }: { width: { current: number } }) {
       }}
     >
       <div ref={slots?.setRight} />
-      <Probe />
+      <Probe fullWidth={fullWidth} />
     </header>
   );
 }
 
-function Probe() {
-  return <output>{useNarrowHeader() ? "narrow" : "full"}</output>;
+function Probe({ fullWidth }: { fullWidth?: number }) {
+  return <output>{useNarrowHeader(fullWidth) ? "narrow" : "full"}</output>;
 }
 
-function renderShell(initial: number) {
+function renderShell(initial: number, fullWidth?: number) {
   const width = { current: initial };
   render(
     <EditorHeaderProvider>
-      <Shell width={width} />
+      <Shell width={width} fullWidth={fullWidth} />
     </EditorHeaderProvider>,
   );
   return width;
@@ -80,6 +86,14 @@ describe("useNarrowHeader", () => {
     act(() => observers.forEach((callback) => callback()));
     expect(screen.getByRole("status").textContent).toBe("narrow");
     width.current = 900;
+    act(() => observers.forEach((callback) => callback()));
+    expect(screen.getByRole("status").textContent).toBe("full");
+  });
+
+  it("allows a denser editor to reserve more header room", () => {
+    const width = renderShell(900, 1000);
+    expect(screen.getByRole("status").textContent).toBe("narrow");
+    width.current = 1000;
     act(() => observers.forEach((callback) => callback()));
     expect(screen.getByRole("status").textContent).toBe("full");
   });
