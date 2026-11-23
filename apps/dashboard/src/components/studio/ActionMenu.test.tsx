@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ActionContextMenu,
   ActionMenuButton,
@@ -20,6 +20,7 @@ import {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function groups(listeners: {
@@ -160,6 +161,19 @@ describe("ActionMenuButton in a browser", () => {
 });
 
 describe("ActionContextMenu", () => {
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(hover: hover) and (pointer: fine)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+  });
+
   function renderCard(actions: StudioActionGroup[]) {
     return render(
       <StrictMode>
@@ -173,6 +187,24 @@ describe("ActionContextMenu", () => {
       </StrictMode>,
     );
   }
+
+
+  it("does not make long-press context actions a hidden touch requirement", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(any-pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    renderCard(groups({}));
+    fireEvent.contextMenu(screen.getByTestId("card"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card")).toBeVisible();
+  });
 
   it("opens the web menu on right-click", async () => {
     const onOpen = vi.fn();
