@@ -291,6 +291,8 @@ Studio keeps its own topbar with breadcrumbs, search, notifications, and editor 
 
 Studio also keeps presentation width separate from workspace density. Phone-sized content areas (up to 639px) use bottom drawers for transient details and filters. Narrow workspaces below 1024px still simplify toolbars, editors, and dense tables, but iPad-sized medium widths use anchored popovers and tablet/desktop detail panels instead of inheriting phone modal behavior. Browser navigation stays off-canvas through 1279px; at 1280px the 16rem sidebar can appear while leaving roughly 1024px for the desktop workspace.
 
+Input capability is a separate axis again. Shared media-query hooks distinguish any coarse pointer from a primary fine pointer that can hover. Coarse pointers keep interactive targets at least 44pt, keep form text at 16px where Safari could otherwise zoom, expose actions that desktop may reveal on hover, enlarge editor resize/drag hit regions, and present complex overflow actions as a touch drawer. Fine-hover pointers keep compact dropdowns, hover previews, and right-click context menus. An iPad with a trackpad can therefore gain pointer affordances without losing its touch-safe target sizes.
+
 #### Studio beneath the tab bar
 
 The iOS 26 tab bar floats over its content. Studio must be the content that shows through the glass, so the tab bar does not show an empty strip.
