@@ -34,9 +34,11 @@ function mockDesktop() {
       disconnect() {}
     };
   }
-  window.matchMedia = () => ({
-    matches: true,
-    media: "(min-width: 1024px)",
+  window.matchMedia = (query: string) => ({
+    matches:
+      query === "(min-width: 1024px)" ||
+      query === "(any-hover: hover) and (any-pointer: fine)",
+    media: query,
     onchange: null,
     addListener: () => undefined,
     removeListener: () => undefined,
