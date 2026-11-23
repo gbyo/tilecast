@@ -33,7 +33,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
-import { useCompactLayout } from "../hooks/use-compact-layout";
+import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { scheduleFieldTargets } from "./scheduleEditorModel";
 import { EDITOR_VIEWPORT_HEIGHT } from "./scheduleEditorParts";
@@ -80,7 +80,7 @@ export function ScheduleEditorWorkspace({
 }) {
   const { t } = useTranslation(["schedules", "common"]);
   const desktop = useDesktopLayout();
-  const compact = useCompactLayout();
+  const phone = usePhoneLayout();
   const { ref, room } = useRoomForPane(desktop);
   const [reviewOpen, setReviewOpen] = useState(false);
   // Folded sections open on their own only to show a problem: a date range
@@ -149,7 +149,7 @@ export function ScheduleEditorWorkspace({
         session={session}
         csrf={csrf}
         canManage={canManage}
-        compact={compact}
+        compact={phone}
         showReview={!room}
         onReview={() => setReviewOpen(true)}
       />
@@ -194,7 +194,7 @@ export function ScheduleEditorWorkspace({
         )}
       </div>
       {!room &&
-        (compact ? (
+        (phone ? (
           <Drawer
             open={reviewOpen}
             onOpenChange={setReviewOpen}
