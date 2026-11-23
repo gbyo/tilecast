@@ -98,6 +98,10 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	notifier := &recordingNotifier{}
 	service := NewService(pool, notifier)
 	service.now = func() time.Time { return now }
+	var historyTriggers []CaptureTrigger
+	service.SetHistoryRecorder(func(_ context.Context, _ uuid.UUID, _ Upload, trigger CaptureTrigger) {
+		historyTriggers = append(historyTriggers, trigger)
+	})
 
 	session, err := service.Renew(ctx, screenID, true)
 	if err != nil {
@@ -124,6 +128,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 		Data:          image,
 	}); err != nil {
 		t.Fatalf("upload: %v", err)
+	}
+	if len(historyTriggers) != 1 || historyTriggers[0] != CaptureTriggerScheduled {
+		t.Fatalf("initial history trigger = %#v, want scheduled", historyTriggers)
 	}
 	metadata, err := service.GetMetadata(ctx, screenID)
 	if err != nil {
@@ -239,6 +246,24 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	}
 	if _, err = service.GetImage(ctx, screenID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("protected failure leaked the cached image: %v", err)
+	}
+
+	now = now.Add(time.Second)
+	if _, err = service.RenewManual(ctx, screenID, true); err != nil {
+		t.Fatalf("manual renew: %v", err)
+	}
+	if err = service.RecordUpload(ctx, screenID, Upload{
+		CapturedAt:    now,
+		PlayerVersion: "0.10.1",
+		Width:         960,
+		Height:        540,
+		ContentType:   "image/jpeg",
+		Data:          image,
+	}); err != nil {
+		t.Fatalf("manual upload: %v", err)
+	}
+	if got := historyTriggers[len(historyTriggers)-1]; got != CaptureTriggerManual {
+		t.Fatalf("manual history trigger = %q, want manual", got)
 	}
 
 	var rows int
