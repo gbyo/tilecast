@@ -1,0 +1,91 @@
+{
+  "title": "Aftelbalk",
+  "subtitle": "Getimede balken worden onafhankelijk van de afspeellijst uitgevoerd en blijven evalueren op basis van het in de cache opgeslagen manifest van de Player.",
+  "loadError": "Aftelbalken konden niet worden geladen.",
+  "emptyTitle": "Geen aftelbalken geconfigureerd",
+  "emptyDescription": "Maak een exemplaar om een lokaal getimede balk op geselecteerde schermen weer te geven.",
+  "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · prioriteit {{priority}}",
+  "deleteBody": "De balk wordt verwijderd voor gerichte spelers.",
+  "removedToast": "Aftelbalk verwijderd.",
+  "createdToast": "Aftelbalk gemaakt.",
+  "updatedToast": "Aftelbalk bijgewerkt.",
+  "editor": {
+    "createTitle": "Nieuwe aftelbalk",
+    "manageTitle": "Beheer de aftelbalk",
+    "subtitle": "De Player evalueert dit schema lokaal. Prioriteit bepaalt welke balk wint wanneer instanties elkaar overlappen.",
+    "sections": {
+      "content": "Inhoud",
+      "timing": "Tijdstip",
+      "display": "Weergave",
+      "urgency": "Urgentiefasen"
+    },
+    "messageLabel": "Bericht",
+    "defaults": {
+      "message": "De lunch eindigt over"
+    },
+    "completionLabel": "Optionele voltooiingstekst",
+    "completionPlaceholder": "De lunch is voorbij",
+    "completionHint": "Getoond gedurende één minuut na het doel; laat dit leeg om het op nul te verbergen.",
+    "confettiLabel": "Toon confetti wanneer het aftellen nul bereikt",
+    "scheduleLabel": "Schema",
+    "scheduleType": {
+      "weekly": "Dagen van de week",
+      "oneTime": "Eenmalige datum"
+    },
+    "targetTimeLabel": "Doeltijd",
+    "daysLabel": "Dagen van de week",
+    "oneTimeLabel": "Doeldatum en -tijd",
+    "oneTimeHint": "Ingevoerd in de lokale tijd van deze browser; de Player telt af naar hetzelfde moment.",
+    "timezoneLabel": "Tijdzone",
+    "leadLabel": "Verschijn zoveel minuten eerder",
+    "modeLabel": "Modus",
+    "displayMode": {
+      "overlay": "Huidige inhoud overlappen",
+      "push": "Push en verklein de huidige inhoud"
+    },
+    "progressLabel": "Aftellen op de achtergrond",
+    "progressFill": {
+      "none": "Effen achtergrond",
+      "drain": "Van rechts naar links afvoeren"
+    },
+    "progressHint": "Drain leegt de balk van rechts naar links als het doel nadert.",
+    "heightLabel": "Hoogte onderste balk (px)",
+    "paddingLabel": "Horizontale opvulling (%)",
+    "paddingHint": "Een lagere vulling geeft de boodschap en het aftellen meer ruimte.",
+    "textScaleLabel": "Tekstgrootte (%)",
+    "textScaleHint": "Vergroot de lettergrootte zonder de staafhoogte te wijzigen.",
+    "urgencyDescription": "Verander de balk automatisch als het doel nadert. Onaangeroerde etappetijden volgen de totale doorlooptijd; aangepaste waarden blijven vast. Voltooide berichten keren terug naar de normale grootte.",
+    "urgencyEnabledLabel": "Schakel urgentiefasen voor aftellen in",
+    "startingSoonLabel": "Binnenkort beginnen (oranje), minuten eerder",
+    "urgentLabel": "Dringend (rood), seconden eerder",
+    "pulseLabel": "Pulseer en vergroot, laatste seconden",
+    "pulseHint": "De balk en tekst groeien tijdens deze laatste fase met 25%.",
+    "leaveTitle": "Vertrekken zonder te sparen?",
+    "leaveBody": "Dit aftellen bevat niet-opgeslagen wijzigingen.",
+    "fontLabel": "Lettertype",
+    "fontPlayer": "Player standaard",
+    "fontPlayerGroup": "Tilecast",
+    "fontHint": "Voeg lettertypen toe in Instellingen. Schermen die het lettertype niet kunnen laden, behouden de standaardwaarde."
+  },
+  "validation": {
+    "timezone": "Voer een IANA-tijdzone in, zoals Amerika/Chicago.",
+    "wholeMinutes": "Voer een geheel aantal minuten in.",
+    "leadRange": "De doorlooptijd moet tussen 1 en 43200 minuten liggen.",
+    "heightRange": "Voer een hoogte in tussen 40 en 320 pixels.",
+    "paddingRange": "Voer een opvulling in tussen 0 en 40 procent.",
+    "textScaleRange": "Voer een tekstgrootte tussen 25 en 500 procent in.",
+    "soonRange": "Binnenkort starten moet tussen 1 en 1440 minuten voor nul beginnen.",
+    "wholeSeconds": "Voer een geheel aantal seconden in.",
+    "urgentRange": "Urgent moet tussen 2 en 3600 seconden vóór nul beginnen.",
+    "pulseRange": "De puls moet tussen 1 en 60 seconden vóór nul beginnen.",
+    "priorityRange": "Voer een prioriteit in tussen -1000 en 1000.",
+    "weeklyRequired": "Kies een doeltijdstip en minimaal één dag.",
+    "oneTimeRequired": "Kies de eenmalige doeldatum en -tijd.",
+    "targetRequired": "Kies ten minste één doel.",
+    "stageOrder": "Stadia moeten in volgorde beginnen: binnenkort beginnen, dringend, dan pulseren."
+  },
+  "breadcrumbs": {
+    "newInstance": "Nieuw exemplaar",
+    "instance": "Instantie"
+  }
+}

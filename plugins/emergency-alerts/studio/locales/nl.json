@@ -1,0 +1,147 @@
+{
+  "backToPlugins": "Plug-ins",
+  "title": "Noodwaarschuwingen",
+  "description": "Bekijk officiële NWS-weerwaarschuwingen en neem automatisch de bijbehorende schermen over, en herstel vervolgens de normale weergave wanneer de waarschuwing verdwijnt.",
+  "readOnlyNotice": "Om wijzigingen aan te brengen is eigenaar- of beheerderstoegang vereist.",
+  "prepare": {
+    "title": "Automatische noodinhoud voorbereiden",
+    "description": "Tilecast kan rechtstreeks op basis van live NWS-gegevens een waarschuwing op volledig scherm genereren. Een aangepaste afspeellijst blijft optioneel voor organisaties met eigen antwoordinhoud. Deze plug-in configureert automatische reacties; een handmatige overname is de afzonderlijke actie 'Dit nu weergeven' op schermen, en de standaardinstellingen staan ​​in Instellingen.",
+    "managePlaylists": "Optioneel: beheer aangepaste afspeellijsten",
+    "takeoverNow": "Start nu een overname",
+    "takeoverDefaults": "Standaardwaarden voor overname en commando"
+  },
+  "monitor": {
+    "title": "Geautomatiseerde weerwaarschuwingen",
+    "description": "Controleer officiële actieve waarschuwingen voor Amerikaanse staten, territoria, provincies en voorspellingszones. Overeenkomende regels geven live waarschuwingsdetails of een optionele aangepaste afspeellijst weer, en herstellen vervolgens de normale weergave wanneer de waarschuwing verdwijnt.",
+    "safetyTitle": "Het afleveren van waarschuwingen is een inspanningsvereiste en geen levensveiligheidssysteem.",
+    "safetyBody": "Houd lokale noodprocedures en draadloze noodwaarschuwingen van kracht. Studio toont de status van de poll, zodat upstream- of netwerkfouten zichtbaar zijn.",
+    "enabledLabel": "Geautomatiseerde NWS-bewaking",
+    "enabledHint": "Standaard uitgeschakeld. Er is een geconfigureerde regel vereist om te kunnen handelen.",
+    "coverageLegend": "Waarschuwingsdekking",
+    "coverageHint": "Kies een staat of territorium op naam en controleer vervolgens de hele staat of voeg specifieke provincies en NWS-voorspellingszones toe.",
+    "stateLabel": "Staat of territorium",
+    "statePlaceholder": "Selecteer een staat",
+    "monitorState": "Houd de hele staat in de gaten",
+    "zoneLabel": "Provincie of voorspellingszone",
+    "loadingLocations": "Locaties laden…",
+    "locationPlaceholder": "Selecteer een locatie",
+    "county": "Provincie",
+    "forecastZone": "Voorspellingszone",
+    "addLocation": "Locatie toevoegen",
+    "zonesError": "Provincies en prognosezones kunnen niet worden geladen vanuit NWS.",
+    "monitoredLocations": "Bewaakte locaties",
+    "entireState": "Gehele {{name}}",
+    "removeState": "Verwijder de volledige {{name}}",
+    "removeZone": "Verwijder {{name}}",
+    "zoneWithType": "{{name}} ({{type}})",
+    "noLocations": "Geen locaties geselecteerd.",
+    "pollLabel": "Poll-interval",
+    "pollHint": "Voor de meeste locaties wordt een interval van één tot twee minuten aanbevolen.",
+    "intervals": {
+      "oneMinute": "1 minuut",
+      "twoMinutes": "2 minuten",
+      "fiveMinutes": "5 minuten",
+      "fifteenMinutes": "15 minuten"
+    },
+    "lastSuccess": "Laatste succes",
+    "lastAttempt": "Laatste poging",
+    "matchedRules": "Overeenkomende regels",
+    "health": "Gezondheid",
+    "healthy": "Gezond",
+    "never": "Nooit",
+    "saveMonitor": "Bewaar de NWS-monitor",
+    "checking": "Controleren…",
+    "checkNow": "Controleer nu"
+  },
+  "rules": {
+    "title": "Regels voor weersomstandigheden",
+    "description": "Gebeurtenisnamen komen exact overeen met de NWS-bewoording. Laat het veld leeg om elke gebeurtenis met of boven de geselecteerde ernst en urgentie te matchen. De live waarschuwing op volledig scherm van Tilecast is de standaard; een tickerbalk is het alternatief voor waarschuwingen die moeten informeren zonder het afspelen te onderbreken.",
+    "enabledBadge": "Ingeschakeld",
+    "disabledBadge": "Uitgeschakeld",
+    "allEventTypes": "Alle soorten evenementen",
+    "deleteTitle": "“{{name}}” verwijderen?",
+    "formTitleAdd": "Regel toevoegen",
+    "formTitleEdit": "Regel bewerken",
+    "nameLabel": "Regelnaam",
+    "eventsLabel": "NWS gebeurtenisnamen",
+    "severityLabel": "Minimale ernst",
+    "severity": {
+      "minor": "Klein",
+      "moderate": "Matig",
+      "severe": "Ernstig",
+      "extreme": "Extreem"
+    },
+    "urgencyLabel": "Minimale urgentie",
+    "urgency": {
+      "unknown": "Onbekend",
+      "future": "Toekomst",
+      "expected": "Verwacht",
+      "immediate": "Onmiddellijk"
+    },
+    "displayLabel": "Noodweergave",
+    "displayOptions": {
+      "builtin": "Tilecast live NWS waarschuwing - volledig scherm",
+      "ticker": "Tilecast live NWS waarschuwing - tickerbalk",
+      "playlist": "Gebruik een aangepaste afspeellijst – volledig scherm"
+    },
+    "displayHint": "Het ingebouwde display toont automatisch de exacte NWS-gebeurtenis, kop, ernst, getroffen gebied, instructies, afzender en vervaldatum. Een tickerbalk toont dezelfde waarschuwingstekst onderaan en laat alles wat op het scherm wordt afgespeeld, achter.",
+    "tickerPlacement": "Ticker plaatsing",
+    "placementOptions": {
+      "push": "Push de inhoud naar een hoger niveau: niets is gedekt",
+      "overlay": "Overlay — de balk bedekt de onderkant"
+    },
+    "tickerHeight": "Ticker hoogte",
+    "heightOptions": {
+      "compact": "Compact — 64px",
+      "standard": "Standaard — 96px",
+      "large": "Groot — 140px",
+      "extraLarge": "Extra groot — 200px"
+    },
+    "tickerSpeed": "Ticker-snelheid",
+    "speedOptions": {
+      "slow": "Langzaam",
+      "medium": "Middelmatig",
+      "fast": "Snel"
+    },
+    "playlistLabel": "Aangepaste afspeellijst voor noodgevallen",
+    "playlistPlaceholder": "Selecteer een afspeellijst",
+    "playlistHint": "Alleen niet-lege afspeellijsten kunnen worden geactiveerd.",
+    "playlistHintLink": "Maak of bewerk afspeellijsten",
+    "durationLabel": "Maximale duur",
+    "durationOptions": {
+      "oneHour": "1 uur",
+      "sixHours": "6 uur",
+      "twelveHours": "12 uur",
+      "day": "24 uur"
+    },
+    "targetScreens": "Doelschermen",
+    "targetGroups": "Doelgroepen",
+    "targetsEmpty": "Geen beschikbaar.",
+    "enableRule": "Schakel deze regel in",
+    "saveRule": "Regel opslaan",
+    "addRuleButton": "Regel toevoegen",
+    "validation": {
+      "nameRequired": "Voer een regelnaam in.",
+      "playlistRequired": "Selecteer een vooraf gemaakte afspeellijst voor noodgevallen.",
+      "targetsRequired": "Selecteer minimaal één scherm of groep."
+    }
+  },
+  "displaySummary": {
+    "ticker": "Tilecast live NWS tickerbalk",
+    "builtin": "Tilecast live NWS-waarschuwing",
+    "noPlaylist": "Geen afspeellijst"
+  },
+  "playlist": {
+    "empty": "{{name}} — leeg, voeg eerst inhoud toe",
+    "count_one": "{{name}} — {{count}}-item",
+    "count_other": "{{name}} — {{count}}-artikelen"
+  },
+  "active": {
+    "title": "Actieve weersomstandigheden",
+    "description": "Meldingen die momenteel overeenkomen met een regel en inhoud weergeven.",
+    "emptyTitle": "Geen actieve waarschuwingen",
+    "emptyBody": "Er zijn momenteel geen NWS-waarschuwingen actief."
+  },
+  "leaveTitle": "Vertrekken zonder te sparen?",
+  "leaveBody": "De monitorinstellingen of waarschuwingsregels bevatten niet-opgeslagen wijzigingen."
+}

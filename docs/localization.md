@@ -3,7 +3,8 @@
 Tilecast Studio is translated with [i18next](https://www.i18next.com/) and
 [react-i18next](https://react.i18next.com/). English is the source language.
 Spanish (`es`), Russian (`ru`), French (`fr`), Hindi (`hi`), Portuguese
-(`pt`), Bengali (`bn`), and Simplified Chinese (`zh`) ship alongside it.
+(`pt`), Bengali (`bn`), Simplified Chinese (`zh`), and Dutch (`nl`) ship
+alongside it.
 
 All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
 `common`, `content`, `errors`, `forms`, `layouts`, `navigation`, `playlists`,

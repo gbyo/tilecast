@@ -1,0 +1,718 @@
+{
+  "access": {
+    "roles": {
+      "owner": "Eigenaar",
+      "administrator": "Beheerder",
+      "editor": "Redacteur",
+      "contributor": "Bijdrager",
+      "viewer": "Kijker"
+    },
+    "capabilities": {
+      "manage": {
+        "label": "Beheer",
+        "implies": "Volledige controle — omvat alle onderstaande mogelijkheden."
+      },
+      "approve": {
+        "label": "Goedkeuren",
+        "implies": "Goedkeuren of afwijzen: omvat Alles bekijken en Bekijken."
+      },
+      "review": {
+        "label": "Beoordeling",
+        "implies": "Wijzigingen aanvragen — inclusief Bekijk alles."
+      },
+      "viewAll": {
+        "label": "Bekijk alle reacties",
+        "implies": "Inclusief Bekijk eigen."
+      },
+      "viewOwn": {
+        "label": "Bekijk eigen reacties"
+      },
+      "submit": {
+        "label": "Dien reacties in"
+      }
+    },
+    "loading": "Toegang laden…",
+    "loadError": "Kan toegang niet laden",
+    "loadRetry": "Probeer het opnieuw.",
+    "updateError": "Kan de toegang niet updaten.",
+    "changeFailed": "Toegangswijziging mislukt",
+    "table": {
+      "user": "Gebruiker",
+      "globalRole": "Mondiale rol",
+      "access": "Toegang",
+      "actions": "Acties"
+    },
+    "managerCreator": "Beheerder (maker)",
+    "managerOwner": "Beheerder (Eigenaar)",
+    "alwaysManager": "Altijd een leidinggevende",
+    "editAccess": "Toegang bewerken",
+    "grant": {
+      "title": "Toegang verlenen",
+      "findUser": "Zoek een gebruiker",
+      "searchPlaceholder": "Zoek gebruikers",
+      "searchHint": "Zoek op naam of gebruikersnaam.",
+      "grantingTo": "Toegang verlenen tot",
+      "searching": "Zoeken…",
+      "noMatch": "Geen overeenkomende gebruikers",
+      "noMatchHint": "Probeer een andere zoekopdracht.",
+      "searchError": "Zoeken naar gebruiker is mislukt"
+    },
+    "includedByBroader": "Inbegrepen in een bredere capaciteit.",
+    "saveAccess": "Toegang opslaan"
+  },
+  "builder": {
+    "actions": {
+      "moveUp": "Ga omhoog",
+      "moveDown": "Ga naar beneden",
+      "moveTop": "Ga naar boven",
+      "moveBottom": "Verplaats naar beneden",
+      "deleteField": "Veld verwijderen",
+      "move": "Verplaatsen"
+    },
+    "row": {
+      "editField": "Bewerk {{name}}",
+      "actionsFor": "Acties voor {{name}}"
+    },
+    "fieldsPanel": "Formuliervelden",
+    "emptyFields": "Nog geen velden. Voeg de eerste hieronder toe.",
+    "previewPanel": "Formuliervoorbeeld",
+    "formTitle": "Titel van formulier",
+    "formDescription": "Formulierbeschrijving",
+    "inspectorPanel": "Lokale instellingen",
+    "inspectorEyebrow": "Inspecteur",
+    "inspectorEmpty": "Selecteer een veld om de instellingen ervan te bewerken.",
+    "status": {
+      "saving": "Opslaan…",
+      "saveFailed": "Opslaan mislukt",
+      "unsaved": "Niet-opgeslagen wijzigingen",
+      "saved": "Opgeslagen"
+    },
+    "saveDraft": "Concept opslaan",
+    "publish": "Publiceren",
+    "leave": {
+      "title": "Vertrekken zonder te sparen?",
+      "body": "U heeft niet-opgeslagen wijzigingen in dit formulier. Als je nu weggaat, worden ze weggegooid."
+    },
+    "draftError": "Concept niet opgeslagen",
+    "draftFallback": "Kan het concept niet opslaan.",
+    "publishTitle": "Een nieuwe revisie publiceren?",
+    "publishBody": "Door te publiceren ontstaat er een nieuwe, onveranderlijke revisie. Bestaande inzendingen blijven gebonden aan de revisie waarvoor ze zijn gemaakt.",
+    "publishConfirm": "Revisie publiceren",
+    "publishConflict": "Elders veranderde de vorm. Herlaad en probeer het opnieuw.",
+    "publishFallback": "Kan niet publiceren.",
+    "layout": {
+      "group": "Formuliervelden, voorbeeld en infovenster",
+      "fields": "Formuliervelden",
+      "resizeFieldsPreview": "Wijzig het formaat van velden en voorbeeldvensters",
+      "preview": "Formuliervoorbeeld",
+      "resizePreviewInspector": "Formaat van voorbeeld- en infovensters wijzigen",
+      "inspector": "Lokale instellingen"
+    }
+  },
+  "fieldEditor": {
+    "publishedTitle": "Gepubliceerd veld",
+    "publishedWithType": "Dit veld maakt deel uit van het gepubliceerde formulier, dus de sleutel en het uitvoertype zijn vergrendeld om Widgets en opgeslagen weergaven te laten werken. U kunt het label, de helptekst, de validatie en de bestelling nog steeds bewerken.",
+    "publishedBase": "Dit veld maakt deel uit van het gepubliceerde formulier, dus de sleutel ervan is vergrendeld om Widgets en opgeslagen weergaven te laten werken. U kunt het label, de helptekst, de validatie en de bestelling nog steeds bewerken.",
+    "label": "Label",
+    "key": "Veldsleutel",
+    "keyHint": "Stabiele identificatie gebruikt door Widgets en weergaven.",
+    "type": "Veldtype",
+    "help": "Help-tekst",
+    "helpHint": "Getoond onder het veld.",
+    "required": "Vereist",
+    "defaultValue": "Standaardwaarde",
+    "minimum": "Minimaal",
+    "maximum": "Maximaal",
+    "minLength": "Minimale lengte",
+    "maxLength": "Maximale lengte",
+    "options": "Opties",
+    "remove": "Verwijderen",
+    "addOption": "Optie toevoegen",
+    "optionLabel": "Optie {{n}}-label",
+    "optionValue": "Optie {{n}}-waarde",
+    "newOptionLabel": "Optie {{index}}"
+  },
+  "palette": {
+    "title": "Voeg een veld toe"
+  },
+  "controls": {
+    "shortText": {
+      "label": "Korte tekst",
+      "description": "Eén enkele regel tekst."
+    },
+    "longText": {
+      "label": "Lange tekst",
+      "description": "Een alinea van meerdere regels."
+    },
+    "number": {
+      "label": "Nummer",
+      "description": "Een decimaal getal."
+    },
+    "integer": {
+      "label": "Geheel getal",
+      "description": "Een heel getal."
+    },
+    "boolean": {
+      "label": "Ja / nee",
+      "description": "Een selectievakje-schakelaar."
+    },
+    "select": {
+      "label": "Selecteer",
+      "description": "Kies één optie."
+    },
+    "multiSelect": {
+      "label": "Meervoudig selecteren",
+      "description": "Kies een of meer opties."
+    },
+    "date": {
+      "label": "Datum",
+      "description": "Een kalenderdatum."
+    },
+    "datetime": {
+      "label": "Datum & tijd",
+      "description": "Een date met een tijd."
+    },
+    "url": {
+      "label": "URL",
+      "description": "Een weblink."
+    },
+    "image": {
+      "label": "Afbeelding uploaden",
+      "description": "Een geüploade afbeelding."
+    },
+    "section": {
+      "label": "Sectiekop",
+      "description": "Een kop naar groepsvelden."
+    },
+    "helpText": {
+      "label": "Help-tekst",
+      "description": "Begeleiding voor indieners."
+    }
+  },
+  "defaults": {
+    "sectionLabel": "Sectie",
+    "helpTextLabel": "Help-tekst",
+    "optionLabel": "Optie {{n}}",
+    "titleLabel": "Titel"
+  },
+  "renderer": {
+    "empty": "Dit formulier heeft nog geen velden.",
+    "charLimitReached": "Tekenlimiet bereikt ({{max}})",
+    "charsLeft": "{{remaining}} van {{max}} tekens over",
+    "selectPlaceholder": "Selecteer…",
+    "imageNoteSubmit": "Bij het indienen zijn afbeeldingsuploads beschikbaar.",
+    "imageAttention": "Beeld heeft aandacht nodig.",
+    "pendingUpload": "Wordt geüpload wanneer u opslaat.",
+    "uploading": "Uploaden…",
+    "imageAttached": "Afbeelding bijgevoegd.",
+    "replaceImage": "Afbeelding vervangen",
+    "chooseImage": "Kies afbeelding",
+    "replaceLabel": "Vervang {{label}}",
+    "chooseLabel": "Kies {{label}}",
+    "imageAlt": "{{label}}-bijlage",
+    "removeImage": "Verwijderen",
+    "noImage": "Geen afbeelding opgegeven."
+  },
+  "outputs": {
+    "loading": "Uitgangen laden…",
+    "loadError": "Kan uitvoer niet laden",
+    "retry": "Probeer het opnieuw.",
+    "projectionError": "Projectiefout",
+    "staleCache": "Verouderde cache",
+    "upToDate": "Up-to-date",
+    "lastProjection": "Laatste projectie: {{value}}",
+    "never": "nooit",
+    "nextRefresh": "Volgende vernieuwing: {{value}}",
+    "onChange": "op verandering",
+    "rebuild": "Uitgangen opnieuw opbouwen",
+    "rebuildError": "Opnieuw opbouwen is mislukt",
+    "lastReport": "De laatst gerapporteerde projectie: {{code}}",
+    "noViews": "Geen opgeslagen weergaven",
+    "noViewsHint": "Maak een weergave op het tabblad Weergaven om een uitvoergegevensset te genereren.",
+    "viewLabel": "Uitgang {{name}}",
+    "recordCount_one": "{{count}}-record",
+    "recordCount_other": "{{count}}-records",
+    "usedByWidgets_one": "Gebruikt door {{count}}-widget",
+    "usedByWidgets_other": "Gebruikt door {{count}}-widgets",
+    "referencedBy": "Er wordt verwezen naar: {{names}}",
+    "noRecords": "Er zijn nog geen gegevens die overeenkomen met deze weergave."
+  },
+  "review": {
+    "loading": "Inzending laden…",
+    "unavailable": "Inzending niet beschikbaar",
+    "unavailableBody": "Deze inzending kon niet worden geladen of u heeft er geen toegang meer toe.",
+    "decisionRecorded": "Beslissing vastgelegd.",
+    "untitled": "Inzending zonder titel",
+    "submittedBy": "Ingezonden door {{name}}",
+    "unknownSubmitter": "Onbekend",
+    "revision": "· Revisie {{number}}",
+    "actionFailed": "Actie mislukt",
+    "displaySection": "Metagegevens weergeven",
+    "displayTitle": "Weergave-instellingen",
+    "titleLabel": "Titel weergeven",
+    "priorityLabel": "Prioriteit",
+    "fromLabel": "Weergave van",
+    "expiresLabel": "Verloopt op",
+    "displayTime": "Tijd weergeven",
+    "expiryTime": "Vervaltijd",
+    "decisionSection": "Besluit",
+    "decisionTitle": "{{label}} deze inzending",
+    "decisionFallback": "Leg een besluit vast",
+    "noteRequired": "Er is een notitie vereist voor {{label}}.",
+    "noteLabel": "Let op",
+    "notePlaceholder": "Wat is er veranderd of wat moet de auteur oplossen?",
+    "noteHint": "Opgenomen bij de beslissing en getoond in de geschiedenis.",
+    "commentsSection": "Opmerkingen",
+    "noComments": "Nog geen opmerkingen.",
+    "addComment": "Voeg een opmerking toe",
+    "commentButton": "Commentaar",
+    "historySection": "Geschiedenis",
+    "applyFallback": "Kan de wijziging niet toepassen.",
+    "commentFallback": "Kan de opmerking niet toevoegen.",
+    "refreshedConflict": "Deze inzending is gewijzigd sinds u deze heeft geopend. Het is vernieuwd. Bekijk de nieuwste versie en probeer het opnieuw.",
+    "events": {
+      "created": "Gemaakt",
+      "createdBy": "Gemaakt door {{name}}",
+      "edited": "Bewerkt",
+      "editedBy": "Bewerkt door {{name}}",
+      "moved": "Verplaatst {{from}} → {{to}}",
+      "movedBy": "Verplaatst {{from}} → {{to}} door {{name}}",
+      "commented": "Heeft gereageerd",
+      "commentedBy": "Becommentarieerd door {{name}}",
+      "attachmentAdded": "Een bijlage toegevoegd",
+      "attachmentAddedBy": "Een bijlage toegevoegd door {{name}}",
+      "attachmentRemoved": "Een bijlage verwijderd",
+      "attachmentRemovedBy": "Een bijlage verwijderd door {{name}}",
+      "unknown": "{{type}}{{actor}}",
+      "byActor": " door {{name}}"
+    },
+    "leaveTitle": "Vertrekken zonder te sparen?",
+    "leaveBody": "Deze recensie bevat niet-opgeslagen wijzigingen."
+  },
+  "editor": {
+    "leaveTitle": "Vertrekken zonder te sparen?",
+    "leaveBody": "U heeft niet-opgeslagen wijzigingen in deze inzending. Als je nu weggaat, worden ze weggegooid.",
+    "changesRequested": "Wijzigingen gevraagd",
+    "anonymousReviewer": "Recensent",
+    "saveFailed": "Kan niet opslaan",
+    "saveDraft": "Concept opslaan",
+    "submitFallback": "Verzenden",
+    "completedTitle": "Deze inzending is {{state}}",
+    "completedBody": "Het kan niet meer worden bewerkt. Een reviewer zal opvolgen of er wijzigingen nodig zijn.",
+    "commentsSection": "Opmerkingen",
+    "fixFields_one": "Herstel het veld {{count}} voordat u doorgaat",
+    "fixFields_other": "Corrigeer de {{count}}-velden voordat u doorgaat",
+    "cannotSubmit": "Dit formulier kan niet worden verzonden vanuit de huidige staat."
+  },
+  "views": {
+    "newView": "Nieuwe weergave",
+    "viewInUse": "Bekijk in gebruik",
+    "deleteFallback": "Kan de weergave niet verwijderen.",
+    "noViews": "Geen opgeslagen weergaven",
+    "noViewsHint": "Maak een weergave om een benoemde gegevensset voor Widgets te publiceren.",
+    "tableName": "Naam",
+    "tableKey": "Gegevenssetsleutel",
+    "tableStates": "Staten",
+    "tableActions": "Acties",
+    "duplicate": "Duplicaat",
+    "leaveTitle": "Vertrekken zonder te sparen?",
+    "leaveBody": "Deze weergave bevat niet-opgeslagen wijzigingen.",
+    "notSaved": "Weergave niet opgeslagen",
+    "saveFallback": "Kan de weergave niet opslaan.",
+    "previewFallback": "Kan geen voorbeeld van de weergave bekijken.",
+    "nameLabel": "Naam bekijken",
+    "keyLabel": "Gegevenssetsleutel",
+    "newKeyHint": "Kleine letter; opgelost nadat het is opgeslagen.",
+    "lockedKeyHint": "Sleutels zijn onveranderlijk.",
+    "limitLabel": "Recordlimiet",
+    "orderLabel": "Bestel",
+    "statesLegend": "Inbegrepen staten",
+    "fieldsLegend": "Uitvoervelden & volgorde",
+    "addFieldLabel": "Voeg een uitvoerveld toe",
+    "addFieldPlaceholder": "Een veld toevoegen…",
+    "noneSelected": "Alle beschikbare velden (geen geselecteerd).",
+    "filtersLegend": "Veldfilters",
+    "filterFieldLabel": "Filterveld",
+    "fieldPlaceholder": "Veld…",
+    "operatorLabel": "Filteroperator",
+    "removeItem": "Verwijderen",
+    "addFilter": "Filter toevoegen",
+    "sortLegend": "Sorteren",
+    "sortFieldLabel": "Sorteer veld",
+    "sortDirectionLabel": "Sorteer richting",
+    "ascending": "Oplopend",
+    "descending": "Aflopend",
+    "addSort": "Sorteerregel toevoegen",
+    "timeLegend": "Tijdvenster",
+    "timeEnabled": "Filter op een relatief tijdvenster",
+    "startField": "Startveld",
+    "noneOption": "Geen",
+    "endField": "Einde veld",
+    "startBeforeNow": "Het begin is eerder dan nu",
+    "endAfterNow": "Het einde is na nu",
+    "previewButton": "Voorbeeld",
+    "saveButton": "Weergave opslaan",
+    "previewTitle": "Voorbeeld",
+    "previewCount_one": "{{count}}-record",
+    "previewCount_other": "{{count}}-records",
+    "previewEmpty": "Er zijn geen records die overeenkomen met deze weergave.",
+    "moveUp": "Verplaats {{label}} omhoog",
+    "moveDown": "Verplaats {{label}} naar beneden",
+    "removeLabel": "Verwijder {{label}}",
+    "copyName": "{{name}} (kopie)"
+  },
+  "workflow": {
+    "capabilities": {
+      "submit": {
+        "label": "Verzenden"
+      },
+      "review": {
+        "label": "Beoordeling"
+      },
+      "approve": {
+        "label": "Goedkeuren"
+      },
+      "manage": {
+        "label": "Beheer"
+      },
+      "viewAll": {
+        "label": "Bekijk alles"
+      },
+      "viewOwn": {
+        "label": "Bekijk eigen"
+      }
+    },
+    "leaveTitle": "Vertrekken zonder te sparen?",
+    "leaveBody": "De werkstroom bevat niet-opgeslagen wijzigingen.",
+    "notSaved": "Werkstroom niet opgeslagen",
+    "saveFallback": "Kan de werkstroom niet opslaan.",
+    "fixBefore": "Los deze op voordat u opslaat",
+    "statesSection": "Staten",
+    "statesTitle": "Staten",
+    "addState": "Staat toevoegen",
+    "stateLabel": "Etiket",
+    "stateKey": "Sleutel",
+    "lockedHint": "In gebruik - vergrendeld",
+    "keyHint": "Kleine letters, stabiel",
+    "stateRecords_one": "{{count}}-record",
+    "stateRecords_other": "{{count}}-records",
+    "initialOption": "Initieel",
+    "eligibleOption": "Geschikt voor output",
+    "terminalOption": "Terminal",
+    "moveUp": "Verplaats {{label}} omhoog",
+    "moveDown": "Verplaats {{label}} naar beneden",
+    "deleteState": "{{label}} verwijderen",
+    "deleteLockedTitle": "Er wordt verwezen naar records",
+    "deleteTitle": "Staat verwijderen",
+    "newStateLabel": "Nieuwe staat",
+    "transitionsSection": "Overgangen",
+    "transitionsTitle": "Overgangen",
+    "addTransition": "Overgang toevoegen",
+    "colFrom": "Van",
+    "colTo": "Aan",
+    "colLabel": "Etiket",
+    "colCapability": "Vereiste capaciteit",
+    "fromStateLabel": "Van staat",
+    "toStateLabel": "Om te vermelden",
+    "capabilityLabel": "Vereiste capaciteit",
+    "moveTransitionUp": "Verplaats de overgang naar boven",
+    "moveTransitionDown": "Verplaats de overgang naar beneden",
+    "removeTransition": "Overgang {{label}} verwijderen",
+    "newTransitionLabel": "Nieuwe transitie",
+    "impactTitle": "Deze wijziging is van invloed op de uitvoer- of indieningspaden",
+    "reviewAgain": "Opnieuw beoordelen",
+    "saveAnyway": "Toch sparen",
+    "saveWorkflow": "Werkstroom opslaan",
+    "validation": {
+      "noStates": "Voeg ten minste één staat toe.",
+      "invalidStateKey": "Staatssleutel \"{{key}}\" is ongeldig (kleine letters, cijfers, onderstrepingstekens).",
+      "emptyKey": "(leeg)",
+      "duplicateStateKey": "Dubbele statussleutel \"{{key}}\".",
+      "stateNeedsLabel": "Elke staat heeft een label nodig.",
+      "exactlyOneInitial": "Precies één toestand moet de begintoestand zijn.",
+      "needEligible": "Ten minste één staat moet in aanmerking komen voor uitvoer.",
+      "badReference": "Elke transitie moet verwijzen naar bestaande staten.",
+      "duplicateTransition": "Dupliceer de overgang {{from}} → {{to}}."
+    },
+    "warnings": {
+      "lostEligible": "Staat \"{{key}}\" komt niet langer in aanmerking voor uitvoer; de gegevens zullen bewegwijzering achterlaten.",
+      "gainedEligible": "De status \"{{key}}\" komt nu in aanmerking voor uitvoer; de gegevens ervan kunnen op bewegwijzering verschijnen.",
+      "submissionPaths": "Inzendingspaden gewijzigd; dit heeft invloed op de manier waarop indieners records verplaatsen."
+    }
+  },
+  "validation": {
+    "imageRequired": "Voor {{label}} is een afbeelding vereist.",
+    "required": "{{label}} is vereist.",
+    "maxLength": "{{label}} mag maximaal {{max}}-tekens bevatten.",
+    "minLength": "{{label}} moet minimaal {{min}}-tekens bevatten.",
+    "notNumber": "{{label}} moet een getal zijn.",
+    "notInteger": "{{label}} moet een geheel getal zijn.",
+    "minValue": "{{label}} moet minimaal {{minimum}} zijn.",
+    "maxValue": "{{label}} mag maximaal {{maximum}} zijn.",
+    "urlProtocol": "{{label}} moet een http(s) URL zijn.",
+    "urlInvalid": "{{label}} moet een geldige URL zijn.",
+    "dateInvalid": "{{label}} moet een datum zijn.",
+    "keyPattern": "Sleutels moeten beginnen met een letter en mogen alleen letters, cijfers en onderstrepingstekens bevatten.",
+    "keyReserved": "\"{{key}}\" is een gereserveerde sleutel.",
+    "keyTaken": "Een ander veld gebruikt deze sleutel al."
+  },
+  "outputFields": {
+    "synthetic": {
+      "state": "Werkstroomstatus",
+      "displayTitle": "Titel weergeven",
+      "priority": "Prioriteit",
+      "submittedAt": "Tijd ingediend",
+      "displayAt": "Weergave van",
+      "expiresAt": "Verloopt op"
+    },
+    "operators": {
+      "equals": "gelijk aan",
+      "notEquals": "is niet gelijk",
+      "empty": "is leeg",
+      "notEmpty": "is niet leeg",
+      "greaterThan": "groter dan",
+      "lessThan": "minder dan",
+      "contains": "bevat"
+    }
+  },
+  "plugin": {
+    "breadcrumb": "Plug-ins",
+    "title": "Formulieren",
+    "subtitle": "Creëer formulieren, beheer reacties en maak goedgekeurde documenten beschikbaar voor bewegwijzering.",
+    "create": "Formulier maken",
+    "loadError": "Kan formulieren niet laden",
+    "loadFallback": "Formulieren konden niet worden geladen.",
+    "empty": "Nog geen formulieren",
+    "emptyCreate": "Maak een formulier om inzendingen te verzamelen.",
+    "emptyDenied": "U heeft geen toegang tot formulieren.",
+    "publishedRevision": "Gepubliceerde revisie {{number}}",
+    "draft": "Diepgang",
+    "noDescription": "Geen beschrijving",
+    "manage": "Beheer formulier"
+  },
+  "detail": {
+    "tabs": {
+      "responses": "Reacties",
+      "form": "Vorm",
+      "workflow": "Werkstroom",
+      "views": "Bekeken",
+      "outputs": "Uitgangen",
+      "access": "Toegang"
+    },
+    "loading": "Formulier laden…",
+    "unavailable": "Formulier niet beschikbaar",
+    "unavailableBody": "Dit formulier kon niet worden geladen.",
+    "pluginEyebrow": "Formulieren plug-in",
+    "sectionsLabel": "Formulier secties",
+    "filters": {
+      "needsReview": "Moet worden beoordeeld",
+      "allStates": "Alle staten",
+      "state": "Staat",
+      "search": "Zoeken",
+      "searchPlaceholder": "Titel of indiener",
+      "sort": "Sorteren"
+    },
+    "sort": {
+      "updated": "Onlangs bijgewerkt",
+      "newest": "Nieuwste",
+      "oldest": "Oudste",
+      "priority": "Prioriteit"
+    },
+    "loadResponsesError": "Kan reacties niet laden",
+    "retry": "Probeer het opnieuw.",
+    "loadingResponses": "Reacties laden…",
+    "noResponses": "Geen reacties",
+    "emptyNeedsReview": "Niets wacht momenteel op beoordeling.",
+    "emptyFiltered": "Er zijn nog geen inzendingen die aan deze filters voldoen.",
+    "table": {
+      "submission": "Indiening",
+      "submitter": "Indiener",
+      "state": "Staat",
+      "priority": "Prioriteit",
+      "updated": "Bijgewerkt",
+      "window": "Weergavevenster",
+      "reviewAction": "Beoordeling"
+    },
+    "untitled": "Inzending zonder titel",
+    "unknown": "Onbekend",
+    "reviewLink": "Beoordeel {{title}}",
+    "untitledLink": "inzending zonder titel",
+    "pagination": "Pagina {{page}} van {{totalPages}} · {{total}} totaal",
+    "pagesLabel": "Reactiepagina's",
+    "sheetLabel": "Reactiedetails",
+    "sheetEyebrow": "Reactie",
+    "sheetTitle": "Inzending beoordelen",
+    "sheetBody": "De lijst blijft achter dit paneel staan; sluiten keert ernaar terug.",
+    "backToResponses": "← Terug naar reacties",
+    "displayWindowRange": "{{start}} → {{end}}",
+    "displayWindowEmpty": "—",
+    "displayWindowNow": "nu",
+    "editDetails": "Gegevens bewerken",
+    "detailsError": "Gegevens niet opgeslagen",
+    "detailsFallback": "Kan details niet updaten.",
+    "nameLabel": "Formuliernaam",
+    "descriptionLabel": "Beschrijving",
+    "saveDetails": "Bewaar gegevens",
+    "readOnlyTitle": "Alleen-lezen",
+    "readOnlyBody": "U kunt dit formulier bekijken, maar u heeft geen toestemming om het te bewerken.",
+    "publishedMeta": "Gepubliceerde revisie {{revision}} · {{date}}"
+  },
+  "create": {
+    "questions": {
+      "name": {
+        "title": "Waar is dit formulier voor?",
+        "description": "De naam die wordt weergegeven in de Forms-plug-in en bij het selecteren van formulieruitvoer in Widgets.",
+        "label": "Formuliernaam"
+      },
+      "description": {
+        "title": "Beschrijf het doel",
+        "description": "Optioneel. Een korte opmerking voor andere Studio-auteurs over wat dit formulier verzamelt.",
+        "label": "Formulierbeschrijving"
+      },
+      "formTitle": {
+        "title": "Wat zien indieners als eerste?",
+        "description": "Optioneel. De titel die boven het formulier wordt weergegeven, is bestemd voor de persoon die het formulier invult.",
+        "label": "Naar de indiener gerichte titel"
+      },
+      "formDescription": {
+        "title": "Voeg richtlijnen toe voor indieners",
+        "description": "Optioneel. Korte instructies weergegeven onder de titel op het formulier zelf.",
+        "label": "Naar de indiener gerichte beschrijving"
+      }
+    },
+    "phasePurpose": "Doel",
+    "phaseDisplay": "Weergave",
+    "phaseReview": "Beoordeling",
+    "starterFieldLabel": "Titel",
+    "createFallback": "Kan het formulier niet maken.",
+    "nameRequired": "Er is een naam vereist.",
+    "deniedTitle": "Onvoldoende toegang",
+    "deniedBody": "U heeft geen toestemming om formulieren te maken.",
+    "reviewEyebrow": "Formulierenplug-in · Stap 3 van 3 · Review",
+    "reviewTitle": "Beoordeel en creëer",
+    "reviewBody": "Controleer de gegevens voordat u dit formulier maakt.",
+    "createErrorTitle": "Kan formulier niet maken",
+    "summaryName": "Formuliernaam",
+    "summaryPurpose": "Doel",
+    "summarySubmitterTitle": "Titel van indiener",
+    "summaryGuidance": "Begeleiding van indieners",
+    "starterTitle": "Er is een startersveld inbegrepen",
+    "starterBody": "Uw formulier begint met een verplicht veld “{{starterLabel}}” en wordt onmiddellijk gepubliceerd. U kunt velden toevoegen en nieuwe revisies publiceren vanuit de builder. Wie mag indienen en de beoordelingsregels worden na het maken geconfigureerd op de tabbladen Toegang en Workflow van de bouwer.",
+    "createButton": "Formulier maken",
+    "backToQuestions": "Terug naar vragen",
+    "backHint": "Keert terug naar begeleide creatie zonder uw antwoorden te verliezen.",
+    "stepHeader": "Formulierenplug-in · Stap {{step}} van 3 · {{phase}}",
+    "createTitle": "Maak een formulier",
+    "createSubtitle": "Verzamel inzendingen, keur ze goed en publiceer records naar Widgets.",
+    "progress": "Vraag {{index}} of {{total}}",
+    "navPrevious": "Vorige",
+    "navSkip": "Overslaan",
+    "navNext": "Volgende",
+    "navReview": "Beoordeling"
+  },
+  "portal": {
+    "loadingIcon": "Laden",
+    "shell": {
+      "homeLabel": "Mijn formulieren",
+      "formsLabel": "Formulieren",
+      "studioLink": "Terug naar Studio",
+      "signOut": "Meld u af"
+    },
+    "list": {
+      "loading": "Uw formulieren laden...",
+      "error": "Kan formulieren niet laden",
+      "retry": "Probeer het opnieuw.",
+      "eyebrow": "Formulieren",
+      "title": "Mijn formulieren",
+      "description": "Formulieren die u kunt indienen of helpen beoordelen.",
+      "empty": "Nog geen formulieren",
+      "emptyBody": "U heeft geen toegang tot formulieren. Vraag een beheerder om u toegang te verlenen.",
+      "draftOnly": "Alleen concept",
+      "drafts": "Concepten",
+      "submitted": "Ingezonden",
+      "changesRequested": "Wijzigingen gevraagd"
+    },
+    "detail": {
+      "loading": "Formulier laden…",
+      "unavailable": "Formulier niet beschikbaar",
+      "unavailableBody": "Het kan zijn dat u geen toegang heeft tot dit formulier, of dat het niet meer bestaat.",
+      "backToForms": "Terug naar Mijn formulieren",
+      "eyebrow": "Vorm",
+      "start": "Begin met indienen",
+      "sentTitle": "Inzending verzonden",
+      "sentBody": "Uw inzending ligt nu bij de reviewers. Hieronder kunt u de status ervan volgen.",
+      "notOpen": "Nog niet open voor inzendingen",
+      "notOpenBody": "Dit formulier heeft geen versie gepubliceerd waarnaar u kunt verzenden.",
+      "viewOnly": "Alleen bekijken",
+      "viewOnlyBody": "U kunt inzendingen op dit formulier bekijken, maar u kunt uw eigen inzendingen niet maken.",
+      "submissionsLabel": "Jouw inzendingen",
+      "submissionsTitle": "Jouw inzendingen",
+      "submissionsLoading": "Inzendingen laden…",
+      "submissionsEmpty": "Nog geen inzendingen",
+      "submissionsError": "We konden uw inzendingen niet laden. Probeer het later opnieuw.",
+      "submissionsEmptySubmit": "Start een inzending om deze hier te bekijken.",
+      "submissionsEmptyNone": "U heeft dit formulier niet ingevuld.",
+      "submissionsPages": "Uw inzendingspagina's",
+      "pagination": "Pagina {{page}} van {{totalPages}} · {{total}} totaal",
+      "updatedAt": "{{date}} bijgewerkt",
+      "untitled": "Inzending zonder titel"
+    },
+    "submission": {
+      "loading": "Laden…",
+      "unavailable": "Formulier niet beschikbaar",
+      "backToForms": "Terug naar Mijn formulieren",
+      "recordUnavailable": "Inzending niet beschikbaar",
+      "recordDenied": "Mogelijk heeft u geen toegang tot deze inzending.",
+      "backToForm": "Terug naar het formulier",
+      "newTitle": "Nieuwe inzending",
+      "editTitle": "Inzending bewerken"
+    },
+    "previous": "Vorige",
+    "next": "Volgende"
+  },
+  "nav": {
+    "approvals": "Goedkeuringen"
+  },
+  "approvals": {
+    "eyebrow": "Formulieren",
+    "title": "Goedkeuringen",
+    "description": "Inzendingen die wachten op een beoordelingsbeslissing op uw formulieren.",
+    "table": {
+      "form": "Vorm",
+      "submission": "Indiening",
+      "submitter": "Indiener",
+      "state": "Staat",
+      "submitted": "Ingezonden",
+      "displayWindow": "Weergavevenster",
+      "reviewAction": "Beoordeling"
+    },
+    "untitledSubmission": "Inzending zonder titel",
+    "untitledSubmissionInline": "inzending zonder titel",
+    "unknownSubmitter": "Onbekend",
+    "reviewActionLabel": "Beoordeel {{title}} van {{formName}}",
+    "loadErrorTitle": "Kan goedkeuringen niet laden",
+    "loadErrorFallback": "Probeer het opnieuw.",
+    "loading": "Goedkeuringen laden",
+    "emptyTitle": "Niets om te beoordelen",
+    "emptyDescription": "Er wachten momenteel geen inzendingen op uw beslissing.",
+    "paginationLabel": "Goedkeuringspagina's",
+    "paginationStatus": "Pagina {{page}} van {{totalPages}} · {{total}} in behandeling",
+    "displayWindow": {
+      "now": "nu",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "toasts": {
+    "formCreated": "Formulier gemaakt.",
+    "accessUpdated": "Formuliertoegang bijgewerkt.",
+    "draftSaved": "Formulierconcept opgeslagen.",
+    "published": "Formulier gepubliceerd.",
+    "outputsRebuilt": "Formulieruitvoer opnieuw opgebouwd.",
+    "submissionUpdated": "Inzending bijgewerkt.",
+    "commentAdded": "Commentaar toegevoegd.",
+    "attachmentUploaded": "Bijlage geüpload.",
+    "attachmentRemoved": "Bijlage verwijderd.",
+    "viewSaved": "Formulierweergave opgeslagen.",
+    "workflowSaved": "Formulierworkflow opgeslagen."
+  }
+}
