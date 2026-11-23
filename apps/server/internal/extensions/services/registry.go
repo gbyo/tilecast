@@ -141,24 +141,34 @@ func (c Capability) AllowsCaller(caller string) bool {
 
 var bothCallers = []string{CallerPackage, CallerBundled}
 
+// readContexts are the contexts of an install-granted read service that may
+// run unattended. A capability lists them explicitly; no read is available
+// in every context by default.
+var readContexts = []string{ContextStudio, ContextBackground, ContextSystem}
+
 // Detail is the registry-resolved display metadata Studio renders for one
 // requested grant. The review payload carries it so Studio never decodes
 // raw capability tokens itself.
 type Detail struct {
-	ID          string            `json:"id"`
-	Version     int               `json:"version"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Category    string            `json:"category"`
-	Operations  []OperationDetail `json:"operations"`
+	ID          string `json:"id"`
+	Version     int    `json:"version"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	// Contexts are the capability's invocation contexts, and each operation
+	// lists its own, so Studio can say whether the grant works while the
+	// plugin runs automatically without decoding service names.
+	Contexts   []string          `json:"contexts"`
+	Operations []OperationDetail `json:"operations"`
 }
 
 // OperationDetail is the review rendering of one registry operation.
 type OperationDetail struct {
-	Name        string `json:"name"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Mutating    bool   `json:"mutating"`
+	Name        string   `json:"name"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Mutating    bool     `json:"mutating"`
+	Contexts    []string `json:"contexts"`
 }
 
 var capabilities = []Capability{
@@ -245,6 +255,50 @@ var capabilities = []Capability{
 			{Name: "content.read@1/schedules.get", CapabilityID: "content.read", CapabilityVersion: 1, Title: "Read schedule", Description: "Read one schedule.", Contexts: []string{ContextStudio, ContextBackground}},
 			{Name: "content.read@1/groups.list", CapabilityID: "content.read", CapabilityVersion: 1, Title: "List screen groups", Description: "List screen groups with bounded pagination.", Contexts: []string{ContextStudio, ContextBackground}},
 			{Name: "content.read@1/groups.get", CapabilityID: "content.read", CapabilityVersion: 1, Title: "Read screen group", Description: "Read one screen group and its members.", Contexts: []string{ContextStudio, ContextBackground}},
+		},
+	},
+	{
+		// The shared content read contract. content.read@1 stays frozen for
+		// the packages that hold it; this version is a separate grant.
+		ID:          "content.read",
+		Version:     2,
+		Callers:     bothCallers,
+		Name:        "Content library (version 2)",
+		Description: "Read playlists, Layouts, Widgets, media, Data Sources, schedules, and screen groups, including while running automatically.",
+		Category:    CategoryRead,
+		Contexts:    readContexts,
+		Operations: []Operation{
+			{Name: "content.read@2/playlists.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List playlists", Description: "List playlists, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/playlists.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read playlist", Description: "Read one playlist, its items, and the Data Sources it reaches.", Contexts: readContexts},
+			{Name: "content.read@2/layouts.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List layouts", Description: "List Layouts, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/layouts.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read layout", Description: "Read one Layout and the content it depends on.", Contexts: readContexts},
+			{Name: "content.read@2/widgets.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List widgets", Description: "List Widgets, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/widgets.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read widget", Description: "Read one Widget and its authored configuration, without secrets.", Contexts: readContexts},
+			{Name: "content.read@2/media.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List media", Description: "List images and videos, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/media.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read media item", Description: "Read one image or video, without files, paths, or URLs.", Contexts: readContexts},
+			{Name: "content.read@2/dataSources.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List data sources", Description: "List Data Sources and their refresh status, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/dataSources.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read data source", Description: "Read one Data Source's fields and freshness, without its configuration or cached records.", Contexts: readContexts},
+			{Name: "content.read@2/schedules.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List schedules", Description: "List schedules, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/schedules.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read schedule", Description: "Read one schedule and its targets.", Contexts: readContexts},
+			{Name: "content.read@2/groups.list", CapabilityID: "content.read", CapabilityVersion: 2, Title: "List screen groups", Description: "List screen groups, oldest first, with cursor pagination.", Contexts: readContexts},
+			{Name: "content.read@2/groups.get", CapabilityID: "content.read", CapabilityVersion: 2, Title: "Read screen group", Description: "Read one screen group and its member screens.", Contexts: readContexts},
+		},
+	},
+	{
+		// Measured operational evidence. Kept apart from content.read because
+		// it exposes a different class of data.
+		ID:          "activity.read",
+		Version:     1,
+		Callers:     bothCallers,
+		Name:        "Playback activity",
+		Description: "Read proof of play, playback compliance, and current screen activity, including while running automatically.",
+		Category:    CategoryRead,
+		Contexts:    readContexts,
+		Operations: []Operation{
+			{Name: "activity.read@1/proof.list", CapabilityID: "activity.read", CapabilityVersion: 1, Title: "List proof of play", Description: "List proof-of-play sessions in a range, newest first, with cursor pagination and the safe Activity fields only.", Contexts: readContexts},
+			{Name: "activity.read@1/proof.summary", CapabilityID: "activity.read", CapabilityVersion: 1, Title: "Summarize proof of play", Description: "Summarize confirmed screen playback, content exposure, and session outcomes by screen, content, presentation, or schedule.", Contexts: readContexts},
+			{Name: "activity.read@1/compliance.summary", CapabilityID: "activity.read", CapabilityVersion: 1, Title: "Summarize compliance", Description: "Summarize expected against confirmed playback, with the exclusions and miss reasons Activity reports.", Contexts: readContexts},
+			{Name: "activity.read@1/screens.current", CapabilityID: "activity.read", CapabilityVersion: 1, Title: "Read current screen activity", Description: "Read each screen's health classification and what it is playing now.", Contexts: readContexts},
 		},
 	},
 	{
@@ -560,6 +614,7 @@ func Details(grants []packagemanifest.ServiceGrant) ([]Detail, error) {
 			Name:        capability.Name,
 			Description: capability.Description,
 			Category:    capability.Category,
+			Contexts:    append([]string{}, capability.Contexts...),
 			Operations:  make([]OperationDetail, 0, len(capability.Operations)),
 		}
 		for _, operation := range capability.Operations {
@@ -568,6 +623,7 @@ func Details(grants []packagemanifest.ServiceGrant) ([]Detail, error) {
 				Title:       operation.Title,
 				Description: operation.Description,
 				Mutating:    operation.Mutating,
+				Contexts:    append([]string{}, operation.Contexts...),
 			})
 		}
 		details = append(details, detail)

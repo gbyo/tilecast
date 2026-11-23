@@ -318,6 +318,42 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.groupsList(ctx, call)
 	case "content.read@1/groups.get":
 		return d.groupsGet(ctx, call)
+	case "content.read@2/playlists.list":
+		return d.contentPlaylistsList(ctx, call)
+	case "content.read@2/playlists.get":
+		return d.contentPlaylistsGet(ctx, call)
+	case "content.read@2/layouts.list":
+		return d.contentLayoutsList(ctx, call)
+	case "content.read@2/layouts.get":
+		return d.contentLayoutsGet(ctx, call)
+	case "content.read@2/widgets.list":
+		return d.contentWidgetsList(ctx, call)
+	case "content.read@2/widgets.get":
+		return d.contentWidgetsGet(ctx, call)
+	case "content.read@2/media.list":
+		return d.contentMediaList(ctx, call)
+	case "content.read@2/media.get":
+		return d.contentMediaGet(ctx, call)
+	case "content.read@2/dataSources.list":
+		return d.contentDataSourcesList(ctx, call)
+	case "content.read@2/dataSources.get":
+		return d.contentDataSourcesGet(ctx, call)
+	case "content.read@2/schedules.list":
+		return d.contentSchedulesList(ctx, call)
+	case "content.read@2/schedules.get":
+		return d.contentSchedulesGet(ctx, call)
+	case "content.read@2/groups.list":
+		return d.contentGroupsList(ctx, call)
+	case "content.read@2/groups.get":
+		return d.contentGroupsGet(ctx, call)
+	case "activity.read@1/proof.list":
+		return d.activityProofList(ctx, call)
+	case "activity.read@1/proof.summary":
+		return d.activityProofSummary(ctx, call)
+	case "activity.read@1/compliance.summary":
+		return d.activityComplianceSummary(ctx, call)
+	case "activity.read@1/screens.current":
+		return d.activityScreensCurrent(ctx, call)
 	case "managed-presentations.manage@1/ensure":
 		return d.managedEnsure(ctx, call)
 	case "managed-presentations.manage@1/update-data":

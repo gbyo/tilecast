@@ -31,8 +31,11 @@ type ServerService struct {
 	Version     int
 	Name        string
 	Description string
-	Contexts    []string
-	Operations  []ServerOperation
+	// Category groups the grant by consequence for install review: read,
+	// directory, manage, or audit.
+	Category   string
+	Contexts   []string
+	Operations []ServerOperation
 }
 
 // ServerOperation is one fixed operation of a capability. MaxInputBytes

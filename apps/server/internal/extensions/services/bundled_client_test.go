@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,6 +32,20 @@ func TestBundledClientIsCurrent(t *testing.T) {
 func TestBundledCallersAreExplicit(t *testing.T) {
 	for _, capability := range All() {
 		bundled := capability.AllowsCaller(CallerBundled)
+		grant := fmt.Sprintf("%s@%d", capability.ID, capability.Version)
+		switch {
+		case grant == "content.read@1":
+			// Frozen: content.read@2 is the shared version.
+			if bundled || !capability.AllowsCaller(CallerPackage) {
+				t.Errorf("%s should serve packages only", grant)
+			}
+			continue
+		case grant == "content.read@2" || grant == "activity.read@1":
+			if !bundled || !capability.AllowsCaller(CallerPackage) {
+				t.Errorf("%s should serve packages and bundled plugins", grant)
+			}
+			continue
+		}
 		switch capability.ID {
 		case "organization.read", "instance.read", "screens.read", "targets.resolve", "users.read-basic":
 			if !bundled || !capability.AllowsCaller(CallerPackage) {
