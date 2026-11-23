@@ -225,21 +225,48 @@ public struct MediaUploader: Sendable {
     }
 
     private func finalize(_ session: Session) async throws(MediaUploadError) -> Finalized {
-        try await retrying {
-            do {
-                switch try await client.completeUpload(.init(path: .init(id: session.id))) {
-                case .ok(let ok):
-                    guard case .json(let body) = ok.body else { return .done(UploadedMedia(assetID: nil)) }
-                    return .done(UploadedMedia(assetID: UUID(uuidString: body.data.id)))
-                case .conflict: return .incomplete
-                case .unsupportedMediaType: throw MediaUploadError.unsupportedType
-                case .undocumented(let status, _): throw MediaUploadError(status: status)
+        do {
+            return try await retrying {
+                do {
+                    switch try await client.completeUpload(.init(path: .init(id: session.id))) {
+                    case .ok(let ok):
+                        guard case .json(let body) = ok.body else { return .done(UploadedMedia(assetID: nil)) }
+                        return .done(UploadedMedia(assetID: UUID(uuidString: body.data.id)))
+                    case .conflict: return .incomplete
+                    case .unsupportedMediaType: throw MediaUploadError.unsupportedType
+                    case .undocumented(let status, _): throw MediaUploadError(status: status)
+                    }
+                } catch let error as ClientError where error.response?.status == .ok {
+                    // The server finalized the upload but answered in a shape
+                    // this app does not know. That is a finished upload.
+                    return .done(UploadedMedia(assetID: nil))
                 }
-            } catch let error as ClientError where error.response?.status == .ok {
-                // The server finalized the upload but answered in a shape
-                // this app does not know. That is a finished upload.
+            }
+        } catch {
+            let failure = MediaUploadError(error)
+            guard failure.isTransient else { throw failure }
+            // Completion is idempotent, but every successful response can be
+            // lost. HEAD carries the durable session status, so reconcile an
+            // ambiguous final response before reporting a failed upload.
+            if await serverFinalized(session) {
                 return .done(UploadedMedia(assetID: nil))
             }
+            throw failure
+        }
+    }
+
+    private func serverFinalized(_ session: Session) async -> Bool {
+        do {
+            return try await retrying {
+                switch try await client.inspectUploadSession(.init(path: .init(id: session.id))) {
+                case .noContent(let response):
+                    return response.headers.uploadStatus == .finalized
+                case .undocumented:
+                    return false
+                }
+            }
+        } catch {
+            return false
         }
     }
 
