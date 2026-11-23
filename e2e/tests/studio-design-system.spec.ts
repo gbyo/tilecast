@@ -1,10 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { csrfToken, ids, resetDemo } from "../support/demo";
 
 test.beforeEach(async ({ request }) => resetDemo(request));
 
 async function expectTarget(
-  target: ReturnType<Page["getByRole"]>,
+  target: Locator,
   touch: boolean,
 ) {
   await expect(target).toBeVisible();
@@ -230,7 +230,7 @@ test.describe("coarse pointer", () => {
       const actions = page.getByRole("dialog", {
         name: "Actions for Morning Broadcast",
       });
-      await expect(actions).toHaveAttribute("data-slot", "drawer-content");
+      await expect(actions).toHaveAttribute("data-slot", "drawer-popup");
       await page.keyboard.press("Escape");
     }
     await page.goto("/layouts/de300006-0000-4000-8000-000000000001");
