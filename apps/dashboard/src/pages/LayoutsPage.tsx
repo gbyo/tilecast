@@ -339,6 +339,7 @@ export function LayoutsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { t: tScreens } = useTranslation("screens");
   const [search, setSearch] = useState("");
   const [orientation, setOrientation] =
     useState<LayoutLibraryOrientationFilter>("all");
@@ -598,6 +599,20 @@ export function LayoutsPage() {
         onSelect: () => void navigate(`/layouts/${layout.id}`),
       },
     ];
+    if (
+      layout.publishedRevision &&
+      hasCapability(auth.status, "screen.manage")
+    ) {
+      primary.push({
+        id: "assign-content",
+        label: tScreens("grid.assignContent"),
+        icon: "screens",
+        onSelect: () =>
+          void navigate(
+            `/screens/bulk?layout=${encodeURIComponent(layout.id)}`,
+          ),
+      });
+    }
     const danger: StudioAction[] = [];
     if (canManage) {
       primary.push(
