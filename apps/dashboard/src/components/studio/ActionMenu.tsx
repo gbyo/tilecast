@@ -1,6 +1,14 @@
-import { Fragment, type ReactElement, type ReactNode } from "react";
+import { Fragment, useState, type ReactElement, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "../ui/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "../ui/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +32,10 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "../ui/context-menu";
-import { useFineHoverPointer } from "../../hooks/use-media-query";
+import {
+  useAnyCoarsePointer,
+  useFineHoverPointer,
+} from "../../hooks/use-media-query";
 import { ActionIcon } from "./actionIcons";
 
 /**
@@ -143,6 +154,59 @@ function ActionGroups({
   );
 }
 
+function TouchActionGroups({
+  groups,
+}: {
+  groups: StudioActionGroup[];
+}) {
+  const label = (entry: StudioMenuEntry) => (
+    <>
+      {entry.icon && <ActionIcon token={entry.icon} />}
+      {entry.label}
+    </>
+  );
+  const actionButton = (action: StudioAction) => (
+    <DrawerClose
+      key={action.id}
+      render={
+        <Button
+          type="button"
+          variant={action.role === "destructive" ? "destructive" : "ghost"}
+          className="w-full justify-start"
+          disabled={action.disabled}
+        />
+      }
+      onClick={() => action.onSelect()}
+    >
+      {label(action)}
+    </DrawerClose>
+  );
+
+  return (
+    <div className="grid min-h-0 gap-2 overflow-y-auto px-4 pb-4">
+      {groups.map((group, index) => (
+        <section
+          key={index}
+          className={index === 0 ? "grid gap-1" : "grid gap-1 border-t pt-2"}
+        >
+          {group.actions.map((entry) =>
+            "items" in entry ? (
+              <div key={entry.id} className="grid gap-1">
+                <p className="flex min-h-8 items-center gap-2 px-2.5 text-xs font-medium text-muted-foreground">
+                  {label(entry)}
+                </p>
+                {entry.items.map(actionButton)}
+              </div>
+            ) : (
+              actionButton(entry)
+            ),
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /**
  * A three-dot button with a Studio action menu. Renders nothing without
  * actions.
@@ -168,16 +232,34 @@ export function ActionMenuButton({
   triggerIcon?: ReactNode;
 }) {
   const visible = actionsForSurface(actions, "dropdown");
+  const touch = useAnyCoarsePointer();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   if (visible.length === 0) return null;
+
+  const trigger = (
+    <Button variant={variant} size={size} className={triggerClassName} />
+  );
+
+  if (touch) {
+    return (
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} showSwipeHandle>
+        <DrawerTrigger render={trigger} aria-label={label}>
+          {triggerIcon ?? <MoreHorizontal aria-hidden="true" />}
+        </DrawerTrigger>
+        <DrawerContent aria-label={label}>
+          <DrawerHeader>
+            <DrawerTitle>{label}</DrawerTitle>
+          </DrawerHeader>
+          <TouchActionGroups groups={visible} />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant={variant} size={size} className={triggerClassName} />
-        }
-        aria-label={label}
-      >
+      <DropdownMenuTrigger render={trigger} aria-label={label}>
         {triggerIcon ?? <MoreHorizontal aria-hidden="true" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} aria-label={label}>
@@ -217,7 +299,7 @@ export function ActionContextMenu({
   return (
     <ContextMenu disabled={count === 0 || !canHover}>
       <ContextMenuTrigger
-        suppressModifiedClick={count > 0}
+        suppressModifiedClick={count > 0 && canHover}
         className={
           className ?? (count === 0 && !render ? "contents" : undefined)
         }
