@@ -222,6 +222,13 @@ export function usePackageLifecycle(csrfToken: string) {
       api.checkPackageUpdate(packageId, csrfToken),
     onSuccess: () => settle(),
   });
+  const settlePackageJobs = (packageId: string) =>
+    Promise.all([
+      settle(),
+      queryClient.invalidateQueries({
+        queryKey: ["package-jobs", packageId],
+      }),
+    ]);
   const applyUpdate = useMutation({
     mutationFn: ({
       packageId,
@@ -230,12 +237,12 @@ export function usePackageLifecycle(csrfToken: string) {
       packageId: string;
       digest: string;
     }) => api.applyPackageUpdate(packageId, digest, csrfToken),
-    onSuccess: () => settle(),
+    onSuccess: (_data, { packageId }) => settlePackageJobs(packageId),
   });
   const rollback = useMutation({
     mutationFn: (packageId: string) =>
       api.rollbackPackage(packageId, csrfToken),
-    onSuccess: () => settle(),
+    onSuccess: (_data, packageId) => settlePackageJobs(packageId),
   });
   const remove = useMutation({
     mutationFn: (packageId: string) => api.removePackage(packageId, csrfToken),
