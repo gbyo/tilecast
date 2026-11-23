@@ -8297,6 +8297,8 @@ export interface components {
         event: string;
         /** @description core, or the ID of the publishing plugin. */
         publisher: string;
+        /** @description The publishing plugin's name, when this release includes it. */
+        publisherName?: string;
       }[];
     };
     PluginFeedReview: {
@@ -8751,6 +8753,8 @@ export interface components {
         reason?: string;
         /** @description core, or the ID of the publishing plugin. */
         publisher: string;
+        /** @description The publishing plugin's name, when this release includes it. */
+        publisherName?: string;
       }[];
       publishedEvents: {
         event: string;

@@ -98,6 +98,7 @@ func mustDefinitions(bundle []plugin.Plugin) []Definition {
 	for _, p := range bundle {
 		definitions = append(definitions, definitionFromManifest(p.Manifest()))
 	}
+	namePublishers(definitions)
 	sort.SliceStable(definitions, func(i, j int) bool {
 		return strings.ToLower(definitions[i].Name) < strings.ToLower(definitions[j].Name)
 	})

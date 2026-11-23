@@ -11254,6 +11254,9 @@ type PluginEventReview struct {
 
 		// Publisher core, or the ID of the publishing plugin.
 		Publisher string `json:"publisher"`
+
+		// PublisherName The publishing plugin's name, when this release includes it.
+		PublisherName *string `json:"publisherName,omitempty"`
 	} `json:"subscribes"`
 }
 
@@ -11437,9 +11440,12 @@ type PluginStatus struct {
 		Event string `json:"event"`
 
 		// Publisher core, or the ID of the publishing plugin.
-		Publisher string  `json:"publisher"`
-		Reason    *string `json:"reason,omitempty"`
-		State     string  `json:"state"`
+		Publisher string `json:"publisher"`
+
+		// PublisherName The publishing plugin's name, when this release includes it.
+		PublisherName *string `json:"publisherName,omitempty"`
+		Reason        *string `json:"reason,omitempty"`
+		State         string  `json:"state"`
 	} `json:"subscriptions"`
 }
 

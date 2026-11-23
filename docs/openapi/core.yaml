@@ -13206,6 +13206,11 @@ components:
                   type: string,
                   description: "core, or the ID of the publishing plugin.",
                 }
+              publisherName:
+                {
+                  type: string,
+                  description: "The publishing plugin's name, when this release includes it.",
+                }
     PluginFeedReview:
       type: object
       required: [id, title, provider, dataset, fields, personal, images]
@@ -14008,6 +14013,11 @@ components:
                 {
                   type: string,
                   description: "core, or the ID of the publishing plugin.",
+                }
+              publisherName:
+                {
+                  type: string,
+                  description: "The publishing plugin's name, when this release includes it.",
                 }
         publishedEvents:
           type: array

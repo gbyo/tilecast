@@ -183,6 +183,13 @@ func TestSubscriptionsFollowThePublisher(t *testing.T) {
 			t.Errorf("%s = %+v", event, got)
 		}
 	}
+	// A publisher this release includes is named; an unknown one is not.
+	if got := subscription(status, eventplugins.Signal); got.PublisherName == "" || got.Publisher != eventplugins.PublisherID {
+		t.Errorf("known publisher = %+v", got)
+	}
+	if got := subscription(status, eventplugins.Missing); got.PublisherName != "" {
+		t.Errorf("unknown publisher = %+v", got)
+	}
 	// The install of a subscriber to an absent publisher succeeded; once
 	// the publisher is installed, the subscription works by itself.
 	if _, _, err := e.h.Plugins.PublishEvent(e.h.Ctx, eventplugins.PublisherID, "signal@1", "s", json.RawMessage(`{"message":"early"}`)); !errors.Is(err, plugins.ErrPluginNotFound) {

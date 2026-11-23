@@ -206,6 +206,9 @@ type SubscriptionStatus struct {
 	Reason string `json:"reason,omitempty"`
 	// Publisher is "core" or the publishing plugin's ID.
 	Publisher string `json:"publisher"`
+	// PublisherName is the publishing plugin's name when this release
+	// includes it.
+	PublisherName string `json:"publisherName,omitempty"`
 }
 
 // PublishedEventStatus is one event a plugin publishes.
@@ -229,6 +232,9 @@ func (s *Service) eventStatus(ctx context.Context, hosted hostedPlugin, installe
 		if parsed, ok := plugin.ParsePluginEventName(name); ok {
 			status.Publisher = parsed.Plugin
 			publisher, known := s.hostedPlugin(parsed.Plugin)
+			if known {
+				status.PublisherName = publisher.manifest.Name
+			}
 			switch {
 			case !known || publisher.manifest.APIVersion < 3:
 				status.State, status.Reason = SubscriptionInactive, ReasonPublisherUnknown
@@ -302,6 +308,9 @@ type PublishedEventReview struct {
 type SubscribedEventReview struct {
 	Event     string `json:"event"`
 	Publisher string `json:"publisher"`
+	// PublisherName is the publishing plugin's name when this release
+	// includes it.
+	PublisherName string `json:"publisherName,omitempty"`
 }
 
 func eventReview(m plugin.Manifest) EventReview {
@@ -321,6 +330,23 @@ func eventReview(m plugin.Manifest) EventReview {
 		review.Subscribes = append(review.Subscribes, SubscribedEventReview{Event: name, Publisher: publisher})
 	}
 	return review
+}
+
+// namePublishers fills in the name of each publishing plugin the registry
+// includes, once every definition exists.
+func namePublishers(definitions []Definition) {
+	names := make(map[string]string, len(definitions))
+	for _, definition := range definitions {
+		names[definition.ID] = definition.Name
+	}
+	for i := range definitions {
+		for j := range definitions[i].Events.Subscribes {
+			subscription := &definitions[i].Events.Subscribes[j]
+			if subscription.Publisher != "core" {
+				subscription.PublisherName = names[subscription.Publisher]
+			}
+		}
+	}
 }
 
 func (r EventReview) clone() EventReview {
