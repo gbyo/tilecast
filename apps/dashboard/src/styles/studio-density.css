@@ -27,7 +27,7 @@ html[data-density="compact"]
    coarse-pointer hit region below that floor. */
 @media (any-pointer: coarse) {
   [data-slot="calendar"] {
-    --cell-size: 2.25rem;
+    --cell-size: 2.75rem;
   }
 
   [data-slot="input"],
@@ -75,6 +75,6 @@ html[data-density="compact"]
   }
 
   [data-slot="switch"]::after {
-    inset-block: -0.8125rem;
+    inset-block: -0.9375rem;
   }
 }
