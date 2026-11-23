@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
+import { newUuid } from "../../lib/uuid";
   Select,
   SelectContent,
   SelectItem,
@@ -97,7 +98,7 @@ export function ManualDataSourceEditor({
     (dataSource?.configuration as ManualSourceConfig | undefined) ?? {
       // i18n-ignore: default author-owned column, stored in the configuration
       columns: [{ key: "title", label: "Title", type: "text" }],
-      rows: [{ id: crypto.randomUUID(), values: { title: "" } }],
+      rows: [{ id: newUuid(), values: { title: "" } }],
       dateSelection: {
         enabled: false,
         dateFormat: "auto",
@@ -152,7 +153,7 @@ export function ManualDataSourceEditor({
       return {
         ...current,
         rows: items.map((value, index) => ({
-          id: current.rows[index]?.id ?? crypto.randomUUID(),
+          id: current.rows[index]?.id ?? newUuid(),
           values: { [column.key]: value },
         })),
       };
@@ -613,7 +614,7 @@ export function ManualDataSourceEditor({
                 ...current,
                 rows: [
                   ...current.rows,
-                  { id: crypto.randomUUID(), values: {} },
+                  { id: newUuid(), values: {} },
                 ],
               }))
             }
