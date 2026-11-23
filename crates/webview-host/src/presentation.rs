@@ -1437,7 +1437,11 @@ async fn handle_event(context: &Arc<DaemonContext>, ui: &UiHandle, event: UiEven
             false
         }
         UiEvent::Remote { event } => {
+            let recovered = remote_web_recovered(&event);
             handle_remote_event(context, ui, &event);
+            if recovered {
+                maybe_clear_at_start(context, ui);
+            }
             false
         }
         UiEvent::ConformanceMessage { .. } => {
@@ -1471,6 +1475,10 @@ async fn handle_event(context: &Arc<DaemonContext>, ui: &UiHandle, event: UiEven
             }
         }
     }
+}
+
+fn remote_web_recovered(event: &bridge::RemoteWebEvent) -> bool {
+    event.surface_id.is_none() && event.kind == "recovered"
 }
 
 /// Records a remote web event in the tracker and forwards it to the
@@ -2044,6 +2052,20 @@ mod tests {
         let timeout_ms = i64::try_from(crate::remote_web::CREATE_TIMEOUT.as_millis()).expect("fits");
         assert!(engine.take_expired_remote(1_000 + timeout_ms).is_empty());
         assert_eq!(engine.take_expired_remote(1_001 + timeout_ms), vec!["rw-2".to_string()]);
+    }
+
+    #[test]
+    fn only_host_wide_recovered_events_retry_startup_work() {
+        let recovered = bridge::RemoteWebEvent { surface_id: None, kind: "recovered".to_string(), code: None };
+        assert!(remote_web_recovered(&recovered));
+
+        let surface_loaded =
+            bridge::RemoteWebEvent { surface_id: Some("rw-1".to_string()), kind: "recovered".to_string(), code: None };
+        assert!(!remote_web_recovered(&surface_loaded));
+
+        let terminated =
+            bridge::RemoteWebEvent { surface_id: None, kind: "process-terminated".to_string(), code: None };
+        assert!(!remote_web_recovered(&terminated));
     }
 
     #[test]
