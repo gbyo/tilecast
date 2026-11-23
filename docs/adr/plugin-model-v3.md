@@ -8,7 +8,9 @@ Implementation: phase 1 is implemented. See
 [configuration schema](../config-schema.md), and
 [plugin secrets](../plugin-secrets.md). Phase 2 is in progress: host
 connections, local `http` origins, `http.fetch@1`, and OAuth 2.0 connections
-are implemented. See [plugin connections](../plugin-connections.md). The
+are implemented, and so are `storage.kv@1` and durable timers. See
+[plugin connections](../plugin-connections.md) and
+[plugin storage and timers](../plugin-storage.md). The
 OAuth callback hands the provider's answer to Studio, which completes the
 attempt with the session, because the Studio session cookie is
 `SameSite=Strict`. The other phase 2 members and
