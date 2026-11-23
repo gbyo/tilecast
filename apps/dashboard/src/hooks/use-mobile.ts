@@ -1,6 +1,10 @@
 import * as React from "react";
 
-const MOBILE_BREAKPOINT = 768;
+// This hook now answers the sidebar presentation question: below the desktop
+// workspace boundary, navigation is off-canvas so it never consumes a large
+// share of an iPad or resized window. The historical name is kept because the
+// sidebar primitive exposes the state as `isMobile`.
+const MOBILE_BREAKPOINT = 1024;
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
