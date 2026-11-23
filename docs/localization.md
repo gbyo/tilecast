@@ -321,7 +321,8 @@ date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 `useFormatLocale` keeps the browser's region when it shares the interface
 language (an `en-GB` browser in English still gets day-first dates). Otherwise
 it uses the interface language. For relative times with `date-fns`, pass the
-matching `date-fns/locale` (`es`, `ru`) through the same choice.
+matching `date-fns/locale` through the same choice. The date picker maps each
+supported interface language to its calendar locale.
 
 Use `formatDateTime()` from `src/lib/dateTime.ts` for Studio timestamps that
 need a medium date and a short time. Pass `useFormatLocale()` and, if needed,

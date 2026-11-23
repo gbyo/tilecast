@@ -4,13 +4,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DateInput, DateTimeInput } from "./date-picker";
+import { i18n } from "../i18n";
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.restoreAllMocks();
+  await i18n.changeLanguage("en");
 });
 
 describe("DateInput", () => {
+  it("shows calendar labels in the selected language", async () => {
+    await i18n.changeLanguage("zh");
+    render(<DateInput id="date" value="2026-09-10" onChange={vi.fn()} aria-label="Date" />);
+    await userEvent.click(screen.getByRole("button", { name: "Date" }));
+    expect(screen.getByRole("option", { name: "9月" })).toBeInTheDocument();
+  });
+
   it("opens a calendar and emits the picked day as YYYY-MM-DD", async () => {
     const onChange = vi.fn();
     render(<DateInput id="date" value="2026-09-10" onChange={onChange} />);

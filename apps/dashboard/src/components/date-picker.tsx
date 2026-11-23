@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarDays, X } from "lucide-react";
-import { es, ru } from "date-fns/locale";
+import { bn, es, fr, hi, nl, pt, ptBR, ru, zhCN } from "date-fns/locale";
 import { Button } from "./ui/button";
 import { Calendar } from "./ui/calendar";
 import { Input } from "./ui/input";
@@ -42,8 +42,15 @@ function displayDate(value: string, locale: string): string {
 /** Calendar month names follow the interface language, like the dates. */
 function calendarLocale(tag: string) {
   const primary = tag.split("-")[0]?.toLowerCase();
+  if (tag.toLowerCase() === "pt-br") return ptBR;
+  if (primary === "bn") return bn;
   if (primary === "es") return es;
+  if (primary === "fr") return fr;
+  if (primary === "hi") return hi;
+  if (primary === "nl") return nl;
+  if (primary === "pt") return pt;
   if (primary === "ru") return ru;
+  if (primary === "zh") return zhCN;
   return undefined;
 }
 
