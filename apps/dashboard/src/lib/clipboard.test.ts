@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { copyText, writeTextToClipboard } from "./clipboard";
 import { toast } from "../components/ui/toast";
@@ -7,8 +8,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.clearAllMocks();
-  delete (document as Document & { execCommand?: (command: string) => boolean })
-    .execCommand;
+  Reflect.deleteProperty(document, "execCommand");
 });
 
 const feedback = { success: "Copiado.", failure: "No se pudo copiar." };
