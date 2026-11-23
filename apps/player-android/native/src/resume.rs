@@ -111,12 +111,12 @@ fn binding_value(bound: binding::ServerBinding) -> Option<ResumeBinding> {
 /// Startup-only load. Android opens Player State before its async drivers.
 pub fn load_resume_state(state: &StateDb) -> ResumeState {
     let binding = state
-        .run_blocking(binding::get)
+        .run_blocking(|connection| binding::get(connection))
         .ok()
         .flatten()
         .and_then(binding_value);
     let pending = state
-        .run_blocking(playback_checkpoint::get)
+        .run_blocking(|connection| playback_checkpoint::get(connection))
         .ok()
         .flatten();
     ResumeState::loaded(binding, pending)
@@ -126,7 +126,7 @@ pub fn load_resume_state(state: &StateDb) -> ResumeState {
 /// manifest loop projects the newly enrolled screen.
 pub async fn refresh_binding(state: &StateDb, resume: &Arc<Mutex<ResumeState>>) {
     let binding = state
-        .run(binding::get)
+        .run(|connection| binding::get(connection))
         .await
         .ok()
         .flatten()
