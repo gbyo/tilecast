@@ -199,7 +199,10 @@ function TouchActionGroups({
                   {label(entry)}
                 </p>
                 {entry.items.map((action) =>
-                  actionButton(action, Boolean(entry.disabled || action.disabled)),
+                  actionButton(
+                    action,
+                    Boolean(entry.disabled || action.disabled),
+                  ),
                 )}
               </div>
             ) : (
