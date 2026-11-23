@@ -400,6 +400,7 @@ describe("Creating a schedule", () => {
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
     await act(async () => {
       finish(playlistRow);
+      await Promise.resolve();
     });
     expect(
       await screen.findByText("Morning Announcements"),
