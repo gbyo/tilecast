@@ -6,6 +6,7 @@ import { PluginPage } from "../../PluginPage";
 import { statusClient, statusKey } from "./api";
 import { DeliverySummary } from "./DeliverySummary";
 import { ParkedDeliveries } from "./ParkedDeliveries";
+import { ProvidersSection } from "./ProvidersSection";
 import { PublishedEventsSection } from "./PublishedEventsSection";
 import { SubscriptionsSection } from "./SubscriptionsSection";
 import { WebhooksSection } from "./WebhooksSection";
@@ -50,6 +51,7 @@ export function HostedStatusPage({ pluginId, manifest }: HostedStatusProps) {
           />
           <SubscriptionsSection subscriptions={status.data.subscriptions} />
           <PublishedEventsSection events={status.data.publishedEvents} />
+          <ProvidersSection providers={status.data.providers} />
           <WebhooksSection
             webhooks={status.data.webhooks}
             webhooksPath={`${manifest.studio!.route}/webhooks`}

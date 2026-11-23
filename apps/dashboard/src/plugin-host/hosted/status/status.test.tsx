@@ -50,6 +50,7 @@ const status: PluginStatus = {
   subscriptions: [],
   publishedEvents: [],
   webhooks: [],
+  providers: { channels: [], checks: [] },
 };
 
 function stub(body: PluginStatus = status) {
@@ -227,6 +228,53 @@ describe("status page", () => {
       "href",
       "/plugins/room-sign/webhooks",
     );
+  });
+
+  it("shows provider health for channels and checks", async () => {
+    stub({
+      ...status,
+      providers: {
+        channels: [
+          {
+            id: "push",
+            title: "ntfy",
+            ready: false,
+            sent: 4,
+            pending: 0,
+            failed: 1,
+          },
+        ],
+        checks: [
+          {
+            id: "lint",
+            title: "Readability",
+            kinds: ["playlist", "layout"],
+            checkedItems: 12,
+            failingItems: 2,
+            openConditions: 3,
+            lastFailure: "check_timeout",
+          },
+        ],
+      },
+    });
+    renderPluginRoute(
+      <HostedStatusPage pluginId="room_sign" manifest={manifest} />,
+      { path: "/plugins/room-sign/status", role: "administrator" },
+    );
+    expect(
+      await screen.findByText("Services this plugin provides"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Off")).toBeInTheDocument();
+    expect(screen.getByText("4 sent, 0 waiting, 1 failed")).toBeInTheDocument();
+    expect(screen.getByText("3 open conditions")).toBeInTheDocument();
+    expect(
+      screen.getByText("12 items checked: playlists, Layouts"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "2 items could not be checked: the check took longer than 10 seconds. Their earlier conditions stay open.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows no event sections without events", async () => {
