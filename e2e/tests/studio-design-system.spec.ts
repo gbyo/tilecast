@@ -170,43 +170,46 @@ for (const touch of [false, true]) {
     () => {
       test.use({ hasTouch: touch, viewport: { width: 820, height: 1000 } });
 
-      test("separates spatial layout from input ergonomics", async ({ page }) => {
-        await page.goto("/schedules");
+      test(
+        "separates spatial layout from input ergonomics",
+        async ({ page }) => {
+          await page.goto("/schedules");
 
-        const search = page.getByRole("searchbox");
-        const filters = page.getByRole("button", { name: "Filters" });
-        const action = page.getByRole("button", {
-          name: "Actions for Morning Broadcast",
-        });
+          const search = page.getByRole("searchbox");
+          const filters = page.getByRole("button", { name: "Filters" });
+          const action = page.getByRole("button", {
+            name: "Actions for Morning Broadcast",
+          });
 
-        await expectTarget(search, touch);
-        await expectTarget(filters, touch);
-        await expectTarget(action, touch);
-        await expect(search).toHaveCSS("font-size", touch ? "16px" : "14px");
+          await expectTarget(search, touch);
+          await expectTarget(filters, touch);
+          await expectTarget(action, touch);
+          await expect(search).toHaveCSS("font-size", touch ? "16px" : "14px");
 
-        await filters.click();
-        const filterSurface = page.getByRole("dialog", { name: "Filters" });
-        // 820px is still an iPad-sized workspace: touch changes target geometry,
-        // not the spatial decision to preserve context with a Popover.
-        await expect(filterSurface).toHaveAttribute(
-          "data-slot",
-          "popover-content",
-        );
-        await page.keyboard.press("Escape");
-
-        await page.goto("/screens");
-        const link = page.getByRole("link", {
-          name: "Cafeteria East",
-          exact: true,
-        });
-        await link.click({ button: "right" });
-        if (touch) {
-          await expect(page.getByRole("menu")).toHaveCount(0);
-        } else {
-          await expect(page.getByRole("menu")).toBeVisible();
+          await filters.click();
+          const filterSurface = page.getByRole("dialog", { name: "Filters" });
+          // 820px is still an iPad-sized workspace: touch changes target geometry,
+          // not the spatial decision to preserve context with a Popover.
+          await expect(filterSurface).toHaveAttribute(
+            "data-slot",
+            "popover-content",
+          );
           await page.keyboard.press("Escape");
-        }
-      });
+
+          await page.goto("/screens");
+          const link = page.getByRole("link", {
+            name: "Cafeteria East",
+            exact: true,
+          });
+          await link.click({ button: "right" });
+          if (touch) {
+            await expect(page.getByRole("menu")).toHaveCount(0);
+          } else {
+            await expect(page.getByRole("menu")).toBeVisible();
+            await page.keyboard.press("Escape");
+          }
+        },
+      );
     },
   );
 }
