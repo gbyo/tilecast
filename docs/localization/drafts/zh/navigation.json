@@ -1,0 +1,118 @@
+{
+  "brand": {
+    "home": "Tilecast 概览"
+  },
+  "groups": {
+    "screens": "屏幕",
+    "content": "内容",
+    "presentations": "演示",
+    "operations": "运营"
+  },
+  "overview": "概览",
+  "userMenu": {
+    "openLabel": "打开 {{name}} 的账户菜单",
+    "myForms": "我的表单",
+    "myAccount": "我的账户",
+    "signOut": "退出登录"
+  },
+  "items": {
+    "fleet": "屏幕",
+    "displayGroups": "显示组",
+    "archive": "归档",
+    "media": "媒体",
+    "widgets": "Widgets",
+    "dataSources": "数据源",
+    "playlists": "播放列表",
+    "layouts": "布局",
+    "campaigns": "活动",
+    "schedules": "日程",
+    "plugins": "插件",
+    "activity": "活动记录",
+    "settings": "设置"
+  },
+  "header": {
+    "toggleNavigation": "切换导航栏",
+    "search": "搜索 Tilecast",
+    "notifications": "通知",
+    "notificationsWithCount_other": "通知，{{count}} 条待处理",
+    "activeCount_other": "{{count}} 条待处理",
+    "noneActive": "没有待处理项",
+    "caughtUp": "已查看所有更新。",
+    "groups": {
+      "critical": "紧急",
+      "warning": "需要处理",
+      "info": "信息"
+    }
+  },
+  "palette": {
+    "title": "搜索 Tilecast",
+    "description": "查找工作区、屏幕或快捷操作。",
+    "label": "搜索 Tilecast",
+    "placeholder": "搜索屏幕、媒体、播放列表…",
+    "resultsLabel": "搜索结果",
+    "noResults": "没有找到与“{{query}}”相关的结果。",
+    "noDestinations": "没有可用的目标位置。",
+    "groups": {
+      "quickActions": "快捷操作",
+      "screens": "屏幕",
+      "content": "内容",
+      "presentations": "演示",
+      "scheduling": "日程安排",
+      "administration": "管理",
+      "navigation": "导航"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "配对屏幕",
+        "description": "连接新的数字标牌播放器"
+      },
+      "uploadMedia": {
+        "label": "上传媒体",
+        "description": "添加图片、视频或文档"
+      },
+      "createPlaylist": {
+        "label": "创建播放列表",
+        "description": "制作全屏演示"
+      },
+      "createLayout": {
+        "label": "创建布局",
+        "description": "在演示画布上排列内容"
+      },
+      "createSchedule": {
+        "label": "创建日程",
+        "description": "规划内容的播放屏幕和时间"
+      }
+    },
+    "plugin": "插件",
+    "pluginNotInstalled": "插件 · 尚未安装",
+    "hints": {
+      "move": "移动",
+      "open": "打开",
+      "close": "关闭"
+    },
+    "screenStatus": {
+      "online": "在线",
+      "recent": "最近在线",
+      "stale": "状态较旧",
+      "offline": "离线",
+      "disabled": "已停用",
+      "revoked": "配对已撤销",
+      "awaiting_player": "等待播放器连接"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "追踪内容、演示、日程、分组和屏幕",
+      "sectionFallback": "{{label}}设置"
+    }
+  },
+  "error": {
+    "title": "无法显示此页面。",
+    "fallback": "显示此页面时发生意外错误。",
+    "retry": "重试"
+  },
+  "access": {
+    "deniedTitle": "您的角色无权访问此区域",
+    "deniedDescription": "您的角色不包含此页面的访问权限。如需访问，请联系管理员。",
+    "goTo": "前往{{destination}}",
+    "goToAccount": "前往我的账户"
+  }
+}

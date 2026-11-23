@@ -1,0 +1,722 @@
+{
+  "access": {
+    "roles": {
+      "owner": "Propriétaire",
+      "administrator": "Administrateur",
+      "editor": "Éditeur",
+      "contributor": "Contributeur",
+      "viewer": "Visionneuse"
+    },
+    "capabilities": {
+      "manage": {
+        "label": "Gérer",
+        "implies": "Contrôle total – inclut toutes les capacités ci-dessous."
+      },
+      "approve": {
+        "label": "Approuver",
+        "implies": "Approuver ou rejeter : inclut Réviser et Tout afficher."
+      },
+      "review": {
+        "label": "Examen",
+        "implies": "Demander des modifications : inclut Tout afficher."
+      },
+      "viewAll": {
+        "label": "Afficher toutes les réponses",
+        "implies": "Comprend View propre."
+      },
+      "viewOwn": {
+        "label": "Afficher vos propres réponses"
+      },
+      "submit": {
+        "label": "Soumettre les réponses"
+      }
+    },
+    "loading": "Accès en cours de chargement…",
+    "loadError": "Impossible de charger l'accès",
+    "loadRetry": "Veuillez réessayer.",
+    "updateError": "Impossible de mettre à jour l'accès.",
+    "changeFailed": "Échec du changement d'accès",
+    "table": {
+      "user": "Utilisateur",
+      "globalRole": "Rôle mondial",
+      "access": "Accès",
+      "actions": "Actions"
+    },
+    "managerCreator": "Gérant (créateur)",
+    "managerOwner": "Gérant (propriétaire)",
+    "alwaysManager": "Toujours un manager",
+    "editAccess": "Modifier l'accès",
+    "grant": {
+      "title": "Accorder l'accès",
+      "findUser": "Trouver un utilisateur",
+      "searchPlaceholder": "Rechercher des utilisateurs",
+      "searchHint": "Recherchez par nom ou nom d'utilisateur.",
+      "grantingTo": "Accorder l'accès à",
+      "searching": "Recherche…",
+      "noMatch": "Aucun utilisateur correspondant",
+      "noMatchHint": "Essayez une autre recherche.",
+      "searchError": "La recherche d'utilisateur a échoué"
+    },
+    "includedByBroader": "Inclus par une capacité plus large.",
+    "saveAccess": "Enregistrer l'accès"
+  },
+  "builder": {
+    "actions": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "moveTop": "Déplacer vers le haut",
+      "moveBottom": "Déplacer vers le bas",
+      "deleteField": "Supprimer le champ"
+    },
+    "row": {
+      "editField": "Modifier {{name}}",
+      "actionsFor": "Actions pour {{name}}"
+    },
+    "fieldsPanel": "Champs de formulaire",
+    "emptyFields": "Aucun champ pour l'instant. Ajoutez le premier ci-dessous.",
+    "previewPanel": "Aperçu du formulaire",
+    "formTitle": "Titre du formulaire",
+    "formDescription": "Description du formulaire",
+    "inspectorPanel": "Paramètres de champ",
+    "inspectorEyebrow": "Inspecteur",
+    "inspectorEmpty": "Sélectionnez un champ pour modifier ses paramètres.",
+    "status": {
+      "saving": "Sauvegarde…",
+      "saveFailed": "Échec de l'enregistrement",
+      "unsaved": "Modifications non enregistrées",
+      "saved": "Enregistré"
+    },
+    "saveDraft": "Enregistrer le brouillon",
+    "publish": "Publier",
+    "leave": {
+      "title": "Partir sans économiser ?",
+      "body": "Vous avez des modifications non enregistrées dans ce formulaire. En partant maintenant, vous les éliminerez."
+    },
+    "draftError": "Brouillon non enregistré",
+    "draftFallback": "Impossible d'enregistrer le brouillon.",
+    "publishTitle": "Publier une nouvelle révision ?",
+    "publishBody": "La publication crée une nouvelle révision immuable. Les soumissions existantes restent liées à la révision pour laquelle elles ont été créées.",
+    "publishConfirm": "Publier la révision",
+    "publishConflict": "La forme a changé ailleurs. Rechargez et réessayez.",
+    "publishFallback": "Impossible de publier.",
+    "layout": {
+      "group": "Champs de formulaire, aperçu et inspecteur",
+      "fields": "Champs de formulaire",
+      "resizeFieldsPreview": "Redimensionner les champs et les volets d'aperçu",
+      "preview": "Aperçu du formulaire",
+      "resizePreviewInspector": "Redimensionner les volets d'aperçu et d'inspecteur",
+      "inspector": "Paramètres de champ"
+    }
+  },
+  "fieldEditor": {
+    "publishedTitle": "Champ publié",
+    "publishedWithType": "Ce champ fait partie du formulaire publié, sa clé et son type de sortie sont donc verrouillés pour que Widgets et les vues enregistrées fonctionnent. Vous pouvez toujours modifier son étiquette, son texte d'aide, sa validation et son ordre.",
+    "publishedBase": "Ce champ fait partie du formulaire publié, sa clé est donc verrouillée pour que Widgets et les vues enregistrées fonctionnent. Vous pouvez toujours modifier son étiquette, son texte d'aide, sa validation et son ordre.",
+    "label": "Étiquette",
+    "key": "Clé de champ",
+    "keyHint": "Identifiant stable utilisé par Widgets et les vues.",
+    "type": "Type de champ",
+    "help": "Texte d'aide",
+    "helpHint": "Montré sous le champ.",
+    "required": "Obligatoire",
+    "defaultValue": "Valeur par défaut",
+    "minimum": "Minimum",
+    "maximum": "Maximale",
+    "minLength": "Longueur minimale",
+    "maxLength": "Longueur maximale",
+    "options": "Possibilités",
+    "remove": "Supprimer",
+    "addOption": "Ajouter une option",
+    "optionLabel": "Option Étiquette {{n}}",
+    "optionValue": "Valeur de l'option {{n}}",
+    "newOptionLabel": "Option {{index}}"
+  },
+  "palette": {
+    "title": "Ajouter un champ"
+  },
+  "controls": {
+    "shortText": {
+      "label": "Texte court",
+      "description": "Une seule ligne de texte."
+    },
+    "longText": {
+      "label": "Texte long",
+      "description": "Un paragraphe multiligne."
+    },
+    "number": {
+      "label": "Numéro",
+      "description": "Un nombre décimal."
+    },
+    "integer": {
+      "label": "Entier",
+      "description": "Un nombre entier."
+    },
+    "boolean": {
+      "label": "Oui/non",
+      "description": "Une case à cocher."
+    },
+    "select": {
+      "label": "Sélectionnez",
+      "description": "Choisissez une option."
+    },
+    "multiSelect": {
+      "label": "Sélection multiple",
+      "description": "Choisissez une ou plusieurs options."
+    },
+    "date": {
+      "label": "Date",
+      "description": "Une date du calendrier."
+    },
+    "datetime": {
+      "label": "Date et heure",
+      "description": "Un rendez-vous avec une heure."
+    },
+    "url": {
+      "label": "URL",
+      "description": "Un lien internet."
+    },
+    "image": {
+      "label": "Téléchargement d'images",
+      "description": "Une image téléchargée."
+    },
+    "section": {
+      "label": "Titre de section",
+      "description": "Un en-tête pour regrouper les champs."
+    },
+    "helpText": {
+      "label": "Texte d'aide",
+      "description": "Conseils présentés aux soumissionnaires."
+    }
+  },
+  "defaults": {
+    "sectionLabel": "Section",
+    "helpTextLabel": "Texte d'aide",
+    "optionLabel": "Option {{n}}",
+    "titleLabel": "Titre"
+  },
+  "renderer": {
+    "empty": "Ce formulaire n'a pas encore de champs.",
+    "charLimitReached": "Limite de caractères atteinte ({{max}})",
+    "charsLeft": "Caractères {{remaining}} sur {{max}} restants",
+    "selectPlaceholder": "Sélectionnez…",
+    "imageNoteSubmit": "Les téléchargements d'images sont disponibles lors de la soumission.",
+    "imageAttention": "L’image a besoin d’attention.",
+    "pendingUpload": "Télécharge lorsque vous enregistrez.",
+    "uploading": "Téléchargement…",
+    "imageAttached": "Image ci-jointe.",
+    "replaceImage": "Remplacer l'image",
+    "chooseImage": "Choisir une image",
+    "replaceLabel": "Remplacer {{label}}",
+    "chooseLabel": "Choisissez {{label}}",
+    "imageAlt": "Attache {{label}}",
+    "removeImage": "Supprimer",
+    "noImage": "Aucune image fournie."
+  },
+  "outputs": {
+    "loading": "Chargement des sorties…",
+    "loadError": "Impossible de charger les sorties",
+    "retry": "Veuillez réessayer.",
+    "projectionError": "Erreur de projection",
+    "staleCache": "Cache obsolète",
+    "upToDate": "À jour",
+    "lastProjection": "Dernière projection : {{value}}",
+    "never": "jamais",
+    "nextRefresh": "Actualisation suivante : {{value}}",
+    "onChange": "sur le changement",
+    "rebuild": "Reconstruire les sorties",
+    "rebuildError": "La reconstruction a échoué",
+    "lastReport": "La dernière projection rapportée : {{code}}",
+    "noViews": "Aucune vue enregistrée",
+    "noViewsHint": "Créez une vue dans l'onglet Vues pour générer un ensemble de données de sortie.",
+    "viewLabel": "Sortie {{name}}",
+    "recordCount_one": "Enregistrement {{count}}",
+    "recordCount_other": "Enregistrements {{count}}",
+    "usedByWidgets_one": "Utilisé par le widget {{count}}",
+    "usedByWidgets_other": "Utilisé par les widgets {{count}}",
+    "referencedBy": "Référencé par : {{names}}",
+    "noRecords": "Aucun enregistrement ne correspond encore à cette vue.",
+    "recordCount_many": "Enregistrements {{count}}",
+    "usedByWidgets_many": "Utilisé par les widgets {{count}}"
+  },
+  "review": {
+    "loading": "Chargement de la soumission…",
+    "unavailable": "Soumission indisponible",
+    "unavailableBody": "Cette soumission n'a pas pu être chargée ou vous n'y avez plus accès.",
+    "decisionRecorded": "Décision enregistrée.",
+    "untitled": "Soumission sans titre",
+    "submittedBy": "Soumis par {{name}}",
+    "unknownSubmitter": "Inconnu",
+    "revision": "· Révision {{number}}",
+    "actionFailed": "L'action a échoué",
+    "displaySection": "Afficher les métadonnées",
+    "displayTitle": "Paramètres d'affichage",
+    "titleLabel": "Afficher le titre",
+    "priorityLabel": "Priorité",
+    "fromLabel": "Afficher à partir de",
+    "expiresLabel": "Expire à",
+    "displayTime": "Temps d'affichage",
+    "expiryTime": "Heure d'expiration",
+    "decisionSection": "Décision",
+    "decisionTitle": "{{label}} cette soumission",
+    "decisionFallback": "Enregistrer une décision",
+    "noteRequired": "Une note est requise pour {{label}}.",
+    "noteLabel": "Remarque",
+    "notePlaceholder": "Qu’est-ce qui a changé ou que doit corriger l’auteur ?",
+    "noteHint": "Enregistré avec la décision et affiché dans l'historique.",
+    "commentsSection": "Commentaires",
+    "noComments": "Pas encore de commentaires.",
+    "addComment": "Ajouter un commentaire",
+    "commentButton": "Commentaire",
+    "historySection": "Histoire",
+    "applyFallback": "Impossible d'appliquer la modification.",
+    "commentFallback": "Impossible d'ajouter le commentaire.",
+    "refreshedConflict": "Cette soumission a changé depuis que vous l'avez ouverte. Il a été actualisé : consultez la dernière version et réessayez.",
+    "events": {
+      "created": "Créé",
+      "createdBy": "Créé par {{name}}",
+      "edited": "Modifié",
+      "editedBy": "Edité par {{name}}",
+      "moved": "Déplacement {{from}} → {{to}}",
+      "movedBy": "Déplacé {{from}} → {{to}} par {{name}}",
+      "commented": "Commenté",
+      "commentedBy": "Commenté par {{name}}",
+      "attachmentAdded": "Ajout d'une pièce jointe",
+      "attachmentAddedBy": "Ajout d'une pièce jointe par {{name}}",
+      "attachmentRemoved": "Suppression d'une pièce jointe",
+      "attachmentRemovedBy": "Suppression d'une pièce jointe par {{name}}",
+      "unknown": "{{type}}{{actor}}",
+      "byActor": " par {{name}}"
+    },
+    "leaveTitle": "Partir sans économiser ?",
+    "leaveBody": "Cet avis comporte des modifications non enregistrées."
+  },
+  "editor": {
+    "leaveTitle": "Partir sans économiser ?",
+    "leaveBody": "Vous avez des modifications non enregistrées dans cette soumission. En partant maintenant, vous les éliminerez.",
+    "changesRequested": "Modifications demandées",
+    "anonymousReviewer": "Réviseur",
+    "saveFailed": "Impossible d'enregistrer",
+    "saveDraft": "Enregistrer le brouillon",
+    "submitFallback": "Soumettre",
+    "completedTitle": "Cette soumission est {{state}}",
+    "completedBody": "Il ne peut plus être modifié. Un évaluateur fera un suivi si des changements sont nécessaires.",
+    "commentsSection": "Commentaires",
+    "fixFields_one": "Corrigez le champ {{count}} avant de continuer",
+    "fixFields_other": "Corrigez les champs {{count}} avant de continuer",
+    "cannotSubmit": "Ce formulaire ne peut pas être soumis dans son état actuel.",
+    "fixFields_many": "Corrigez les champs {{count}} avant de continuer"
+  },
+  "views": {
+    "newView": "Nouvelle vue",
+    "viewInUse": "Vue en cours d'utilisation",
+    "deleteFallback": "Impossible de supprimer la vue.",
+    "noViews": "Aucune vue enregistrée",
+    "noViewsHint": "Créez une vue pour publier un ensemble de données nommé pour Widgets.",
+    "tableName": "Nom",
+    "tableKey": "Clé de l'ensemble de données",
+    "tableStates": "États",
+    "tableActions": "Actions",
+    "duplicate": "Dupliquer",
+    "leaveTitle": "Partir sans économiser ?",
+    "leaveBody": "Cette vue comporte des modifications non enregistrées.",
+    "notSaved": "Vue non enregistrée",
+    "saveFallback": "Impossible d'enregistrer la vue.",
+    "previewFallback": "Impossible de prévisualiser la vue.",
+    "nameLabel": "Afficher le nom",
+    "keyLabel": "Clé de l'ensemble de données",
+    "newKeyHint": "Clé minuscule ; corrigé une fois enregistré.",
+    "lockedKeyHint": "Les clés sont immuables.",
+    "limitLabel": "Limite d'enregistrement",
+    "orderLabel": "Commande",
+    "statesLegend": "États inclus",
+    "fieldsLegend": "Champs de sortie et ordre",
+    "addFieldLabel": "Ajouter un champ de sortie",
+    "addFieldPlaceholder": "Ajouter un champ…",
+    "noneSelected": "Tous les champs disponibles (aucun sélectionné).",
+    "filtersLegend": "Filtres de champ",
+    "filterFieldLabel": "Champ de filtre",
+    "fieldPlaceholder": "Champ…",
+    "operatorLabel": "Opérateur de filtre",
+    "removeItem": "Supprimer",
+    "addFilter": "Ajouter un filtre",
+    "sortLegend": "Trier",
+    "sortFieldLabel": "Champ de tri",
+    "sortDirectionLabel": "Sens de tri",
+    "ascending": "Ascendant",
+    "descending": "Décroissant",
+    "addSort": "Ajouter une règle de tri",
+    "timeLegend": "Fenêtre de temps",
+    "timeEnabled": "Filtrer par une fenêtre de temps relative",
+    "startField": "Champ de départ",
+    "noneOption": "Aucun",
+    "endField": "Champ de fin",
+    "startBeforeNow": "Le début est avant maintenant",
+    "endAfterNow": "La fin est après maintenant",
+    "previewButton": "Aperçu",
+    "saveButton": "Enregistrer la vue",
+    "previewTitle": "Aperçu",
+    "previewCount_one": "Enregistrement {{count}}",
+    "previewCount_other": "Enregistrements {{count}}",
+    "previewEmpty": "Aucun enregistrement ne correspond à cette vue.",
+    "moveUp": "Déplacer {{label}} vers le haut",
+    "moveDown": "Déplacer {{label}} vers le bas",
+    "removeLabel": "Supprimer {{label}}",
+    "copyName": "{{name}} (copie)",
+    "previewCount_many": "Enregistrements {{count}}"
+  },
+  "workflow": {
+    "capabilities": {
+      "submit": {
+        "label": "Soumettre"
+      },
+      "review": {
+        "label": "Examen"
+      },
+      "approve": {
+        "label": "Approuver"
+      },
+      "manage": {
+        "label": "Gérer"
+      },
+      "viewAll": {
+        "label": "Voir tout"
+      },
+      "viewOwn": {
+        "label": "Voir propre"
+      }
+    },
+    "leaveTitle": "Partir sans économiser ?",
+    "leaveBody": "Le flux de travail comporte des modifications non enregistrées.",
+    "notSaved": "Flux de travail non enregistré",
+    "saveFallback": "Impossible d'enregistrer le flux de travail.",
+    "fixBefore": "Corrigez-les avant de sauvegarder",
+    "statesSection": "États",
+    "statesTitle": "États",
+    "addState": "Ajouter un état",
+    "stateLabel": "Étiquette",
+    "stateKey": "Clé",
+    "lockedHint": "En cours d'utilisation — verrouillé",
+    "keyHint": "Minuscule, stable",
+    "stateRecords_one": "Enregistrement {{count}}",
+    "stateRecords_other": "Enregistrements {{count}}",
+    "initialOption": "Initiale",
+    "eligibleOption": "Sortie éligible",
+    "terminalOption": "Borne",
+    "moveUp": "Déplacer {{label}} vers le haut",
+    "moveDown": "Déplacer {{label}} vers le bas",
+    "deleteState": "Supprimer {{label}}",
+    "deleteLockedTitle": "Référencé par des enregistrements",
+    "deleteTitle": "Supprimer l'état",
+    "newStateLabel": "Nouvel état",
+    "transitionsSection": "Transitions",
+    "transitionsTitle": "Transitions",
+    "addTransition": "Ajouter une transition",
+    "colFrom": "De",
+    "colTo": "À",
+    "colLabel": "Étiquette",
+    "colCapability": "Capacité requise",
+    "fromStateLabel": "De l'état",
+    "toStateLabel": "Pour déclarer",
+    "capabilityLabel": "Capacité requise",
+    "moveTransitionUp": "Déplacer la transition vers le haut",
+    "moveTransitionDown": "Déplacer la transition vers le bas",
+    "removeTransition": "Supprimer la transition {{label}}",
+    "newTransitionLabel": "Nouvelle transition",
+    "impactTitle": "Ce changement affecte les chemins de sortie ou de soumission",
+    "reviewAgain": "Réviser à nouveau",
+    "saveAnyway": "Enregistrer quand même",
+    "saveWorkflow": "Enregistrer le flux de travail",
+    "validation": {
+      "noStates": "Ajoutez au moins un état.",
+      "invalidStateKey": "La clé d'état \"{{key}}\" n'est pas valide (lettres minuscules, chiffres, traits de soulignement).",
+      "emptyKey": "(vide)",
+      "duplicateStateKey": "Clé d'état en double \"{{key}}\".",
+      "stateNeedsLabel": "Chaque État a besoin d'un label.",
+      "exactlyOneInitial": "Exactement un état doit être l’état initial.",
+      "needEligible": "Au moins un État doit être éligible aux résultats.",
+      "badReference": "Chaque transition doit faire référence aux états existants.",
+      "duplicateTransition": "Transition en double {{from}} → {{to}}."
+    },
+    "warnings": {
+      "lostEligible": "L'état « {{key}} » n'est plus éligible à la sortie ; ses enregistrements laisseront une signalisation.",
+      "gainedEligible": "L'état « {{key}} » est désormais éligible à la sortie ; ses enregistrements peuvent apparaître sur la signalisation.",
+      "submissionPaths": "Les chemins de soumission ont été modifiés ; cela affecte la façon dont les demandeurs déplacent les enregistrements."
+    },
+    "stateRecords_many": "Enregistrements {{count}}"
+  },
+  "validation": {
+    "imageRequired": "{{label}} nécessite une image.",
+    "required": "{{label}} est requis.",
+    "maxLength": "{{label}} doit contenir au maximum des caractères {{max}}.",
+    "minLength": "{{label}} doit contenir au moins des caractères {{min}}.",
+    "notNumber": "{{label}} doit être un nombre.",
+    "notInteger": "{{label}} doit être un nombre entier.",
+    "minValue": "{{label}} doit être au moins {{minimum}}.",
+    "maxValue": "{{label}} doit être au maximum {{maximum}}.",
+    "urlProtocol": "{{label}} doit être un http(s) URL.",
+    "urlInvalid": "{{label}} doit être un URL valide.",
+    "dateInvalid": "{{label}} doit être une date.",
+    "keyPattern": "Les clés doivent commencer par une lettre et utiliser uniquement des lettres, des chiffres et des traits de soulignement.",
+    "keyReserved": "\"{{key}}\" est une clé réservée.",
+    "keyTaken": "Un autre champ utilise déjà cette clé."
+  },
+  "outputFields": {
+    "synthetic": {
+      "state": "État du flux de travail",
+      "displayTitle": "Afficher le titre",
+      "priority": "Priorité",
+      "submittedAt": "Heure de soumission",
+      "displayAt": "Afficher à partir de",
+      "expiresAt": "Expire à"
+    },
+    "operators": {
+      "equals": "est égal",
+      "notEquals": "n'est pas égal",
+      "empty": "est vide",
+      "notEmpty": "n'est pas vide",
+      "greaterThan": "supérieur à",
+      "lessThan": "moins que",
+      "contains": "contient"
+    }
+  },
+  "plugin": {
+    "breadcrumb": "Plugins",
+    "title": "Formulaires",
+    "subtitle": "Créez des formulaires, gérez les réponses et mettez les enregistrements approuvés à disposition pour la signalisation.",
+    "create": "Créer un formulaire",
+    "loadError": "Impossible de charger les formulaires",
+    "loadFallback": "Les formulaires n'ont pas pu être chargés.",
+    "empty": "Aucun formulaire pour l'instant",
+    "emptyCreate": "Créez un formulaire pour commencer à collecter les soumissions.",
+    "emptyDenied": "Vous n’avez accès à aucun formulaire.",
+    "publishedRevision": "Révision publiée {{number}}",
+    "draft": "Brouillon",
+    "noDescription": "Pas de description",
+    "manage": "Gérer le formulaire"
+  },
+  "detail": {
+    "tabs": {
+      "responses": "Réponses",
+      "form": "Formulaire",
+      "workflow": "Flux de travail",
+      "views": "Vues",
+      "outputs": "Sorties",
+      "access": "Accès"
+    },
+    "loading": "Chargement du formulaire…",
+    "unavailable": "Formulaire indisponible",
+    "unavailableBody": "Ce formulaire n'a pas pu être chargé.",
+    "pluginEyebrow": "Plugin de formulaires",
+    "sectionsLabel": "Sections du formulaire",
+    "filters": {
+      "needsReview": "Besoin d'un examen",
+      "allStates": "Tous les états",
+      "state": "État",
+      "search": "Rechercher",
+      "searchPlaceholder": "Titre ou émetteur",
+      "sort": "Trier"
+    },
+    "sort": {
+      "updated": "Récemment mis à jour",
+      "newest": "Le plus récent",
+      "oldest": "Le plus ancien",
+      "priority": "Priorité"
+    },
+    "loadResponsesError": "Impossible de charger les réponses",
+    "retry": "Veuillez réessayer.",
+    "loadingResponses": "Chargement des réponses…",
+    "noResponses": "Aucune réponse",
+    "emptyNeedsReview": "Rien n’est en attente d’examen pour le moment.",
+    "emptyFiltered": "Aucune soumission ne correspond encore à ces filtres.",
+    "table": {
+      "submission": "Soumission",
+      "submitter": "Auteur",
+      "state": "État",
+      "priority": "Priorité",
+      "updated": "Mis à jour",
+      "window": "Fenêtre d'affichage",
+      "reviewAction": "Examen"
+    },
+    "untitled": "Soumission sans titre",
+    "unknown": "Inconnu",
+    "reviewLink": "Avis {{title}}",
+    "untitledLink": "soumission sans titre",
+    "pagination": "Page {{page}} de {{totalPages}} · Total {{total}}",
+    "pagesLabel": "Pages de réponses",
+    "sheetLabel": "Détails de la réponse",
+    "sheetEyebrow": "Réponse",
+    "sheetTitle": "Examen de la soumission",
+    "sheetBody": "La liste reste en place derrière ce panneau ; la clôture y revient.",
+    "backToResponses": "← Retour aux réponses",
+    "displayWindowRange": "{{start}} → {{end}}",
+    "displayWindowEmpty": "—",
+    "displayWindowNow": "maintenant",
+    "editDetails": "Modifier les détails",
+    "detailsError": "Détails non enregistrés",
+    "detailsFallback": "Impossible de mettre à jour les détails.",
+    "nameLabel": "Nom du formulaire",
+    "descriptionLabel": "Descriptif",
+    "saveDetails": "Enregistrer les détails",
+    "readOnlyTitle": "Lecture seule",
+    "readOnlyBody": "Vous pouvez consulter ce formulaire mais vous n'êtes pas autorisé à le modifier.",
+    "publishedMeta": "Révision publiée {{revision}} · {{date}}"
+  },
+  "create": {
+    "questions": {
+      "name": {
+        "title": "A quoi sert ce formulaire ?",
+        "description": "Le nom affiché dans le plugin Forms et lors de la sélection de la sortie du formulaire dans Widgets.",
+        "label": "Nom du formulaire"
+      },
+      "description": {
+        "title": "Décrire le but",
+        "description": "Facultatif. Une courte note pour les autres auteurs de Studio sur ce que ce formulaire collecte.",
+        "label": "Description du formulaire"
+      },
+      "formTitle": {
+        "title": "Que voient les soumissionnaires en premier ?",
+        "description": "Facultatif. Le titre affiché au-dessus du formulaire à la personne qui le remplit.",
+        "label": "Titre destiné à l'expéditeur"
+      },
+      "formDescription": {
+        "title": "Ajouter des conseils pour les soumissionnaires",
+        "description": "Facultatif. Brèves instructions affichées sous le titre sur le formulaire lui-même.",
+        "label": "Description destinée à l'expéditeur"
+      }
+    },
+    "phasePurpose": "Objectif",
+    "phaseDisplay": "Affichage",
+    "phaseReview": "Examen",
+    "starterFieldLabel": "Titre",
+    "createFallback": "Impossible de créer le formulaire.",
+    "nameRequired": "Un nom est requis.",
+    "deniedTitle": "Accès insuffisant",
+    "deniedBody": "Vous n'êtes pas autorisé à créer des formulaires.",
+    "reviewEyebrow": "Plugin Forms · Étape 3 sur 3 · Révision",
+    "reviewTitle": "Réviser et créer",
+    "reviewBody": "Vérifiez les détails avant de créer ce formulaire.",
+    "createErrorTitle": "Impossible de créer le formulaire",
+    "summaryName": "Nom du formulaire",
+    "summaryPurpose": "Objectif",
+    "summarySubmitterTitle": "Titre de l'auteur",
+    "summaryGuidance": "Conseils à l'expéditeur",
+    "starterTitle": "Un terrain de démarrage est inclus",
+    "starterBody": "Votre formulaire commence par un champ obligatoire « {{starterLabel}} » et est publié immédiatement. Vous pouvez ajouter des champs et publier de nouvelles révisions à partir du générateur. Qui peut soumettre et les règles de révision sont configurées dans les onglets Accès et Workflow du générateur après la création.",
+    "createButton": "Créer un formulaire",
+    "backToQuestions": "Retour aux questions",
+    "backHint": "Revient à la création guidée sans perdre vos réponses.",
+    "stepHeader": "Plugin de formulaires · Étape {{step}} sur 3 · {{phase}}",
+    "createTitle": "Créer un formulaire",
+    "createSubtitle": "Collectez les soumissions, approuvez-les et publiez les enregistrements sur Widgets.",
+    "progress": "Question {{index}} de {{total}}",
+    "navPrevious": "Précédent",
+    "navSkip": "Sauter",
+    "navNext": "Suivant",
+    "navReview": "Examen"
+  },
+  "portal": {
+    "loadingIcon": "Chargement",
+    "shell": {
+      "homeLabel": "Mes formulaires",
+      "formsLabel": "Formulaires",
+      "studioLink": "Retour à Studio",
+      "signOut": "Se déconnecter"
+    },
+    "list": {
+      "loading": "Chargement de vos formulaires…",
+      "error": "Impossible de charger les formulaires",
+      "retry": "Veuillez réessayer.",
+      "eyebrow": "Formulaires",
+      "title": "Mes formulaires",
+      "description": "Formulaires que vous pouvez soumettre ou aider à réviser.",
+      "empty": "Aucun formulaire pour l'instant",
+      "emptyBody": "Vous n’avez accès à aucun formulaire. Demandez à un administrateur de vous accorder l'accès.",
+      "draftOnly": "Brouillon uniquement",
+      "drafts": "Brouillons",
+      "submitted": "Soumis",
+      "changesRequested": "Modifications demandées"
+    },
+    "detail": {
+      "loading": "Chargement du formulaire…",
+      "unavailable": "Formulaire indisponible",
+      "unavailableBody": "Vous n'avez peut-être pas accès à ce formulaire, ou il n'existe plus.",
+      "backToForms": "Retour à mes formulaires",
+      "eyebrow": "Formulaire",
+      "start": "Commencer la soumission",
+      "sentTitle": "Soumission envoyée",
+      "sentBody": "Votre soumission est maintenant entre les mains des évaluateurs. Vous pouvez suivre son statut ci-dessous.",
+      "notOpen": "Pas encore ouvert aux soumissions",
+      "notOpenBody": "Ce formulaire n'a pas publié de version à laquelle vous pouvez soumettre.",
+      "viewOnly": "Visualisation uniquement",
+      "viewOnlyBody": "Vous pouvez examiner les soumissions sur ce formulaire, mais vous ne pouvez pas créer le vôtre.",
+      "submissionsLabel": "Vos soumissions",
+      "submissionsTitle": "Vos soumissions",
+      "submissionsLoading": "Chargement des soumissions…",
+      "submissionsEmpty": "Aucune soumission pour l'instant",
+      "submissionsError": "Nous n'avons pas pu charger vos soumissions. Réessayez plus tard.",
+      "submissionsEmptySubmit": "Commencez une soumission pour la voir ici.",
+      "submissionsEmptyNone": "Vous n'avez pas soumis ce formulaire.",
+      "submissionsPages": "Vos pages de soumissions",
+      "pagination": "Page {{page}} de {{totalPages}} · Total {{total}}",
+      "updatedAt": "{{date}} mis à jour",
+      "untitled": "Soumission sans titre"
+    },
+    "submission": {
+      "loading": "Chargement…",
+      "unavailable": "Formulaire indisponible",
+      "backToForms": "Retour à mes formulaires",
+      "recordUnavailable": "Soumission indisponible",
+      "recordDenied": "Vous n’aurez peut-être pas accès à cette soumission.",
+      "backToForm": "Retour au formulaire",
+      "newTitle": "Nouvelle soumission",
+      "editTitle": "Modifier la soumission"
+    },
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
+  "nav": {
+    "approvals": "Approbations"
+  },
+  "approvals": {
+    "eyebrow": "Formulaires",
+    "title": "Approbations",
+    "description": "Soumissions en attente d’une décision de révision dans vos formulaires.",
+    "table": {
+      "form": "Formulaire",
+      "submission": "Soumission",
+      "submitter": "Auteur",
+      "state": "État",
+      "submitted": "Soumis",
+      "displayWindow": "Fenêtre d'affichage",
+      "reviewAction": "Examen"
+    },
+    "untitledSubmission": "Soumission sans titre",
+    "untitledSubmissionInline": "soumission sans titre",
+    "unknownSubmitter": "Inconnu",
+    "reviewActionLabel": "Évaluation {{title}} de {{formName}}",
+    "loadErrorTitle": "Impossible de charger les approbations",
+    "loadErrorFallback": "Veuillez réessayer.",
+    "loading": "Chargement des approbations",
+    "emptyTitle": "Rien à revoir",
+    "emptyDescription": "Aucune soumission n’attend votre décision pour le moment.",
+    "paginationLabel": "Pages d'approbations",
+    "paginationStatus": "Page {{page}} de {{totalPages}} · {{total}} en attente",
+    "displayWindow": {
+      "now": "maintenant",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "toasts": {
+    "formCreated": "Formulaire créé.",
+    "accessUpdated": "Accès au formulaire mis à jour.",
+    "draftSaved": "Brouillon de formulaire enregistré.",
+    "published": "Formulaire publié.",
+    "outputsRebuilt": "Sorties de formulaire reconstruites.",
+    "submissionUpdated": "Soumission mise à jour.",
+    "commentAdded": "Commentaire ajouté.",
+    "attachmentUploaded": "Pièce jointe téléchargée.",
+    "attachmentRemoved": "Pièce jointe supprimée.",
+    "viewSaved": "Vue formulaire enregistrée.",
+    "workflowSaved": "Flux de travail du formulaire enregistré."
+  }
+}

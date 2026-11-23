@@ -1,0 +1,142 @@
+{
+  "backToPlugins": "插件",
+  "title": "紧急警报",
+  "description": "监视美国国家气象局（NWS）官方天气警报，自动接管匹配的屏幕，并在警报解除后恢复正常播放。",
+  "readOnlyNotice": "更改设置需要所有者或管理员权限。",
+  "prepare": {
+    "title": "准备自动紧急内容",
+    "description": "Tilecast 可以直接根据实时 NWS 数据生成全屏警报。拥有自定义响应内容的组织也可以选择使用自定义播放列表。此插件配置自动响应；手动接管是屏幕上的独立“立即显示”操作，其默认设置位于设置中。",
+    "managePlaylists": "可选：管理自定义播放列表",
+    "takeoverNow": "立即开始接管",
+    "takeoverDefaults": "接管和命令默认设置"
+  },
+  "monitor": {
+    "title": "自动天气警报",
+    "description": "监视美国各州、领地、县和预报区的官方有效警报。匹配的规则显示实时警报详情或可选的自定义播放列表，并在警报解除后恢复正常播放。",
+    "safetyTitle": "警报传送尽力而为，不是生命安全系统。",
+    "safetyBody": "请继续执行当地应急程序并使用无线紧急警报。Studio 显示轮询健康状态，以便发现上游或网络故障。",
+    "enabledLabel": "自动 NWS 监视",
+    "enabledHint": "默认禁用。必须配置规则才能采取行动。",
+    "coverageLegend": "警报覆盖范围",
+    "coverageHint": "按名称选择州或领地，然后监视整个州或添加特定县和 NWS 预报区。",
+    "stateLabel": "州或领地",
+    "statePlaceholder": "选择州",
+    "monitorState": "监视整个州",
+    "zoneLabel": "县或预报区",
+    "loadingLocations": "正在加载地点…",
+    "locationPlaceholder": "选择地点",
+    "county": "县",
+    "forecastZone": "预报区",
+    "addLocation": "添加地点",
+    "zonesError": "无法从 NWS 加载县和预报区。",
+    "monitoredLocations": "监视地点",
+    "entireState": "整个 {{name}}",
+    "removeState": "移除整个 {{name}}",
+    "removeZone": "移除 {{name}}",
+    "zoneWithType": "{{name}}（{{type}}）",
+    "noLocations": "未选择地点。",
+    "pollLabel": "轮询间隔",
+    "pollHint": "大多数场所建议使用一到两分钟的间隔。",
+    "intervals": {
+      "oneMinute": "1 分钟",
+      "twoMinutes": "2 分钟",
+      "fiveMinutes": "5 分钟",
+      "fifteenMinutes": "15 分钟"
+    },
+    "lastSuccess": "上次成功",
+    "lastAttempt": "上次尝试",
+    "matchedRules": "匹配的规则",
+    "health": "健康状态",
+    "healthy": "正常",
+    "never": "从未",
+    "saveMonitor": "保存 NWS 监视设置",
+    "checking": "正在检查…",
+    "checkNow": "立即检查"
+  },
+  "rules": {
+    "title": "天气事件规则",
+    "description": "事件名称必须与 NWS 用词完全一致。留空可匹配达到或超过所选严重程度和紧急程度的所有事件。默认使用 Tilecast 实时全屏警报；对于需要通知但不应中断播放的警报，可以使用滚动栏。",
+    "enabledBadge": "已启用",
+    "disabledBadge": "已禁用",
+    "allEventTypes": "所有事件类型",
+    "deleteTitle": "删除“{{name}}”？",
+    "formTitleAdd": "添加规则",
+    "formTitleEdit": "编辑规则",
+    "nameLabel": "规则名称",
+    "eventsLabel": "NWS 事件名称",
+    "severityLabel": "最低严重程度",
+    "severity": {
+      "minor": "轻微",
+      "moderate": "中等",
+      "severe": "严重",
+      "extreme": "极端"
+    },
+    "urgencyLabel": "最低紧急程度",
+    "urgency": {
+      "unknown": "未知",
+      "future": "未来",
+      "expected": "预期",
+      "immediate": "立即"
+    },
+    "displayLabel": "紧急显示",
+    "displayOptions": {
+      "builtin": "Tilecast 实时 NWS 警报 — 全屏",
+      "ticker": "Tilecast 实时 NWS 警报 — 滚动栏",
+      "playlist": "使用自定义播放列表 — 全屏"
+    },
+    "displayHint": "内置显示会自动显示准确的 NWS 事件、标题、严重程度、受影响区域、指示、发送者和到期时间。滚动栏在底部显示相同警报文字，屏幕继续播放原有内容。",
+    "tickerPlacement": "滚动栏位置",
+    "placementOptions": {
+      "push": "向上推移内容 — 不遮挡内容",
+      "overlay": "覆盖 — 栏遮住底部边缘"
+    },
+    "tickerHeight": "滚动栏高度",
+    "heightOptions": {
+      "compact": "紧凑 — 64px",
+      "standard": "标准 — 96px",
+      "large": "大 — 140px",
+      "extraLarge": "特大 — 200px"
+    },
+    "tickerSpeed": "滚动栏速度",
+    "speedOptions": { "slow": "慢", "medium": "中", "fast": "快" },
+    "playlistLabel": "自定义紧急播放列表",
+    "playlistPlaceholder": "选择播放列表",
+    "playlistHint": "只能激活非空播放列表。",
+    "playlistHintLink": "创建或编辑播放列表",
+    "durationLabel": "最长时长",
+    "durationOptions": {
+      "oneHour": "1 小时",
+      "sixHours": "6 小时",
+      "twelveHours": "12 小时",
+      "day": "24 小时"
+    },
+    "targetScreens": "目标屏幕",
+    "targetGroups": "目标组",
+    "targetsEmpty": "没有可用目标。",
+    "enableRule": "启用此规则",
+    "saveRule": "保存规则",
+    "addRuleButton": "添加规则",
+    "validation": {
+      "nameRequired": "输入规则名称。",
+      "playlistRequired": "选择预先创建的紧急播放列表。",
+      "targetsRequired": "选择至少一个屏幕或组。"
+    }
+  },
+  "displaySummary": {
+    "ticker": "Tilecast 实时 NWS 滚动栏",
+    "builtin": "Tilecast 实时 NWS 警报",
+    "noPlaylist": "无播放列表"
+  },
+  "playlist": {
+    "empty": "{{name}} — 空，请先添加内容",
+    "count_other": "{{name}} — {{count}} 个项目"
+  },
+  "active": {
+    "title": "有效天气紧急事件",
+    "description": "当前匹配规则并正在显示内容的警报。",
+    "emptyTitle": "没有有效警报",
+    "emptyBody": "当前没有有效的 NWS 警报。"
+  },
+  "leaveTitle": "不保存就离开？",
+  "leaveBody": "监视设置或警报规则有未保存的更改。"
+}

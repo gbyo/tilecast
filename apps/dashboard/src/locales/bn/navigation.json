@@ -1,0 +1,120 @@
+{
+  "brand": {
+    "home": "Tilecast-এর সারসংক্ষেপ"
+  },
+  "groups": {
+    "screens": "স্ক্রিন",
+    "content": "কনটেন্ট",
+    "presentations": "প্রেজেন্টেশন",
+    "operations": "পরিচালনা"
+  },
+  "overview": "সারসংক্ষেপ",
+  "userMenu": {
+    "openLabel": "{{name}}-এর অ্যাকাউন্ট মেনু খুলুন",
+    "myForms": "আমার ফর্ম",
+    "myAccount": "আমার অ্যাকাউন্ট",
+    "signOut": "সাইন আউট"
+  },
+  "items": {
+    "fleet": "স্ক্রিন",
+    "displayGroups": "ডিসপ্লে গ্রুপ",
+    "archive": "আর্কাইভ",
+    "media": "মিডিয়া",
+    "widgets": "Widgets",
+    "dataSources": "ডেটা সোর্স",
+    "playlists": "প্লেলিস্ট",
+    "layouts": "লেআউট",
+    "campaigns": "ক্যাম্পেইন",
+    "schedules": "সময়সূচি",
+    "plugins": "প্লাগইন",
+    "activity": "কার্যকলাপ",
+    "settings": "সেটিংস"
+  },
+  "header": {
+    "toggleNavigation": "নেভিগেশন টগল করুন",
+    "search": "Tilecast-এ খুঁজুন",
+    "notifications": "বিজ্ঞপ্তি",
+    "notificationsWithCount_one": "বিজ্ঞপ্তি, {{count}}টি সক্রিয়",
+    "notificationsWithCount_other": "বিজ্ঞপ্তি, {{count}}টি সক্রিয়",
+    "activeCount_one": "{{count}}টি সক্রিয়",
+    "activeCount_other": "{{count}}টি সক্রিয়",
+    "noneActive": "কোনোটি সক্রিয় নয়",
+    "caughtUp": "আপনি সব আপডেট দেখে ফেলেছেন।",
+    "groups": {
+      "critical": "জরুরি",
+      "warning": "মনোযোগ প্রয়োজন",
+      "info": "তথ্য"
+    }
+  },
+  "palette": {
+    "title": "Tilecast-এ খুঁজুন",
+    "description": "ওয়ার্কস্পেস, স্ক্রিন বা দ্রুত কাজ খুঁজুন।",
+    "label": "Tilecast-এ খুঁজুন",
+    "placeholder": "স্ক্রিন, মিডিয়া, প্লেলিস্ট খুঁজুন…",
+    "resultsLabel": "অনুসন্ধানের ফলাফল",
+    "noResults": "“{{query}}”-এর কোনো ফলাফল নেই।",
+    "noDestinations": "কোনো গন্তব্য উপলভ্য নেই।",
+    "groups": {
+      "quickActions": "দ্রুত কাজ",
+      "screens": "স্ক্রিন",
+      "content": "কনটেন্ট",
+      "presentations": "প্রেজেন্টেশন",
+      "scheduling": "সময়সূচি",
+      "administration": "প্রশাসন",
+      "navigation": "নেভিগেশন"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "স্ক্রিন পেয়ার করুন",
+        "description": "নতুন সাইনেজ প্লেয়ার সংযোগ করুন"
+      },
+      "uploadMedia": {
+        "label": "মিডিয়া আপলোড করুন",
+        "description": "ছবি, ভিডিও বা নথি যোগ করুন"
+      },
+      "createPlaylist": {
+        "label": "প্লেলিস্ট তৈরি করুন",
+        "description": "নতুন পূর্ণস্ক্রিন প্রেজেন্টেশন তৈরি করুন"
+      },
+      "createLayout": {
+        "label": "লেআউট তৈরি করুন",
+        "description": "প্রেজেন্টেশন ক্যানভাসে কনটেন্ট সাজান"
+      },
+      "createSchedule": {
+        "label": "সময়সূচি তৈরি করুন",
+        "description": "কোথায় এবং কখন কনটেন্ট চলবে তা পরিকল্পনা করুন"
+      }
+    },
+    "plugin": "প্লাগইন",
+    "pluginNotInstalled": "প্লাগইন · ইনস্টল করা নেই",
+    "hints": {
+      "move": "সরান",
+      "open": "খুলুন",
+      "close": "বন্ধ করুন"
+    },
+    "screenStatus": {
+      "online": "অনলাইন",
+      "recent": "সম্প্রতি অনলাইন",
+      "stale": "পুরোনো",
+      "offline": "অফলাইন",
+      "disabled": "নিষ্ক্রিয়",
+      "revoked": "পেয়ারিং বাতিল",
+      "awaiting_player": "প্লেয়ারের অপেক্ষায়"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "কনটেন্ট, প্রেজেন্টেশন, সময়সূচি, গ্রুপ ও স্ক্রিন অনুসরণ করুন",
+      "sectionFallback": "{{label}} সেটিংস"
+    }
+  },
+  "error": {
+    "title": "এই পেজটি দেখানো যায়নি।",
+    "fallback": "এই পেজ দেখানোর সময় অপ্রত্যাশিত ত্রুটি হয়েছে।",
+    "retry": "আবার চেষ্টা করুন"
+  },
+  "access": {
+    "deniedTitle": "এই বিভাগটি আপনার ভূমিকার অন্তর্ভুক্ত নয়",
+    "deniedDescription": "আপনার ভূমিকায় এই পেজে প্রবেশাধিকার নেই। প্রয়োজন হলে প্রশাসকের কাছে প্রবেশাধিকার চান।",
+    "goTo": "{{destination}}-এ যান",
+    "goToAccount": "আমার অ্যাকাউন্টে যান"
+  }
+}

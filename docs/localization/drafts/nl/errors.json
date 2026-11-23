@@ -1,0 +1,42 @@
+{
+  "generic": "Er is iets misgegaan. Probeer het opnieuw.",
+  "fallback": {
+    "somethingWentWrong": "Er is iets misgegaan.",
+    "requestFailed": "Het verzoek is mislukt.",
+    "uploadFailed": "Uploaden is mislukt."
+  },
+  "codes": {
+    "invalid_playback_plan_instant": "Gebruik één RFC 3339-tijdstip met tijdzone, of laat at weg om de servertijd te gebruiken.",
+    "playback_expectation_ambiguous": "Vastgelegde afspeelverwachtingen overlappen op dit tijdstip.",
+    "forbidden": "Uw rol staat deze actie niet toe.",
+    "rate_limited": "Te veel pogingen. Wacht even en probeer het opnieuw.",
+    "authentication_required": "Aanmelding is vereist.",
+    "unauthenticated": "Meld u aan om door te gaan.",
+    "internal_error": "Tilecast kon het verzoek niet voltooien.",
+    "unknown_error": "Tilecast kon het verzoek niet voltooien.",
+    "database_unavailable": "De database is niet gereed.",
+    "csrf_failed": "Het verzoek kon niet worden geverifieerd.",
+    "conflict": "Iemand anders heeft dit record gewijzigd. Vernieuw de pagina en probeer het opnieuw.",
+    "file_read_failed": "Het geselecteerde bestand kon niet worden gelezen.",
+    "content_scope_restricted": "Voor deze actie is toegang tot de hele bibliotheek nodig.",
+    "upload_folder_required": "Kies een map om naar te uploaden. Uw account kan alleen media toevoegen aan mappen waartoe het toegang heeft.",
+    "tag_not_assignable": "Uw account kan een of meer van deze tags niet toepassen.",
+    "role_delegation": "U kunt een rol alleen bevoegdheden geven die u zelf hebt. Alleen een eigenaar kan toestemming geven om personen of rollen te beheren.",
+    "role_protected": "Ingebouwde rollen kunnen niet worden gewijzigd of verwijderd.",
+    "role_in_use": "Er zijn nog personen met deze rol. Wijs hun eerst een andere rol toe.",
+    "role_name_taken": "Er bestaat al een rol met deze naam.",
+    "content_access_delegation": "U kunt alleen mappen en tags toewijzen waartoe uw eigen account toegang heeft.",
+    "cannot_change_own_role": "U kunt uw eigen rol niet wijzigen.",
+    "cannot_scope_self": "U kunt uw eigen toegang tot inhoud of schermen niet wijzigen.",
+    "last_owner_required": "Tilecast heeft ten minste één actieve eigenaar nodig.",
+    "font_not_found": "Het lettertype is niet gevonden.",
+    "font_exists": "Er bestaat al een lettertypefamilie met deze naam in de bibliotheek.",
+    "font_in_use": "Kies eerst een ander lettertype in de lay-outs die dit lettertype gebruiken.",
+    "font_rights_required": "Bevestig dat uw organisatie dit lettertype op haar schermen mag gebruiken.",
+    "font_too_large": "De lettertypebestanden zijn groter dan de toegestane limiet.",
+    "font_unsupported": "Het bestand is geen ondersteund lettertype. Upload een TTF- of OTF-bestand.",
+    "font_invalid": "Deze selectie is niet beschikbaar voor deze lettertypefamilie.",
+    "font_catalog_disabled": "De Google Fonts-catalogus is uitgeschakeld op deze server. Upload in plaats daarvan lettertypebestanden.",
+    "font_catalog_unavailable": "Tilecast kon de Google Fonts-catalogus niet bereiken. Controleer de internettoegang van de server of upload lettertypebestanden."
+  }
+}

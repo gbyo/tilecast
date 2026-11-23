@@ -1,0 +1,91 @@
+{
+  "title": "Barra de contagem regressiva",
+  "subtitle": "As barras cronometradas são executadas independentemente da lista de reprodução e continuam sendo avaliadas a partir do manifesto em cache do Player.",
+  "loadError": "Não foi possível carregar as barras de contagem regressiva.",
+  "emptyTitle": "Nenhuma barra de contagem regressiva configurada",
+  "emptyDescription": "Crie uma instância para mostrar uma barra com horário local nas telas selecionadas.",
+  "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · prioridade {{priority}}",
+  "deleteBody": "A barra será removida dos jogadores alvo.",
+  "removedToast": "Barra de contagem regressiva removida.",
+  "createdToast": "Barra de contagem regressiva criada.",
+  "updatedToast": "Barra de contagem regressiva atualizada.",
+  "editor": {
+    "createTitle": "Nova barra de contagem regressiva",
+    "manageTitle": "Gerenciar barra de contagem regressiva",
+    "subtitle": "O Player avalia esse agendamento localmente. A prioridade decide qual barra vence quando as instâncias se sobrepõem.",
+    "sections": {
+      "content": "Conteúdo",
+      "timing": "Tempo",
+      "display": "Exibição",
+      "urgency": "Estágios de urgência"
+    },
+    "messageLabel": "Mensagem",
+    "defaults": {
+      "message": "O almoço termina em"
+    },
+    "completionLabel": "Texto de conclusão opcional",
+    "completionPlaceholder": "O almoço acabou",
+    "completionHint": "Mostrado um minuto após o alvo; deixe em branco para ocultar em zero.",
+    "confettiLabel": "Mostre confete quando a contagem regressiva chegar a zero",
+    "scheduleLabel": "Cronograma",
+    "scheduleType": {
+      "weekly": "Dias da semana",
+      "oneTime": "Encontro único"
+    },
+    "targetTimeLabel": "Tempo alvo",
+    "daysLabel": "Dias da semana",
+    "oneTimeLabel": "Data e hora previstas",
+    "oneTimeHint": "Inserido na hora local deste navegador; o Player faz a contagem regressiva até o mesmo instante.",
+    "timezoneLabel": "Fuso horário",
+    "leadLabel": "Apareça isso muitos minutos antes",
+    "modeLabel": "Modo",
+    "displayMode": {
+      "overlay": "Sobrepor o conteúdo atual",
+      "push": "Empurre e reduza o conteúdo atual"
+    },
+    "progressLabel": "Contagem regressiva em segundo plano",
+    "progressFill": {
+      "none": "Fundo simples",
+      "drain": "Drene da direita para a esquerda"
+    },
+    "progressHint": "O dreno esvazia a barra da direita para a esquerda conforme o alvo se aproxima.",
+    "heightLabel": "Altura da barra inferior (px)",
+    "paddingLabel": "Preenchimento horizontal (%)",
+    "paddingHint": "O preenchimento inferior dá mais espaço à mensagem e à contagem regressiva.",
+    "textScaleLabel": "Tamanho do texto (%)",
+    "textScaleHint": "Aumente o tamanho do tipo sem alterar a altura da barra.",
+    "urgencyDescription": "Mude a barra automaticamente conforme o alvo se aproxima. Os tempos de estágio intocados seguem o lead time total; os valores personalizados permanecem fixos. As mensagens concluídas retornam ao tamanho normal.",
+    "urgencyEnabledLabel": "Habilite estágios de urgência de contagem regressiva",
+    "startingSoonLabel": "Começando em breve (laranja), minutos antes",
+    "urgentLabel": "Urgente (vermelho), segundos antes",
+    "pulseLabel": "Pulsar e ampliar, segundos finais",
+    "pulseHint": "A barra e o texto crescem 25% nesta fase final.",
+    "leaveTitle": "Sair sem salvar?",
+    "leaveBody": "Esta contagem regressiva tem alterações não salvas.",
+    "fontLabel": "Fonte",
+    "fontPlayer": "Player padrão",
+    "fontPlayerGroup": "Tilecast",
+    "fontHint": "Adicione fontes em Configurações. As telas que não conseguem carregar a fonte mantêm o padrão."
+  },
+  "validation": {
+    "timezone": "Insira um fuso horário da IANA, como América/Chicago.",
+    "wholeMinutes": "Insira um número inteiro de minutos.",
+    "leadRange": "O prazo de entrega deve estar entre 1 e 43.200 minutos.",
+    "heightRange": "Insira uma altura entre 40 e 320 pixels.",
+    "paddingRange": "Insira o preenchimento entre 0 e 40 por cento.",
+    "textScaleRange": "Insira um tamanho de texto entre 25 e 500 por cento.",
+    "soonRange": "A partida em breve deve começar entre 1 e 1440 minutos antes de zero.",
+    "wholeSeconds": "Insira um número inteiro de segundos.",
+    "urgentRange": "Urgente deve começar entre 2 e 3.600 segundos antes de zero.",
+    "pulseRange": "O pulso deve começar entre 1 e 60 segundos antes de zero.",
+    "priorityRange": "Insira uma prioridade entre -1000 e 1000.",
+    "weeklyRequired": "Escolha um horário alvo e pelo menos um dia.",
+    "oneTimeRequired": "Escolha a data e hora previstas únicas.",
+    "targetRequired": "Escolha pelo menos um alvo.",
+    "stageOrder": "As etapas devem começar em ordem: começando logo, urgente e depois pulsando."
+  },
+  "breadcrumbs": {
+    "newInstance": "Nova instância",
+    "instance": "Instância"
+  }
+}

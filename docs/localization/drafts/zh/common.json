@@ -1,0 +1,62 @@
+{
+  "a11y": {
+    "loading": "正在加载",
+    "more": "更多",
+    "sidebarDescription": "显示移动端侧边栏。",
+    "sidebarTitle": "侧边栏",
+    "toggleSidebar": "切换侧边栏"
+  },
+  "actions": {
+    "back": "返回",
+    "cancel": "取消",
+    "clear": "清除",
+    "clearAll": "全部清除",
+    "close": "关闭",
+    "closeToast": "关闭提示",
+    "confirm": "确认",
+    "delete": "删除",
+    "discardChanges": "放弃更改",
+    "edit": "编辑",
+    "loadMore": "加载更多",
+    "next": "下一步",
+    "nextSlide": "下一张",
+    "previous": "上一步",
+    "previousSlide": "上一张",
+    "refresh": "刷新",
+    "refreshing": "正在刷新…",
+    "remove": "移除",
+    "retry": "重试",
+    "save": "保存",
+    "saveChanges": "保存更改",
+    "saving": "正在保存…",
+    "skip": "跳过",
+    "submit": "提交",
+    "toggleOptions": "切换选项"
+  },
+  "status": {
+    "loading": "正在加载…"
+  },
+  "count": {
+    "items_other": "{{count}} 项"
+  },
+  "clipboard": {
+    "copied": "已复制{{label}}。",
+    "copyFailed": "无法复制{{label}}。"
+  },
+  "filters": {
+    "active": "已启用的筛选条件",
+    "remove": "移除筛选条件 {{label}}：{{value}}",
+    "title": "筛选条件"
+  },
+  "planned": {
+    "eyebrow": "里程碑 {{milestone}}",
+    "title": "{{feature}}尚未启用。",
+    "body": "此安装目前包含里程碑 1 的基础功能。{{feature}}将在里程碑 {{milestone}} 中实现并测试。",
+    "backLink": "返回安装状态"
+  },
+  "demo": {
+    "title": "演示模式",
+    "description": "此安装包含示例数据，可能会自动重置。",
+    "badge": "演示"
+  }
+}

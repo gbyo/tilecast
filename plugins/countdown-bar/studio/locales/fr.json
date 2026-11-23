@@ -1,0 +1,91 @@
+{
+  "title": "Barre de compte à rebours",
+  "subtitle": "Les barres chronométrées s'exécutent indépendamment de la liste de lecture et continuent d'être évaluées à partir du manifeste mis en cache de Player.",
+  "loadError": "Les barres de compte à rebours n'ont pas pu être chargées.",
+  "emptyTitle": "Aucune barre de compte à rebours configurée",
+  "emptyDescription": "Créez une instance pour afficher une barre programmée localement sur les écrans sélectionnés.",
+  "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · priorité {{priority}}",
+  "deleteBody": "La barre sera supprimée des joueurs ciblés.",
+  "removedToast": "Barre de compte à rebours supprimée.",
+  "createdToast": "Barre de compte à rebours créée.",
+  "updatedToast": "Barre de compte à rebours mise à jour.",
+  "editor": {
+    "createTitle": "Nouvelle barre de compte à rebours",
+    "manageTitle": "Gérer la barre de compte à rebours",
+    "subtitle": "Le Player évalue ce planning localement. La priorité décide quelle barre gagne lorsque les instances se chevauchent.",
+    "sections": {
+      "content": "Contenu",
+      "timing": "Calendrier",
+      "display": "Affichage",
+      "urgency": "Étapes d'urgence"
+    },
+    "messageLabel": "Message",
+    "defaults": {
+      "message": "Le déjeuner se termine à"
+    },
+    "completionLabel": "Texte de complétion facultatif",
+    "completionPlaceholder": "Le déjeuner est terminé",
+    "completionHint": "Affiché pendant une minute après la cible ; laisser vide pour se cacher à zéro.",
+    "confettiLabel": "Montrez des confettis lorsque le compte à rebours atteint zéro",
+    "scheduleLabel": "Calendrier",
+    "scheduleType": {
+      "weekly": "Jours de la semaine",
+      "oneTime": "Rendez-vous unique"
+    },
+    "targetTimeLabel": "Temps cible",
+    "daysLabel": "Jours de la semaine",
+    "oneTimeLabel": "Date et heure cibles",
+    "oneTimeHint": "Entré dans l'heure locale de ce navigateur ; le Player compte à rebours jusqu'au même instant.",
+    "timezoneLabel": "Fuseau horaire",
+    "leadLabel": "Apparaître plusieurs minutes avant",
+    "modeLabel": "Mode",
+    "displayMode": {
+      "overlay": "Superposer le contenu actuel",
+      "push": "Pousser et réduire le contenu actuel"
+    },
+    "progressLabel": "Compte à rebours en arrière-plan",
+    "progressFill": {
+      "none": "Fond uni",
+      "drain": "Égoutter de droite à gauche"
+    },
+    "progressHint": "Drain vide la barre de droite à gauche à mesure que la cible s'approche.",
+    "heightLabel": "Hauteur de la barre inférieure (px)",
+    "paddingLabel": "Rembourrage horizontal (%)",
+    "paddingHint": "Un rembourrage inférieur donne plus de place au message et au compte à rebours.",
+    "textScaleLabel": "Taille du texte (%)",
+    "textScaleHint": "Augmentez la taille des caractères sans modifier la hauteur de la barre.",
+    "urgencyDescription": "Changez automatiquement la barre à mesure que la cible s'approche. Les temps d’étape intacts suivent le délai total ; les valeurs personnalisées restent fixes. Les messages terminés reviennent à leur taille normale.",
+    "urgencyEnabledLabel": "Activer les étapes d'urgence du compte à rebours",
+    "startingSoonLabel": "Commence bientôt (orange), quelques minutes avant",
+    "urgentLabel": "Urgent (rouge), quelques secondes avant",
+    "pulseLabel": "Pulser et agrandir, dernières secondes",
+    "pulseHint": "La barre et le texte grossissent de 25 % lors de cette dernière étape.",
+    "leaveTitle": "Partir sans économiser ?",
+    "leaveBody": "Ce compte à rebours comporte des modifications non enregistrées.",
+    "fontLabel": "Police",
+    "fontPlayer": "Player par défaut",
+    "fontPlayerGroup": "Tilecast",
+    "fontHint": "Ajoutez des polices dans Paramètres. Les écrans qui ne peuvent pas charger la police conservent la valeur par défaut."
+  },
+  "validation": {
+    "timezone": "Entrez un fuseau horaire IANA tel que America/Chicago.",
+    "wholeMinutes": "Entrez un nombre entier de minutes.",
+    "leadRange": "Le délai de livraison doit être compris entre 1 et 43 200 minutes.",
+    "heightRange": "Saisissez une hauteur comprise entre 40 et 320 pixels.",
+    "paddingRange": "Entrez un remplissage compris entre 0 et 40 pour cent.",
+    "textScaleRange": "Entrez une taille de texte comprise entre 25 et 500 pour cent.",
+    "soonRange": "Le démarrage prochain doit commencer entre 1 et 1440 minutes avant zéro.",
+    "wholeSeconds": "Entrez un nombre entier de secondes.",
+    "urgentRange": "L'urgence doit commencer entre 2 et 3600 secondes avant zéro.",
+    "pulseRange": "Le pouls doit commencer entre 1 et 60 secondes avant zéro.",
+    "priorityRange": "Saisissez une priorité comprise entre -1 000 et 1 000.",
+    "weeklyRequired": "Choisissez une heure cible et au moins un jour.",
+    "oneTimeRequired": "Choisissez la date et l’heure cibles uniques.",
+    "targetRequired": "Choisissez au moins une cible.",
+    "stageOrder": "Les étapes doivent commencer dans l'ordre : commencer bientôt, urgent, puis pulser."
+  },
+  "breadcrumbs": {
+    "newInstance": "Nouvelle instance",
+    "instance": "Instance"
+  }
+}

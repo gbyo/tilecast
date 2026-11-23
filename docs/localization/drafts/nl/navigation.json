@@ -1,0 +1,120 @@
+{
+  "brand": {
+    "home": "Tilecast-overzicht"
+  },
+  "groups": {
+    "screens": "Schermen",
+    "content": "Inhoud",
+    "presentations": "Presentaties",
+    "operations": "Beheer"
+  },
+  "overview": "Overzicht",
+  "userMenu": {
+    "openLabel": "Accountmenu openen voor {{name}}",
+    "myForms": "Mijn formulieren",
+    "myAccount": "Mijn account",
+    "signOut": "Afmelden"
+  },
+  "items": {
+    "fleet": "Schermen",
+    "displayGroups": "Schermgroepen",
+    "archive": "Archief",
+    "media": "Media",
+    "widgets": "Widgets",
+    "dataSources": "Gegevensbronnen",
+    "playlists": "Afspeellijsten",
+    "layouts": "Lay-outs",
+    "campaigns": "Campagnes",
+    "schedules": "Schema’s",
+    "plugins": "Plug-ins",
+    "activity": "Activiteit",
+    "settings": "Instellingen"
+  },
+  "header": {
+    "toggleNavigation": "Navigatie in- of uitklappen",
+    "search": "Zoeken in Tilecast",
+    "notifications": "Meldingen",
+    "notificationsWithCount_one": "Meldingen, {{count}} actief",
+    "notificationsWithCount_other": "Meldingen, {{count}} actief",
+    "activeCount_one": "{{count}} actief",
+    "activeCount_other": "{{count}} actief",
+    "noneActive": "Geen actieve meldingen",
+    "caughtUp": "U bent helemaal bij.",
+    "groups": {
+      "critical": "Kritiek",
+      "warning": "Aandacht nodig",
+      "info": "Informatie"
+    }
+  },
+  "palette": {
+    "title": "Zoeken in Tilecast",
+    "description": "Zoek een werkruimte, scherm of snelle actie.",
+    "label": "Zoeken in Tilecast",
+    "placeholder": "Zoek schermen, media, afspeellijsten…",
+    "resultsLabel": "Zoekresultaten",
+    "noResults": "Geen resultaten voor ‘{{query}}’.",
+    "noDestinations": "Geen bestemmingen beschikbaar.",
+    "groups": {
+      "quickActions": "Snelle acties",
+      "screens": "Schermen",
+      "content": "Inhoud",
+      "presentations": "Presentaties",
+      "scheduling": "Planning",
+      "administration": "Administratie",
+      "navigation": "Navigatie"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "Scherm koppelen",
+        "description": "Een nieuwe signage-speler verbinden"
+      },
+      "uploadMedia": {
+        "label": "Media uploaden",
+        "description": "Afbeeldingen, video’s of documenten toevoegen"
+      },
+      "createPlaylist": {
+        "label": "Afspeellijst maken",
+        "description": "Een nieuwe schermvullende presentatie maken"
+      },
+      "createLayout": {
+        "label": "Lay-out maken",
+        "description": "Inhoud op een presentatiedoek plaatsen"
+      },
+      "createSchedule": {
+        "label": "Schema maken",
+        "description": "Plannen waar en wanneer inhoud wordt afgespeeld"
+      }
+    },
+    "plugin": "Plug-in",
+    "pluginNotInstalled": "Plug-in · Niet geïnstalleerd",
+    "hints": {
+      "move": "verplaatsen",
+      "open": "openen",
+      "close": "sluiten"
+    },
+    "screenStatus": {
+      "online": "Online",
+      "recent": "Onlangs online",
+      "stale": "Verouderd",
+      "offline": "Offline",
+      "disabled": "Uitgeschakeld",
+      "revoked": "Koppeling ingetrokken",
+      "awaiting_player": "Wacht op speler"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Inhoud, presentaties, schema’s, groepen en schermen volgen",
+      "sectionFallback": "Instellingen voor {{label}}"
+    }
+  },
+  "error": {
+    "title": "Deze pagina kon niet worden weergegeven.",
+    "fallback": "Er is een onverwachte fout opgetreden bij het weergeven van deze pagina.",
+    "retry": "Opnieuw proberen"
+  },
+  "access": {
+    "deniedTitle": "Dit onderdeel hoort niet bij uw rol",
+    "deniedDescription": "Uw rol geeft geen toegang tot deze pagina. Vraag een beheerder om toegang als u die nodig hebt.",
+    "goTo": "Ga naar {{destination}}",
+    "goToAccount": "Ga naar Mijn account"
+  }
+}

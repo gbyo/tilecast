@@ -1,0 +1,122 @@
+{
+  "brand": {
+    "home": "Visão geral do Tilecast"
+  },
+  "groups": {
+    "screens": "Telas",
+    "content": "Conteúdo",
+    "presentations": "Apresentações",
+    "operations": "Operações"
+  },
+  "overview": "Visão geral",
+  "userMenu": {
+    "openLabel": "Abrir o menu da conta de {{name}}",
+    "myForms": "Meus formulários",
+    "myAccount": "Minha conta",
+    "signOut": "Sair"
+  },
+  "items": {
+    "fleet": "Telas",
+    "displayGroups": "Grupos de telas",
+    "archive": "Arquivo",
+    "media": "Mídia",
+    "widgets": "Widgets",
+    "dataSources": "Fontes de dados",
+    "playlists": "Playlists",
+    "layouts": "Layouts",
+    "campaigns": "Campanhas",
+    "schedules": "Agendamentos",
+    "plugins": "Plugins",
+    "activity": "Atividade",
+    "settings": "Configurações"
+  },
+  "header": {
+    "toggleNavigation": "Alternar navegação",
+    "search": "Pesquisar no Tilecast",
+    "notifications": "Notificações",
+    "notificationsWithCount_one": "Notificações, {{count}} ativa",
+    "notificationsWithCount_many": "Notificações, {{count}} ativas",
+    "notificationsWithCount_other": "Notificações, {{count}} ativas",
+    "activeCount_one": "{{count}} ativa",
+    "activeCount_many": "{{count}} ativas",
+    "activeCount_other": "{{count}} ativas",
+    "noneActive": "Nenhuma ativa",
+    "caughtUp": "Tudo em dia.",
+    "groups": {
+      "critical": "Crítico",
+      "warning": "Requer atenção",
+      "info": "Informações"
+    }
+  },
+  "palette": {
+    "title": "Pesquisar no Tilecast",
+    "description": "Encontre um espaço de trabalho, uma tela ou uma ação rápida.",
+    "label": "Pesquisar no Tilecast",
+    "placeholder": "Pesquisar telas, mídias, playlists…",
+    "resultsLabel": "Resultados da pesquisa",
+    "noResults": "Nenhum resultado para “{{query}}”.",
+    "noDestinations": "Nenhum destino disponível.",
+    "groups": {
+      "quickActions": "Ações rápidas",
+      "screens": "Telas",
+      "content": "Conteúdo",
+      "presentations": "Apresentações",
+      "scheduling": "Agendamento",
+      "administration": "Administração",
+      "navigation": "Navegação"
+    },
+    "actions": {
+      "pairScreen": {
+        "label": "Parear uma tela",
+        "description": "Conectar um novo player de sinalização"
+      },
+      "uploadMedia": {
+        "label": "Enviar mídia",
+        "description": "Adicionar imagens, vídeos ou documentos"
+      },
+      "createPlaylist": {
+        "label": "Criar playlist",
+        "description": "Montar uma nova apresentação em tela cheia"
+      },
+      "createLayout": {
+        "label": "Criar layout",
+        "description": "Organizar conteúdo em uma tela de apresentação"
+      },
+      "createSchedule": {
+        "label": "Criar agendamento",
+        "description": "Planejar onde e quando o conteúdo será exibido"
+      }
+    },
+    "plugin": "Plugin",
+    "pluginNotInstalled": "Plugin · Não instalado",
+    "hints": {
+      "move": "mover",
+      "open": "abrir",
+      "close": "fechar"
+    },
+    "screenStatus": {
+      "online": "Online",
+      "recent": "Online recentemente",
+      "stale": "Desatualizada",
+      "offline": "Offline",
+      "disabled": "Desativada",
+      "revoked": "Pareamento revogado",
+      "awaiting_player": "Aguardando player"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Rastrear conteúdo, apresentações, agendamentos, grupos e telas",
+      "sectionFallback": "Configurações de {{label}}"
+    }
+  },
+  "error": {
+    "title": "Não foi possível exibir esta página.",
+    "fallback": "Ocorreu um erro inesperado ao exibir esta página.",
+    "retry": "Tentar novamente"
+  },
+  "access": {
+    "deniedTitle": "Esta área não faz parte da sua função",
+    "deniedDescription": "Sua função não inclui esta página. Peça acesso a um administrador se precisar.",
+    "goTo": "Ir para {{destination}}",
+    "goToAccount": "Ir para Minha conta"
+  }
+}

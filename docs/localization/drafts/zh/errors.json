@@ -1,0 +1,42 @@
+{
+  "generic": "发生错误。请重试。",
+  "fallback": {
+    "somethingWentWrong": "发生错误。",
+    "requestFailed": "请求失败。",
+    "uploadFailed": "上传失败。"
+  },
+  "codes": {
+    "invalid_playback_plan_instant": "请使用包含时区的 RFC 3339 时间，或省略 at 以使用服务器时间。",
+    "playback_expectation_ambiguous": "此时刻记录的预期播放内容相互重叠。",
+    "forbidden": "您的角色不允许执行此操作。",
+    "rate_limited": "尝试次数过多。请稍候重试。",
+    "authentication_required": "需要进行身份验证。",
+    "unauthenticated": "请登录以继续。",
+    "internal_error": "Tilecast 无法完成请求。",
+    "unknown_error": "Tilecast 无法完成请求。",
+    "database_unavailable": "数据库尚未就绪。",
+    "csrf_failed": "无法验证请求。",
+    "conflict": "其他人已修改此记录。请刷新后重试。",
+    "file_read_failed": "无法读取所选文件。",
+    "content_scope_restricted": "此操作需要访问整个素材库的权限。",
+    "upload_folder_required": "请选择上传目标文件夹。您的账户只能向有权访问的文件夹添加媒体。",
+    "tag_not_assignable": "您的账户无法应用其中一个或多个标签。",
+    "role_delegation": "您只能向角色授予自己拥有的权限。只有所有者可以允许管理人员或角色。",
+    "role_protected": "无法修改或删除内置角色。",
+    "role_in_use": "仍有人员使用此角色。请先为他们分配其他角色。",
+    "role_name_taken": "已存在同名角色。",
+    "content_access_delegation": "您只能授予自己的账户可以访问的文件夹和标签。",
+    "cannot_change_own_role": "您无法更改自己的角色。",
+    "cannot_scope_self": "您无法更改自己的内容或屏幕访问权限。",
+    "last_owner_required": "Tilecast 至少需要一位活跃的所有者。",
+    "font_not_found": "找不到该字体。",
+    "font_exists": "素材库中已存在同名字体系列。",
+    "font_in_use": "请先在使用此字体的布局中选择其他字体。",
+    "font_rights_required": "请确认您的组织有权在其屏幕上使用此字体。",
+    "font_too_large": "字体文件超过大小限制。",
+    "font_unsupported": "该文件不是受支持的字体。请上传 TTF 或 OTF 文件。",
+    "font_invalid": "此字体系列不提供该选项。",
+    "font_catalog_disabled": "此服务器已关闭 Google Fonts 目录。请改为上传字体文件。",
+    "font_catalog_unavailable": "Tilecast 无法连接 Google Fonts 目录。请检查服务器的互联网连接，或改为上传字体文件。"
+  }
+}

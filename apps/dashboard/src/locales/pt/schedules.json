@@ -1,0 +1,491 @@
+{
+  "notifications": {
+    "created": "Cronograma criado.",
+    "updated": "Cronograma atualizado.",
+    "deleted": "Agenda excluída."
+  },
+  "page": {
+    "title": "Horários",
+    "create": "Criar cronograma",
+    "createShort": "Criar",
+    "count_one": "{{count}} cronograma",
+    "count_other": "{{count}} horários",
+    "loading": "Carregando programações",
+    "loadError": "Não foi possível carregar os agendamentos.",
+    "enabled": "Habilitado",
+    "disabled": "Desativado",
+    "priorityValue": "Prioridade {{priority}}",
+    "emptyTitle": "Ainda não há horários",
+    "emptyDescription": "As programações permitem que ações de conteúdo ou exibição sejam executadas em telas selecionadas em horários específicos.",
+    "filteredEmptyTitle": "Nenhum horário corresponde",
+    "filteredEmptyDescription": "Tente outra pesquisa ou altere seus filtros.",
+    "clearSearchAndFilters": "Limpar pesquisa e filtros",
+    "deleteFailed": "Não foi possível excluir a programação.",
+    "noTargets": "Sem metas",
+    "targetsMore": "{{names}} +{{count}}",
+    "priorityHelp": "A prioridade mais alta vence quando as programações elegíveis se sobrepõem.",
+    "priorityHelpLabel": "Sobre prioridade",
+    "targetsHelpLabel": "Todos os alvos: {{names}}",
+    "columns": {
+      "schedule": "Cronograma",
+      "status": "Estado",
+      "when": "Quando",
+      "presentation": "Apresentação",
+      "targets": "Alvos",
+      "priority": "Prioridade",
+      "updated": "Atualizado",
+      "actions": "Ações"
+    },
+    "timing": {
+      "everyDay": "Todos os dias",
+      "overnight": "{{range}} no dia seguinte",
+      "from": "De {{date}}",
+      "until": "Até {{date}}"
+    },
+    "actions": {
+      "edit": "Editar programação",
+      "open": "Agenda aberta",
+      "delete": "Excluir programação",
+      "actionsFor": "Ações para {{name}}"
+    },
+    "count_many": "{{count}} horários"
+  },
+  "agenda": {
+    "listTab": "Lista de agendamento",
+    "title": "Agenda de reprodução",
+    "chooseTarget": "Escolha uma tela ou grupo",
+    "groups": "Exibir grupos",
+    "screens": "Telas",
+    "weekNavigation": "Navegação semanal",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Semana que vem",
+    "today": "Hoje",
+    "days": "Dias na agenda",
+    "dayWithOverlap": "{{day}}, sobreposições",
+    "timezone": "Tempos mostrados em {{timezone}}",
+    "emptyTitle": "Escolha onde procurar",
+    "emptyDescription": "Selecione uma tela ou grupo de exibição para ver a reprodução esperada.",
+    "noMembers": "Não há telas para mostrar",
+    "noMembersDescription": "Este grupo não tem telas que você possa visualizar.",
+    "loading": "Carregando agenda para {{screen}}",
+    "loadError": "Não foi possível carregar a agenda para {{screen}}.",
+    "tooManyChanges": "Há muitas alterações de programação para mostrar esta semana para {{screen}}.",
+    "midnight": "meia-noite",
+    "allDay": "O dia todo",
+    "timeRange": "{{from}} – {{to}}",
+    "unnamedContent": "Apresentação indisponível",
+    "noContent": "Nenhum conteúdo selecionado",
+    "unnamedSchedule": "Cronograma",
+    "fallback": "Alternativa",
+    "groupScreen": "Tela em grupo",
+    "calendarFor": "Calendário de reprodução para {{screen}}",
+    "clockChange": "Mudança de relógio",
+    "expectedPlayback": "Reprodução esperada",
+    "overlap": "Sobreposição de cronograma"
+  },
+  "toolbar": {
+    "groupLabel": "Pesquisar e filtrar programações",
+    "search": "Pesquisar horários",
+    "filters": "Filtros",
+    "filtersActive": "Filtros, {{count}} ativos",
+    "filtersTitle": "Filtros",
+    "filtersDescription": "Limite os horários mostrados nesta lista.",
+    "filtersReset": "Redefinir filtros",
+    "filtersDone": "Concluído",
+    "clearFilters": "Limpar filtros",
+    "filterAny": "Qualquer",
+    "facets": {
+      "status": "Estado",
+      "type": "Tipo de agendamento",
+      "presentation": "Apresentação"
+    },
+    "sortShort": "Classificar",
+    "sortButtonLabel": "Classificar programações: {{value}}",
+    "sortMenuTitle": "Classificar por",
+    "sort": {
+      "updated": "Atualizado recentemente",
+      "name": "Nome",
+      "priority": "Maior prioridade"
+    }
+  },
+  "options": {
+    "type": {
+      "weekly": "Semanalmente",
+      "oneTime": "Único"
+    },
+    "presentation": {
+      "playlist": "Lista de reprodução",
+      "layout": "Disposição",
+      "displayControl": "Controle de exibição"
+    }
+  },
+  "editor": {
+    "heading": "Editor de programação: {{name}}",
+    "formLabel": "Configurações de agendamento",
+    "newName": "Nova programação",
+    "loading": "Carregando programação",
+    "discard": {
+      "title": "Descartar alterações não salvas?",
+      "body": "Suas alterações em “{{name}}” não foram salvas.",
+      "keepEditing": "Continue editando"
+    },
+    "details": {
+      "title": "Cronograma",
+      "name": "Nome",
+      "namePlaceholder": "Anúncios matinais",
+      "enabled": "Habilitado",
+      "enabledHint": "Quando salva, esta programação pode afetar a reprodução durante os horários programados.",
+      "description": "Descrição (opcional)",
+      "descriptionHint": "Uma nota interna, visível apenas em Studio."
+    },
+    "presentation": {
+      "title": "Apresentação",
+      "description": "O que deve acontecer quando esse cronograma vencer?",
+      "modeLabel": "Tipo de apresentação",
+      "content": "Conteúdo",
+      "contentHint": "Reproduza uma Playlist ou Layout publicado.",
+      "displayControl": "Controle de exibição",
+      "displayControlHint": "Altere energia, entrada, volume, mudo ou brilho.",
+      "choose": "Escolha uma lista de reprodução ou layout",
+      "change": "Mudança",
+      "use": "Utilize esta apresentação",
+      "playlistKind": "Lista de reprodução",
+      "layoutKind": "Disposição",
+      "playlistMeta_one": "Lista de reprodução · Item {{count}} · {{duration}}",
+      "playlistMeta_other": "Lista de reprodução · Itens {{count}} · {{duration}}",
+      "playlistEmpty": "Lista de reprodução · Nenhum item ainda",
+      "layoutMeta": "Layout · Revisão publicada {{revision}}",
+      "durationVaries": "a duração varia",
+      "playlistMeta_many": "Lista de reprodução · Itens {{count}} · {{duration}}"
+    },
+    "header": {
+      "back": "Voltar aos horários",
+      "save": "Salvar alterações",
+      "create": "Criar cronograma",
+      "saveShort": "Salvar",
+      "review": "Revisão",
+      "reviewIssues_one": "Revisão, item {{count}} precisa de atenção",
+      "reviewIssues_other": "Revisão, itens {{count}} precisam de atenção",
+      "discard": "Descartar alterações não salvas",
+      "delete": "Excluir agendamento",
+      "more": "Mais ações",
+      "reviewIssues_many": "Revisão, itens {{count}} precisam de atenção"
+    },
+    "status": {
+      "saved": "Salvo",
+      "unsaved": "Não salvo",
+      "saving": "Salvando…",
+      "failed": "Falha ao salvar",
+      "viewOnly": "Somente visualizar"
+    },
+    "delete": {
+      "title": "Excluir “{{name}}”?",
+      "body": "Esta programação irá parar de ser reproduzida. Suas telas usarão outra programação aplicável ou seu conteúdo substituto normal.",
+      "keep": "Manter cronograma",
+      "confirm": "Excluir programação",
+      "failed": "A programação não pôde ser excluída."
+    },
+    "notFound": {
+      "title": "Agenda não encontrada",
+      "body": "Ele pode ter sido excluído ou você pode não ter acesso a ele.",
+      "back": "Voltar aos horários"
+    },
+    "cannotCreate": {
+      "title": "Você não pode criar agendas",
+      "body": "Proprietários e administradores gerenciam agendas. Você ainda pode abrir os que existem."
+    },
+    "loadFailed": {
+      "title": "Não foi possível carregar a programação",
+      "retry": "Tente novamente"
+    },
+    "deleteTitle": "Excluir {{name}}?"
+  },
+  "displayAction": {
+    "actionLabel": "Ação",
+    "inputLabel": "Identificador de entrada",
+    "inputHint": "Para HDMI-CEC, use um endereço físico como 1.0.0.0.",
+    "volumeLabel": "Volume",
+    "brightnessLabel": "Brilho",
+    "notSet": "não definido",
+    "note": "A ação usa o mesmo tempo de programação, prioridade e metas que as programações de conteúdo. Os jogadores relatam se o estado do painel foi confirmado.",
+    "options": {
+      "powerOn": "Ligar",
+      "powerOff": "Desligar",
+      "setInput": "Definir entrada",
+      "setVolume": "Definir volume",
+      "mute": "Mudo",
+      "unmute": "Ativar som",
+      "setBrightness": "Definir brilho"
+    },
+    "summary": {
+      "powerOn": "Exibição de energia",
+      "powerOff": "Tela de desligamento",
+      "setInput": "Defina a entrada de exibição para {{value}}",
+      "setVolume": "Defina o volume de exibição para {{value}}",
+      "mute": "Exibição silenciosa",
+      "unmute": "Ativar exibição do som",
+      "setBrightness": "Defina o brilho da tela para {{value}}"
+    }
+  },
+  "weekdays": {
+    "monday": {
+      "short": "segunda-feira",
+      "long": "Segunda-feira"
+    },
+    "tuesday": {
+      "short": "Terça",
+      "long": "Terça-feira"
+    },
+    "wednesday": {
+      "short": "Quarta",
+      "long": "Quarta-feira"
+    },
+    "thursday": {
+      "short": "Qui",
+      "long": "Quinta-feira"
+    },
+    "friday": {
+      "short": "Sexta-feira",
+      "long": "Sexta-feira"
+    },
+    "saturday": {
+      "short": "Sábado",
+      "long": "Sábado"
+    },
+    "sunday": {
+      "short": "Sol",
+      "long": "Domingo"
+    }
+  },
+  "timing": {
+    "weekdaysLabel": "Dias de semana ativos",
+    "starts": "Começa",
+    "ends": "Termina",
+    "startsTimeLabel": "Hora de início",
+    "endsTimeLabel": "Hora de término",
+    "removeDateRange": "Remover período",
+    "timezoneLabel": "Fuso horário",
+    "timezoneSearch": "Pesquise cidade ou região",
+    "timezoneEmpty": "Nenhum fuso horário corresponde a esta pesquisa.",
+    "clockNotSet": "Não definido",
+    "daysSummary": {
+      "none": "nenhum dia selecionado",
+      "everyDayShort": "Todos os dias"
+    },
+    "summary": {
+      "oneTimeRange": "{{start}} – {{end}}",
+      "chooseOneTime": "Escolha um horário de início e término",
+      "nextDaySuffix": " (dia seguinte)",
+      "rangeBetween": "{{start}} – {{end}}",
+      "rangeFrom": "de {{start}}",
+      "rangeUntil": "até {{end}}"
+    },
+    "title": "Tempo",
+    "description": "Quando esta programação for executada, em seu próprio fuso horário.",
+    "typeLabel": "Tipo de agendamento",
+    "typeWeekly": "Semanalmente",
+    "typeWeeklyHint": "Repita nos dias e horários selecionados.",
+    "typeOneTime": "Único",
+    "typeOneTimeHint": "Execute uma vez entre duas datas e horários.",
+    "overnightNote": "Termina no dia seguinte.",
+    "fullDayNote": "Funciona por 24 horas.",
+    "limitDateRange": "Limitar a um período",
+    "startsOn": "Começa em",
+    "endsOn": "Termina em",
+    "organizationDefault": "Padrão da organização",
+    "timezoneHint": "Os horários usam esse fuso horário, independentemente de onde você estiver editando.",
+    "timezoneHintOther": "Os horários usam esse fuso horário, independentemente de onde você estiver editando. O padrão da sua organização é {{timezone}}."
+  },
+  "duration": {
+    "days_one": "Dia {{count}}",
+    "days_other": "{{count}} dias",
+    "hours": "{{count}} horas",
+    "minutes": "{{count}} min",
+    "seconds": "{{count}} seg.",
+    "unavailable": "Duração indisponível",
+    "invalidOrder": "O fim deve ser depois do início",
+    "days_many": "{{count}} dias"
+  },
+  "targets": {
+    "title": "Alvos",
+    "description": "Onde este cronograma se aplica.",
+    "add": "Adicionar alvos",
+    "search": "Telas de pesquisa e grupos de exibição",
+    "loading": "Carregando telas e grupos…",
+    "loadError": "Não foi possível carregar telas e grupos de exibição.",
+    "retry": "Tente novamente",
+    "empty": "Nenhuma tela ou grupo de exibição corresponde.",
+    "groupedHint": "Uma tela em um Grupo de Exibição é adicionada por meio de seu grupo.",
+    "selectedLabel_one": "{{count}} alvo selecionado",
+    "selectedLabel_other": "{{count}} alvos selecionados",
+    "remove": "Remover {{name}}",
+    "groups": "Exibir grupos",
+    "screens": "Telas",
+    "groupDetail_one": "Grupo de exibição · Tela {{count}}",
+    "groupDetail_other": "Grupo de exibição · Telas {{count}}",
+    "screenDetail": "Tela · {{location}}",
+    "kindGroup": "Grupo de exibição",
+    "kindScreen": "Tela",
+    "none": "Ainda não há metas.",
+    "sharedNote": "As telas em um grupo de exibição sempre compartilham uma programação e seu conteúdo alternativo.",
+    "unknown": "Alvo selecionado",
+    "selectedLabel_many": "{{count}} alvos selecionados",
+    "groupDetail_many": "Grupo de exibição · Telas {{count}}"
+  },
+  "priority": {
+    "customValue": "Personalizado ({{priority}})",
+    "presets": {
+      "normal": "Normais",
+      "important": "Importante",
+      "special": "Evento especial",
+      "custom": "Personalizado"
+    }
+  },
+  "validation": {
+    "nameRequired": "Insira um nome de agendamento.",
+    "contentRequired": "Escolha o conteúdo ou uma ação de controle de exibição.",
+    "inputRequired": "Insira um identificador de entrada para a ação Exibir controle.",
+    "volumeRange": "O volume deve estar entre 0 e 100.",
+    "brightnessRange": "O brilho deve estar entre 0 e 100.",
+    "timezoneRequired": "Escolha um fuso horário.",
+    "targetsRequired": "Selecione pelo menos uma tela ou grupo.",
+    "priorityRange": "A prioridade deve ser um número inteiro entre -999 e 999.",
+    "daysRequired": "Selecione pelo menos um dia da semana.",
+    "timeRequired": "Escolha os horários de início e término.",
+    "dateRangeInvalid": "A data de término não deve ser anterior à data de início.",
+    "oneTimeRequired": "Escolha o início e o fim do evento.",
+    "oneTimeOrder": "O término do evento deverá ser posterior ao seu início."
+  },
+  "range": {
+    "label": "Período",
+    "from": "De",
+    "to": "Para",
+    "presets": {
+      "day": "Últimas 24 horas",
+      "week": "Últimos 7 dias",
+      "month": "Últimos 30 dias",
+      "custom": "Intervalo personalizado"
+    }
+  },
+  "datePicker": {
+    "pickDate": "Escolha uma data",
+    "clear": "Limpar data",
+    "time": "Hora",
+    "timeFor": "Hora {{label}}",
+    "previewTime": "Visualizar hora do dia",
+    "fromTime": "De vez em quando",
+    "toTime": "Para cronometrar"
+  },
+  "conflict": {
+    "title": "Tratamento de conflitos",
+    "hint": "Prioridade mais alta é preferida quando os agendamentos competem por uma tela. A verificação da próxima execução mostra o resultado.",
+    "groupLabel": "Prioridade",
+    "presets": {
+      "normal": "Precedência padrão.",
+      "important": "Preferido em relação aos horários normais.",
+      "special": "Para conteúdo excepcional que deve assumir o controle.",
+      "custom": "Escolha uma prioridade exata de −999 a 999."
+    },
+    "customLabel": "Valor de prioridade",
+    "customHint": "Um número inteiro de −999 a 999. Maior é o preferido.",
+    "overlapBadge_one": "Sobreposição {{count}}",
+    "overlapBadge_other": "Sobreposições {{count}}",
+    "overlapBadge_many": "Sobreposições {{count}}"
+  },
+  "outcome": {
+    "title": "Resultado do cronograma",
+    "description": "O que este rascunho fará depois de salvo.",
+    "enabled": "Habilitado",
+    "disabled": "Desativado",
+    "viewOnly": "Somente visualizar",
+    "what": "O que",
+    "when": "Quando",
+    "where": "Onde",
+    "priority": "Prioridade",
+    "priorityInvalid": "Não definido",
+    "noPresentation": "Nada escolhido ainda",
+    "noTargets": "Ainda não há metas",
+    "targetCount_one": "Alvo {{count}}",
+    "targetCount_other": "Alvos {{count}}",
+    "screenCount_one": "Tela {{count}}",
+    "screenCount_other": "Telas {{count}}",
+    "viaTargets_one": "através do alvo {{count}}",
+    "viaTargets_other": "através de alvos {{count}}",
+    "checkTitle": "Verificação da próxima execução",
+    "checking": "Verificando…",
+    "checkFailed": "A verificação não pôde ser executada",
+    "checkFailedSave": "Você ainda pode salvar esta programação.",
+    "retry": "Tente novamente",
+    "incompleteBoth": "Escolha uma apresentação e pelo menos um alvo para conferir essa programação.",
+    "incompletePresentation": "Escolha uma apresentação para conferir essa programação.",
+    "incompleteTargets": "Escolha pelo menos um alvo para verificar esta programação.",
+    "incompleteTiming": "Finalize o tempo para conferir esse cronograma.",
+    "simulatedEnabled": "A verificação abaixo simula esse agendamento como habilitado.",
+    "unsupportedTitle_one": "A tela de destino {{count}} não pode executar o controle de exibição",
+    "unsupportedTitle_other": "As telas direcionadas {{count}} não podem executar o controle de exibição",
+    "unsupportedBody": "Somente jogadores Linux executam controle de exibição. Remova essas telas ou escolha o conteúdo.",
+    "noRunTitle": "Nenhuma corrida futura",
+    "noRunBody": "Esta programação não será executada novamente conforme definido, portanto não há nada para verificar.",
+    "checkedAt": "Verificado para {{when}}",
+    "checkedNow": "Executando agora · verificado a partir de {{when}}",
+    "winsAll_one": "Este horário ganha na tela alvo.",
+    "winsAll_other": "Esta programação vence em todas as telas direcionadas a {{count}}.",
+    "winsNone_one": "Este horário perde na tela de destino.",
+    "winsNone_other": "Este agendamento perde em todas as telas direcionadas ao {{count}}.",
+    "winsAllRunnable_one": "Esse agendamento ganha na tela que consegue executá-lo.",
+    "winsAllRunnable_other": "Este agendamento vence em todas as telas {{count}} que podem executá-lo.",
+    "winsSome_one": "Este horário ganha em {{wins}} da tela {{count}}.",
+    "winsSome_other": "Este horário vence em {{wins}} de telas {{count}}.",
+    "competitors": "Programações sobrepostas",
+    "moreCompetitors": "Mais programações sobrepostas não estão listadas.",
+    "otherScreens": "Telas que mostram outra coisa",
+    "showsInstead": "Mostra {{name}} em vez disso",
+    "andMore_one": "e {{count}} mais tela",
+    "andMore_other": "e {{count}} mais telas",
+    "scopeNote": "Verifica apenas a próxima execução. As execuções posteriores podem ser diferentes.",
+    "competitor": {
+      "mixed_one": "Supera esta programação em {{outranks}} da tela {{count}}",
+      "mixed_other": "Supera esta programação em {{outranks}} de telas {{count}}",
+      "outranks": {
+        "priority_one": "Maior prioridade · Tela {{count}}",
+        "priority_other": "Maior prioridade · Telas {{count}}",
+        "specific_one": "Direciona a tela diretamente · Tela {{count}}",
+        "specific_other": "Direciona as telas diretamente · Telas {{count}}",
+        "start_one": "Iniciado mais tarde · Tela {{count}}",
+        "start_other": "Iniciado mais tarde · Telas {{count}}",
+        "tie_one": "Ganha um empate completo · Tela {{count}}",
+        "tie_other": "Vence o empate completo · Telas {{count}}",
+        "priority_many": "Maior prioridade · Telas {{count}}",
+        "specific_many": "Direciona as telas diretamente · Telas {{count}}",
+        "start_many": "Iniciado mais tarde · Telas {{count}}",
+        "tie_many": "Vence o empate completo · Telas {{count}}"
+      },
+      "yields": {
+        "priority_one": "Prioridade mais baixa · este agendamento vence na tela {{count}}",
+        "priority_other": "Prioridade mais baixa · este agendamento vence nas telas {{count}}",
+        "specific_one": "Menos específico · este horário vence na tela {{count}}",
+        "specific_other": "Menos específico · este horário vence nas telas {{count}}",
+        "start_one": "Iniciado anteriormente · este cronograma vence na tela {{count}}",
+        "start_other": "Iniciado anteriormente · este cronograma vence nas telas {{count}}",
+        "tie_one": "Perde o empate completo · Tela {{count}}",
+        "tie_other": "Perde o empate completo · Telas {{count}}",
+        "priority_many": "Prioridade mais baixa · este agendamento vence nas telas {{count}}",
+        "specific_many": "Menos específico · este horário vence nas telas {{count}}",
+        "start_many": "Iniciado anteriormente · este cronograma vence nas telas {{count}}",
+        "tie_many": "Perde o empate completo · Telas {{count}}"
+      },
+      "mixed_many": "Supera esta programação em {{outranks}} de telas {{count}}"
+    },
+    "hiddenSchedule": "Outra programação",
+    "showsOther": "Mostra outra programação",
+    "targetCount_many": "Alvos {{count}}",
+    "screenCount_many": "Telas {{count}}",
+    "viaTargets_many": "através de alvos {{count}}",
+    "unsupportedTitle_many": "As telas direcionadas {{count}} não podem executar o controle de exibição",
+    "winsAll_many": "Esta programação vence em todas as telas direcionadas a {{count}}.",
+    "winsNone_many": "Este agendamento perde em todas as telas direcionadas ao {{count}}.",
+    "winsAllRunnable_many": "Este agendamento vence em todas as telas {{count}} que podem executá-lo.",
+    "winsSome_many": "Este horário vence em {{wins}} de telas {{count}}.",
+    "andMore_many": "e {{count}} mais telas"
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "ডেটা সোর্স",
+        "description": "ক্যালেন্ডার বা অন্য রেকর্ডের উৎস সংযোগ করুন।"
+      },
+      "titleField": {
+        "label": "শিরোনামের ফিল্ড"
+      },
+      "startField": {
+        "label": "শুরুর ফিল্ড"
+      },
+      "endField": {
+        "label": "শেষের ফিল্ড"
+      },
+      "locationField": {
+        "label": "অবস্থানের ফিল্ড"
+      },
+      "categoryField": {
+        "label": "বিভাগের ফিল্ড"
+      },
+      "heading": {
+        "label": "শিরোনাম"
+      },
+      "maximumItems": {
+        "label": "সর্বোচ্চ ইভেন্ট"
+      },
+      "hideEnded": {
+        "label": "পুরোনো ইভেন্ট লুকান",
+        "description": "প্লেয়ারের ঘড়ি অনুযায়ী শেষ হওয়া ইভেন্ট বোর্ড থেকে সরে যায়। শেষের সময় না থাকলে ইভেন্টটি স্থানীয় দিনের শেষ পর্যন্ত থাকে।"
+      },
+      "showWeekday": {
+        "label": "সপ্তাহের দিন দেখান"
+      },
+      "showDate": {
+        "label": "তারিখ দেখান"
+      },
+      "showTime": {
+        "label": "সময় দেখান"
+      },
+      "showLocation": {
+        "label": "অবস্থান দেখান"
+      },
+      "showCategory": {
+        "label": "বিভাগ দেখান"
+      },
+      "showDividers": {
+        "label": "বিভাজক দেখান"
+      },
+      "dateStyle": {
+        "label": "তারিখের ধরন",
+        "options": {
+          "short": "সংক্ষিপ্ত মাস ও দিন",
+          "day": "মাসের দিন",
+          "numeric": "সংখ্যায় মাস ও দিন"
+        }
+      },
+      "emptyText": {
+        "label": "ফাঁকা অবস্থার বার্তা",
+        "description": "ফাঁকা রাখলে স্বাভাবিক ফাঁকা বার্তা ব্যবহার হবে।"
+      },
+      "flow": {
+        "label": "প্রবাহ",
+        "options": {
+          "auto": "স্বয়ংক্রিয়",
+          "vertical": "উল্লম্ব",
+          "horizontal": "অনুভূমিক"
+        }
+      },
+      "verticalDirection": {
+        "label": "উল্লম্ব দিক",
+        "options": {
+          "up": "ওপরের দিকে",
+          "down": "নিচের দিকে"
+        }
+      },
+      "horizontalDirection": {
+        "label": "অনুভূমিক দিক",
+        "options": {
+          "left": "বামে",
+          "right": "ডানে"
+        }
+      },
+      "scrollSpeed": {
+        "label": "স্ক্রলের গতি",
+        "description": "১ ধীর, ১০ দ্রুত। ইভেন্ট যোগ করলেও পড়ার গতি একই থাকে।"
+      },
+      "scrolling": {
+        "label": "স্ক্রল চালু"
+      },
+      "textScale": {
+        "label": "লেখার আকার (%)",
+        "description": "১০০ হলে স্বয়ংক্রিয় আকার ব্যবহৃত হয়। ইভেন্টের লেখা বড় করতে মান বাড়ান।"
+      },
+      "headingScale": {
+        "label": "শিরোনামের আকার (%)",
+        "description": "ইভেন্টের লেখা থেকে আলাদাভাবে শিরোনামের আকার বদলান।"
+      },
+      "rowLayout": {
+        "label": "সারির বিন্যাস",
+        "description": "স্বাভাবিক ব্যবধান সারিগুলো একসঙ্গে রাখে। তালিকা ছোট হলে শেষ ইভেন্টের পরে ফাঁকা জায়গা থাকতে পারে।",
+        "options": {
+          "fill": "দৃশ্যমান এলাকা পূরণ",
+          "natural": "স্বাভাবিক ব্যবধান"
+        }
+      },
+      "rowSpacing": {
+        "label": "সারির ব্যবধান (%)",
+        "description": "ইভেন্টের লেখার ওপর ও নিচের ফাঁকা জায়গা বদলান। দৃশ্যমান এলাকা পূরণের অতিরিক্ত ফাঁকা জায়গা সরাতে স্বাভাবিক ব্যবধান বেছে নিন।"
+      },
+      "contentPadding": {
+        "label": "বাইরের ফাঁকা জায়গা (%)",
+        "description": "বোর্ডের চারপাশের ফাঁকা জায়গা বদলান। ০ দিলে সরবে; ১০০ দিলে স্বয়ংক্রিয় ব্যবধান হবে।"
+      },
+      "headingSpacing": {
+        "label": "শিরোনামের ব্যবধান (%)",
+        "description": "শিরোনামের নিচে ও বিভাজকের চারপাশের ফাঁকা জায়গা বদলান।"
+      },
+      "density": {
+        "label": "ঘনত্ব",
+        "options": {
+          "compact": "ঘন",
+          "comfortable": "স্বাচ্ছন্দ্যপূর্ণ",
+          "spacious": "প্রশস্ত"
+        }
+      },
+      "backgroundColor": {
+        "label": "পটভূমি"
+      },
+      "foregroundColor": {
+        "label": "লেখার রং"
+      },
+      "accentColor": {
+        "label": "প্রধান রং"
+      }
+    }
+  },
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Canva ডিজাইনের লিংক",
+        "description": "সর্বজনীন ডিজাইন ভিউ লিংক, Smart embed লিংক, iframe src URL বা canva.link সংক্ষিপ্ত লিংক দিন। আগে Canva-তে সর্বজনীন embed প্রকাশ করুন।"
+      },
+      "slideshow": {
+        "label": "স্লাইডশো",
+        "description": "Canva-তে ডিজাইনটি উপস্থাপনা বা দেখার মোডে খুলুন। চালানো শুরু করতে Canva-তে এরপরও নির্দেশ দিতে হতে পারে।"
+      },
+      "refreshIntervalSeconds": {
+        "label": "রিলোডের ব্যবধান"
+      }
+    }
+  },
+  "website": {
+    "fields": {
+      "url": {
+        "label": "ওয়েব ঠিকানা",
+        "description": "দেখানোর জন্য সর্বজনীন পেজ। HTTPS ব্যবহার করুন; এই ইনস্টলেশনে অনুমতি থাকলে ব্যক্তিগত ঠিকানায় HTTP চলে।"
+      },
+      "backgroundColor": {
+        "label": "পটভূমির রং",
+        "description": "পেজ লোড হওয়ার সময় এর পেছনে দেখা যায়।"
+      },
+      "zoomPercent": {
+        "label": "জুম (%)"
+      },
+      "scrollX": {
+        "label": "অনুভূমিক স্ক্রল (px)"
+      },
+      "scrollY": {
+        "label": "উল্লম্ব স্ক্রল (px)"
+      },
+      "reloadPolicy": {
+        "label": "রিলোড",
+        "options": {
+          "load_once": "সক্রিয় থাকাকালে একবার লোড",
+          "on_each_activation": "প্রতিবার দেখালে রিলোড",
+          "interval": "নির্দিষ্ট বিরতিতে রিলোড"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "কত সেকেন্ড পর রিলোড হবে"
+      },
+      "failureBehavior": {
+        "label": "পেজ লোড না হলে",
+        "options": {
+          "placeholder": "Tilecast-এর বিকল্প দৃশ্য দেখান",
+          "last_success": "সর্বশেষ লোড হওয়া পেজ রাখুন",
+          "fallback_image": "বিকল্প ছবি দেখান",
+          "skip": "এই আইটেম এড়িয়ে যান"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "বিকল্প ছবি"
+      },
+      "loadTimeoutSeconds": {
+        "label": "লোডের সময়সীমা (সেকেন্ড)"
+      },
+      "allowedHosts": {
+        "label": "অনুমোদিত হোস্ট",
+        "description": "যে নির্দিষ্ট হোস্টে পেজটি যেতে পারবে। পেজের নিজস্ব হোস্ট সবসময় অনুমোদিত। এটি মূল পেজে যাওয়া সীমিত করে, প্রতিটি তৃতীয় পক্ষের রিসোর্সে নয়।"
+      },
+      "javascriptEnabled": {
+        "label": "JavaScript চালান"
+      },
+      "domStorageEnabled": {
+        "label": "DOM স্টোরেজের অনুমতি দিন"
+      },
+      "cookiePolicy": {
+        "label": "কুকি",
+        "options": {
+          "disabled": "বন্ধ",
+          "first_party": "শুধু প্রথম পক্ষ",
+          "first_and_third_party": "প্রথম ও তৃতীয় পক্ষ"
+        }
+      },
+      "customUserAgent": {
+        "label": "নিজস্ব ইউজার এজেন্ট",
+        "description": "Player-এর স্বাভাবিক ইউজার এজেন্ট রাখতে ফাঁকা রাখুন। পরিবর্তন করলে সাইট নাও চলতে পারে।"
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "YouTube ভিডিও বা প্লেলিস্ট URL",
+        "description": "এটি ভিডিও না প্লেলিস্ট, Tilecast তা শনাক্ত করে। YouTube API key লাগে না।"
+      },
+      "startSeconds": {
+        "label": "এখান থেকে শুরু (সেকেন্ড)"
+      },
+      "endSeconds": {
+        "label": "এখানে শেষ (সেকেন্ড)",
+        "description": "শেষ পর্যন্ত চালাতে ফাঁকা রাখুন।"
+      },
+      "captions": {
+        "label": "ক্যাপশন দেখান"
+      },
+      "captionLanguage": {
+        "label": "ক্যাপশনের ভাষা",
+        "description": "en বা es-এর মতো ভাষার কোড। YouTube-এর ডিফল্ট রাখতে ফাঁকা রাখুন।"
+      },
+      "muted": {
+        "label": "শব্দ বন্ধ"
+      },
+      "volume": {
+        "label": "ভলিউম (%)"
+      },
+      "loop": {
+        "label": "বারবার চালান"
+      },
+      "controls": {
+        "label": "YouTube নিয়ন্ত্রণ দেখান"
+      },
+      "playlistPlaybackMode": {
+        "label": "প্লেলিস্ট আইটেমের দৈর্ঘ্য",
+        "options": {
+          "until_end": "ভিডিও শেষ হওয়া পর্যন্ত চালান",
+          "fixed_duration": "নির্দিষ্ট সময় চালান"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "নির্দিষ্ট সময় (সেকেন্ড)"
+      },
+      "failureBehavior": {
+        "label": "ভিডিও না চললে",
+        "options": {
+          "placeholder": "Tilecast-এর বিকল্প দৃশ্য দেখান",
+          "fallback_image": "বিকল্প ছবি দেখান",
+          "skip": "এই আইটেম এড়িয়ে যান"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "বিকল্প ছবি"
+      }
+    }
+  }
+}

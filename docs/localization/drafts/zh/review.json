@@ -1,0 +1,147 @@
+{
+  "contentReview": {
+    "title": "内容审核",
+    "description": "播放列表或布局的当前版本必须获得批准才能用于屏幕。编辑已批准的内容会将其送回此处。",
+    "openInbox": "打开提交收件箱",
+    "notRequiredNotice": "此安装不要求批准，因此这里的内容不会阻止分配。所有者或管理员可以在<settingsLink>设置、内容审核</settingsLink>中启用。",
+    "filterLabel": "审核状态",
+    "filterAll": "全部",
+    "loading": "正在加载审核队列",
+    "emptyPending": "没有等待审核的内容",
+    "emptyOther": "没有可显示的内容",
+    "table": {
+      "content": "内容",
+      "state": "状态",
+      "screens": "使用中的屏幕",
+      "reviewAction": "审核"
+    },
+    "state": {
+      "pending": "等待审核",
+      "approved": "已批准",
+      "rejected": "已退回"
+    },
+    "contentType": {
+      "playlist": "播放列表",
+      "layout": "布局"
+    },
+    "contentTypeName": {
+      "playlist": "播放列表",
+      "layout": "布局"
+    },
+    "itemMeta": "{{type}} · 版本 {{revision}} · 更新于 {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · 版本 {{revision}} · {{author}} · 更新于 {{updatedAt}}",
+    "assignedScreens_other": "已用于 {{count}} 个屏幕",
+    "sheet": {
+      "lastNote": "最近的备注：{{note}}",
+      "openContent": "打开{{type}}"
+    },
+    "actions": {
+      "approve": "批准",
+      "sendBack": "退回"
+    },
+    "rejectDialog": {
+      "title": "退回修改",
+      "description": "可选择添加备注，告知作者需要修正的内容。",
+      "noteLabel": "备注",
+      "notePlaceholder": "批准前需要更改什么？",
+      "noteHint": "随决定记录并向作者显示。"
+    },
+    "toast": {
+      "approved": "内容已批准。",
+      "sentBack": "内容已退回。",
+      "decisionFailed": "无法记录决定。"
+    }
+  },
+  "submissions": {
+    "title": "内容审核",
+    "description": "每次提交都会冻结审核者看到的确切草稿。发布会创建新的不可变运行版本；后续编辑在再次提交前保持私有。",
+    "openLegacyQueue": "打开旧版版本队列",
+    "policyNotice": "策略：<strong>{{policy}}</strong>。自行批准{{selfApproval}}；已批准的提交{{behavior}}。",
+    "policy": {
+      "selfApprovalAllowed": "允许",
+      "selfApprovalDisabled": "禁用",
+      "behaviorAuto": "自动发布",
+      "behaviorManual": "等待明确的发布或计划操作"
+    },
+    "filterLabel": "提交状态",
+    "filters": {
+      "needsReview": "需要审核",
+      "changesRequested": "已要求修改",
+      "approved": "已批准",
+      "scheduled": "已计划",
+      "publicationFailed": "发布失败",
+      "published": "已发布",
+      "allHistory": "全部历史"
+    },
+    "status": {
+      "inReview": "需要审核",
+      "changesRequested": "已要求修改",
+      "approved": "已批准",
+      "scheduled": "已计划",
+      "published": "已发布",
+      "superseded": "已被取代",
+      "cancelled": "已取消",
+      "publicationFailed": "发布失败"
+    },
+    "table": {
+      "submission": "提交",
+      "status": "状态",
+      "impact": "影响",
+      "reviewAction": "审核"
+    },
+    "loading": "正在加载提交…",
+    "loadErrorTitle": "无法加载提交",
+    "loadErrorDescription": "如果问题持续，请尝试重新加载页面。",
+    "emptyTitle": "没有符合此视图的提交",
+    "emptyDescription": "内容提交审核后会显示在此处。",
+    "itemMeta": "草稿版本 {{revision}} · 提交于 {{submittedAt}}",
+    "itemMetaWithSubmitter": "草稿版本 {{revision}} · {{submitter}} 提交于 {{submittedAt}}",
+    "itemImpact": "已发布版本 {{published}} · {{locations}} 个位置的 {{screens}} 个屏幕",
+    "detail": {
+      "status": "状态",
+      "publishedRevision": "已发布版本",
+      "impact": "影响",
+      "snapshotHash": "快照 SHA-256",
+      "noRevision": "无",
+      "coverage": "{{locations}} 个位置的 {{screens}} 个屏幕",
+      "newerDraft": "存在较新的私有草稿。",
+      "reviewNote": "审核备注：{{note}}",
+      "viewSnapshot": "查看确切的提交快照",
+      "cancelSchedule": "取消计划",
+      "openContent": "打开内容"
+    },
+    "reviewForm": {
+      "noteLabel": "审核备注",
+      "notePlaceholder": "随批准记录的可选备注",
+      "approve": "批准",
+      "requestChanges": "要求修改"
+    },
+    "rejectDialog": {
+      "title": "要求修改",
+      "description": "必须提供原因，让作者知道需要修正什么。",
+      "reasonLabel": "退回原因",
+      "reasonPlaceholder": "批准前需要更改什么？",
+      "reasonHint": "随决定记录并向作者显示。",
+      "confirm": "退回"
+    },
+    "publish": {
+      "publishNow": "立即发布",
+      "publishAtLabel": "发布时间",
+      "publishAtTimeLabel": "发布时间",
+      "publishAtHint": "计划在未来的日期和时间发布。",
+      "schedule": "计划发布"
+    },
+    "toast": {
+      "approved": "提交已批准。",
+      "changesRequested": "已要求修改。",
+      "published": "提交已发布。",
+      "scheduled": "已计划发布。",
+      "scheduleCancelled": "计划已取消。",
+      "approveFailed": "无法批准。",
+      "requestChangesFailed": "无法要求修改。",
+      "publishFailed": "无法发布。",
+      "scheduleFailed": "无法计划发布。",
+      "cancelScheduleFailed": "无法取消计划。"
+    }
+  }
+}

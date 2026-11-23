@@ -1,0 +1,63 @@
+{
+  "a11y": {
+    "loading": "Laden",
+    "more": "Meer",
+    "sidebarDescription": "Toont de zijbalk op mobiel.",
+    "sidebarTitle": "Zijbalk",
+    "toggleSidebar": "Zijbalk in- of uitklappen"
+  },
+  "actions": {
+    "back": "Terug",
+    "cancel": "Annuleren",
+    "clear": "Wissen",
+    "clearAll": "Alles wissen",
+    "close": "Sluiten",
+    "closeToast": "Melding sluiten",
+    "confirm": "Bevestigen",
+    "delete": "Verwijderen",
+    "discardChanges": "Wijzigingen verwerpen",
+    "edit": "Bewerken",
+    "loadMore": "Meer laden",
+    "next": "Volgende",
+    "nextSlide": "Volgende dia",
+    "previous": "Vorige",
+    "previousSlide": "Vorige dia",
+    "refresh": "Vernieuwen",
+    "refreshing": "Vernieuwen…",
+    "remove": "Verwijderen",
+    "retry": "Opnieuw proberen",
+    "save": "Opslaan",
+    "saveChanges": "Wijzigingen opslaan",
+    "saving": "Opslaan…",
+    "skip": "Overslaan",
+    "submit": "Verzenden",
+    "toggleOptions": "Opties in- of uitklappen"
+  },
+  "status": {
+    "loading": "Laden…"
+  },
+  "count": {
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items"
+  },
+  "clipboard": {
+    "copied": "{{label}} gekopieerd.",
+    "copyFailed": "{{label}} kon niet worden gekopieerd."
+  },
+  "filters": {
+    "active": "Actieve filters",
+    "remove": "Filter verwijderen {{label}}: {{value}}",
+    "title": "Filters"
+  },
+  "planned": {
+    "eyebrow": "MIJLPAAL {{milestone}}",
+    "title": "{{feature}} zijn nog niet ingeschakeld.",
+    "body": "Deze installatie bevat momenteel de basis van mijlpaal 1. {{feature}} worden in mijlpaal {{milestone}} geïmplementeerd en getest.",
+    "backLink": "Terug naar installatiestatus"
+  },
+  "demo": {
+    "title": "Demomodus",
+    "description": "Deze installatie bevat voorbeeldgegevens en kan automatisch worden gereset.",
+    "badge": "Demo"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "a11y": {
+    "loading": "Chargement",
+    "more": "Plus",
+    "sidebarDescription": "Affiche la barre latérale sur mobile.",
+    "sidebarTitle": "Barre latérale",
+    "toggleSidebar": "Afficher ou masquer la barre latérale"
+  },
+  "actions": {
+    "back": "Retour",
+    "cancel": "Annuler",
+    "clear": "Effacer",
+    "clearAll": "Tout effacer",
+    "close": "Fermer",
+    "closeToast": "Fermer la notification",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "discardChanges": "Abandonner les modifications",
+    "edit": "Modifier",
+    "loadMore": "Charger plus",
+    "next": "Suivant",
+    "nextSlide": "Diapositive suivante",
+    "previous": "Précédent",
+    "previousSlide": "Diapositive précédente",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation…",
+    "remove": "Retirer",
+    "retry": "Réessayer",
+    "save": "Enregistrer",
+    "saveChanges": "Enregistrer les modifications",
+    "saving": "Enregistrement…",
+    "skip": "Ignorer",
+    "submit": "Envoyer",
+    "toggleOptions": "Afficher ou masquer les options"
+  },
+  "status": {
+    "loading": "Chargement…"
+  },
+  "count": {
+    "items_one": "{{count}} élément",
+    "items_other": "{{count}} éléments",
+    "items_many": "{{count}} éléments"
+  },
+  "clipboard": {
+    "copied": "{{label}} copié.",
+    "copyFailed": "Impossible de copier {{label}}."
+  },
+  "filters": {
+    "active": "Filtres actifs",
+    "remove": "Retirer le filtre {{label}} : {{value}}",
+    "title": "Filtres"
+  },
+  "planned": {
+    "eyebrow": "JALON {{milestone}}",
+    "title": "{{feature}} ne sont pas encore activés.",
+    "body": "Cette installation comprend actuellement les fonctions de base du jalon 1. {{feature}} seront implémentés et testés au jalon {{milestone}}.",
+    "backLink": "Revenir à l’état de l’installation"
+  },
+  "demo": {
+    "title": "Mode démo",
+    "description": "Cette installation contient des données d’exemple et peut être réinitialisée automatiquement.",
+    "badge": "Démo"
+  }
+}

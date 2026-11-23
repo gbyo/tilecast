@@ -1,0 +1,149 @@
+{
+  "contentReview": {
+    "title": "Révision du contenu",
+    "description": "Une liste de lecture ou une mise en page doit être approuvée dans sa révision actuelle avant de pouvoir être affichée sur un écran. La modification du contenu approuvé le renvoie ici.",
+    "openInbox": "Ouvrir la boîte de réception des soumissions",
+    "notRequiredNotice": "L'approbation n'est pas requise pour cette installation, donc rien ici ne bloque l'affectation. Un propriétaire ou un administrateur peut l'activer sous <settingsLink>Settings, Content review</settingsLink>.",
+    "filterLabel": "État de la révision",
+    "filterAll": "Tout",
+    "loading": "Chargement de la file d'attente de révision",
+    "emptyPending": "Rien n'attend d'être examiné",
+    "emptyOther": "Rien à montrer",
+    "table": {
+      "content": "Contenu",
+      "state": "État",
+      "screens": "Sur les écrans",
+      "reviewAction": "Examen"
+    },
+    "state": {
+      "pending": "En attente d'examen",
+      "approved": "Approuvé",
+      "rejected": "Renvoyé"
+    },
+    "contentType": {
+      "playlist": "Liste de lecture",
+      "layout": "Disposition"
+    },
+    "contentTypeName": {
+      "playlist": "liste de lecture",
+      "layout": "mise en page"
+    },
+    "itemMeta": "{{type}} · révision {{revision}} · mise à jour {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · révision {{revision}} · {{author}} · mise à jour {{updatedAt}}",
+    "assignedScreens_one": "Déjà sur l'écran {{count}}",
+    "assignedScreens_other": "Déjà sur les écrans {{count}}",
+    "sheet": {
+      "lastNote": "Dernière remarque : {{note}}",
+      "openContent": "Ouvrir {{type}}"
+    },
+    "actions": {
+      "approve": "Approuver",
+      "sendBack": "Renvoyer"
+    },
+    "rejectDialog": {
+      "title": "Renvoyer pour modifications",
+      "description": "Une note facultative indique à l'auteur ce qu'il doit corriger.",
+      "noteLabel": "Remarque",
+      "notePlaceholder": "Que doit-il changer avant que cela puisse être approuvé ?",
+      "noteHint": "Enregistré avec la décision et montré à l'auteur."
+    },
+    "toast": {
+      "approved": "Contenu approuvé.",
+      "sentBack": "Contenu renvoyé.",
+      "decisionFailed": "Impossible d'enregistrer la décision."
+    },
+    "assignedScreens_many": "Déjà sur les écrans {{count}}"
+  },
+  "submissions": {
+    "title": "Révision du contenu",
+    "description": "Chaque soumission fige le brouillon exact qu’un évaluateur a vu. La publication crée une nouvelle révision d'exécution immuable ; les modifications ultérieures restent privées jusqu'à ce qu'elles soient à nouveau soumises.",
+    "openLegacyQueue": "Ouvrir la file d'attente des révisions héritées",
+    "policyNotice": "Politique : <strong>{{policy}}</strong>. L'auto-approbation est {{selfApproval}} ; soumissions approuvées {{behavior}}.",
+    "policy": {
+      "selfApprovalAllowed": "autorisé",
+      "selfApprovalDisabled": "désactivé",
+      "behaviorAuto": "publier automatiquement",
+      "behaviorManual": "attendre une publication explicite ou une action planifiée"
+    },
+    "filterLabel": "État de soumission",
+    "filters": {
+      "needsReview": "Besoin d'un examen",
+      "changesRequested": "Modifications demandées",
+      "approved": "Approuvé",
+      "scheduled": "Programmé",
+      "publicationFailed": "La publication a échoué",
+      "published": "Publié",
+      "allHistory": "Toute l'histoire"
+    },
+    "status": {
+      "inReview": "Besoin d'un examen",
+      "changesRequested": "Modifications demandées",
+      "approved": "Approuvé",
+      "scheduled": "Programmé",
+      "published": "Publié",
+      "superseded": "Remplacé",
+      "cancelled": "Annulé",
+      "publicationFailed": "La publication a échoué"
+    },
+    "table": {
+      "submission": "Soumission",
+      "status": "Statut",
+      "impact": "Impact",
+      "reviewAction": "Examen"
+    },
+    "loading": "Chargement des soumissions…",
+    "loadErrorTitle": "Impossible de charger les soumissions",
+    "loadErrorDescription": "Si le problème persiste, essayez de recharger la page.",
+    "emptyTitle": "Aucune soumission ne correspond à cette vue",
+    "emptyDescription": "Les soumissions apparaissent ici une fois le contenu soumis pour examen.",
+    "itemMeta": "Projet de révision {{revision}} · soumis {{submittedAt}}",
+    "itemMetaWithSubmitter": "Projet de révision {{revision}} · soumis {{submittedAt}} par {{submitter}}",
+    "itemImpact": "Révision publiée {{published}} · Écrans {{screens}} dans les emplacements {{locations}}",
+    "detail": {
+      "status": "Statut",
+      "publishedRevision": "Révision publiée",
+      "impact": "Impact",
+      "snapshotHash": "Instantané SHA-256",
+      "noRevision": "aucun",
+      "coverage": "Écrans {{screens}} dans les emplacements {{locations}}",
+      "newerDraft": "Un projet privé plus récent existe.",
+      "reviewNote": "Note de révision : {{note}}",
+      "viewSnapshot": "Afficher l'instantané exact soumis",
+      "cancelSchedule": "Annuler le planning",
+      "openContent": "Ouvrir le contenu"
+    },
+    "reviewForm": {
+      "noteLabel": "Note de révision",
+      "notePlaceholder": "Note facultative enregistrée avec approbation",
+      "approve": "Approuver",
+      "requestChanges": "Demander des modifications"
+    },
+    "rejectDialog": {
+      "title": "Demander des modifications",
+      "description": "Une raison est requise pour que l'auteur sache quoi corriger.",
+      "reasonLabel": "Raison du renvoi",
+      "reasonPlaceholder": "Que doit-il changer avant que cela puisse être approuvé ?",
+      "reasonHint": "Enregistré avec la décision et montré à l'auteur.",
+      "confirm": "Renvoyer"
+    },
+    "publish": {
+      "publishNow": "Publier maintenant",
+      "publishAtLabel": "Publier sur",
+      "publishAtTimeLabel": "Heure de publication",
+      "publishAtHint": "Planifiez la publication à une date et une heure futures.",
+      "schedule": "Calendrier"
+    },
+    "toast": {
+      "approved": "Soumission approuvée.",
+      "changesRequested": "Modifications demandées.",
+      "published": "Soumission publiée.",
+      "scheduled": "Parution prévue.",
+      "scheduleCancelled": "Programme annulé.",
+      "approveFailed": "Je n'ai pas pu approuver.",
+      "requestChangesFailed": "Impossible de demander des modifications.",
+      "publishFailed": "Impossible de publier.",
+      "scheduleFailed": "Impossible de planifier.",
+      "cancelScheduleFailed": "Impossible d'annuler le planning."
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "contentReview": {
+    "title": "सामग्री समीक्षा",
+    "description": "किसी प्लेलिस्ट या लेआउट को स्क्रीन पर जाने से पहले उसके वर्तमान संशोधन में अनुमोदित किया जाना चाहिए। स्वीकृत सामग्री का संपादन इसे यहां वापस भेजता है।",
+    "openInbox": "सबमिशन इनबॉक्स खोलें",
+    "notRequiredNotice": "इस इंस्टॉलेशन पर अनुमोदन की आवश्यकता नहीं है, इसलिए यहां कुछ भी असाइनमेंट को अवरुद्ध नहीं करता है। एक मालिक या प्रशासक इसे <settingsLink>सेटिंग्स, सामग्री समीक्षा</settingsLink> के तहत चालू कर सकता है।",
+    "filterLabel": "स्थिति की समीक्षा करें",
+    "filterAll": "सब",
+    "loading": "समीक्षा कतार लोड हो रही है",
+    "emptyPending": "कुछ भी समीक्षा की प्रतीक्षा नहीं कर रहा है",
+    "emptyOther": "दिखाने के लिए कुछ भी नहीं",
+    "table": {
+      "content": "सामग्री",
+      "state": "राज्य",
+      "screens": "स्क्रीन पर",
+      "reviewAction": "समीक्षा"
+    },
+    "state": {
+      "pending": "समीक्षा की प्रतीक्षा में",
+      "approved": "स्वीकृत",
+      "rejected": "वापस भेज दिया गया"
+    },
+    "contentType": {
+      "playlist": "प्लेलिस्ट",
+      "layout": "लेआउट"
+    },
+    "contentTypeName": {
+      "playlist": "प्लेलिस्ट",
+      "layout": "लेआउट"
+    },
+    "itemMeta": "{{type}} · संशोधन {{revision}} · अद्यतन {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · संशोधन {{revision}} · {{author}} · अद्यतन {{updatedAt}}",
+    "assignedScreens_one": "पहले से ही {{count}} स्क्रीन पर",
+    "assignedScreens_other": "पहले से ही {{count}} स्क्रीन पर",
+    "sheet": {
+      "lastNote": "अंतिम नोट: {{note}}",
+      "openContent": "{{type}} खोलें"
+    },
+    "actions": {
+      "approve": "स्वीकृत करें",
+      "sendBack": "वापस भेजो"
+    },
+    "rejectDialog": {
+      "title": "परिवर्तन के लिए वापस भेजें",
+      "description": "एक वैकल्पिक नोट लेखक को बताता है कि क्या ठीक करना है।",
+      "noteLabel": "नोट",
+      "notePlaceholder": "इसे मंजूरी मिलने से पहले क्या बदलाव होना चाहिए?",
+      "noteHint": "निर्णय के साथ रिकॉर्ड किया गया और लेखक को दिखाया गया।"
+    },
+    "toast": {
+      "approved": "सामग्री स्वीकृत.",
+      "sentBack": "सामग्री वापस भेज दी गई.",
+      "decisionFailed": "निर्णय रिकार्ड नहीं किया जा सका."
+    }
+  },
+  "submissions": {
+    "title": "सामग्री समीक्षा",
+    "description": "प्रत्येक सबमिशन एक समीक्षक द्वारा देखे गए सटीक ड्राफ्ट को फ्रीज कर देता है। प्रकाशन एक नया अपरिवर्तनीय रनटाइम संशोधन बनाता है; बाद में किए गए संपादन दोबारा सबमिट किए जाने तक निजी रहते हैं।",
+    "openLegacyQueue": "लीगेसी पुनरीक्षण कतार खोलें",
+    "policyNotice": "नीति: <strong>{{policy}}</strong>। स्व-अनुमोदन {{selfApproval}} है; अनुमोदित प्रस्तुतियाँ {{behavior}}।",
+    "policy": {
+      "selfApprovalAllowed": "अनुमति",
+      "selfApprovalDisabled": "अक्षम",
+      "behaviorAuto": "स्वचालित रूप से प्रकाशित करें",
+      "behaviorManual": "किसी स्पष्ट प्रकाशन या शेड्यूल कार्रवाई की प्रतीक्षा करें"
+    },
+    "filterLabel": "सबमिशन अवस्था",
+    "filters": {
+      "needsReview": "समीक्षा की जरूरत है",
+      "changesRequested": "परिवर्तन का अनुरोध किया गया",
+      "approved": "स्वीकृत",
+      "scheduled": "अनुसूचित",
+      "publicationFailed": "प्रकाशन विफल",
+      "published": "प्रकाशित",
+      "allHistory": "सारा इतिहास"
+    },
+    "status": {
+      "inReview": "समीक्षा की जरूरत है",
+      "changesRequested": "परिवर्तन का अनुरोध किया गया",
+      "approved": "स्वीकृत",
+      "scheduled": "अनुसूचित",
+      "published": "प्रकाशित",
+      "superseded": "अधिक्रमण किया हुआ",
+      "cancelled": "रद्द किया गया",
+      "publicationFailed": "प्रकाशन विफल"
+    },
+    "table": {
+      "submission": "समर्पण",
+      "status": "स्थिति",
+      "impact": "प्रभाव",
+      "reviewAction": "समीक्षा"
+    },
+    "loading": "सबमिशन लोड हो रहा है...",
+    "loadErrorTitle": "सबमिशन लोड नहीं हो सका",
+    "loadErrorDescription": "यदि समस्या बनी रहती है, तो पृष्ठ को पुनः लोड करने का प्रयास करें।",
+    "emptyTitle": "कोई भी सबमिशन इस दृश्य से मेल नहीं खाता",
+    "emptyDescription": "सामग्री को समीक्षा के लिए सबमिट करने के बाद सबमिशन यहां दिखाई देते हैं।",
+    "itemMeta": "ड्राफ्ट संशोधन {{revision}} · सबमिट किया गया {{submittedAt}}",
+    "itemMetaWithSubmitter": "ड्राफ्ट संशोधन {{revision}} · {{submitter}} द्वारा प्रस्तुत {{submittedAt}}",
+    "itemImpact": "प्रकाशित संशोधन {{published}} · {{locations}} स्थानों पर {{screens}} स्क्रीन",
+    "detail": {
+      "status": "स्थिति",
+      "publishedRevision": "पुनरीक्षण प्रकाशित",
+      "impact": "प्रभाव",
+      "snapshotHash": "स्नैपशॉट SHA-256",
+      "noRevision": "कोई नहीं",
+      "coverage": "{{screens}} स्क्रीन {{locations}} स्थानों पर",
+      "newerDraft": "एक नया निजी ड्राफ्ट मौजूद है.",
+      "reviewNote": "समीक्षा नोट: {{note}}",
+      "viewSnapshot": "सबमिट किया गया सटीक स्नैपशॉट देखें",
+      "cancelSchedule": "शेड्यूल रद्द करें",
+      "openContent": "सामग्री खोलें"
+    },
+    "reviewForm": {
+      "noteLabel": "समीक्षा नोट",
+      "notePlaceholder": "अनुमोदन के साथ वैकल्पिक नोट दर्ज किया गया",
+      "approve": "स्वीकृत करें",
+      "requestChanges": "परिवर्तन का अनुरोध करें"
+    },
+    "rejectDialog": {
+      "title": "परिवर्तन का अनुरोध करें",
+      "description": "एक कारण आवश्यक है ताकि लेखक जान सके कि क्या ठीक करना है।",
+      "reasonLabel": "वापस भेजने का कारण",
+      "reasonPlaceholder": "इसे मंजूरी मिलने से पहले क्या बदलाव होना चाहिए?",
+      "reasonHint": "निर्णय के साथ रिकॉर्ड किया गया और लेखक को दिखाया गया।",
+      "confirm": "वापस भेजो"
+    },
+    "publish": {
+      "publishNow": "अभी प्रकाशित करें",
+      "publishAtLabel": "पर प्रकाशित करें",
+      "publishAtTimeLabel": "प्रकाशन का समय",
+      "publishAtHint": "भविष्य की तारीख और समय के लिए प्रकाशन शेड्यूल करें।",
+      "schedule": "अनुसूची"
+    },
+    "toast": {
+      "approved": "सबमिशन स्वीकृत.",
+      "changesRequested": "परिवर्तन का अनुरोध किया गया.",
+      "published": "प्रस्तुतीकरण प्रकाशित.",
+      "scheduled": "प्रकाशन निर्धारित.",
+      "scheduleCancelled": "शेड्यूल रद्द कर दिया गया.",
+      "approveFailed": "अनुमोदन नहीं हो सका.",
+      "requestChangesFailed": "परिवर्तन का अनुरोध नहीं किया जा सका.",
+      "publishFailed": "प्रकाशित नहीं हो सका.",
+      "scheduleFailed": "शेड्यूल नहीं किया जा सका.",
+      "cancelScheduleFailed": "शेड्यूल रद्द नहीं किया जा सका."
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "generic": "Une erreur s’est produite. Réessayez.",
+  "fallback": {
+    "somethingWentWrong": "Une erreur s’est produite.",
+    "requestFailed": "La requête a échoué.",
+    "uploadFailed": "Le téléversement a échoué."
+  },
+  "codes": {
+    "invalid_playback_plan_instant": "Utilisez un instant RFC 3339 avec un fuseau horaire, ou omettez at pour utiliser l’heure du serveur.",
+    "playback_expectation_ambiguous": "Les prévisions de lecture enregistrées se chevauchent à cet instant.",
+    "forbidden": "Votre rôle ne permet pas cette action.",
+    "rate_limited": "Trop de tentatives. Patientez un instant et réessayez.",
+    "authentication_required": "Une authentification est requise.",
+    "unauthenticated": "Connectez-vous pour continuer.",
+    "internal_error": "Tilecast n’a pas pu traiter la requête.",
+    "unknown_error": "Tilecast n’a pas pu traiter la requête.",
+    "database_unavailable": "La base de données n’est pas prête.",
+    "csrf_failed": "La requête n’a pas pu être vérifiée.",
+    "conflict": "Une autre personne a modifié cet élément. Actualisez la page et réessayez.",
+    "file_read_failed": "Impossible de lire le fichier sélectionné.",
+    "content_scope_restricted": "Cette action nécessite l’accès à toute la bibliothèque.",
+    "upload_folder_required": "Choisissez un dossier de destination. Votre compte peut uniquement ajouter des médias aux dossiers auxquels il a accès.",
+    "tag_not_assignable": "Votre compte ne peut pas appliquer une ou plusieurs de ces étiquettes.",
+    "role_delegation": "Vous ne pouvez attribuer à un rôle que les autorisations que vous possédez. Seul un propriétaire peut autoriser la gestion des personnes ou des rôles.",
+    "role_protected": "Les rôles intégrés ne peuvent pas être modifiés ni supprimés.",
+    "role_in_use": "Ce rôle est encore attribué à des personnes. Attribuez-leur d’abord un autre rôle.",
+    "role_name_taken": "Un rôle portant ce nom existe déjà.",
+    "content_access_delegation": "Vous ne pouvez attribuer que les dossiers et les étiquettes accessibles à votre compte.",
+    "cannot_change_own_role": "Vous ne pouvez pas modifier votre propre rôle.",
+    "cannot_scope_self": "Vous ne pouvez pas modifier votre propre accès au contenu ou aux écrans.",
+    "last_owner_required": "Tilecast nécessite au moins un propriétaire actif.",
+    "font_not_found": "La police est introuvable.",
+    "font_exists": "Une famille de polices portant ce nom existe déjà dans la bibliothèque.",
+    "font_in_use": "Choisissez d’abord une autre police dans les mises en page qui utilisent celle-ci.",
+    "font_rights_required": "Confirmez que votre organisation est autorisée à utiliser cette police sur ses écrans.",
+    "font_too_large": "Les fichiers de police dépassent la limite de taille.",
+    "font_unsupported": "Ce fichier n’est pas une police prise en charge. Téléversez un fichier TTF ou OTF.",
+    "font_invalid": "Cette sélection n’est pas disponible pour cette famille de polices.",
+    "font_catalog_disabled": "Le catalogue Google Fonts est désactivé sur ce serveur. Téléversez des fichiers de police à la place.",
+    "font_catalog_unavailable": "Tilecast n’a pas pu accéder au catalogue Google Fonts. Vérifiez l’accès Internet du serveur ou téléversez des fichiers de police."
+  }
+}

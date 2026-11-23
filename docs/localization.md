@@ -2,7 +2,8 @@
 
 Tilecast Studio is translated with [i18next](https://www.i18next.com/) and
 [react-i18next](https://react.i18next.com/). English is the source language.
-Spanish (`es`) and Russian (`ru`) ship alongside it.
+Spanish (`es`), Russian (`ru`), French (`fr`), Hindi (`hi`), Portuguese
+(`pt`), and Bengali (`bn`) ship alongside it.
 
 All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
 `common`, `content`, `errors`, `forms`, `layouts`, `navigation`, `playlists`,
@@ -32,7 +33,7 @@ are translated in Studio by error code (see [API errors](#api-errors)).
 
 - **English is bundled** and defines the TypeScript key types. A misspelled key
   fails `tsc`.
-- **Spanish and Russian are split into their own chunks.** They are fetched only
+- **Non-English locales are split into their own chunks.** They are fetched only
   when chosen, so an English installation downloads no translations.
 - **Studio waits for the starting language** before its first render (`initI18n`
   in `main.tsx`), so a Russian reader never sees a flash of English. If a chunk
@@ -43,7 +44,7 @@ are translated in Studio by error code (see [API errors](#api-errors)).
 ### Choosing the language
 
 The per-user setting `preference.language` lives in the server settings
-registry: `system`, `en`, `es`, or `ru`, defaulting to `system`. People change
+registry: `system`, `en`, `es`, `ru`, `fr`, `hi`, `pt`, or `bn`, defaulting to `system`. People change
 it under **My Account → Preferences**, and the choice previews live until they
 save or cancel.
 
@@ -68,8 +69,8 @@ Work through one file (or one small feature folder) at a time:
    `npm run i18n:scan -- src/pages/UsersPage.tsx`
 2. **Add keys** to the right namespace file in `src/locales/en/`, following the
    [key conventions](#keys).
-3. **Add the same keys** to `src/locales/es/` and `src/locales/ru/` in the same
-   change. The parity test requires all three to match.
+3. **Add the same keys** to each supported locale in the same change. The
+   parity test requires them to match.
 4. **Replace each literal** with `t(...)` (patterns below).
 5. **Verify.** Everything below must pass:
 
@@ -158,7 +159,7 @@ literals only and never add keys here. Studio ignores a key in any other
 namespace, so a definition cannot read other Studio strings.
 
 When you add a field to a Tilecast definition, add the literal, the three keys,
-and the English, Spanish, and Russian strings in the same change. The English
+and the strings for every supported language in the same change. The English
 string must equal the literal. A test enforces this.
 
 ## Keys
@@ -480,6 +481,12 @@ Controls keep their own copied state and may supply existing action-specific mes
 
 ## Adding a language
 
+You can prepare complete namespace files in
+`docs/localization/drafts/<code>/` before a language is ready to ship. The
+locale test checks each draft file against English, including plural forms,
+placeholders, and markup. Drafts are not loaded by Studio. Move them to the
+Studio locale directory when the language is complete.
+
 1. Add the code to `SUPPORTED_LANGUAGES` and `NATIVE_LANGUAGE_NAMES` in
    `src/i18n/languages.ts`.
 2. Add it to `preference.language` in
@@ -487,3 +494,5 @@ Controls keep their own copied state and may supply existing action-specific mes
 3. Copy `src/locales/en/` to `src/locales/<code>/` and translate every file.
    The parity test lists what is missing, including that language's plural
    categories.
+4. Translate each bundled plugin's `studio/locales/en.json` into a file named
+   `<code>.json` in the same directory. The parity test checks these files too.

@@ -1,0 +1,546 @@
+{
+  "myAccount": {
+    "title": "Minha conta",
+    "subtitle": "Configurações que pertencem a você e não à organização.",
+    "navLabel": "Seções da conta",
+    "signedInAs": "Conectado como",
+    "sections": {
+      "preferences": {
+        "title": "Preferências",
+        "description": "Configurações de aparência e fluxo de trabalho, armazenadas em sua conta e não neste navegador."
+      },
+      "security": {
+        "title": "Segurança de login",
+        "description": "Se um segundo fator é necessário é o ambiente da organização. O que você usa para satisfazê-lo é sua escolha."
+      }
+    }
+  },
+  "roles": {
+    "owner": "Proprietário",
+    "administrator": "Administrador",
+    "editor": "Editor",
+    "contributor": "Colaborador",
+    "viewer": "Visualizador",
+    "descriptions": {
+      "owner": "Tudo, incluindo backups e tokens de integração.",
+      "administrator": "Tudo, exceto operações do sistema exclusivas do proprietário.",
+      "editor": "Cria conteúdo, publica-o e gerencia telas e reprodução.",
+      "contributor": "Cria e edita conteúdo, mas não pode publicar um Layout, excluir nada ou colocar conteúdo em uma tela.",
+      "viewer": "Somente leitura."
+    }
+  },
+  "users": {
+    "accessDenied": "Sua função não inclui gerenciar pessoas.",
+    "addForm": {
+      "title": "Adicionar um usuário",
+      "passwordHint": "As senhas devem conter pelo menos 12 caracteres.",
+      "nameLabel": "Nome",
+      "usernameLabel": "Nome de usuário",
+      "passwordLabel": "Senha temporária",
+      "roleLabel": "Função",
+      "submit": "Adicionar usuário",
+      "submitting": "Adicionando…"
+    },
+    "list": {
+      "loading": "Carregando usuários…",
+      "status": {
+        "active": "Ativo",
+        "inactive": "Inativo"
+      },
+      "lastSignedIn": "Último login em {{date}}",
+      "neverSignedIn": "Nunca fiz login",
+      "mfa": {
+        "on": "Verificação em duas etapas ativada",
+        "required": "Verificação em duas etapas necessária, ainda não inscrito",
+        "off": "Sem verificação em duas etapas"
+      }
+    },
+    "editDialog": {
+      "title": "Editar {{name}}",
+      "nameLabel": "Nome",
+      "usernameLabel": "Nome de usuário",
+      "roleLabel": "Função",
+      "passwordLabel": "Nova senha",
+      "passwordPlaceholder": "Deixar inalterado",
+      "passwordHint": "Pelo menos 12 caracteres.",
+      "activeLabel": "Conta ativa",
+      "mfaTitle": "Verificação em duas etapas",
+      "mfaEnrolled": "Esta conta possui um aplicativo autenticador ou uma chave de acesso cadastrada.",
+      "mfaNotEnrolled": "Esta conta não possui segundo fator inscrito.",
+      "resetConfirmTitle": "Limpar todos os autenticadores, chaves de acesso e códigos de recuperação de {{name}}?",
+      "resetConfirmBody": "Eles serão desconectados de todos os lugares e deverão se inscrever novamente.",
+      "resetAction": "Redefinir",
+      "resetting": "Redefinindo…",
+      "scopeTitle": "Escopo da tela",
+      "deactivateTitle": "Desativar {{name}}?",
+      "deactivateAction": "Desativar",
+      "deactivating": "Desativando…",
+      "deleteTitle": "Excluir {{name}} permanentemente?",
+      "deleteBody": "Isso remove seu login, preferências e credenciais de segurança. Isto não pode ser desfeito.",
+      "deleteAction": "Excluir permanentemente",
+      "deleting": "Excluindo…",
+      "tabsLabel": "Configurações da conta",
+      "tabs": {
+        "account": "Conta",
+        "role": "Função",
+        "content": "Acesso ao conteúdo",
+        "screens": "Acesso à tela"
+      }
+    },
+    "toasts": {
+      "created": "Usuário criado.",
+      "updated": "Usuário atualizado.",
+      "disabled": "Usuário desabilitado.",
+      "deleted": "Usuário excluído permanentemente.",
+      "securityReset": "Fatores de login do usuário redefinidos."
+    },
+    "errors": {
+      "requestFailed": "Tilecast não pôde atualizar esta conta."
+    },
+    "roleSelect": {
+      "builtin": "Funções integradas",
+      "custom": "Funções personalizadas"
+    },
+    "access": {
+      "roleTitle": "Função",
+      "roleDescription": "O que essa pessoa pode fazer em Studio.",
+      "contentTitle": "Acesso ao conteúdo",
+      "contentDescription": "Quais mídias essa pessoa pode alcançar e quais tags ela pode aplicar.",
+      "screensDescription": "Quais telas essa pessoa pode alcançar.",
+      "selfNote": "Você não pode alterar seu próprio acesso. Pergunte a outro administrador.",
+      "screensTitle": "Acesso à tela",
+      "screensCreateDescription": "Quais telas essa pessoa pode alcançar. Escolha todas as telas ou os locais e grupos de exibição em que elas trabalham."
+    }
+  },
+  "security": {
+    "loading": "Carregando segurança de login…",
+    "loadError": "A segurança de login não pôde ser carregada.",
+    "authenticator": {
+      "title": "Aplicativo autenticador",
+      "description": "Um código de seis dígitos de um aplicativo como Aegis, Google Authenticator ou 1Password.",
+      "setup": "Configurar",
+      "enrolled": "Inscrito",
+      "notEnrolled": "Não inscrito",
+      "addedOn": "Adicionado {{date}}",
+      "enrollInstruction": "Digitalize o código com seu aplicativo autenticador e insira o código de seis dígitos exibido.",
+      "manualKeyLabel": "Não é possível digitalizar? Insira esta chave manualmente:",
+      "codeLabel": "Código de seis dígitos",
+      "removeTitle": "Remover autenticador",
+      "removeDescription": "Confirme sua senha para remover o autenticador desta conta."
+    },
+    "passkeys": {
+      "title": "Chaves de acesso",
+      "description": "Faça login com uma impressão digital, rosto, bloqueio de tela ou chave de segurança. Uma chave de acesso faz login por conta própria e conta como verificação em duas etapas.",
+      "add": "Adicionar uma chave de acesso",
+      "unavailableTitle": "As chaves de acesso não estão disponíveis nesta instalação.",
+      "browserUnsupported": "Este navegador não oferece suporte a senhas.",
+      "empty": "Sem chaves de acesso",
+      "addedOn": "Adicionado {{date}}",
+      "lastUsed": "{{date}} usado pela última vez",
+      "neverUsed": "Nunca usado",
+      "rename": "Renomear",
+      "renameTitle": "Renomear “{{name}}”",
+      "renameHint": "Tilecast nomeou isso a partir do autenticador que o criou.",
+      "removeTitle": "Remover “{{name}}”",
+      "removeFallbackTitle": "Remover senha",
+      "removeDescription": "Confirme sua senha para remover esta chave de acesso desta conta.",
+      "notCreated": "Nenhuma senha foi criada.",
+      "selectToRename": "Selecione uma senha para renomear.",
+      "selectToRemove": "Selecione uma chave de acesso para remover."
+    },
+    "recovery": {
+      "title": "Códigos de recuperação",
+      "description": "Códigos de uso único que permitem fazer login quando você não consegue acessar seu autenticador ou chave de acesso.",
+      "regenerate": "Regenerar",
+      "generate": "Gerar",
+      "remaining_one": "Código {{count}} não utilizado restante",
+      "remaining_other": "{{count}} códigos não utilizados restantes",
+      "empty": "Sem códigos de recuperação",
+      "dialogTitle": "Gerar códigos de recuperação",
+      "dialogDescription": "Confirme sua senha para gerar novos códigos. Todos os códigos de recuperação existentes param de funcionar.",
+      "shownOnceTitle": "Esses códigos são mostrados uma vez.",
+      "shownOnceDescription": "Salve-os em algum lugar seguro agora. Tilecast armazena apenas seus hashes e não pode mostrá-los novamente.",
+      "copyAll": "Copiar tudo",
+      "savedConfirm": "Eu os salvei",
+      "remaining_many": "{{count}} códigos não utilizados restantes"
+    },
+    "passwordDialog": {
+      "passwordLabel": "Senha da conta"
+    },
+    "errors": {
+      "requestFailed": "Tilecast não pôde concluir a solicitação."
+    },
+    "qr": {
+      "failed": "O código QR não pôde ser exibido. Insira a chave abaixo manualmente.",
+      "alt": "Código QR de configuração do autenticador"
+    }
+  },
+  "preferences": {
+    "loading": "Carregando preferências…",
+    "loadError": "Não foi possível carregar as preferências.",
+    "saved": "Preferências salvas.",
+    "leaveWarning": "Deixar minha conta com alterações de preferência não salvas?",
+    "conflict": "Essas preferências mudaram em outros lugares. Recarregue as preferências mais recentes antes de salvar.",
+    "appearance": {
+      "title": "Aparência",
+      "description": "Siga este navegador ou force Studio claro ou escuro.",
+      "system": "Sistema",
+      "light": "Luz",
+      "dark": "Escuro"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "A linguagem que Studio usa para você. Nomes, conteúdo e mensagens dos Jogadores não são traduzidos.",
+      "system": "Padrão do navegador ({{language}})"
+    }
+  },
+  "oauth": {
+    "loading": "Carregando solicitação de autorização…",
+    "invalidTitle": "A solicitação de autorização não é válida",
+    "invalidDescription": "A solicitação de autorização não é válida.",
+    "title": "Autorizar acesso",
+    "intro": "“{{client}}” pede para agir em Tilecast como você. Verifique o acesso abaixo antes de aprovar.",
+    "redirectTitle": "A resposta retorna para",
+    "decisionError": "Tilecast não conseguiu registrar a decisão.",
+    "approve": "Autorizar",
+    "deny": "Negar",
+    "grantsLoading": "Carregando concessões de autorização…",
+    "grantsTitle": "Operadores autorizados",
+    "grantsDescription": "Operadores de loopback que podem atuar como esta conta. A revogação entra em vigor imediatamente.",
+    "grantsError": "Não foi possível carregar as concessões de autorização.",
+    "grantsEmpty": "Nenhum operador está autorizado.",
+    "revoked": "Revogado",
+    "grantedOn": "Concedido {{date}}",
+    "lastUsed": "{{date}} usado pela última vez",
+    "revoke": "Revogar",
+    "revokeError": "Tilecast não pôde revogar a concessão."
+  },
+  "pat": {
+    "title": "Tokens de acesso pessoal",
+    "description": "Tokens nomeados para scripts e automação. Os tokens sempre expiram; o segredo é mostrado uma vez na criação e nunca mais.",
+    "loading": "Carregando tokens de acesso pessoal…",
+    "error": "Não foi possível carregar os tokens de acesso pessoal.",
+    "empty": "Ainda não há tokens de acesso pessoal.",
+    "searchPlaceholder": "Pesquise tokens por nome…",
+    "nameLabel": "Nome do token",
+    "namePlaceholder": "ci-implantar",
+    "scopesLabel": "Escopos",
+    "scope": {
+      "read": "Leia",
+      "write": "Escreva",
+      "admin": "Administrador"
+    },
+    "lifetimeLabel": "Expira depois",
+    "lifetimeDays": "{{count}} dias",
+    "create": "Criar token",
+    "creating": "Criando…",
+    "createError": "Tilecast não pôde criar o token.",
+    "createdTitle": "Token criado",
+    "createdWarning": "Copie agora. Este segredo nunca mais será mostrado.",
+    "tokenLabel": "Novo token de acesso pessoal",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "done": "Concluído",
+    "createdOn": "Criado {{date}}",
+    "expiresIn": "Expira {{date}} · {{count}}d restante",
+    "expired": "Expirado",
+    "lastUsed": "{{date}} usado pela última vez",
+    "revoked": "Revogado",
+    "revoke": "Revogar",
+    "revokeError": "Tilecast não pôde revogar o token."
+  },
+  "roleAdmin": {
+    "groups": {
+      "media": "Mídia",
+      "widgets": "Widgets",
+      "dataSources": "Fontes de dados",
+      "playlists": "Listas de reprodução",
+      "layouts": "Layouts",
+      "campaigns": "Campanhas",
+      "review": "Revisão de conteúdo",
+      "screens": "Telas",
+      "schedules": "Horários",
+      "activity": "Atividade",
+      "plugins": "Plug-ins",
+      "administration": "Administração"
+    },
+    "capabilities": {
+      "media_read": {
+        "label": "Ver mídia",
+        "description": "Veja a mídia na biblioteca e seus detalhes."
+      },
+      "media_upload": {
+        "label": "Carregar mídia",
+        "description": "Adicione imagens e vídeos."
+      },
+      "media_edit": {
+        "label": "Editar detalhes da mídia",
+        "description": "Renomeie, descreva, defina a disponibilidade e tente novamente o processamento."
+      },
+      "media_organize": {
+        "label": "Mova e colete mídia",
+        "description": "Mova mídia entre pastas e dentro ou fora de coleções."
+      },
+      "media_tags_assign": {
+        "label": "Aplicar tags",
+        "description": "Adicione e remova tags na mídia. O acesso ao conteúdo pode limitar quais tags."
+      },
+      "media_archive": {
+        "label": "Arquivar e restaurar mídia",
+        "description": "Retire a mídia da rotação e traga-a de volta."
+      },
+      "media_delete": {
+        "label": "Excluir mídia",
+        "description": "Exclua a mídia permanentemente e exclua pastas, tags ou coleções que a função gerencia."
+      },
+      "media_folders_manage": {
+        "label": "Gerenciar pastas",
+        "description": "Crie, renomeie e mova pastas. Precisa de toda a biblioteca."
+      },
+      "media_tags_manage": {
+        "label": "Gerenciar tags",
+        "description": "Crie e renomeie tags. Precisa de todas as tags."
+      },
+      "media_collections_manage": {
+        "label": "Gerenciar coleções",
+        "description": "Crie e renomeie coleções. Precisa de toda a biblioteca."
+      },
+      "widget_read": {
+        "label": "Ver Widgets",
+        "description": "Consulte Widgets e sites."
+      },
+      "widget_edit": {
+        "label": "Criar e editar Widgets",
+        "description": "Crie e altere Widgets e sites."
+      },
+      "widget_delete": {
+        "label": "Arquivar e excluir Widgets",
+        "description": "Retire Widgets da rotação ou exclua-os."
+      },
+      "datasource_read": {
+        "label": "Ver fontes de dados",
+        "description": "Consulte Fontes de dados e seus dados."
+      },
+      "datasource_edit": {
+        "label": "Criar e editar fontes de dados",
+        "description": "Conecte feeds, calendários, planilhas e dados manuais."
+      },
+      "datasource_manage": {
+        "label": "Gerenciar fontes de dados",
+        "description": "Exclua fontes de dados e crie formulários que coletem respostas."
+      },
+      "playlist_read": {
+        "label": "Ver listas de reprodução",
+        "description": "Veja playlists e seu histórico."
+      },
+      "playlist_edit": {
+        "label": "Editar listas de reprodução",
+        "description": "Crie playlists e altere rascunhos. Sem publicação, as alterações serão revisadas."
+      },
+      "playlist_publish": {
+        "label": "Publicar playlists",
+        "description": "Coloque as alterações da lista de reprodução ao vivo e restaure versões anteriores."
+      },
+      "playlist_delete": {
+        "label": "Excluir listas de reprodução",
+        "description": "Exclua listas de reprodução."
+      },
+      "layout_read": {
+        "label": "Ver layouts",
+        "description": "Veja Layouts e seu histórico."
+      },
+      "layout_edit": {
+        "label": "Editar layouts",
+        "description": "Crie Layouts e altere rascunhos. Sem publicação, as alterações serão revisadas."
+      },
+      "layout_publish": {
+        "label": "Publicar layouts",
+        "description": "Coloque as alterações de layout em funcionamento e restaure versões anteriores."
+      },
+      "layout_delete": {
+        "label": "Excluir layouts",
+        "description": "Excluir layouts."
+      },
+      "campaign_read": {
+        "label": "Ver campanhas",
+        "description": "Veja campanhas e seus lançamentos."
+      },
+      "campaign_edit": {
+        "label": "Editar campanhas",
+        "description": "Crie campanhas, altere rascunhos e arquive-os."
+      },
+      "campaign_publish": {
+        "label": "Publicar campanhas",
+        "description": "Lançar campanhas para telas."
+      },
+      "content_review": {
+        "label": "Revise os envios",
+        "description": "Aprove, solicite alterações, agende e reverta o conteúdo enviado."
+      },
+      "screen_read": {
+        "label": "Ver telas",
+        "description": "Veja telas, grupos de exibição, status, visualização ao vivo e reprodução."
+      },
+      "screen_manage": {
+        "label": "Gerenciar telas",
+        "description": "Altere configurações de tela, grupos, locais, comandos e atualizações Player."
+      },
+      "screen_pair": {
+        "label": "Emparelhar e revogar telas",
+        "description": "Aprove novos jogadores e revogue suas credenciais."
+      },
+      "screen_assign": {
+        "label": "Atribuir conteúdo às telas",
+        "description": "Escolha o que será reproduzido, inicie aquisições e apresente com o AirPlay."
+      },
+      "screen_locations_manage": {
+        "label": "Gerenciar locais",
+        "description": "Crie, renomeie e exclua locais. Precisa de acesso a todas as telas."
+      },
+      "screen_networks_manage": {
+        "label": "Gerenciar redes de apresentação",
+        "description": "Crie, altere e exclua definições de rede de apresentação. Precisa de acesso a todas as telas."
+      },
+      "schedule_read": {
+        "label": "Ver horários",
+        "description": "Veja horários e o que vão tocar."
+      },
+      "schedule_edit": {
+        "label": "Editar programações",
+        "description": "Crie, altere, ative ou desative e exclua programações."
+      },
+      "activity_read": {
+        "label": "Ver atividade",
+        "description": "Veja a integridade da frota, prova de jogo, incidentes e cronogramas de tela."
+      },
+      "activity_audit": {
+        "label": "Ver histórico de conteúdo",
+        "description": "Veja o log de auditoria de alterações de conteúdo."
+      },
+      "activity_manage": {
+        "label": "Gerenciar atividade",
+        "description": "Veja o log de auditoria completo, exporte relatórios e atualize incidentes e retenção."
+      },
+      "plugins_use": {
+        "label": "Use plug-ins",
+        "description": "Abra as páginas do plugin e navegue na Plugin Store."
+      },
+      "plugins_manage": {
+        "label": "Gerenciar plug-ins",
+        "description": "Instale, atualize, configure e remova plug-ins."
+      },
+      "users_manage": {
+        "label": "Gerenciar pessoas",
+        "description": "Adicione contas e defina suas funções, acesso ao conteúdo e acesso à tela."
+      },
+      "roles_manage": {
+        "label": "Gerenciar funções",
+        "description": "Crie e altere funções personalizadas."
+      },
+      "settings_manage": {
+        "label": "Alterar configurações de instalação",
+        "description": "Edite as configurações, a marca e as notificações da organização."
+      },
+      "system_manage": {
+        "label": "Execute a manutenção do sistema",
+        "description": "Veja o status do sistema e execute a manutenção."
+      },
+      "system_backups": {
+        "label": "Backups e restauração",
+        "description": "Crie, baixe e restaure backups."
+      },
+      "integrations_manage": {
+        "label": "Tokens de integração",
+        "description": "Crie e revogue tokens de integração."
+      },
+      "player_releases": {
+        "label": "Lançamentos Player",
+        "description": "Verifique, armazene em cache e remova versões Player."
+      }
+    },
+    "summary": {
+      "none": "Este papel não concede nada ainda."
+    },
+    "page": {
+      "intro": "Um papel é o que alguém pode fazer. As funções integradas são fixas; adicione o seu próprio para dar às pessoas exatamente o acesso que seu trabalho precisa.",
+      "createAction": "Criar função",
+      "loading": "Carregando funções…",
+      "builtin": "Integrado",
+      "custom": "Personalizado",
+      "people_one": "{{count}} pessoa",
+      "people_other": "{{count}} pessoas",
+      "capabilityCount_one": "Capacidade {{count}}",
+      "capabilityCount_other": "Capacidades {{count}}",
+      "viewAction": "Ver",
+      "duplicateAction": "Duplicar",
+      "duplicateLabel": "Duplique {{name}} como uma nova função",
+      "deleteTitle": "Excluir a função {{name}}?",
+      "deleteBody": "Ninguém ocupa esse papel. A exclusão não pode ser desfeita.",
+      "deleteInUse_one": "A pessoa {{count}} ainda mantém essa função. Mova-os primeiro para outra função.",
+      "deleteInUse_other": "As pessoas {{count}} ainda ocupam esse papel. Mova-os primeiro para outra função.",
+      "people_many": "{{count}} pessoas",
+      "capabilityCount_many": "Capacidades {{count}}",
+      "deleteInUse_many": "As pessoas {{count}} ainda ocupam esse papel. Mova-os primeiro para outra função."
+    },
+    "toasts": {
+      "created": "Função criada.",
+      "updated": "Função atualizada.",
+      "deleted": "Função excluída."
+    },
+    "editor": {
+      "createTitle": "Crie uma função",
+      "editTitle": "Editar {{name}}",
+      "description": "Escolha o que as pessoas com essa função podem fazer. O acesso ao conteúdo e à tela, definido por pessoa na página Usuários, restringe onde eles podem fazer isso.",
+      "builtinDescription": "As funções integradas não podem ser alteradas. Duplique um para iniciar uma função personalizada a partir dele.",
+      "nameLabel": "Nome",
+      "namePlaceholder": "Por exemplo, mídia de sala de aula",
+      "descriptionLabel": "Descrição",
+      "descriptionPlaceholder": "Para quem é esse papel",
+      "capabilitiesTitle": "O que essa função pode fazer",
+      "capabilitiesHint": "Ativar uma ação também ativa o que ela precisa, como visualizar antes do upload.",
+      "capabilitiesViewHint": "Tudo o que esta função permite, por área.",
+      "groupCount": "{{count}} de {{total}}",
+      "ownerReserved": "Reservado para a função Proprietário.",
+      "ownerOnly": "Somente um Proprietário pode conceder isso.",
+      "notYours": "Seu próprio papel não inclui isso.",
+      "createAction": "Criar função",
+      "copyName": "Cópia {{name}}"
+    }
+  },
+  "contentAccess": {
+    "ownerNote": "Os proprietários sempre acessam toda a biblioteca e podem aplicar todas as tags.",
+    "loadError": "Não foi possível carregar o acesso ao conteúdo.",
+    "loading": "Carregando acesso ao conteúdo",
+    "roleHasNoMedia": "A função dessa pessoa não inclui Mídia ou Widgets, portanto, o acesso ao conteúdo não terá efeito até que sua função o faça.",
+    "notConfigured": "Esta conta ainda não tem acesso ao conteúdo, por isso não pode ver nenhuma mídia. Escolha acessar e salve.",
+    "saved": "Acesso ao conteúdo salvo.",
+    "saveAction": "Salvar acesso ao conteúdo",
+    "library": {
+      "legend": "Biblioteca de mídia",
+      "description": "Uma pasta inclui tudo que está dentro dela.",
+      "all": "Biblioteca inteira",
+      "allHint": "Todas as pastas, além da mídia que não está em uma pasta.",
+      "restricted": "Somente pastas selecionadas",
+      "restrictedHint_one": "Pasta {{count}} selecionada. A mídia externa, incluindo a mídia não arquivada, permanece oculta.",
+      "restrictedHint_other": "Pastas {{count}} selecionadas. A mídia fora deles, incluindo mídia não arquivada, permanece oculta.",
+      "searchLabel": "Pesquisar pastas",
+      "searchPlaceholder": "Pesquisar pastas",
+      "noFolders": "Ainda não há pastas. Crie pastas em mídia primeiro.",
+      "noMatch": "Nenhuma pasta corresponde.",
+      "included": "Incluído",
+      "subtreeNote": "Os uploads dessa pessoa vão para uma dessas pastas.",
+      "emptyNote": "Sem nenhuma pasta selecionada, essa pessoa não poderá ver nem fazer upload de nenhuma mídia.",
+      "restrictedHint_many": "Pastas {{count}} selecionadas. A mídia fora deles, incluindo mídia não arquivada, permanece oculta."
+    },
+    "tags": {
+      "legend": "Tags que eles podem aplicar",
+      "description": "As tags rotulam a mídia, por exemplo, para alimentar uma lista de reprodução baseada em tags. Eles nunca tornam a mídia visível.",
+      "all": "Qualquer etiqueta",
+      "restricted": "Somente tags selecionadas",
+      "restrictedHint_one": "Marca {{count}} selecionada.",
+      "restrictedHint_other": "Tags {{count}} selecionadas.",
+      "noTags": "Ainda não há tags.",
+      "restrictedHint_many": "Tags {{count}} selecionadas."
+    }
+  }
+}

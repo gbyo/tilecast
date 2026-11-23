@@ -1,0 +1,517 @@
+{
+  "playerRuntime": {
+    "title": "Surfaces Player",
+    "allowedSurfaces": "Surfaces autorisées : {{surfaces}}",
+    "priority": "Niveau de priorité : {{tier}}",
+    "surfaces": {
+      "strip": {
+        "top": "Bande supérieure",
+        "bottom": "Bande inférieure"
+      },
+      "corner": {
+        "top-left": "Coin supérieur gauche",
+        "top-right": "Coin supérieur droit",
+        "bottom-left": "Coin inférieur gauche",
+        "bottom-right": "Coin inférieur droit"
+      },
+      "overlay": "Superposition plein écran"
+    },
+    "tiers": {
+      "emergency": "Urgence",
+      "live": "En direct",
+      "scheduled": "Programmé",
+      "ambient": "Ambiante"
+    }
+  },
+  "list": {
+    "title": "Plugins",
+    "subtitle": "Ajoutez des fonctionnalités et des intégrations optionnelles Tilecast à cette installation.",
+    "addAction": "Ajouter un plugin",
+    "browseAction": "Parcourir les plugins",
+    "loadError": "Les plugins n'ont pas pu être chargés.",
+    "unsupportedTitle": "Plugins d'une version plus récente de Tilecast",
+    "unsupportedBody_one": "{{ids}} est enregistré comme installé mais ne fait pas partie de cette version. Il ne s'exécutera pas et ses données seront conservées jusqu'au retour de la nouvelle version.",
+    "unsupportedBody_other": "{{ids}} est enregistré comme installé mais ne fait pas partie de cette version. Ils ne s'exécuteront pas et leurs données sont conservées jusqu'au retour de la nouvelle version.",
+    "retiredTitle": "Plugins supprimés de Tilecast",
+    "retiredBody_one": "{{ids}} est enregistré comme installé mais a été supprimé de Tilecast. Il ne fonctionne plus et ses données sont conservées.",
+    "retiredBody_other": "Les {{ids}} sont enregistrés comme installés mais ont été supprimés de Tilecast. Ils ne fonctionnent plus et leurs données sont conservées.",
+    "loading": "Chargement des plugins",
+    "installedLabel": "Plugins installés",
+    "emptyTitle": "Aucun plugin installé",
+    "emptyDescription": "Ajoutez uniquement les fonctionnalités facultatives dont cette installation Tilecast a besoin.",
+    "openAction": "Ouvert",
+    "openLabel": "Ouvrir {{name}}",
+    "unsupportedBody_many": "{{ids}} est enregistré comme installé mais ne fait pas partie de cette version. Ils ne s'exécuteront pas et leurs données sont conservées jusqu'au retour de la nouvelle version.",
+    "retiredBody_many": "Les {{ids}} sont enregistrés comme installés mais ont été supprimés de Tilecast. Ils ne fonctionnent plus et leurs données sont conservées."
+  },
+  "status": {
+    "attention": "Attention",
+    "active": "Actif",
+    "configured": "Configuré",
+    "needsSetup": "Nécessite une configuration"
+  },
+  "tabs": {
+    "installed": "Installé",
+    "explore": "Explorer",
+    "viewsLabel": "Vues des plugins"
+  },
+  "store": {
+    "title": "Explorer les plugins",
+    "description": "Plugins inclus avec Tilecast et listes du marché officiel Tilecast.",
+    "sourceLabel": "Source",
+    "loadError": "Ce plugin n'a pas pu être chargé.",
+    "emptyTitle": "Aucun plug-in disponible",
+    "emptyDescription": "Aucun plugin n'est disponible à partir de ces sources.",
+    "sources": {
+      "all": "Toutes les sources",
+      "included": "Inclus avec Tilecast",
+      "marketplace": "Marché",
+      "custom": "Personnalisé"
+    },
+    "featured": {
+      "title": "En vedette",
+      "label": "Plugins en vedette"
+    },
+    "allPlugins": "Tous les plugins",
+    "card": {
+      "incompatible": "Incompatible",
+      "moreCategories": "+{{count}}"
+    },
+    "notFoundTitle": "Plugin introuvable",
+    "notFoundDescription": "Cette entrée de magasin n'est pas disponible à partir de ces sources.",
+    "backToExplore": "Retour à Explorer",
+    "marketplace": {
+      "staleTitle": "Le catalogue Marketplace est peut-être obsolète",
+      "staleDescription": "Affichage du dernier catalogue disponible.",
+      "errorTitle": "Impossible d'actualiser la place de marché",
+      "refresh": "Actualiser le catalogue",
+      "refreshing": "Rafraîchissant…"
+    },
+    "detail": {
+      "version": "Version {{version}}",
+      "installedVersion": "{{version}} installé",
+      "updateAvailable": "Mise à jour disponible",
+      "requires": "Nécessite Tilecast {{range}}",
+      "incompatible": "Cette liste nécessite Tilecast {{range}}, ce que cette version ne satisfait pas.",
+      "publisher": "Éditeur",
+      "license": "Licence",
+      "links": "Liens",
+      "repository": "Référentiel",
+      "documentation": "Documentation",
+      "issues": "Suivi des problèmes",
+      "officialCatalog": "Répertorié sur le marché officiel Tilecast.",
+      "featuredLabel": "Pleins feux",
+      "featured": "Liste en vedette",
+      "categoriesLabel": "Catégories",
+      "versionLabel": "Version",
+      "requiresLabel": "Nécessite",
+      "digestLabel": "Résumé",
+      "customNote": "Ajouté à partir d'un référentiel que vous avez choisi. Tilecast vérifie la provenance de sa version avant l'installation.",
+      "incompatiblePackage": "Ce package nécessite Tilecast {{range}}, ce que cette version ne satisfait pas."
+    },
+    "add": {
+      "action": "Ajouter depuis GitHub",
+      "title": "Ajouter un référentiel personnalisé",
+      "description": "Recherchez un référentiel GitHub public et examinez sa dernière version publiée avant de l'installer.",
+      "urlLabel": "Référentiel URL",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "Rechercher",
+      "resolving": "En levant les yeux…",
+      "install": "Installer le package",
+      "installing": "Installation…"
+    },
+    "review": {
+      "release": "Libération",
+      "published": "Publié",
+      "provenance": "Provenance",
+      "signedBy": "Signé par {{signer}}",
+      "verified": "Vérifié",
+      "unsigned": "Non signé : installations de développement uniquement",
+      "contributions": "Cotisations",
+      "noContributions": "Aucun répertorié",
+      "runtime": "Module serveur",
+      "networkHosts": "Hôtes HTTPS sortants",
+      "backgroundJobs": "Travaux en arrière-plan",
+      "jobSchedule": "{{id}} · toutes les minutes {{minutes}}",
+      "storage": "Stockage privé",
+      "storageGranted": "Accordé",
+      "studioInterface": "Interface Studio",
+      "installNote": "L'installation lie ce référentiel au package, donc les vérifications de mise à jour le résolvent à nouveau.",
+      "catalogInstallNote": "La liste Marketplace reste le plan de mise à jour, donc les contrôles de mise à jour la relisent."
+    }
+  },
+  "catalog": {
+    "back": "Tous les plugins",
+    "reviewDescription": "Consultez {{name}} avant de l’installer.",
+    "installed": "Installé",
+    "install": "Installer",
+    "reviewInstall": "Vérifier et installer",
+    "installNote": "Un propriétaire ou un administrateur peut installer des plugins.",
+    "title": "Ajouter un plugin",
+    "description": "Fonctionnalités facultatives intégrées à cette version Tilecast. En installer un ne télécharge jamais de code.",
+    "searchLabel": "Plugins de recherche",
+    "searchPlaceholder": "Plugins de recherche…",
+    "categoryLabel": "Catégorie de plugin",
+    "categories": {
+      "all": "Tout",
+      "display": "Affichage",
+      "automation": "Automatisation",
+      "workflow": "Flux de travail",
+      "hardware": "Matériel"
+    },
+    "emptySearchTitle": "Aucun plugin correspondant",
+    "emptyInstalledTitle": "Chaque plugin est installé",
+    "emptySearchDescription": "Essayez une autre recherche ou catégorie.",
+    "emptyInstalledDescription": "Cette installation utilise déjà tous les plugins proposés par cette version.",
+    "requires": "Nécessite {{list}}"
+  },
+  "detail": {
+    "builtIn": "Intégré à Tilecast",
+    "requirements": "Exigences",
+    "noRequirements": "Aucune exigence de Player ou de réseau.",
+    "uses": "Utilisations"
+  },
+  "actionsMenu": {
+    "menuLabel": "Actions du plug-in {{name}}",
+    "remove": "Supprimer le plugin",
+    "blockedTitle": "{{name}} ne peut pas être supprimé",
+    "viewLabel": "Voir {{label}}",
+    "removeTitle": "Supprimer {{name}} ?",
+    "removeDescription": "{{name}} quitte la liste des plugins de cette installation et cesse d'affecter les écrans. Vous pouvez l'ajouter à nouveau à tout moment.",
+    "blockedEmpty": "Ce plugin est toujours utilisé.",
+    "blockedSentence_one": "{{list}} utilise toujours ce plugin.",
+    "blockedSentence_other": "{{list}} utilise toujours ce plugin.",
+    "blockedWait": "Attendez que le {{labels}} soit effacé, puis supprimez le plugin.",
+    "blockedDisable": "Éteignez le {{disable}} sur cette page, puis supprimez le plugin.",
+    "blockedDelete": "Supprimez le {{labels}} restant sur cette page, puis supprimez le plugin.",
+    "blockedDisableDelete": "Éteignez le {{disable}} et supprimez le {{labels}} restant sur cette page, puis supprimez le plugin.",
+    "blockedSentence_many": "{{list}} utilise toujours ce plugin."
+  },
+  "gate": {
+    "notInstalled": "{{name}} n'est pas installé",
+    "installDescription": "Installez {{name}} pour commencer à l'utiliser. {{description}}",
+    "lockedDescription": "{{description}} Un propriétaire ou un administrateur peut l'installer.",
+    "installAction": "Installer {{name}}",
+    "backToPlugins": "Retour aux plugins"
+  },
+  "shared": {
+    "scope": {
+      "all": "Tous les écrans",
+      "screens": "Écrans individuels",
+      "syncGroups": "Groupes d'affichage",
+      "locations": "Emplacements"
+    },
+    "targetType": "Type de cible",
+    "chooseTargets": "Choisissez des cibles",
+    "available": "Disponible {{noun}}",
+    "selectedCount": "{{chosen}} sur {{total}} sélectionné",
+    "nouns": {
+      "screens": "écrans",
+      "syncGroups": "Groupes d'affichage",
+      "locations": "emplacements"
+    },
+    "empty": {
+      "screens": "Aucun écran n'est encore inscrit.",
+      "syncGroups": "Aucun groupe d'affichage n'existe pour l'instant.",
+      "locations": "Aucun emplacement n'existe pour l'instant."
+    },
+    "loadingNoun": "Chargement de {{noun}}…",
+    "loadErrorNoun": "Le {{noun}} n’a pas pu être chargé.",
+    "backToPlugins": "Plugins",
+    "manageNote": "Un accès propriétaire ou administrateur est requis pour apporter des modifications.",
+    "newInstance": "Nouvelle instance",
+    "createInstance": "Créer une instance",
+    "manage": "Gérer",
+    "deleteTitle": "Supprimer « {{name}} » ?",
+    "deleteAction": "Supprimer {{name}}",
+    "nameLabel": "Nom",
+    "priorityLabel": "Priorité",
+    "enabledLabel": "Activé",
+    "enabledBadge": "Activé",
+    "disabledBadge": "Désactivé",
+    "targetsSection": "Cibles"
+  },
+  "weekdays": {
+    "sunday": {
+      "short": "Soleil"
+    },
+    "monday": {
+      "short": "lundi"
+    },
+    "tuesday": {
+      "short": "mar."
+    },
+    "wednesday": {
+      "short": "mer"
+    },
+    "thursday": {
+      "short": "jeu."
+    },
+    "friday": {
+      "short": "vendredi"
+    },
+    "saturday": {
+      "short": "Samedi"
+    }
+  },
+  "history": {
+    "backLink": "Compteur de bruit",
+    "titleFallback": "Compteur de bruit",
+    "subtitle": "Mesures que le joueur a enregistrées localement et délivrées sur son rythme cardiaque ordinaire.",
+    "privacyNotice": "L'historique du bruit stocke les mesures du niveau de bruit relatif pour les graphiques et les rapports. Tilecast n’enregistre ni ne stocke jamais l’audio du microphone. Les niveaux sont relatifs au microphone de chaque joueur et ne sont pas des mesures de décibels étalonnées.",
+    "rangeLabel": "Plage de dates",
+    "ranges": {
+      "today": "Aujourd'hui",
+      "yesterday": "Hier",
+      "sevenDays": "7 jours",
+      "thirtyDays": "30 jours"
+    },
+    "screenLabel": "Écran",
+    "allScreens": "Tous les écrans (combinés)",
+    "screenHint": "Les niveaux sont relatifs au microphone de chaque joueur, les écrans sont donc comparés avec soin.",
+    "exportLabel": "Exporter",
+    "granularity": {
+      "raw": "enregistrements de 10 secondes",
+      "minute": "résumés d'une minute",
+      "daily": "Résumés quotidiens"
+    },
+    "exportTitle": "Exporter la plage et l'écran sélectionnés",
+    "exportAction": "Exporter au format CSV",
+    "loadError": "L'historique n'a pas pu être chargé.",
+    "showingSingle": "Affichage de <strong>{{name}}</strong>.",
+    "combining": "Combinaison d'écrans {{count}}. Les niveaux de chaque joueur proviennent de son propre microphone, donc une vue combinée décrit le groupe plutôt que de comparer les pièces.",
+    "emptyTitle": "Aucune mesure dans cette plage",
+    "emptyDescription": "L'historique apparaît une fois qu'un lecteur Linux ciblé a mesuré et émis un battement de cœur.",
+    "chartTitle": "Niveau de bruit dans le temps",
+    "chartDescription": "Moyenne et crête, par rapport aux propres seuils de ce compteur. Les périodes sans surveillance sont laissées vides.",
+    "chartEmpty": "Aucune mesure à dessiner pour l'instant.",
+    "chart": {
+      "aria": "Niveau de bruit au fil du temps. Niveau d'avertissement {{warning}}, niveau trop fort {{loud}}.",
+      "ariaLabel": "Graphique de l'historique du niveau de bruit",
+      "description": "Les niveaux de bruit moyens et maximaux sont affichés au fil du temps. Les lacunes indiquent des périodes sans surveillance. Le seuil d'avertissement est {{warning}} ; le seuil trop fort est {{loud}}.",
+      "average": "Moyenne",
+      "peak": "Pic",
+      "warning": "Avertissement {{level}}",
+      "tooLoud": "Trop fort {{level}}"
+    },
+    "dailyTitle": "Comparaison quotidienne",
+    "dailyDescription": "Les jours sans surveillance sont omis plutôt que affichés comme étant silencieux.",
+    "dailyMeasureLabel": "Mesure quotidienne",
+    "measures": {
+      "average": "Niveau moyen",
+      "loud": "Le temps est trop fort",
+      "events": "Événements d'avertissement"
+    },
+    "dailyEmpty": "Pas encore de jours avec des mesures.",
+    "summary": {
+      "averageLabel": "Niveau sonore moyen",
+      "averageHint": "Relatif, pas de décibels",
+      "peakLabel": "Niveau de bruit maximal",
+      "loudLabel": "Le temps est trop fort",
+      "eventsLabel": "Événements d'avertissement",
+      "eventsHint": "Nombre de fois où le bar est apparu",
+      "normalLabel": "Temps dans la plage normale",
+      "warningLabel": "Temps dans la plage d'avertissement",
+      "longestLabel": "Le plus long continu est trop fort",
+      "loudestLabel": "15 minutes les plus bruyantes",
+      "monitoredLabel": "Temps surveillé"
+    }
+  },
+  "packages": {
+    "title": "Forfaits d'extension",
+    "manageTitle": "Paquet installé",
+    "loadError": "Le package installé n'a pas pu être chargé.",
+    "contributions": "Cotisations",
+    "checkUpdate": "Vérifier la mise à jour",
+    "upToDate": "Ce package est à jour.",
+    "updateTo": "Mise à jour vers {{version}}",
+    "rollback": "Restaurer la version précédente",
+    "remove": "Supprimer le paquet",
+    "removeConfirmTitle": "Supprimer ce paquet ?",
+    "removeConfirmBody": "Cela supprime l'installation de {{packageId}} et ses contributions. Une liaison de référentiel personnalisée survit pour la réinstallation.",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "Supprimez le contenu restant, puis réessayez.",
+    "addedContributions": "Nouveau dans cette version",
+    "removedContributions": "Supprimé dans cette version",
+    "removedWarning": "La mise à jour ne supprime rien : si quelque chose utilise encore une contribution supprimée, la mise à jour attend que vous la supprimiez.",
+    "studioTitle": "Interface du paquet",
+    "studioUnavailable": "L'interface du package n'a pas pu être chargée.",
+    "jobsTitle": "Travaux en arrière-plan",
+    "jobsLoadError": "Les tâches en arrière-plan n'ont pas pu être chargées.",
+    "jobEvery": "Toutes les minutes {{minutes}}",
+    "jobNext": "Prochaine exécution",
+    "jobNever": "Ne jamais courir",
+    "jobOk": "Réussi",
+    "jobFailed": "Échec",
+    "jobFailures": "Échecs consécutifs {{count}}"
+  },
+  "storeDetail": {
+    "by": "par {{publisher}}",
+    "byLinked": "par <publisher>{{publisher}}</publisher>",
+    "publisherLinkLabel": "{{publisher}}, référentiel (s'ouvre dans un nouvel onglet)",
+    "publisherSiteLinkLabel": "{{publisher}}, site Web (ouvre dans un nouvel onglet)",
+    "badgesLabel": "Détails du plugin",
+    "sourceBadge": {
+      "included": "Inclus",
+      "marketplace": "Marché",
+      "custom": "Personnalisé"
+    },
+    "incompatible": {
+      "title": "Non compatible avec cette version Tilecast",
+      "body": "Ce plugin nécessite Tilecast {{range}}."
+    },
+    "about": {
+      "title": "À propos",
+      "cardTitle": "À propos de ce forfait",
+      "customTitle": "Forfait personnalisé",
+      "customNotice": "Non examiné ou organisé par le Marketplace.",
+      "noDownload": "Aucun package externe n'est téléchargé. Ce plugin est livré dans cette version Tilecast.",
+      "source": "Source",
+      "marketplaceSource": "Marché officiel Tilecast",
+      "customSource": "Dépôt GitHub personnalisé",
+      "provenance": "Provenance",
+      "verified": "Provenance de la version vérifiée",
+      "verifiedOnInstall": "Vérifié lors de l'installation",
+      "reportIssue": "Signaler un problème"
+    },
+    "adds": {
+      "title": "Ce que ce plugin ajoute",
+      "pending": "Ce qu'il ajoute est répertorié dans la revue d'installation, avant que quoi que ce soit ne soit installé.",
+      "none": "Ce package n'ajoute rien à Studio."
+    },
+    "kinds": {
+      "widget": "Widget",
+      "dataSource": "Source de données",
+      "plugin": "Plugin"
+    },
+    "kindDescriptions": {
+      "widget": "Ajoute un widget que vous pouvez placer dans les mises en page.",
+      "dataSource": "Fournit des données aux widgets compatibles.",
+      "plugin": "Ajoute un plugin avec ses propres pages dans Studio.",
+      "other": "Ajoute du contenu à Studio."
+    },
+    "permissions": {
+      "title": "Autorisations et comportement",
+      "pending": "Les autorisations demandées sont répertoriées dans la revue d'installation, avant que quoi que ce soit ne soit installé.",
+      "noneTitle": "Aucune autorisation spéciale",
+      "noneBody": "Ce plugin ne demande pas d'accès au réseau, de stockage local, de tâches en arrière-plan, d'interface Studio personnalisée ou de services Tilecast."
+    },
+    "capabilities": {
+      "network": {
+        "title": "Accès au réseau",
+        "body": "Peut se connecter à :"
+      },
+      "storage": {
+        "title": "Stockage local",
+        "body": "Stocke les propres données de ce plugin sur le serveur Tilecast."
+      },
+      "background": {
+        "title": "Activité en arrière-plan",
+        "body_one": "Exécute la tâche planifiée {{count}}.",
+        "body_other": "Exécute les tâches planifiées {{count}}.",
+        "body_many": "Exécute les tâches planifiées {{count}}."
+      },
+      "realtime": {
+        "title": "Activité de fond à haute fréquence",
+        "body": "Exécute une tâche en arrière-plan limitée toutes les quelques secondes, y compris lorsque Studio est fermé."
+      },
+      "studioUI": {
+        "title": "Interface Studio",
+        "body": "Ajoute sa propre interface de configuration à Studio."
+      },
+      "service": {
+        "version": "Version {{version}}",
+        "operationMutating": "{{title}} (modifie les données)",
+        "categories": {
+          "read": "Lire",
+          "directory": "Annuaire",
+          "manage": "Gérer",
+          "audit": "Vérification"
+        }
+      }
+    },
+    "requirements": {
+      "title": "Exigences"
+    },
+    "status": {
+      "title": "Statut du colis",
+      "compatible": "Compatible avec ce serveur",
+      "incompatible": "Non compatible avec ce serveur",
+      "notCompatible": "Non compatible",
+      "upToDate": "À jour · {{version}}",
+      "notInstalled": "Non installé",
+      "installedOn": "{{date}} installé"
+    },
+    "update": {
+      "check": "Vérifier les mises à jour",
+      "review": "Mise à jour de l'examen",
+      "checkAgain": "Vérifiez à nouveau"
+    },
+    "technical": {
+      "title": "Détails techniques",
+      "packageId": "ID du paquet",
+      "registry": "Registre",
+      "signer": "Signataire",
+      "releaseTag": "Balise de sortie",
+      "runtime": "Module d'exécution",
+      "source": "Source",
+      "contributions": "Cotisations",
+      "jobIds": "ID de travail en arrière-plan"
+    },
+    "screenshots": {
+      "title": "Captures d'écran",
+      "slide": "Capture d'écran {{current}} de {{total}}",
+      "open": "Agrandir la capture d'écran : {{alt}}",
+      "unavailable": "Capture d'écran indisponible",
+      "lightboxTitle": "Capture d'écran {{current}} de {{total}}",
+      "previous": "Capture d'écran précédente",
+      "next": "Capture d'écran suivante",
+      "position": "{{current}} ou {{total}}"
+    },
+    "review": {
+      "installTitle": "Avis {{name}}",
+      "installDescription": "Vérifiez ce que ce plugin ajoute et ce qu'il peut faire avant de l'installer.",
+      "updateTitle": "Mettre à jour {{name}}",
+      "updateDescription": "Vérifiez les modifications apportées à la version {{version}} avant de les appliquer.",
+      "confirmInstall": "Installer le plug-in",
+      "verification": "Vérification",
+      "contributionChanges": "Modifications de ce qu'il ajoute",
+      "noContributionChanges": "Aucun changement à ce que ce package ajoute.",
+      "permissionChanges": "Modifications des autorisations",
+      "noPermissionChanges": "Les autorisations sont inchangées.",
+      "permissionsAdded": "Nouvelles autorisations",
+      "permissionsChanged": "Autorisations modifiées",
+      "permissionsRemoved": "Autorisations supprimées",
+      "previously": "Précédemment : {{value}}",
+      "versionChange": "De {{from}} à {{to}}"
+    },
+    "settings": {
+      "title": "Paramètres du plugin",
+      "description": "Configurez ce plugin sans quitter Tilecast."
+    },
+    "jobs": {
+      "description": "Work, ce plugin s'exécute sur le serveur Tilecast selon un planning.",
+      "lastRun": "Dernière exécution {{when}} · {{status}}",
+      "lastFailed": "Dernière exécution échouée {{when}}",
+      "successful": "Réussi",
+      "nextRun": "Exécuter ensuite {{when}}"
+    },
+    "cadence": {
+      "minute": "Chaque minute",
+      "hour": "Toutes les heures",
+      "day": "Chaque jour",
+      "every": "Chaque {{interval}}"
+    },
+    "danger": {
+      "title": "Zone dangereuse",
+      "removeTitle": "Supprimer ce plugin",
+      "removeBody": "La suppression supprime l'installation de ce package et ce qu'il a ajouté. Le contenu qui l'utilise encore doit d'abord être supprimé."
+    },
+    "management": {
+      "title": "Gestion des colis",
+      "rollbackBody": "Revenez à la version active avant la dernière mise à jour.",
+      "confirmTitle": "Restaurer la version précédente ?",
+      "confirmBody": "{{name}} revient à la version qui était active avant la dernière mise à jour. Si le contenu utilise toujours quelque chose ajouté par la version la plus récente, la restauration attend que vous supprimiez ce contenu."
+    }
+  }
+}

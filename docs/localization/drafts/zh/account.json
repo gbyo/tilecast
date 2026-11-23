@@ -1,0 +1,534 @@
+{
+  "roleAdmin": {
+    "groups": {
+      "media": "媒体",
+      "widgets": "小组件",
+      "dataSources": "数据源",
+      "playlists": "播放列表",
+      "layouts": "布局",
+      "campaigns": "活动",
+      "review": "内容审核",
+      "screens": "屏幕",
+      "schedules": "计划",
+      "activity": "活动记录",
+      "plugins": "插件",
+      "administration": "管理"
+    },
+    "capabilities": {
+      "media_read": {
+        "label": "查看媒体",
+        "description": "查看库中的媒体及其详情。"
+      },
+      "media_upload": {
+        "label": "上传媒体",
+        "description": "添加图片和视频。"
+      },
+      "media_edit": {
+        "label": "编辑媒体详情",
+        "description": "重命名、描述、设置可用性并重试处理。"
+      },
+      "media_organize": {
+        "label": "移动和收集媒体",
+        "description": "在文件夹之间移动媒体，或将其加入和移出集合。"
+      },
+      "media_tags_assign": {
+        "label": "应用标签",
+        "description": "为媒体添加和移除标签。内容访问权限可限制可用标签。"
+      },
+      "media_archive": {
+        "label": "归档和恢复媒体",
+        "description": "将媒体移出播放并重新启用。"
+      },
+      "media_delete": {
+        "label": "删除媒体",
+        "description": "永久删除媒体，以及删除此角色管理的文件夹、标签或集合。"
+      },
+      "media_folders_manage": {
+        "label": "管理文件夹",
+        "description": "创建、重命名和移动文件夹。需要整个库的访问权限。"
+      },
+      "media_tags_manage": {
+        "label": "管理标签",
+        "description": "创建和重命名标签。需要所有标签的访问权限。"
+      },
+      "media_collections_manage": {
+        "label": "管理集合",
+        "description": "创建和重命名集合。需要整个库的访问权限。"
+      },
+      "widget_read": {
+        "label": "查看小组件",
+        "description": "查看小组件和网站。"
+      },
+      "widget_edit": {
+        "label": "创建和编辑小组件",
+        "description": "构建和更改小组件及网站。"
+      },
+      "widget_delete": {
+        "label": "归档和删除小组件",
+        "description": "将小组件移出播放或删除。"
+      },
+      "datasource_read": {
+        "label": "查看数据源",
+        "description": "查看数据源及其数据。"
+      },
+      "datasource_edit": {
+        "label": "创建和编辑数据源",
+        "description": "连接订阅源、日历、电子表格和手动数据。"
+      },
+      "datasource_manage": {
+        "label": "管理数据源",
+        "description": "删除数据源并创建收集回复的表单。"
+      },
+      "playlist_read": {
+        "label": "查看播放列表",
+        "description": "查看播放列表及其历史。"
+      },
+      "playlist_edit": {
+        "label": "编辑播放列表",
+        "description": "创建播放列表并更改草稿。没有发布权限时，更改会进入审核。"
+      },
+      "playlist_publish": {
+        "label": "发布播放列表",
+        "description": "使播放列表更改生效并恢复早期版本。"
+      },
+      "playlist_delete": {
+        "label": "删除播放列表",
+        "description": "删除播放列表。"
+      },
+      "layout_read": {
+        "label": "查看布局",
+        "description": "查看布局及其历史。"
+      },
+      "layout_edit": {
+        "label": "编辑布局",
+        "description": "创建布局并更改草稿。没有发布权限时，更改会进入审核。"
+      },
+      "layout_publish": {
+        "label": "发布布局",
+        "description": "使布局更改生效并恢复早期版本。"
+      },
+      "layout_delete": {
+        "label": "删除布局",
+        "description": "删除布局。"
+      },
+      "campaign_read": {
+        "label": "查看活动",
+        "description": "查看活动及其发布版本。"
+      },
+      "campaign_edit": {
+        "label": "编辑活动",
+        "description": "创建活动、更改草稿并归档。"
+      },
+      "campaign_publish": {
+        "label": "发布活动",
+        "description": "将活动发布到屏幕。"
+      },
+      "content_review": {
+        "label": "审核提交",
+        "description": "批准、要求修改、计划发布和回滚提交的内容。"
+      },
+      "screen_read": {
+        "label": "查看屏幕",
+        "description": "查看屏幕、显示组、状态、实时画面和播放。"
+      },
+      "screen_manage": {
+        "label": "管理屏幕",
+        "description": "更改屏幕设置、组、位置、命令和播放器更新。"
+      },
+      "screen_pair": {
+        "label": "配对和撤销屏幕",
+        "description": "批准新播放器并撤销其凭据。"
+      },
+      "screen_assign": {
+        "label": "向屏幕分配内容",
+        "description": "选择播放内容、启动接管并使用 AirPlay 演示。"
+      },
+      "screen_locations_manage": {
+        "label": "管理位置",
+        "description": "创建、重命名和删除位置。需要访问所有屏幕。"
+      },
+      "screen_networks_manage": {
+        "label": "管理演示网络",
+        "description": "创建、更改和删除演示网络定义。需要访问所有屏幕。"
+      },
+      "schedule_read": {
+        "label": "查看计划",
+        "description": "查看计划及其将播放的内容。"
+      },
+      "schedule_edit": {
+        "label": "编辑计划",
+        "description": "创建、更改、启用、禁用和删除计划。"
+      },
+      "activity_read": {
+        "label": "查看活动记录",
+        "description": "查看设备群健康状态、播放证明、事件和屏幕时间线。"
+      },
+      "activity_audit": {
+        "label": "查看内容历史",
+        "description": "查看内容更改的审计日志。"
+      },
+      "activity_manage": {
+        "label": "管理活动记录",
+        "description": "查看完整审计日志、导出报告并更新事件和保留设置。"
+      },
+      "plugins_use": {
+        "label": "使用插件",
+        "description": "打开插件页面并浏览插件商店。"
+      },
+      "plugins_manage": {
+        "label": "管理插件",
+        "description": "安装、更新、配置和移除插件。"
+      },
+      "users_manage": {
+        "label": "管理人员",
+        "description": "添加账户并设置其角色、内容访问和屏幕访问权限。"
+      },
+      "roles_manage": {
+        "label": "管理角色",
+        "description": "创建和更改自定义角色。"
+      },
+      "settings_manage": {
+        "label": "更改安装设置",
+        "description": "编辑组织设置、品牌和通知。"
+      },
+      "system_manage": {
+        "label": "运行系统维护",
+        "description": "查看系统状态并运行维护。"
+      },
+      "system_backups": {
+        "label": "备份和恢复",
+        "description": "创建、下载和恢复备份。"
+      },
+      "integrations_manage": {
+        "label": "集成令牌",
+        "description": "创建和撤销集成令牌。"
+      },
+      "player_releases": {
+        "label": "播放器发布版本",
+        "description": "检查、缓存和移除播放器发布版本。"
+      }
+    },
+    "summary": {
+      "none": "此角色尚未授予任何权限。"
+    },
+    "page": {
+      "intro": "角色决定一个人可以做什么。内置角色不可更改；添加自定义角色可精确授予工作所需的权限。",
+      "createAction": "创建角色",
+      "loading": "正在加载角色…",
+      "builtin": "内置",
+      "custom": "自定义",
+      "people_other": "{{count}} 人",
+      "capabilityCount_other": "{{count}} 项权限",
+      "viewAction": "查看",
+      "duplicateAction": "复制",
+      "duplicateLabel": "将 {{name}} 复制为新角色",
+      "deleteTitle": "删除 {{name}} 角色？",
+      "deleteBody": "没有人拥有此角色。删除后无法撤销。",
+      "deleteInUse_other": "仍有 {{count}} 人拥有此角色。请先将他们移至其他角色。"
+    },
+    "toasts": {
+      "created": "角色已创建。",
+      "updated": "角色已更新。",
+      "deleted": "角色已删除。"
+    },
+    "editor": {
+      "createTitle": "创建角色",
+      "editTitle": "编辑 {{name}}",
+      "description": "选择拥有此角色的人可以执行的操作。在用户页面为每人设置的内容和屏幕访问权限会缩小操作范围。",
+      "builtinDescription": "内置角色不能更改。可复制一个以此创建自定义角色。",
+      "nameLabel": "名称",
+      "namePlaceholder": "例如，教室媒体",
+      "descriptionLabel": "描述",
+      "descriptionPlaceholder": "此角色适用于谁",
+      "capabilitiesTitle": "此角色可以执行的操作",
+      "capabilitiesHint": "启用操作时也会启用其依赖权限，例如上传前需要查看权限。",
+      "capabilitiesViewHint": "按领域列出此角色允许的所有操作。",
+      "groupCount": "{{count}} / {{total}}",
+      "ownerReserved": "仅限所有者角色。",
+      "ownerOnly": "只有所有者可以授予此权限。",
+      "notYours": "您自己的角色不包含此权限。",
+      "createAction": "创建角色",
+      "copyName": "{{name}} 副本"
+    }
+  },
+  "myAccount": {
+    "title": "我的账户",
+    "subtitle": "属于您个人而非组织的设置。",
+    "navLabel": "账户部分",
+    "signedInAs": "当前登录身份",
+    "sections": {
+      "preferences": {
+        "title": "偏好设置",
+        "description": "外观和工作流设置，与账户而非此浏览器一起存储。"
+      },
+      "security": {
+        "title": "登录安全",
+        "description": "是否要求第二验证因素由组织设置决定。您可以自行选择验证方式。"
+      }
+    }
+  },
+  "roles": {
+    "owner": "所有者",
+    "administrator": "管理员",
+    "editor": "编辑者",
+    "contributor": "贡献者",
+    "viewer": "查看者",
+    "descriptions": {
+      "owner": "所有权限，包括备份和集成令牌。",
+      "administrator": "除仅限所有者的系统操作外的所有权限。",
+      "editor": "创建和发布内容，并管理屏幕和播放。",
+      "contributor": "创建和编辑内容，但不能发布布局、删除任何内容或将内容放到屏幕上。",
+      "viewer": "仅可查看。"
+    }
+  },
+  "users": {
+    "accessDenied": "您的角色不包含人员管理权限。",
+    "addForm": {
+      "title": "添加用户",
+      "passwordHint": "密码必须至少包含 12 个字符。",
+      "nameLabel": "名称",
+      "usernameLabel": "用户名",
+      "passwordLabel": "临时密码",
+      "roleLabel": "角色",
+      "submit": "添加用户",
+      "submitting": "正在添加…"
+    },
+    "list": {
+      "loading": "正在加载用户…",
+      "status": {
+        "active": "有效",
+        "inactive": "已停用"
+      },
+      "lastSignedIn": "上次登录 {{date}}",
+      "neverSignedIn": "从未登录",
+      "mfa": {
+        "on": "两步验证已开启",
+        "required": "需要两步验证，尚未注册",
+        "off": "未启用两步验证"
+      }
+    },
+    "editDialog": {
+      "title": "编辑 {{name}}",
+      "nameLabel": "名称",
+      "usernameLabel": "用户名",
+      "roleLabel": "角色",
+      "passwordLabel": "新密码",
+      "passwordPlaceholder": "保持不变",
+      "passwordHint": "至少 12 个字符。",
+      "activeLabel": "账户有效",
+      "mfaTitle": "两步验证",
+      "mfaEnrolled": "此账户已注册身份验证器应用或通行密钥。",
+      "mfaNotEnrolled": "此账户尚未注册第二验证因素。",
+      "resetConfirmTitle": "清除 {{name}} 的所有身份验证器、通行密钥和恢复代码？",
+      "resetConfirmBody": "该用户将在所有位置退出登录，必须重新注册。",
+      "resetAction": "重置",
+      "resetting": "正在重置…",
+      "scopeTitle": "屏幕范围",
+      "deactivateTitle": "停用 {{name}}？",
+      "deactivateAction": "停用",
+      "deactivating": "正在停用…",
+      "deleteTitle": "永久删除 {{name}}？",
+      "deleteBody": "这会移除其登录信息、偏好设置和安全凭据。此操作无法撤销。",
+      "deleteAction": "永久删除",
+      "deleting": "正在删除…",
+      "tabsLabel": "账户设置",
+      "tabs": {
+        "account": "账户",
+        "role": "角色",
+        "content": "内容访问",
+        "screens": "屏幕访问"
+      }
+    },
+    "toasts": {
+      "created": "用户已创建。",
+      "updated": "用户已更新。",
+      "disabled": "用户已停用。",
+      "deleted": "用户已永久删除。",
+      "securityReset": "用户登录验证因素已重置。"
+    },
+    "errors": {
+      "requestFailed": "Tilecast 无法更新此账户。"
+    },
+    "roleSelect": {
+      "builtin": "内置角色",
+      "custom": "自定义角色"
+    },
+    "access": {
+      "roleTitle": "角色",
+      "roleDescription": "此人在 Studio 中可以执行的操作。",
+      "contentTitle": "内容访问",
+      "contentDescription": "此人可以访问哪些媒体以及应用哪些标签。",
+      "screensDescription": "此人可以访问哪些屏幕。",
+      "selfNote": "您无法更改自己的访问权限。请联系其他管理员。",
+      "screensTitle": "屏幕访问",
+      "screensCreateDescription": "此人可以访问哪些屏幕。选择所有屏幕，或选择其工作所在的位置和显示组。"
+    }
+  },
+  "security": {
+    "loading": "正在加载登录安全设置…",
+    "loadError": "无法加载登录安全设置。",
+    "authenticator": {
+      "title": "身份验证器应用",
+      "description": "来自 Aegis、Google Authenticator 或 1Password 等应用的六位数代码。",
+      "setup": "设置",
+      "enrolled": "已注册",
+      "notEnrolled": "未注册",
+      "addedOn": "添加于 {{date}}",
+      "enrollInstruction": "使用身份验证器应用扫描代码，然后输入应用显示的六位数代码。",
+      "manualKeyLabel": "无法扫描？手动输入此密钥：",
+      "codeLabel": "六位数代码",
+      "removeTitle": "移除身份验证器",
+      "removeDescription": "确认密码以从此账户移除身份验证器。"
+    },
+    "passkeys": {
+      "title": "通行密钥",
+      "description": "使用指纹、人脸、屏幕锁定或安全密钥登录。通行密钥可单独登录，并计作两步验证。",
+      "add": "添加通行密钥",
+      "unavailableTitle": "此安装无法使用通行密钥。",
+      "browserUnsupported": "此浏览器不支持通行密钥。",
+      "empty": "没有通行密钥",
+      "addedOn": "添加于 {{date}}",
+      "lastUsed": "上次使用 {{date}}",
+      "neverUsed": "从未使用",
+      "rename": "重命名",
+      "renameTitle": "重命名“{{name}}”",
+      "renameHint": "Tilecast 根据创建它的身份验证器命名。",
+      "removeTitle": "移除“{{name}}”",
+      "removeFallbackTitle": "移除通行密钥",
+      "removeDescription": "确认密码以从此账户移除此通行密钥。",
+      "notCreated": "未创建通行密钥。",
+      "selectToRename": "选择要重命名的通行密钥。",
+      "selectToRemove": "选择要移除的通行密钥。"
+    },
+    "recovery": {
+      "title": "恢复代码",
+      "description": "无法使用身份验证器或通行密钥时，用于登录的一次性代码。",
+      "regenerate": "重新生成",
+      "generate": "生成",
+      "remaining_other": "剩余 {{count}} 个未使用代码",
+      "empty": "没有恢复代码",
+      "dialogTitle": "生成恢复代码",
+      "dialogDescription": "确认密码以生成新代码。现有恢复代码将失效。",
+      "shownOnceTitle": "这些代码只显示一次。",
+      "shownOnceDescription": "请立即将其保存在安全的地方。Tilecast 只存储其哈希值，无法再次显示。",
+      "copyAll": "全部复制",
+      "savedConfirm": "我已保存"
+    },
+    "passwordDialog": {
+      "passwordLabel": "账户密码"
+    },
+    "errors": {
+      "requestFailed": "Tilecast 无法完成请求。"
+    },
+    "qr": {
+      "failed": "无法显示二维码。请手动输入下面的密钥。",
+      "alt": "身份验证器设置二维码"
+    }
+  },
+  "preferences": {
+    "loading": "正在加载偏好设置…",
+    "loadError": "无法加载偏好设置。",
+    "saved": "偏好设置已保存。",
+    "leaveWarning": "有未保存的偏好设置更改，仍要离开我的账户吗？",
+    "conflict": "这些偏好设置在其他位置发生了更改。保存前请重新加载最新设置。",
+    "appearance": {
+      "title": "外观",
+      "description": "跟随此浏览器，或强制 Studio 使用浅色或深色。",
+      "system": "系统",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "language": {
+      "title": "语言",
+      "description": "Studio 为您使用的语言。名称、内容和播放器消息不会翻译。",
+      "system": "浏览器默认（{{language}}）"
+    }
+  },
+  "oauth": {
+    "loading": "正在加载授权请求…",
+    "invalidTitle": "授权请求无效",
+    "invalidDescription": "授权请求无效。",
+    "title": "授权访问",
+    "intro": "“{{client}}”请求以您的身份在 Tilecast 中操作。批准前请检查以下访问权限。",
+    "redirectTitle": "响应返回至",
+    "decisionError": "Tilecast 无法记录决定。",
+    "approve": "授权",
+    "deny": "拒绝",
+    "grantsLoading": "正在加载授权记录…",
+    "grantsTitle": "已授权的操作客户端",
+    "grantsDescription": "可以此账户身份操作的回环客户端。撤销立即生效。",
+    "grantsError": "无法加载授权记录。",
+    "grantsEmpty": "没有已授权的操作客户端。",
+    "revoked": "已撤销",
+    "grantedOn": "授权于 {{date}}",
+    "lastUsed": "上次使用 {{date}}",
+    "revoke": "撤销",
+    "revokeError": "Tilecast 无法撤销授权。"
+  },
+  "pat": {
+    "title": "个人访问令牌",
+    "description": "用于脚本和自动化的命名令牌。令牌始终会过期；密钥只在创建时显示一次。",
+    "loading": "正在加载个人访问令牌…",
+    "error": "无法加载个人访问令牌。",
+    "empty": "尚无个人访问令牌。",
+    "searchPlaceholder": "按名称搜索令牌…",
+    "nameLabel": "令牌名称",
+    "namePlaceholder": "ci-deploy",
+    "scopesLabel": "范围",
+    "scope": {
+      "read": "读取",
+      "write": "写入",
+      "admin": "管理"
+    },
+    "lifetimeLabel": "有效期",
+    "lifetimeDays": "{{count}} 天",
+    "create": "创建令牌",
+    "creating": "正在创建…",
+    "createError": "Tilecast 无法创建令牌。",
+    "createdTitle": "令牌已创建",
+    "createdWarning": "请立即复制。此密钥不会再次显示。",
+    "tokenLabel": "新个人访问令牌",
+    "copy": "复制",
+    "copied": "已复制",
+    "done": "完成",
+    "createdOn": "创建于 {{date}}",
+    "expiresIn": "到期于 {{date}} · 剩余 {{count}} 天",
+    "expired": "已过期",
+    "lastUsed": "上次使用 {{date}}",
+    "revoked": "已撤销",
+    "revoke": "撤销",
+    "revokeError": "Tilecast 无法撤销令牌。"
+  },
+  "contentAccess": {
+    "ownerNote": "所有者始终可以访问整个库并应用所有标签。",
+    "loadError": "无法加载内容访问权限。",
+    "loading": "正在加载内容访问权限",
+    "roleHasNoMedia": "此人的角色不包含媒体或小组件权限，因此在角色包含这些权限前，内容访问设置无效。",
+    "notConfigured": "此账户尚无内容访问权限，因此看不到任何媒体。请选择权限并保存。",
+    "saved": "内容访问权限已保存。",
+    "saveAction": "保存内容访问权限",
+    "library": {
+      "legend": "媒体库",
+      "description": "文件夹包含其中的所有内容。",
+      "all": "整个库",
+      "allHint": "所有文件夹以及不在文件夹中的媒体。",
+      "restricted": "仅所选文件夹",
+      "restrictedHint_other": "已选择 {{count}} 个文件夹。其外的媒体（包括未归档媒体）保持隐藏。",
+      "searchLabel": "搜索文件夹",
+      "searchPlaceholder": "搜索文件夹",
+      "noFolders": "尚无文件夹。请先在媒体中创建文件夹。",
+      "noMatch": "没有匹配的文件夹。",
+      "included": "已包含",
+      "subtreeNote": "此人的上传内容会进入其中一个文件夹。",
+      "emptyNote": "未选择文件夹时，此人无法查看或上传任何媒体。"
+    },
+    "tags": {
+      "legend": "可应用的标签",
+      "description": "标签用于标记媒体，例如为基于标签的播放列表提供内容。标签不会使媒体可见。",
+      "all": "任意标签",
+      "restricted": "仅所选标签",
+      "restrictedHint_other": "已选择 {{count}} 个标签。",
+      "noTags": "尚无标签。"
+    }
+  }
+}

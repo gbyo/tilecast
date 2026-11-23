@@ -1,0 +1,509 @@
+{
+  "playerRuntime": {
+    "title": "播放器显示区域",
+    "allowedSurfaces": "允许的区域：{{surfaces}}",
+    "priority": "优先级层级：{{tier}}",
+    "surfaces": {
+      "strip": {
+        "top": "顶部栏",
+        "bottom": "底部栏"
+      },
+      "corner": {
+        "top-left": "左上角",
+        "top-right": "右上角",
+        "bottom-left": "左下角",
+        "bottom-right": "右下角"
+      },
+      "overlay": "全屏覆盖层"
+    },
+    "tiers": {
+      "emergency": "紧急",
+      "live": "实时",
+      "scheduled": "计划",
+      "ambient": "环境"
+    }
+  },
+  "list": {
+    "title": "插件",
+    "subtitle": "为此安装添加可选的 Tilecast 功能和集成。",
+    "addAction": "添加插件",
+    "browseAction": "浏览插件",
+    "loadError": "无法加载插件。",
+    "unsupportedTitle": "来自较新 Tilecast 版本的插件",
+    "unsupportedBody_other": "{{ids}} 已记录为已安装，但不属于此版本。它们不会运行，其数据会保留以便恢复较新版本时使用。",
+    "retiredTitle": "已从 Tilecast 移除的插件",
+    "retiredBody_other": "{{ids}} 已记录为已安装，但已从 Tilecast 移除。它们不再运行，数据会保留。",
+    "loading": "正在加载插件",
+    "installedLabel": "已安装的插件",
+    "emptyTitle": "尚未安装插件",
+    "emptyDescription": "只添加此 Tilecast 安装需要的可选功能。",
+    "openAction": "打开",
+    "openLabel": "打开 {{name}}"
+  },
+  "status": {
+    "attention": "需要注意",
+    "active": "运行中",
+    "configured": "已配置",
+    "needsSetup": "需要设置"
+  },
+  "tabs": {
+    "installed": "已安装",
+    "explore": "探索",
+    "viewsLabel": "插件视图"
+  },
+  "store": {
+    "title": "探索插件",
+    "description": "Tilecast 自带的插件和官方 Tilecast Marketplace 的条目。",
+    "sourceLabel": "来源",
+    "loadError": "无法加载此插件。",
+    "emptyTitle": "没有可用插件",
+    "emptyDescription": "这些来源没有可用插件。",
+    "sources": {
+      "all": "所有来源",
+      "included": "Tilecast 自带",
+      "marketplace": "市场",
+      "custom": "自定义"
+    },
+    "featured": {
+      "title": "精选",
+      "label": "精选插件"
+    },
+    "allPlugins": "所有插件",
+    "card": {
+      "incompatible": "不兼容",
+      "moreCategories": "+{{count}}"
+    },
+    "notFoundTitle": "未找到插件",
+    "notFoundDescription": "这些来源中没有此商店条目。",
+    "backToExplore": "返回探索",
+    "marketplace": {
+      "staleTitle": "市场目录可能已过时",
+      "staleDescription": "显示上次可用的目录。",
+      "errorTitle": "无法刷新市场",
+      "refresh": "刷新目录",
+      "refreshing": "正在刷新…"
+    },
+    "detail": {
+      "version": "版本 {{version}}",
+      "installedVersion": "已安装 {{version}}",
+      "updateAvailable": "有可用更新",
+      "requires": "需要 Tilecast {{range}}",
+      "incompatible": "此条目需要 Tilecast {{range}}，当前版本不满足要求。",
+      "publisher": "发布者",
+      "license": "许可证",
+      "links": "链接",
+      "repository": "仓库",
+      "documentation": "文档",
+      "issues": "问题追踪",
+      "officialCatalog": "列于官方 Tilecast Marketplace。",
+      "featuredLabel": "重点推荐",
+      "featured": "精选条目",
+      "categoriesLabel": "类别",
+      "versionLabel": "版本",
+      "requiresLabel": "要求",
+      "digestLabel": "摘要",
+      "customNote": "从您选择的仓库添加。Tilecast 会在安装前验证其发布来源。",
+      "incompatiblePackage": "此软件包需要 Tilecast {{range}}，当前版本不满足要求。"
+    },
+    "add": {
+      "action": "从 GitHub 添加",
+      "title": "添加自定义仓库",
+      "description": "查找公开 GitHub 仓库，并在安装前审核其最新发布版本。",
+      "urlLabel": "仓库 URL",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "查找",
+      "resolving": "正在查找…",
+      "install": "安装软件包",
+      "installing": "正在安装…"
+    },
+    "review": {
+      "release": "发布版本",
+      "published": "发布时间",
+      "provenance": "来源证明",
+      "signedBy": "签名者：{{signer}}",
+      "verified": "已验证",
+      "unsigned": "未签名 — 仅限开发安装",
+      "contributions": "提供的功能",
+      "noContributions": "未列出",
+      "runtime": "服务器模块",
+      "networkHosts": "出站 HTTPS 主机",
+      "backgroundJobs": "后台任务",
+      "jobSchedule": "{{id}} · 每 {{minutes}} 分钟",
+      "storage": "私有存储",
+      "storageGranted": "已授予",
+      "studioInterface": "Studio 界面",
+      "installNote": "安装会将此仓库绑定到软件包，因此更新检查会重新解析它。",
+      "catalogInstallNote": "市场条目仍是更新来源，因此更新检查会重新读取它。"
+    }
+  },
+  "catalog": {
+    "back": "所有插件",
+    "reviewDescription": "安装前审核 {{name}}。",
+    "installed": "已安装",
+    "install": "安装",
+    "reviewInstall": "审核并安装",
+    "installNote": "所有者或管理员可以安装插件。",
+    "title": "添加插件",
+    "description": "此 Tilecast 版本内置的可选功能。安装它们不会下载代码。",
+    "searchLabel": "搜索插件",
+    "searchPlaceholder": "搜索插件…",
+    "categoryLabel": "插件类别",
+    "categories": {
+      "all": "全部",
+      "display": "显示",
+      "automation": "自动化",
+      "workflow": "工作流",
+      "hardware": "硬件"
+    },
+    "emptySearchTitle": "没有匹配的插件",
+    "emptyInstalledTitle": "所有插件均已安装",
+    "emptySearchDescription": "尝试其他搜索或类别。",
+    "emptyInstalledDescription": "此安装已使用此版本提供的所有插件。",
+    "requires": "需要 {{list}}"
+  },
+  "detail": {
+    "builtIn": "Tilecast 内置",
+    "requirements": "要求",
+    "noRequirements": "没有播放器或网络要求。",
+    "uses": "使用"
+  },
+  "actionsMenu": {
+    "menuLabel": "{{name}} 插件操作",
+    "remove": "移除插件",
+    "blockedTitle": "无法移除 {{name}}",
+    "viewLabel": "查看 {{label}}",
+    "removeTitle": "移除 {{name}}？",
+    "removeDescription": "{{name}} 将离开此安装的插件列表并停止影响屏幕。您可以随时重新添加。",
+    "blockedEmpty": "此插件仍在使用中。",
+    "blockedSentence_other": "{{list}} 仍在使用此插件。",
+    "blockedWait": "等待 {{labels}} 清除后，再移除插件。",
+    "blockedDisable": "关闭此页面上的 {{disable}}，然后移除插件。",
+    "blockedDelete": "删除此页面上剩余的 {{labels}}，然后移除插件。",
+    "blockedDisableDelete": "关闭此页面上的 {{disable}} 并删除剩余的 {{labels}}，然后移除插件。"
+  },
+  "gate": {
+    "notInstalled": "{{name}} 尚未安装",
+    "installDescription": "安装 {{name}} 以开始使用。{{description}}",
+    "lockedDescription": "{{description}} 所有者或管理员可以安装它。",
+    "installAction": "安装 {{name}}",
+    "backToPlugins": "返回插件"
+  },
+  "shared": {
+    "scope": {
+      "all": "所有屏幕",
+      "screens": "单个屏幕",
+      "syncGroups": "显示组",
+      "locations": "位置"
+    },
+    "targetType": "目标类型",
+    "chooseTargets": "选择目标",
+    "available": "可用{{noun}}",
+    "selectedCount": "已选择 {{total}} 中的 {{chosen}}",
+    "nouns": {
+      "screens": "屏幕",
+      "syncGroups": "显示组",
+      "locations": "位置"
+    },
+    "empty": {
+      "screens": "尚未注册屏幕。",
+      "syncGroups": "尚无显示组。",
+      "locations": "尚无位置。"
+    },
+    "loadingNoun": "正在加载{{noun}}…",
+    "loadErrorNoun": "无法加载{{noun}}。",
+    "backToPlugins": "插件",
+    "manageNote": "更改设置需要所有者或管理员权限。",
+    "newInstance": "新实例",
+    "createInstance": "创建实例",
+    "manage": "管理",
+    "deleteTitle": "删除“{{name}}”？",
+    "deleteAction": "删除 {{name}}",
+    "nameLabel": "名称",
+    "priorityLabel": "优先级",
+    "enabledLabel": "已启用",
+    "enabledBadge": "已启用",
+    "disabledBadge": "已禁用",
+    "targetsSection": "目标"
+  },
+  "weekdays": {
+    "sunday": {
+      "short": "周日"
+    },
+    "monday": {
+      "short": "周一"
+    },
+    "tuesday": {
+      "short": "周二"
+    },
+    "wednesday": {
+      "short": "周三"
+    },
+    "thursday": {
+      "short": "周四"
+    },
+    "friday": {
+      "short": "周五"
+    },
+    "saturday": {
+      "short": "周六"
+    }
+  },
+  "history": {
+    "backLink": "噪声计",
+    "titleFallback": "噪声计",
+    "subtitle": "播放器在本地记录并通过常规心跳传送的测量值。",
+    "privacyNotice": "噪声历史存储相对噪声水平测量值，用于图表和报告。Tilecast 从不录制或存储麦克风音频。水平值相对于各播放器自身的麦克风，并非经过校准的分贝测量值。",
+    "rangeLabel": "日期范围",
+    "ranges": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "sevenDays": "7 天",
+      "thirtyDays": "30 天"
+    },
+    "screenLabel": "屏幕",
+    "allScreens": "所有屏幕（合并）",
+    "screenHint": "水平值相对于各播放器自身的麦克风，因此比较屏幕时需谨慎。",
+    "exportLabel": "导出",
+    "granularity": {
+      "raw": "10 秒记录",
+      "minute": "1 分钟摘要",
+      "daily": "每日摘要"
+    },
+    "exportTitle": "导出所选范围和屏幕",
+    "exportAction": "导出 CSV",
+    "loadError": "无法加载历史。",
+    "showingSingle": "正在显示 <strong>{{name}}</strong>。",
+    "combining": "正在合并 {{count}} 个屏幕。每台播放器的水平值来自其自身麦克风，因此合并视图描述的是组，而非房间比较。",
+    "emptyTitle": "此范围内没有测量值",
+    "emptyDescription": "目标 Linux 播放器开始测量并发送心跳后，历史会显示在此处。",
+    "chartTitle": "噪声水平随时间变化",
+    "chartDescription": "根据此噪声计自身阈值显示平均值和峰值。未监视的时段留空。",
+    "chartEmpty": "尚无可绘制的测量值。",
+    "chart": {
+      "aria": "噪声水平随时间变化。警告水平 {{warning}}，过大水平 {{loud}}。",
+      "ariaLabel": "噪声水平历史图表",
+      "description": "显示随时间变化的平均和峰值噪声水平。空缺表示未监视的时段。警告阈值为 {{warning}}；过大阈值为 {{loud}}。",
+      "average": "平均",
+      "peak": "峰值",
+      "warning": "警告 {{level}}",
+      "tooLoud": "过大 {{level}}"
+    },
+    "dailyTitle": "每日比较",
+    "dailyDescription": "未监视的日期会省略，而非显示为安静。",
+    "dailyMeasureLabel": "每日指标",
+    "measures": {
+      "average": "平均水平",
+      "loud": "声音过大的时间",
+      "events": "警告事件"
+    },
+    "dailyEmpty": "尚无有测量值的日期。",
+    "summary": {
+      "averageLabel": "平均噪声水平",
+      "averageHint": "相对值，非分贝",
+      "peakLabel": "峰值噪声水平",
+      "loudLabel": "声音过大的时间",
+      "eventsLabel": "警告事件",
+      "eventsHint": "栏出现的次数",
+      "normalLabel": "正常范围内的时间",
+      "warningLabel": "警告范围内的时间",
+      "longestLabel": "最长连续声音过大时间",
+      "loudestLabel": "最响的 15 分钟",
+      "monitoredLabel": "监视时间"
+    }
+  },
+  "packages": {
+    "title": "扩展包",
+    "manageTitle": "已安装的软件包",
+    "loadError": "无法加载已安装的软件包。",
+    "contributions": "提供的功能",
+    "checkUpdate": "检查更新",
+    "upToDate": "此软件包已是最新。",
+    "updateTo": "更新到 {{version}}",
+    "rollback": "恢复上一版本",
+    "remove": "移除软件包",
+    "removeConfirmTitle": "移除此软件包？",
+    "removeConfirmBody": "这会删除 {{packageId}} 的安装及其提供的功能。自定义仓库绑定会保留以供重新安装。",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "删除剩余内容后重试。",
+    "addedContributions": "此版本新增",
+    "removedContributions": "此版本移除",
+    "removedWarning": "更新不会删除任何内容：如果仍有内容使用已移除的功能，更新会等待您删除它。",
+    "studioTitle": "软件包界面",
+    "studioUnavailable": "无法加载软件包界面。",
+    "jobsTitle": "后台任务",
+    "jobsLoadError": "无法加载后台任务。",
+    "jobEvery": "每 {{minutes}} 分钟",
+    "jobNext": "下次运行",
+    "jobNever": "从未运行",
+    "jobOk": "成功",
+    "jobFailed": "失败",
+    "jobFailures": "连续失败 {{count}} 次"
+  },
+  "storeDetail": {
+    "by": "由 {{publisher}} 发布",
+    "byLinked": "由 <publisher>{{publisher}}</publisher> 发布",
+    "publisherLinkLabel": "{{publisher}}，仓库（在新标签页打开）",
+    "publisherSiteLinkLabel": "{{publisher}}，网站（在新标签页打开）",
+    "badgesLabel": "插件详情",
+    "sourceBadge": {
+      "included": "自带",
+      "marketplace": "市场",
+      "custom": "自定义"
+    },
+    "incompatible": {
+      "title": "与此 Tilecast 版本不兼容",
+      "body": "此插件需要 Tilecast {{range}}。"
+    },
+    "about": {
+      "title": "关于",
+      "cardTitle": "关于此软件包",
+      "customTitle": "自定义软件包",
+      "customNotice": "未经市场审核或筛选。",
+      "noDownload": "不会下载外部软件包。此插件随当前 Tilecast 版本提供。",
+      "source": "来源",
+      "marketplaceSource": "官方 Tilecast Marketplace",
+      "customSource": "自定义 GitHub 仓库",
+      "provenance": "来源证明",
+      "verified": "已验证发布来源",
+      "verifiedOnInstall": "安装时验证",
+      "reportIssue": "报告问题"
+    },
+    "adds": {
+      "title": "此插件添加的功能",
+      "pending": "安装前，安装审核会列出它添加的功能。",
+      "none": "此软件包未向 Studio 添加内容。"
+    },
+    "kinds": {
+      "widget": "小组件",
+      "dataSource": "数据源",
+      "plugin": "插件"
+    },
+    "kindDescriptions": {
+      "widget": "添加可放入布局的小组件。",
+      "dataSource": "向兼容的小组件提供数据。",
+      "plugin": "添加在 Studio 中拥有独立页面的插件。",
+      "other": "向 Studio 添加内容。"
+    },
+    "permissions": {
+      "title": "权限和行为",
+      "pending": "安装前，安装审核会列出请求的权限。",
+      "noneTitle": "无特殊权限",
+      "noneBody": "此插件不请求网络访问、本地存储、后台任务、自定义 Studio 界面或 Tilecast 服务。"
+    },
+    "capabilities": {
+      "network": {
+        "title": "网络访问",
+        "body": "可连接到："
+      },
+      "storage": {
+        "title": "本地存储",
+        "body": "在 Tilecast 服务器上存储此插件自己的数据。"
+      },
+      "background": {
+        "title": "后台活动",
+        "body_other": "运行 {{count}} 个定时任务。"
+      },
+      "realtime": {
+        "title": "高频后台活动",
+        "body": "每隔几秒运行一个有界后台任务，即使 Studio 已关闭。"
+      },
+      "studioUI": {
+        "title": "Studio 界面",
+        "body": "向 Studio 添加自己的配置界面。"
+      },
+      "service": {
+        "version": "版本 {{version}}",
+        "operationMutating": "{{title}}（更改数据）",
+        "categories": {
+          "read": "读取",
+          "directory": "目录",
+          "manage": "管理",
+          "audit": "审计"
+        }
+      }
+    },
+    "requirements": {
+      "title": "要求"
+    },
+    "status": {
+      "title": "软件包状态",
+      "compatible": "与此服务器兼容",
+      "incompatible": "与此服务器不兼容",
+      "notCompatible": "不兼容",
+      "upToDate": "已是最新 · {{version}}",
+      "notInstalled": "未安装",
+      "installedOn": "安装于 {{date}}"
+    },
+    "update": {
+      "check": "检查更新",
+      "review": "审核更新",
+      "checkAgain": "再次检查"
+    },
+    "technical": {
+      "title": "技术详情",
+      "packageId": "软件包 ID",
+      "registry": "注册表",
+      "signer": "签名者",
+      "releaseTag": "发布标签",
+      "runtime": "运行时模块",
+      "source": "来源",
+      "contributions": "提供的功能",
+      "jobIds": "后台任务 ID"
+    },
+    "screenshots": {
+      "title": "屏幕截图",
+      "slide": "屏幕截图 {{current}} / {{total}}",
+      "open": "放大屏幕截图：{{alt}}",
+      "unavailable": "屏幕截图不可用",
+      "lightboxTitle": "屏幕截图 {{current}} / {{total}}",
+      "previous": "上一张截图",
+      "next": "下一张截图",
+      "position": "{{current}} / {{total}}"
+    },
+    "review": {
+      "installTitle": "审核 {{name}}",
+      "installDescription": "安装前检查此插件添加的功能及其权限。",
+      "updateTitle": "更新 {{name}}",
+      "updateDescription": "应用前审核版本 {{version}} 的更改。",
+      "confirmInstall": "安装插件",
+      "verification": "验证",
+      "contributionChanges": "新增功能的更改",
+      "noContributionChanges": "此软件包添加的功能没有变化。",
+      "permissionChanges": "权限更改",
+      "noPermissionChanges": "权限没有变化。",
+      "permissionsAdded": "新增权限",
+      "permissionsChanged": "已更改权限",
+      "permissionsRemoved": "已移除权限",
+      "previously": "之前：{{value}}",
+      "versionChange": "从 {{from}} 到 {{to}}"
+    },
+    "settings": {
+      "title": "插件设置",
+      "description": "无需离开 Tilecast 即可配置此插件。"
+    },
+    "jobs": {
+      "description": "此插件按计划在 Tilecast 服务器上运行的工作。",
+      "lastRun": "上次运行 {{when}} · {{status}}",
+      "lastFailed": "上次失败运行 {{when}}",
+      "successful": "成功",
+      "nextRun": "下次运行 {{when}}"
+    },
+    "cadence": {
+      "minute": "每分钟",
+      "hour": "每小时",
+      "day": "每天",
+      "every": "每 {{interval}}"
+    },
+    "danger": {
+      "title": "危险区域",
+      "removeTitle": "移除此插件",
+      "removeBody": "移除会删除此软件包的安装及其添加的功能。必须先删除仍在使用它的内容。"
+    },
+    "management": {
+      "title": "软件包管理",
+      "rollbackBody": "返回上次更新前生效的版本。",
+      "confirmTitle": "恢复上一版本？",
+      "confirmBody": "{{name}} 将返回上次更新前生效的版本。如果内容仍使用较新版本添加的功能，恢复会等待您删除该内容。"
+    }
+  }
+}

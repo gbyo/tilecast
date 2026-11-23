@@ -1,0 +1,63 @@
+{
+  "a11y": {
+    "loading": "লোড হচ্ছে",
+    "more": "আরও",
+    "sidebarDescription": "মোবাইল সাইডবার দেখায়।",
+    "sidebarTitle": "সাইডবার",
+    "toggleSidebar": "সাইডবার চালু বা বন্ধ করুন"
+  },
+  "actions": {
+    "back": "পেছনে",
+    "cancel": "বাতিল",
+    "clear": "মুছুন",
+    "clearAll": "সব মুছুন",
+    "close": "বন্ধ করুন",
+    "closeToast": "বিজ্ঞপ্তি বন্ধ করুন",
+    "confirm": "নিশ্চিত করুন",
+    "delete": "মুছে ফেলুন",
+    "discardChanges": "পরিবর্তন বাতিল করুন",
+    "edit": "সম্পাদনা",
+    "loadMore": "আরও লোড করুন",
+    "next": "পরবর্তী",
+    "nextSlide": "পরবর্তী স্লাইড",
+    "previous": "পূর্ববর্তী",
+    "previousSlide": "পূর্ববর্তী স্লাইড",
+    "refresh": "রিফ্রেশ করুন",
+    "refreshing": "রিফ্রেশ হচ্ছে…",
+    "remove": "সরান",
+    "retry": "আবার চেষ্টা করুন",
+    "save": "সংরক্ষণ",
+    "saveChanges": "পরিবর্তন সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…",
+    "skip": "এড়িয়ে যান",
+    "submit": "জমা দিন",
+    "toggleOptions": "বিকল্প চালু বা বন্ধ করুন"
+  },
+  "status": {
+    "loading": "লোড হচ্ছে…"
+  },
+  "count": {
+    "items_one": "{{count}}টি আইটেম",
+    "items_other": "{{count}}টি আইটেম"
+  },
+  "clipboard": {
+    "copied": "{{label}} কপি করা হয়েছে।",
+    "copyFailed": "{{label}} কপি করা যায়নি।"
+  },
+  "filters": {
+    "active": "সক্রিয় ফিল্টার",
+    "remove": "ফিল্টার সরান {{label}}: {{value}}",
+    "title": "ফিল্টার"
+  },
+  "planned": {
+    "eyebrow": "মাইলস্টোন {{milestone}}",
+    "title": "{{feature}} এখনও চালু করা হয়নি।",
+    "body": "এই ইনস্টলেশনে বর্তমানে মাইলস্টোন 1-এর ভিত্তি রয়েছে। {{feature}} মাইলস্টোন {{milestone}}-এ তৈরি ও পরীক্ষা করা হবে।",
+    "backLink": "ইনস্টলেশনের অবস্থায় ফিরে যান"
+  },
+  "demo": {
+    "title": "ডেমো মোড",
+    "description": "এই ইনস্টলেশনে নমুনা ডেটা রয়েছে এবং এটি স্বয়ংক্রিয়ভাবে রিসেট হতে পারে।",
+    "badge": "ডেমো"
+  }
+}

@@ -1,0 +1,770 @@
+{
+  "incidents": {
+    "attentionLabel": "需要处理",
+    "attentionTitle": "需要处理",
+    "attentionDescription": "当前未解决的事件，而非所选范围内的事件。同一情况的重复发生计为一个事件。",
+    "allIncidents": "所有事件",
+    "emptyAttention": "当前没有故障。",
+    "moreStillFailing_other": "另有 {{count}} 个仍然故障",
+    "analyticsLabel": "事件分析",
+    "analyticsTitle": "事件分析",
+    "analyticsDescription": "除非卡片另有说明，否则按 {{range}} 测量。",
+    "tiles": {
+      "active": "活动事件",
+      "activeHint": "当前状态，不是整个范围",
+      "opened": "已开启",
+      "resolved": "已解决",
+      "mean": "平均恢复时间",
+      "medianHint": "中位数 {{value}}",
+      "longest": "最长事件",
+      "recoveredOwn": "自行恢复",
+      "closedByHand_other": "{{count}} 个手动关闭"
+    },
+    "recurringTitle": "重复出现的问题",
+    "recurringIncidents_other": "{{count}} 个事件",
+    "recurringOccurrences_other": "发生 {{count}} 次",
+    "groups": {
+      "byScreen": "按屏幕",
+      "byLocation": "按位置",
+      "byDeviceModel": "按设备型号",
+      "byPlayerVersion": "按播放器版本",
+      "byFailureCode": "按失败代码",
+      "byType": "按类别"
+    },
+    "tabTitle": "事件",
+    "tabDescriptionCurrent": "当前事件。添加日期依据以报告所选范围内的事件。",
+    "tabDescriptionRanged": "{{range}} 内按{{basis}}日期统计的事件。",
+    "emptyFiltered": "没有符合这些筛选条件的事件。",
+    "emptyNone": "尚未记录事件。",
+    "actions": {
+      "acknowledge": "确认",
+      "resolve": "解决",
+      "ignore": "忽略",
+      "reopen": "重新开启"
+    },
+    "scopeScreens_other": "{{count}} 个屏幕",
+    "scopeFleet": "整个设备群",
+    "scopeFallback": "屏幕",
+    "ongoingFor": "已持续 {{duration}}",
+    "lastedFor": "持续了 {{duration}}",
+    "underMinute": "不到一分钟",
+    "lastSeenAt": "上次出现 {{when}}",
+    "recoveredAuto": "于 {{when}} 自行恢复",
+    "recoveredPlain": "于 {{when}} 恢复",
+    "occurrences_other": "发生 {{count}} 次",
+    "assignedTo": "已分配给 {{name}}",
+    "details": "详情",
+    "facts": {
+      "cause": "可能原因",
+      "unknownCause": "原因未知",
+      "opened": "开启",
+      "lastSeen": "上次出现",
+      "recovered": "恢复",
+      "acknowledged": "已确认",
+      "resolved": "已解决",
+      "failureCode": "失败代码",
+      "deviceModel": "设备型号",
+      "playerVersion": "播放器版本",
+      "notes": "备注"
+    },
+    "recoveredModeAuto": "（自行恢复）",
+    "recoveredModeManual": "（手动关闭）",
+    "acknowledgedBy": "，由 {{name}} 操作",
+    "resolvedReason": " — {{reason}}",
+    "actionFailed": "无法应用此操作。",
+    "drawer": {
+      "openScreenActivity": "打开屏幕的活动记录",
+      "recoveryPath": "恢复路径",
+      "sessionEnded": "结束原因：{{reason}}",
+      "sections": {
+        "timeline": "时间线",
+        "timelineEmpty": "没有时间线条目。",
+        "events": "相关原始事件",
+        "eventsEmpty": "事件发生期间未记录屏幕事件。",
+        "playback": "事件期间的播放",
+        "playbackEmpty": "没有与此事件重叠的播放会话。",
+        "commands": "命令和更新",
+        "commandsEmpty": "事件期间没有运行命令或更新。",
+        "audit": "管理更改",
+        "auditEmpty": "事件期间没有管理更改影响此屏幕。",
+        "screens": "受影响的屏幕"
+      }
+    },
+    "emptyAttentionTitle": "没有活动故障",
+    "emptyTitle": "没有事件"
+  },
+  "proof": {
+    "summaryLabel": "播放证明摘要",
+    "summaryTitle": "播放证明摘要",
+    "summaryDescription": "仅计算播放器确认的区间。屏幕时间是根演示内容时间的并集；展示时间合计其中的内容，同时播放多个区域时可能更长。",
+    "groupBy": "分组依据",
+    "dimensions": {
+      "screen": "屏幕",
+      "content": "内容",
+      "presentation": "播放列表或布局",
+      "schedule": "计划"
+    },
+    "tiles": {
+      "plays": "已确认的播放",
+      "playsHint": "区间总数",
+      "playback": "已确认的屏幕播放",
+      "playbackHint": "实际时间，重叠部分已合并",
+      "exposure": "内容展示时间",
+      "exposureHint": "合计同时播放的区域",
+      "completionRate": "会话完成率",
+      "acrossScreens_other": "跨 {{count}} 个屏幕",
+      "failed": "失败的会话",
+      "endedUnexpectedly_other": "{{value}} 个意外结束"
+    },
+    "viewBreakdown": "查看按{{dimension}}细分",
+    "confirmedRecords_other": "{{count}} 条已确认记录",
+    "percentCompleted": "{{value}}% 已完成",
+    "failures_other": "{{count}} 次失败",
+    "tableTitle": "播放记录",
+    "headers": {
+      "started": "开始",
+      "screen": "屏幕",
+      "presentation": "演示内容",
+      "content": "内容",
+      "duration": "时长",
+      "result": "结果"
+    },
+    "openDetails": "打开详情",
+    "inProgress": "进行中",
+    "openRecordDetails": "打开 {{screen}} 的播放详情",
+    "emptyFilteredTitle": "没有符合当前筛选条件的播放",
+    "emptyNoneTitle": "未找到已确认的播放",
+    "emptyFilteredHint": "尝试调整或清除筛选条件以查看更多记录。",
+    "emptyNoneHint": "此日期范围内没有播放器报告播放证明。请尝试更长的范围或检查屏幕连接。",
+    "extendRange": "过去 7 天",
+    "viewScreenEvents": "查看屏幕事件",
+    "revisionShort": "版本 {{value}}",
+    "scheduleShort": "计划 {{value}}",
+    "drawer": {
+      "eyebrow": "播放记录",
+      "description": "播放器确认的播放详情。",
+      "inProgress": "播放仍在进行",
+      "confirmedDuration": "已确认 {{duration}}",
+      "sections": {
+        "playback": "播放",
+        "content": "内容",
+        "metadata": "技术元数据"
+      },
+      "rows": {
+        "started": "开始",
+        "ended": "结束",
+        "screen": "屏幕",
+        "group": "组",
+        "trigger": "触发来源",
+        "presentation": "演示内容",
+        "revision": "版本",
+        "content": "内容",
+        "scheduleId": "计划 ID",
+        "takeoverId": "接管 ID"
+      }
+    }
+  },
+  "events": {
+    "title": "屏幕事件",
+    "description": "技术状态转换和重要的播放器或服务器活动。不包括常规成功心跳。",
+    "headers": {
+      "severity": "严重程度",
+      "time": "时间",
+      "screen": "屏幕",
+      "event": "事件",
+      "resource": "相关资源",
+      "result": "结果",
+      "details": "详情"
+    },
+    "receivedAt": "接收于 {{when}}",
+    "sequence": "{{category}} · 序号 {{sequence}}",
+    "serverAssigned": "服务器",
+    "empty": "没有符合这些筛选条件的屏幕技术事件。",
+    "emptyTitle": "没有技术事件"
+  },
+  "audit": {
+    "title": "审计日志",
+    "description": "已验证用户和管理员的更改。播放器行为记录在屏幕事件中。",
+    "headers": {
+      "time": "时间",
+      "actor": "操作者",
+      "action": "操作",
+      "resource": "资源",
+      "result": "结果",
+      "summary": "摘要",
+      "details": "详情"
+    },
+    "empty": "没有符合这些筛选条件的管理更改。",
+    "emptyTitle": "没有管理更改"
+  },
+  "statusLabels": {
+    "online": "在线",
+    "recent": "最近在线",
+    "stale": "状态过期",
+    "offline": "离线",
+    "disabled": "已禁用",
+    "revoked": "配对已撤销",
+    "awaiting_player": "等待播放器"
+  },
+  "contentHealth": {
+    "loading": "正在检查内容健康状态…",
+    "loadError": "无法加载内容健康状态。{{message}}",
+    "healthyTitle": "没有需要处理的问题。",
+    "healthyDescription": "每个数据源都在过去 {{hours}} 内刷新，每个已分配的播放列表都有可用内容，且未来 {{days}} 内没有媒体到期。",
+    "hours_other": "{{count}} 小时",
+    "hoursAfter_other": "{{count}} 小时",
+    "days_other": "{{count}} 天",
+    "emptyPlaylistsTitle": "没有可播放内容的播放列表",
+    "emptyPlaylistsHint": "这些列表已分配给屏幕。其中所有内容均已过期、尚不可用或已被移除。",
+    "screens_other": "{{count}} 个屏幕",
+    "nothingAvailable": "没有可用内容",
+    "staleTitle": "未刷新的数据源",
+    "staleHint": "屏幕继续显示缓存副本，因此数据过时后看起来仍然正常。{{hours}} 后视为过时。",
+    "sourceUpdated": "{{provider}} · 上次更新 {{when}}",
+    "never": "从未",
+    "lastError": "上次错误：{{code}}",
+    "noRefresh": "没有成功刷新",
+    "expiringTitle": "即将到期的媒体",
+    "expiringHint": "目前尚非故障。媒体到期时停止播放，播放列表失去最后一个项目后将没有内容可显示。",
+    "expiresAt": "到期于 {{when}}",
+    "inPlaylist": "在播放列表中",
+    "notInPlaylist": "不在播放列表中",
+    "unassignedTitle": "未分配内容的屏幕",
+    "unassignedHint": "这些屏幕显示无内容消息。这是设置状态而非故障，因此不会产生事件。",
+    "noPlaylist": "无播放列表",
+    "setup": "设置"
+  },
+  "screenActivity": {
+    "loadFailed": "无法加载屏幕活动记录。",
+    "title": "活动记录",
+    "subtitle": "最近播放器确认的播放和屏幕技术事件。",
+    "openFiltered": "打开筛选后的活动记录",
+    "viewAll": "查看活动记录",
+    "loading": "正在加载屏幕活动记录",
+    "loadErrorTitle": "无法加载活动记录",
+    "facts": {
+      "presentation": "当前演示内容",
+      "lastPlayback": "上次健康播放",
+      "lastActivation": "上次清单激活",
+      "gaps": "播放间断"
+    },
+    "notReported": "未报告",
+    "reportedAt": "报告于 {{when}}",
+    "lists": {
+      "proofTitle": "最近的播放证明",
+      "proofEmpty": "尚未报告播放证明。",
+      "eventsTitle": "最近的技术事件",
+      "eventsEmpty": "尚未报告技术事件。"
+    }
+  },
+  "timeline": {
+    "title": "时间线",
+    "description": "按统一顺序显示此屏幕的所有记录：状态更改、播放、故障、命令、更新、事件和管理更改。",
+    "rangeLabel": "时间线范围",
+    "domainLabel": "按领域筛选时间线",
+    "loading": "正在加载时间线",
+    "loadFailed": "无法加载时间线",
+    "emptyDomain": "所选时段内此领域没有记录。",
+    "emptyNone": "此时段内没有此屏幕的记录。",
+    "emptyHint": "选择其他时段或领域以查看早期活动。",
+    "stillOpen": "仍未解决",
+    "viewIncident": "查看事件",
+    "openResource": "打开",
+    "facts": {
+      "health": "健康状态",
+      "item": "当前项目",
+      "incident": "当前事件",
+      "heartbeat": "上次心跳",
+      "version": "播放器版本"
+    },
+    "domains": {
+      "all": "全部",
+      "playback": "播放",
+      "connectivity": "连接",
+      "reliability": "可靠性",
+      "scheduling": "计划",
+      "manifest": "清单",
+      "commands": "命令",
+      "updates": "更新",
+      "takeovers": "接管",
+      "state": "状态",
+      "incidents": "事件",
+      "admin": "管理"
+    }
+  },
+  "notifications": {
+    "failedUpdates_other": "{{count}} 次播放器更新失败",
+    "playersWaiting_other": "{{count}} 台播放器等待操作",
+    "backupRestoreFailed": "恢复失败",
+    "backupVerifyFailed": "备份验证失败",
+    "backupFailed": "备份失败",
+    "backupReview": "打开备份和恢复以查看。",
+    "takeoverFailed_other": "{{count}} 个屏幕无法切换到接管内容",
+    "takeoverActive_other": "{{count}} 个屏幕上的接管已生效",
+    "mediaFailedTitle": "媒体处理失败",
+    "mediaFailed_other": "无法处理 {{count}} 个资源",
+    "pairTitle": "等待批准的屏幕",
+    "pairDetail_other": "{{count}} 个配对请求待处理"
+  },
+  "operations": {
+    "title": "概览",
+    "statusLabel": "当前状态",
+    "loadFailed": "无法加载播放器状态",
+    "emptyTitle": "尚未配对屏幕",
+    "emptyDescription": "配对播放器以开始监控连接、播放和计划。",
+    "pairScreen": "配对屏幕",
+    "pairHint": "请所有者或管理员配对第一个屏幕。",
+    "allScreens": "所有屏幕",
+    "noLocation": "未设置位置",
+    "lastContact": "{{location}} · 上次联系 {{relative}}",
+    "relative": {
+      "never": "从未",
+      "justNow": "刚刚",
+      "minutesAgo": "{{value}} 分钟前",
+      "hoursAgo": "{{value}} 小时前",
+      "daysAgo": "{{value}} 天前"
+    },
+    "comingTitle": "即将发生",
+    "comingDescription": "已启用计划的下一次播放更改。",
+    "schedulesFailed": "无法加载计划",
+    "noUpcoming": "没有即将发生的更改。备用分配将持续到计划开始。",
+    "viewSchedules": "计划",
+    "targetsNone": "无目标",
+    "targetSingle": "1 个目标",
+    "targets_other": "{{count}} 个目标",
+    "updatesTitle": "播放器更新",
+    "updateCenter": "更新中心",
+    "updatesFailed": "无法加载更新状态",
+    "updateVersion": "播放器 {{version}} · {{status}}",
+    "updateProgress": "{{target}} 个中 {{succeeded}} 个成功",
+    "needAction_other": "{{count}} 个需要操作",
+    "upToDate": "已是最新",
+    "noDeployments": "尚无部署。已发布的播放器版本会显示在更新中心。",
+    "fleet": {
+      "label": "设备群状态",
+      "liveNote": "实时状态，每 10 秒刷新。",
+      "online": "在线",
+      "playing": "正在播放",
+      "attention": "需要处理",
+      "unavailable": "不可用",
+      "playingHint": "在用的 {{measured}} 个中",
+      "playingLink": "正在播放：在用的 {{measured}} 个屏幕中有 {{playing}} 个。打开设备群健康状态。",
+      "playingLoading": "正在加载已确认的播放",
+      "attentionLoading": "正在加载需要处理的屏幕",
+      "loading": "正在加载设备群状态",
+      "scopeNote": "在线表示实时连接。正在播放由播放器确认，且当前没有故障。"
+    },
+    "recap": {
+      "single": {
+        "online": "您的屏幕在线。",
+        "onlineAttention": "您的屏幕在线，但需要处理。",
+        "notOnline": "您的屏幕不在线。",
+        "notOnlineAttention": "您的屏幕不在线，且需要处理。",
+        "healthyPlayback": "您的屏幕在线并报告健康播放。",
+        "noHealthyPlayback": "您的屏幕在线，但未报告健康播放。"
+      },
+      "allOnlineHealthyPlayback_other": "全部 {{count}} 个屏幕在线并报告健康播放。",
+      "allOnlineNoHealthyPlayback_other": "全部 {{count}} 个屏幕在线，但没有屏幕报告健康播放。",
+      "allOnline": {
+        "plain_other": "全部 {{count}} 个屏幕在线。",
+        "attention_other": "全部 {{count}} 个屏幕在线，但$t(operations.recap.parts.attention, {\"count\": {{attention}} })。",
+        "atLeast_other": "全部 {{count}} 个屏幕在线，但$t(operations.recap.parts.atLeast, {\"count\": {{attention}} })。"
+      },
+      "mostOnline": {
+        "plain": "设备群中的大部分屏幕在线。",
+        "attention": "设备群中的大部分屏幕在线，但$t(operations.recap.parts.attentionScreens, {\"count\": {{attention}} })。",
+        "atLeast": "设备群中的大部分屏幕在线，但$t(operations.recap.parts.atLeastScreens, {\"count\": {{attention}} })。"
+      },
+      "someOnline": {
+        "plain_other": "$t(operations.recap.parts.screens, {\"count\": {{total}} })中有 {{count}} 个在线。",
+        "attention_other": "$t(operations.recap.parts.screens, {\"count\": {{total}} })中有 {{count}} 个在线，且$t(operations.recap.parts.attention, {\"count\": {{attention}} })。",
+        "atLeast_other": "$t(operations.recap.parts.screens, {\"count\": {{total}} })中有 {{count}} 个在线，且$t(operations.recap.parts.atLeast, {\"count\": {{attention}} })。"
+      },
+      "fewOnline": {
+        "plain_other": "$t(operations.recap.parts.screens, {\"count\": {{total}} })中只有 {{count}} 个在线。",
+        "attention_other": "$t(operations.recap.parts.screens, {\"count\": {{total}} })中只有 {{count}} 个在线，且$t(operations.recap.parts.attention, {\"count\": {{attention}} })。",
+        "atLeast_other": "$t(operations.recap.parts.screens, {\"count\": {{total}} })中只有 {{count}} 个在线，且$t(operations.recap.parts.atLeast, {\"count\": {{attention}} })。"
+      },
+      "noneOnline": {
+        "plain": "没有屏幕在线。",
+        "attention": "没有屏幕在线，且$t(operations.recap.parts.attention, {\"count\": {{attention}} })。",
+        "atLeast": "没有屏幕在线，且$t(operations.recap.parts.atLeast, {\"count\": {{attention}} })。"
+      },
+      "parts": {
+        "attention_other": "{{count}} 个需要处理",
+        "attentionScreens_other": "{{count}} 个屏幕需要处理",
+        "atLeast_other": "至少 {{count}} 个需要处理",
+        "atLeastScreens_other": "至少 {{count}} 个屏幕需要处理",
+        "screens_other": "{{count}} 个屏幕"
+      }
+    },
+    "attention": {
+      "title": "需要处理",
+      "loading": "正在加载需处理列表",
+      "description": "最紧急的排在前面。",
+      "more_other": "另有 {{count}} 个屏幕需要处理。",
+      "incidentsUnavailable": "无法加载事件详情，因此播放、存储和安全模式问题可能未列出。",
+      "viewAll": "查看全部"
+    },
+    "reasons": {
+      "updateFailed": "播放器更新失败",
+      "incident": {
+        "connectivity": "连接事件",
+        "playback": "播放问题",
+        "storage": "存储问题",
+        "safe_mode": "安全模式",
+        "update": "更新事件",
+        "other": "活动事件"
+      }
+    },
+    "onAir": {
+      "title": "正在播出",
+      "description": "在线屏幕设置显示的内容。",
+      "loading": "正在加载屏幕",
+      "noneOnline": "没有屏幕在线。",
+      "noneAssigned": "在线屏幕未分配内容。",
+      "screenCount_other": "{{count}} 个屏幕",
+      "moreGroups_other": "另有 {{count}} 个",
+      "footer": "{{assigned}} 个已分配 · {{unassigned}} 个未分配"
+    },
+    "schedulesLoading": "正在加载计划",
+    "upcomingStartsAt": "开始于 {{time}}",
+    "upcomingEndsAt": "结束于 {{time}}",
+    "upcomingDetail": "{{content}} · {{targets}}",
+    "upcomingPartial": "基于 {{total}} 个计划中的前 {{shown}} 个。",
+    "updatesLoading": "正在加载播放器更新",
+    "updateStatuses": {
+      "pending": "待处理",
+      "active": "运行中",
+      "paused": "已暂停",
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "unknown": "未知状态"
+    },
+    "updateFailedCount": "失败：{{value}}",
+    "updateWaitingCount": "等待用户：{{value}}",
+    "content": {
+      "title": "内容健康状态",
+      "details": "详情",
+      "loading": "正在加载内容健康状态",
+      "failed": "无法加载内容健康状态",
+      "healthy": "没有需要处理的问题。",
+      "emptyPlaylists": "没有可播放内容的播放列表",
+      "affecting": "影响 {{screens}}",
+      "staleSources": "未刷新的数据源",
+      "staleDetail": "{{hours}} 内未刷新",
+      "expiringAssets": "即将到期的媒体",
+      "expiringDetail": "将在未来 {{days}} 内到期",
+      "expiringInUse": "在播放列表中：{{value}}",
+      "unassignedScreens": "未分配内容的屏幕",
+      "unassignedDetail": "正在显示无内容消息"
+    },
+    "lastDay": {
+      "title": "过去 24 小时",
+      "description": "测量过去 24 小时，而非当前状态。",
+      "openActivity": "活动记录",
+      "unavailable": "不可用",
+      "failed": "无法加载。",
+      "loading": "正在加载",
+      "complianceNone": "没有预期的可测量内容。",
+      "noPlayback": "过去 24 小时没有确认任何播放。",
+      "failuresHint": "播放失败的次数",
+      "nothingMeasured": "过去 24 小时没有预期或确认的播放，因此没有可测量的内容。"
+    }
+  },
+  "shared": {
+    "loadFailed": "无法加载活动数据。",
+    "noData": "无数据",
+    "none": "无",
+    "loadingActivity": "正在加载活动记录",
+    "viewDetails": "查看",
+    "detailsUnavailable": "详情不可用",
+    "paginationLabel": "活动记录页面",
+    "refreshHint": "请刷新页面或检查 Tilecast 服务器连接。",
+    "unnamedPresentation": "演示内容",
+    "rootPresentation": "根演示内容",
+    "clearFilters": "清除筛选条件"
+  },
+  "page": {
+    "title": "活动记录",
+    "subtitle": "运营报告、播放器确认的播放证明、屏幕技术事件和管理员历史。",
+    "exportCsv": "导出 CSV",
+    "exportTitle": "导出当前日期范围和筛选条件",
+    "tabsLabel": "活动报告",
+    "tabs": {
+      "overview": "概览",
+      "proof": "播放证明",
+      "incidents": "事件",
+      "contentHealth": "内容健康状态",
+      "events": "屏幕事件",
+      "audit": "审计日志"
+    },
+    "filtersForTab": "{{tab}} 筛选条件",
+    "moreFilters": "更多筛选条件",
+    "advancedFilters": "高级筛选",
+    "advancedFiltersActive": "高级筛选，{{active}} 个生效",
+    "advancedHint": "按准确资源 ID 筛选。",
+    "clear": "清除",
+    "resourceId": "{{label}} ID",
+    "filters": {
+      "searchActivity": "搜索活动记录",
+      "searchProof": "搜索播放证明…",
+      "searchEvents": "搜索屏幕事件…",
+      "searchAudit": "搜索审计日志…",
+      "searchIncidents": "搜索事件",
+      "searchIncidentsPlaceholder": "搜索事件…",
+      "screen": "屏幕",
+      "allScreens": "所有屏幕",
+      "group": "组",
+      "allGroups": "所有组",
+      "result": "结果",
+      "allResults": "所有结果",
+      "sessionType": "会话类型",
+      "allSessionTypes": "所有会话类型",
+      "endedBecause": "结束原因",
+      "anyReason": "任意原因",
+      "status": "状态",
+      "activeStatus": "活动",
+      "severity": "严重程度",
+      "allSeverities": "所有严重程度",
+      "category": "类别",
+      "allCategories": "所有类别",
+      "location": "位置",
+      "allLocations": "所有位置",
+      "assignedTo": "分配给",
+      "anyone": "任何人",
+      "failureCode": "失败代码",
+      "dateBasis": "日期依据",
+      "ignoreRange": "忽略日期范围",
+      "actor": "操作者",
+      "allActors": "所有操作者",
+      "action": "操作",
+      "resourceType": "资源类型",
+      "results": {
+        "playing": "正在播放",
+        "completed": "已完成",
+        "partial": "部分完成",
+        "skipped": "已跳过",
+        "failed": "失败",
+        "unknown": "未知",
+        "recovered": "已恢复"
+      },
+      "auditResults": {
+        "success": "成功",
+        "failure": "失败",
+        "denied": "已拒绝",
+        "partial": "部分完成"
+      },
+      "sessionTypes": {
+        "presentation": "演示内容",
+        "content": "内容",
+        "layout_placement": "布局位置",
+        "playlist_item": "播放列表项目"
+      },
+      "terminalReasons": {
+        "unexpected": "意外结束",
+        "expected_item_boundary": "预期项目边界",
+        "completed_duration": "时长已完成",
+        "schedule_transition": "计划切换",
+        "manifest_replacement": "清单替换",
+        "direct_assignment_change": "直接分配更改",
+        "takeover": "接管",
+        "player_restart": "播放器重启",
+        "process_exit": "进程退出",
+        "heartbeat_gap": "心跳中断",
+        "renderer_failure": "渲染器故障",
+        "decoder_failure": "解码器故障",
+        "manual_skip": "手动跳过",
+        "recovery_action": "恢复操作",
+        "bounded_timeout": "限定超时",
+        "unknown": "未知"
+      },
+      "incidentStatuses": {
+        "open": "未解决",
+        "acknowledged": "已确认",
+        "recovered": "已恢复",
+        "resolved": "已解决",
+        "ignored": "已忽略"
+      },
+      "severities": {
+        "info": "信息",
+        "warning": "警告",
+        "error": "错误",
+        "critical": "严重"
+      },
+      "incidentTypes": {
+        "connectivity": "连接",
+        "playback": "播放",
+        "storage": "存储",
+        "safe_mode": "安全模式",
+        "update": "更新",
+        "data_source": "数据源",
+        "content": "内容"
+      },
+      "categories": {
+        "connectivity": "连接",
+        "manifest": "清单",
+        "playback": "播放",
+        "scheduling": "计划",
+        "commands": "命令",
+        "reliability": "可靠性",
+        "updates": "更新",
+        "takeovers": "接管"
+      },
+      "dateBases": {
+        "opened": "开启",
+        "recovered": "恢复",
+        "resolved": "解决"
+      },
+      "advanced": {
+        "media": "媒体",
+        "widget": "小组件",
+        "playlist": "播放列表",
+        "layout": "布局",
+        "schedule": "计划",
+        "takeover": "接管"
+      }
+    }
+  },
+  "metricTile": {
+    "unchangedFrom": "与 {{comparison}} 相比无变化",
+    "deltaUp": "比 {{comparison}} 上升 {{change}}",
+    "deltaDown": "比 {{comparison}} 下降 {{change}}"
+  },
+  "overview": {
+    "fleetLabel": "设备群健康状态",
+    "fleetTitle": "设备群健康状态",
+    "fleetDescription": "{{measured}} 个已启用、已配对屏幕的当前状态。健康的屏幕正在报告并播放分配的内容。",
+    "fleetStates": {
+      "online": {
+        "label": "在线",
+        "hint": "在心跳宽限期内报告"
+      },
+      "healthy": {
+        "label": "健康",
+        "hint": "已确认播放，当前无故障"
+      },
+      "impaired": {
+        "label": "受损",
+        "hint": "正在报告，但播放或播放器有故障"
+      },
+      "offline": {
+        "label": "离线",
+        "hint": "应报告但未报告"
+      },
+      "unmeasured": {
+        "label": "未测量",
+        "hint": "尚无足够证据分类"
+      }
+    },
+    "uptimeDescription": "固定时间窗口内的播放器连接和播放时间。",
+    "metrics": {
+      "confirmedPlayback": "已确认的屏幕播放",
+      "confirmedPlaybackHint": "实际时间；重叠区域已合并",
+      "contentExposure": "内容展示时间",
+      "contentExposureHint": "合计同时播放的内容时间",
+      "playbackFailures": "播放失败",
+      "interruptedPlays": "中断的播放",
+      "interruptedPlaysHint": "意外结束，而非因计划更改结束",
+      "takeoverActivations": "接管启动次数",
+      "reportingGaps": "报告存在间断的屏幕",
+      "failedUpdates": "播放器更新失败",
+      "adminChanges": "管理更改"
+    },
+    "duringRange": "{{range}} 期间",
+    "activityTotals": "活动总计",
+    "timelineTitle": "重要事件时间线",
+    "timelineDescription": "重要播放、恢复、接管和管理事件。",
+    "timelineFilter": "按领域筛选时间线",
+    "all": "全部",
+    "emptyTimeline": "此范围内没有发生重要事件。",
+    "emptyTimelineTitle": "没有活动"
+  },
+  "uptime": {
+    "windows": {
+      "24h": "24 小时",
+      "7d": "7 天",
+      "30d": "30 天"
+    },
+    "states": {
+      "up": "正常",
+      "impaired": "受损",
+      "down": "中断",
+      "unknown": "无数据"
+    },
+    "title": "设备群健康状态",
+    "defaultDescription": "测量的播放器连接并播放的时间。",
+    "windowLabel": "运行时间窗口",
+    "loading": "正在加载设备群健康状态",
+    "loadFailed": "无法加载运行时间",
+    "emptyState": "没有可测量的屏幕。<pairLink>配对屏幕</pairLink>以开始记录状态。",
+    "noStateTitle": "尚未记录播放器状态",
+    "noStateHint": "已配对播放器报告此窗口内的连接和播放状态后，将显示运行时间。",
+    "upNow": "正常 · {{window}}",
+    "downLabel": "中断",
+    "impairedLabel": "受损",
+    "downtimeLabel": "存在停机时间的屏幕",
+    "downtimeValue": "{{tracked}} 个中的 {{down}} 个",
+    "noChart": "尚无足够的区间数据绘制图表。以上数字反映已报告的状态。",
+    "perScreenTitle": "按屏幕",
+    "screens_other": "{{count}} 个屏幕",
+    "noDowntime": "无停机屏幕",
+    "withDowntime_other": "{{count}} 个有停机时间",
+    "unmeasured_other": "{{count}} 个尚未测量",
+    "showingLowest": "显示 {{count}} 个屏幕中最低的 {{shown}} 个。",
+    "rowDown": "{{value}} 中断",
+    "rowImpaired": "{{value}} 受损",
+    "notReporting": "尚未报告",
+    "noInterruptions": "无中断",
+    "rowTitle": "{{state}} · {{range}}",
+    "rowAria": "{{name}}：{{percent}} 正常",
+    "rowAriaDown": "{{name}}：{{percent}} 正常，{{down}} 中断",
+    "trendNone": "没有可比较的先前窗口",
+    "trendFlat": "与上一窗口相比无变化",
+    "trendDelta": "相比上一窗口 {{delta}} 个百分点",
+    "chartScreens_other": "{{count}} 个屏幕",
+    "chartDescription": "{{window}}：{{screens}} 中 {{percent}} 正常，{{down}} 中断；{{totalBuckets}} 个区间中有 {{downtimeBuckets}} 个存在停机时间。"
+  },
+  "compliance": {
+    "label": "播放符合率",
+    "title": "预期与实际播放",
+    "description": "在 {{range}} 内按当时的预期而非当前配置测量。接管和故意停止的时间从百分比中排除并单独显示。",
+    "breakdownBy": "细分依据",
+    "dimensions": {
+      "screen": "屏幕",
+      "location": "位置",
+      "group": "组",
+      "presentation": "演示内容",
+      "schedule": "计划",
+      "date": "日期",
+      "reason": "失败原因"
+    },
+    "tiles": {
+      "compliance": "播放符合率",
+      "complianceHint": "已确认时间占可测量预期时间的比例",
+      "expected": "预期屏幕分钟数",
+      "windows_other": "{{display}} 个窗口",
+      "confirmed": "已确认屏幕分钟数",
+      "confirmedHint": "播放器确认的根播放",
+      "missed": "未达到的屏幕分钟数",
+      "missedHint": "预期但未确认",
+      "lateStarts": "延迟开始",
+      "endedEarly_other": "{{display}} 个提前结束",
+      "neverStarted": "从未开始",
+      "whileOffline_other": "{{display}} 个发生于离线期间"
+    },
+    "excludedTitle": "从百分比中排除",
+    "takeoverExcluded": "接管覆盖了正常播放",
+    "cancelledExcluded": "播放被故意停止",
+    "notMeasurable": "时间过短，无法测量",
+    "empty": "此范围内未记录预期播放。",
+    "table": {
+      "compliance": "符合率",
+      "expected": "预期",
+      "confirmed": "已确认",
+      "missed": "未达到",
+      "mainReason": "主要原因"
+    },
+    "emptyTitle": "没有预期播放"
+  }
+}

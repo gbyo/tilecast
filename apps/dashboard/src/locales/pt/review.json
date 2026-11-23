@@ -1,0 +1,149 @@
+{
+  "contentReview": {
+    "title": "Revisão de conteúdo",
+    "description": "Uma lista de reprodução ou layout deve ser aprovado em sua revisão atual antes de poder ser exibido na tela. A edição do conteúdo aprovado o envia de volta para cá.",
+    "openInbox": "Abrir caixa de entrada de envio",
+    "notRequiredNotice": "A aprovação não é necessária nesta instalação, portanto nada aqui bloqueia a atribuição. Um proprietário ou administrador pode ativá-lo em <settingsLink>Configurações, Revisão de conteúdo</settingsLink>.",
+    "filterLabel": "Rever estado",
+    "filterAll": "Todos",
+    "loading": "Carregando a fila de revisão",
+    "emptyPending": "Nada está esperando para revisão",
+    "emptyOther": "Nada para mostrar",
+    "table": {
+      "content": "Conteúdo",
+      "state": "Estado",
+      "screens": "Nas telas",
+      "reviewAction": "Revisão"
+    },
+    "state": {
+      "pending": "Aguardando revisão",
+      "approved": "Aprovado",
+      "rejected": "Enviado de volta"
+    },
+    "contentType": {
+      "playlist": "Lista de reprodução",
+      "layout": "Disposição"
+    },
+    "contentTypeName": {
+      "playlist": "lista de reprodução",
+      "layout": "layout"
+    },
+    "itemMeta": "{{type}} · revisão {{revision}} · atualizado {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · revisão {{revision}} · {{author}} · atualizado {{updatedAt}}",
+    "assignedScreens_one": "Já na tela {{count}}",
+    "assignedScreens_other": "Já nas telas {{count}}",
+    "sheet": {
+      "lastNote": "Última nota: {{note}}",
+      "openContent": "Abra {{type}}"
+    },
+    "actions": {
+      "approve": "Aprovar",
+      "sendBack": "Enviar de volta"
+    },
+    "rejectDialog": {
+      "title": "Enviar de volta para alterações",
+      "description": "Uma nota opcional informa ao autor o que corrigir.",
+      "noteLabel": "Nota",
+      "notePlaceholder": "O que deve mudar antes que isso possa ser aprovado?",
+      "noteHint": "Gravado com a decisão e mostrado ao autor."
+    },
+    "toast": {
+      "approved": "Conteúdo aprovado.",
+      "sentBack": "Conteúdo enviado de volta.",
+      "decisionFailed": "Não foi possível registrar a decisão."
+    },
+    "assignedScreens_many": "Já nas telas {{count}}"
+  },
+  "submissions": {
+    "title": "Revisão de conteúdo",
+    "description": "Cada envio congela o rascunho exato que o revisor viu. A publicação cria uma nova revisão de tempo de execução imutável; as edições posteriores permanecem privadas até serem enviadas novamente.",
+    "openLegacyQueue": "Abrir fila de revisão herdada",
+    "policyNotice": "Política: <strong>{{policy}}</strong>. A autoaprovação é {{selfApproval}}; submissões aprovadas {{behavior}}.",
+    "policy": {
+      "selfApprovalAllowed": "permitido",
+      "selfApprovalDisabled": "desativado",
+      "behaviorAuto": "publicar automaticamente",
+      "behaviorManual": "aguarde uma ação explícita de publicação ou agendamento"
+    },
+    "filterLabel": "Estado de envio",
+    "filters": {
+      "needsReview": "Precisa de revisão",
+      "changesRequested": "Alterações solicitadas",
+      "approved": "Aprovado",
+      "scheduled": "Agendado",
+      "publicationFailed": "Falha na publicação",
+      "published": "Publicado",
+      "allHistory": "Toda a história"
+    },
+    "status": {
+      "inReview": "Precisa de revisão",
+      "changesRequested": "Alterações solicitadas",
+      "approved": "Aprovado",
+      "scheduled": "Agendado",
+      "published": "Publicado",
+      "superseded": "Substituído",
+      "cancelled": "Cancelado",
+      "publicationFailed": "Falha na publicação"
+    },
+    "table": {
+      "submission": "Envio",
+      "status": "Estado",
+      "impact": "Impacto",
+      "reviewAction": "Revisão"
+    },
+    "loading": "Carregando envios…",
+    "loadErrorTitle": "Não foi possível carregar os envios",
+    "loadErrorDescription": "Se o problema persistir, tente recarregar a página.",
+    "emptyTitle": "Nenhum envio corresponde a esta visualização",
+    "emptyDescription": "Os envios aparecem aqui assim que o conteúdo é enviado para revisão.",
+    "itemMeta": "Rascunho da revisão {{revision}} · enviado {{submittedAt}}",
+    "itemMetaWithSubmitter": "Rascunho da revisão {{revision}} · enviado {{submittedAt}} por {{submitter}}",
+    "itemImpact": "Revisão publicada {{published}} · Telas {{screens}} em locais {{locations}}",
+    "detail": {
+      "status": "Estado",
+      "publishedRevision": "Revisão publicada",
+      "impact": "Impacto",
+      "snapshotHash": "Instantâneo SHA-256",
+      "noRevision": "nenhum",
+      "coverage": "Telas {{screens}} em locais {{locations}}",
+      "newerDraft": "Existe um rascunho privado mais recente.",
+      "reviewNote": "Nota de revisão: {{note}}",
+      "viewSnapshot": "Ver instantâneo exato enviado",
+      "cancelSchedule": "Cancelar agendamento",
+      "openContent": "Conteúdo aberto"
+    },
+    "reviewForm": {
+      "noteLabel": "Nota de revisão",
+      "notePlaceholder": "Nota opcional registrada com aprovação",
+      "approve": "Aprovar",
+      "requestChanges": "Solicitar alterações"
+    },
+    "rejectDialog": {
+      "title": "Solicitar alterações",
+      "description": "É necessário um motivo para que o autor saiba o que corrigir.",
+      "reasonLabel": "Motivo do envio de volta",
+      "reasonPlaceholder": "O que deve mudar antes que isso possa ser aprovado?",
+      "reasonHint": "Gravado com a decisão e mostrado ao autor.",
+      "confirm": "Enviar de volta"
+    },
+    "publish": {
+      "publishNow": "Publique agora",
+      "publishAtLabel": "Publicar em",
+      "publishAtTimeLabel": "Tempo de publicação",
+      "publishAtHint": "Agende a publicação para uma data e hora futuras.",
+      "schedule": "Cronograma"
+    },
+    "toast": {
+      "approved": "Envio aprovado.",
+      "changesRequested": "Alterações solicitadas.",
+      "published": "Envio publicado.",
+      "scheduled": "Publicação agendada.",
+      "scheduleCancelled": "Agenda cancelada.",
+      "approveFailed": "Não foi possível aprovar.",
+      "requestChangesFailed": "Não foi possível solicitar alterações.",
+      "publishFailed": "Não foi possível publicar.",
+      "scheduleFailed": "Não foi possível agendar.",
+      "cancelScheduleFailed": "Não foi possível cancelar o agendamento."
+    }
+  }
+}
