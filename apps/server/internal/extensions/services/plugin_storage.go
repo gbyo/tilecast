@@ -81,6 +81,7 @@ func (d *Dispatcher) CallBundled(ctx context.Context, call plugins.BundledCall) 
 	data, denial, failure := d.Call(ctx, Call{
 		PluginID: call.PluginID, Context: call.Context, Actor: actor,
 		Grants: call.Grants, Operation: call.Operation, Input: call.Input,
+		DenyNetwork: call.Restrictions.DenyNetwork,
 	})
 	if denial != nil {
 		return nil, &plugin.ServiceDenial{Kind: denial.Kind, Message: denial.Message}

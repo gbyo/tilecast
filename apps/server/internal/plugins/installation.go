@@ -266,6 +266,9 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 		if err = plugindelivery.RemovePlugin(ctx, tx, id); err != nil {
 			return err
 		}
+		if err = removeWebhookState(ctx, tx, id); err != nil {
+			return err
+		}
 		if err = auditInstallation(ctx, tx, "plugin.removed", Definition{ID: id}, userID); err != nil {
 			return err
 		}
@@ -290,8 +293,12 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 	if _, err = tx.Exec(ctx, `DELETE FROM plugin_installations WHERE plugin_id=$1`, id); err != nil {
 		return err
 	}
-	// Queued work of a removed plugin never runs: removal deletes it.
+	// Queued work of a removed plugin never runs: removal deletes it,
+	// with the plugin's webhook tokens and replay receipts.
 	if err = plugindelivery.RemovePlugin(ctx, tx, id); err != nil {
+		return err
+	}
+	if err = removeWebhookState(ctx, tx, id); err != nil {
 		return err
 	}
 	if err = auditInstallation(ctx, tx, "plugin.removed", definition, userID); err != nil {

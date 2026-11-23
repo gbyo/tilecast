@@ -67,6 +67,9 @@ func (s *Service) maintain(ctx context.Context, retention bool) {
 	if _, err := s.CollectFeedAssets(ctx); err != nil && ctx.Err() == nil {
 		s.logger.Warn("plugin feed image collection failed", "error", err)
 	}
+	if _, err := s.SweepWebhooks(ctx); err != nil && ctx.Err() == nil {
+		s.logger.Warn("plugin webhook sweep failed", "error", err)
+	}
 	if retention {
 		if _, err := s.PurgePersonalData(ctx); err != nil && ctx.Err() == nil {
 			s.logger.Warn("plugin personal data retention pass failed", "error", err)

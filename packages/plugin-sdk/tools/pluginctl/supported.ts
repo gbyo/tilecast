@@ -233,6 +233,10 @@ function checkResponses(
   const allowsRedirect =
     method === "get" &&
     path === "/api/v1/plugins/{pluginId}/connections/{connectionId}/callback";
+  // An inbound plugin webhook acknowledges a stored request with an empty
+  // 202, the answer providers such as Microsoft Graph expect.
+  const allowsEmptyAcknowledgement =
+    method === "post" && path === "/api/v1/hooks/{pluginId}/{webhookId}";
   const success = responses.items.find((pair) => {
     const code = scalar(pair.key);
     return (
@@ -258,6 +262,7 @@ function checkResponses(
     const code = scalar(pair.key);
     if (code === null || !code.startsWith("2") || code === "204") continue;
     if (method === "head") continue;
+    if (allowsEmptyAcknowledgement && code === "202") continue;
     if (!isMap(pair.value)) {
       problems.push({
         file: COMPOSED_OPENAPI,

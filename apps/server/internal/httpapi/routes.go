@@ -137,6 +137,11 @@ func (s *server) routes() chi.Router {
 		// Studio page (see plugin_connections.go).
 		api.Get("/plugins/{pluginId}/connections/{connectionId}/callback", s.pluginConnectionOAuthCallback)
 
+		// Inbound plugin webhooks: no session and no CSRF token. The plugin
+		// host authenticates each request as the webhook declares (see
+		// plugin_webhooks.go). Other methods answer 405.
+		api.Post("/hooks/{pluginId}/{webhookId}", s.receivePluginWebhook)
+
 		api.Group(func(dashboard chi.Router) {
 			// Every dashboard route is registered through the guarded
 			// router, which applies the route's declared object rule (see
@@ -203,6 +208,9 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugins/{pluginId}/feeds/{datasetId}/records", s.listPluginFeedRecords)
 			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Put("/plugins/{pluginId}/feeds/{datasetId}/overrides", s.setPluginFeedOverride)
 			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugins/{pluginId}/status", s.getPluginStatus)
+			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugins/{pluginId}/webhooks", s.listPluginWebhooks)
+			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Post("/plugins/{pluginId}/webhooks/{webhookId}/tokens", s.createPluginWebhookToken)
+			dashboard.With(s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin")).Delete("/plugins/{pluginId}/webhooks/{webhookId}/tokens/{tokenId}", s.revokePluginWebhookToken)
 			dashboard.With(s.requireCapability(auth.CapPluginDeliveriesManage), s.requireCSRF, s.requireScope("admin")).Post("/plugins/{pluginId}/deliveries/{deliveryId}/retry", s.retryPluginDelivery)
 			dashboard.With(s.requireCapability(auth.CapPluginDeliveriesManage), s.requireCSRF, s.requireScope("admin")).Delete("/plugins/{pluginId}/deliveries/{deliveryId}", s.discardPluginDelivery)
 			dashboard.With(s.requireCapability(auth.CapPluginsUse), s.requireScope("read")).Get("/plugin-store", s.listPluginStore)

@@ -862,5 +862,11 @@
     "file": "00145_core_events.sql",
     "owner": "core",
     "sha256": "7092b1d99e61d57ef78d589de03641845a769bb1bf1266a0ecf8bcdd12f13399"
+  },
+  {
+    "version": 146,
+    "file": "00146_plugin_webhooks.sql",
+    "owner": "core",
+    "sha256": "9fa05b98b387ec5ba0850bfcf0906f50bb80fe17bb66e473a96ca44748f662a4"
   }
 ]

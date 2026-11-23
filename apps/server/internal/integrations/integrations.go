@@ -9,11 +9,6 @@ package integrations
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/credential"
 )
 
 // Scopes a token may carry.
@@ -144,7 +140,7 @@ func (s *Service) Create(ctx context.Context, user uuid.UUID, name string, scope
 	if err != nil {
 		return Token{}, "", err
 	}
-	hash := sha256.Sum256([]byte(secret))
+	hash := credential.Digest(secret)
 
 	var org uuid.UUID
 	if err := s.db.QueryRow(ctx, `SELECT id FROM organization_settings`).Scan(&org); err != nil {
@@ -155,7 +151,7 @@ func (s *Service) Create(ctx context.Context, user uuid.UUID, name string, scope
 		INSERT INTO integration_tokens(
 			id,organization_id,name,public_id,secret_hash,scopes,data_source_ids,created_by,expires_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		id, org, name, publicID, hash[:], normalized, dataSourceIDs, user, expiresAt); err != nil {
+		id, org, name, publicID, hash, normalized, dataSourceIDs, user, expiresAt); err != nil {
 		return Token{}, "", err
 	}
 	token, err := s.get(ctx, id)
@@ -164,7 +160,7 @@ func (s *Service) Create(ctx context.Context, user uuid.UUID, name string, scope
 	}
 	// The full token is returned here and nowhere else. There is no endpoint
 	// that reads it back, and it is never logged.
-	return token, TokenPrefix + publicID + "." + secret, nil
+	return token, credential.Format(TokenPrefix, publicID, secret), nil
 }
 
 // List returns the tokens, newest first, without secrets.
@@ -234,8 +230,7 @@ func (s *Service) Authenticate(ctx context.Context, header string) (Principal, e
 		return Principal{}, err
 	}
 
-	presented := sha256.Sum256([]byte(secret))
-	if subtle.ConstantTimeCompare(presented[:], storedHash) != 1 {
+	if !credential.Matches(secret, storedHash) {
 		return Principal{}, ErrUnauthenticated
 	}
 	if revokedAt != nil || (expiresAt != nil && !expiresAt.After(time.Now())) {
@@ -259,19 +254,7 @@ func (s *Service) Authenticate(ctx context.Context, header string) (Principal, e
 // parseAuthorization splits an Authorization header into the public id and the
 // secret. It does no lookup, so a malformed header costs nothing.
 func parseAuthorization(header string) (string, string, bool) {
-	value := strings.TrimSpace(header)
-	if !strings.HasPrefix(value, "Bearer ") {
-		return "", "", false
-	}
-	raw := strings.TrimSpace(strings.TrimPrefix(value, "Bearer "))
-	if !strings.HasPrefix(raw, TokenPrefix) {
-		return "", "", false
-	}
-	publicID, secret, found := strings.Cut(strings.TrimPrefix(raw, TokenPrefix), ".")
-	if !found || publicID == "" || secret == "" {
-		return "", "", false
-	}
-	return publicID, secret, true
+	return credential.ParseBearer(header, TokenPrefix)
 }
 
 func (s *Service) get(ctx context.Context, id uuid.UUID) (Token, error) {
@@ -298,17 +281,7 @@ func scanToken(rows pgx.Rows) (Token, error) {
 }
 
 // newCredential generates the public id and the secret.
-func newCredential() (string, string, error) {
-	publicBytes := make([]byte, 12)
-	if _, err := rand.Read(publicBytes); err != nil {
-		return "", "", err
-	}
-	secretBytes := make([]byte, 32)
-	if _, err := rand.Read(secretBytes); err != nil {
-		return "", "", err
-	}
-	return hex.EncodeToString(publicBytes), base64.RawURLEncoding.EncodeToString(secretBytes), nil
-}
+func newCredential() (string, string, error) { return credential.New() }
 
 func normalizeScopes(scopes []string) ([]string, error) {
 	if len(scopes) == 0 {

@@ -49,7 +49,11 @@ type Operation struct {
 	Title             string
 	Description       string
 	Mutating          bool
-	Contexts          []string
+	// Network marks an operation that reaches a destination outside the
+	// Server. A restricted invocation, such as a webhook verify hook, is
+	// refused every network operation.
+	Network  bool
+	Contexts []string
 	// Limits bounds the encoded input and the encoded answer of one call.
 	// Zero members use the default transport bounds. An operation asks for
 	// more only when its domain needs it, and only bundled-only operations
@@ -351,7 +355,7 @@ var capabilities = []Capability{
 		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
 		Callers:     []string{CallerBundled},
 		Operations: []Operation{
-			{Name: "http.fetch@1/request", CapabilityID: "http.fetch", CapabilityVersion: 1, Title: "Send request", Description: "Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+			{Name: "http.fetch@1/request", CapabilityID: "http.fetch", CapabilityVersion: 1, Title: "Send request", Description: "Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time.", Mutating: true, Network: true, Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
 				Limits: TransportLimits{MaxInputBytes: HTTPFetchMaxInputBytes, MaxOutputBytes: HTTPFetchMaxOutputBytes}},
 		},
 	},
