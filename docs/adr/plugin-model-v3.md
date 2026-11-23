@@ -17,13 +17,25 @@ instances, because a timer callback carries only its key and payload. See [plugi
 [plugin feeds](../plugin-feeds.md). The
 OAuth callback hands the provider's answer to Studio, which completes the
 attempt with the session, because the Studio session cookie is
-`SameSite=Strict`. Phase 3 is in progress: the shared delivery engine of
-section 9 is implemented, and durable timers use it. See
-[plugin delivery](../plugin-delivery.md). An Owner retries or discards a
-parked delivery with the Owner-reserved capability
-`plugins.deliveries.manage`. A retried delivery goes to the end of its
-subject's queue. Removal deletes the queue of the plugin, timers included.
-The other phase 3 members and later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
+`SameSite=Strict`. Phase 3 is in progress:
+
+- Phase 3A is implemented: the shared delivery engine of section 9, and
+  durable timers on it. See [plugin delivery](../plugin-delivery.md). An
+  Owner retries or discards a parked delivery with the Owner-reserved
+  capability `plugins.deliveries.manage`. A retried delivery goes to the end
+  of its subject's queue. Removal deletes the queue of the plugin, timers
+  included.
+- Phase 3B is implemented for bundled plugins: core and plugin events,
+  `events.publish@1`, `HandleEvent`, the persisted screen connectivity state,
+  schema fingerprints for plugin event versions, and the event sections of
+  the Status page and the install review. See
+  [plugin events](../plugin-events.md). `events.publish@1` opens its own host
+  transaction. It does not share a transaction with the other writes of the
+  plugin. The `handle_event` export of an installed plugin stays in phase 6.
+- Webhooks (phase 3C), notification channels and Content Health providers
+  (phase 3D), and the phase 3 proof plugins (phase 3E) are not implemented.
+
+Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
 [External package service capabilities](../package-services.md), and
 [External Player plugins](../external-player-plugins.md).

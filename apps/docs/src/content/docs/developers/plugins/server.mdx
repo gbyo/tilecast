@@ -131,3 +131,25 @@ if errors.Is(err, plugin.ErrFeedConflict) {
 
 Use stable record IDs from the provider. A publication holds at most 2,000 records and 512 KiB. Tilecast fetches images after the publication commits; you never download image bytes yourself.
 
+## Publish and receive events (Plugin Manifest API 3)
+
+Declare the events you publish and the events you receive in the manifest's `events` member, and add `events.publish@1` to `services` if you publish. Each published event has a name, a version, a title, and payload fields from the configuration schema (scalar controls only, never a secret or personal field).
+
+```go
+occurrence, err := p.services.PublishEvent(ctx, "period_started@1", "room-12",
+	map[string]any{"period": "3", "minutes": 50})
+```
+
+Tilecast adds your plugin ID, so other plugins subscribe to `plugin.<your plugin id>.period_started@1`. The payload must match the declared fields and be at most 4 KiB. The subject (up to 128 bytes) names the thing whose events must stay in order, such as a room.
+
+`PublishEvent` runs in its own transaction, separate from your `storage.kv@1` or feed writes. Save your own state first and publish after it succeeds.
+
+To receive events, list them in `events.subscribes` (core events such as `takeover.started@1`, or another plugin's full event names) and implement:
+
+```go
+func (p *Plugin) HandleEvent(ctx context.Context, event plugin.Event) error
+```
+
+Tilecast calls it **at least once** for each delivery, in order for each subject, with no signed-in person, for at most 30 seconds. The same `DeliveryID` can arrive again, so make the handler safe to repeat; `OccurrenceID` is the same for every subscriber of one event. Returning an error retries the delivery like a timer.
+
+Never change an event's payload under the same version: add a new version instead. Tilecast records each version's payload shape the first time it's published and refuses to publish a version whose fields, types, or limits changed. Changing labels or descriptions is fine. See [Plugin events](https://github.com/gbyo/tilecast/blob/main/docs/plugin-events.md) for the full contract.

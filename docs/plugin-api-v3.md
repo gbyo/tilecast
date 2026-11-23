@@ -321,6 +321,16 @@ operator overrides by policy, imports remote images as private plugin
 assets, and reports late feeds in Content Health. See
 [Plugin feeds](plugin-feeds.md).
 
+## Events
+
+A plugin declares the events it publishes and the events it receives in
+`events`. It publishes with `events.publish@1`, and the host queues one
+delivery for each installed subscriber. A subscriber implements
+`HandleEvent(ctx, plugin.Event) error`; the host calls it at least once, in
+order for each subject. Core events come from a closed vocabulary. A plugin
+event has the full name `plugin.<plugin id>.<name>@<version>`, and its payload
+contract never changes under a version. See [Plugin events](plugin-events.md).
+
 ## Personal data
 
 A field of the plugin profile can carry `personal: { retentionDays }`, from 1 to

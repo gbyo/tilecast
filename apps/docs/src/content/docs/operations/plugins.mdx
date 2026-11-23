@@ -171,6 +171,28 @@ few minutes, has a **Status** page. Open the plugin and select **Status**.
 
 Removing a plugin deletes its waiting and failed work.
 
+### Events
+
+Plugins can react to things that happen in Tilecast, such as a Takeover
+starting or a screen going offline, and to events that other plugins
+publish. A plugin that uses events also has a **Status** page:
+
+- **Events this plugin receives** lists each event and who publishes it,
+  Tilecast or another plugin. An event marked **Inactive** isn't delivered,
+  and the row says why, for example that the publishing plugin isn't
+  installed. Install that plugin and the event starts arriving on its own;
+  events from before that are not delivered.
+- **Events this plugin publishes** shows how many installed plugins receive
+  each event. If a plugin update changed an event without giving it a new
+  version, the event shows **Not published: the payload changed** and
+  Tilecast stops publishing it, so other plugins never receive data they
+  can't read. Update the plugin again, or ask its developer to publish the
+  change as a new version.
+
+Before you install a plugin, its page in the Store lists the events it
+publishes and receives under **Events**. That list is for your information:
+receiving an event doesn't give a plugin any other access.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:
