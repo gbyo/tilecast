@@ -16,18 +16,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function widthMatches(query: string, width: number) {
+  if (query === "(max-width: 639px)") return width <= 639;
+  if (query === "(max-width: 1023px)") return width <= 1023;
+  if (query === "(max-width: 1279px)") return width <= 1279;
+  if (query === "(min-width: 1024px)") return width >= 1024;
+  return false;
+}
+
 function stubWidth(width: number) {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches:
-      query === "(max-width: 639px)"
-        ? width <= 639
-        : query === "(max-width: 1023px)"
-          ? width <= 1023
-          : query === "(max-width: 1279px)"
-            ? width <= 1279
-            : query === "(min-width: 1024px)"
-              ? width >= 1024
-              : false,
+    matches: widthMatches(query, width),
     media: query,
     onchange: null,
     addListener: () => undefined,
