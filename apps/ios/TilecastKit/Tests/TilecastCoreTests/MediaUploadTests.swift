@@ -37,6 +37,7 @@ final class FakeUploadServer: @unchecked Sendable {
     private var patchFaults: [Fault] = []
     private var createStatus = 201
     private var completeStatuses: [Int] = []
+    private var completeFaults: [Fault] = []
     private var completeBody: String?
     private var assetStatuses: [String] = ["ready"]
     private var _cancelled: [String] = []
@@ -59,6 +60,7 @@ final class FakeUploadServer: @unchecked Sendable {
     func failPatches(_ faults: Fault...) { lock.withLock { patchFaults = faults } }
     func failCreate(_ status: Int) { lock.withLock { createStatus = status } }
     func answerComplete(_ statuses: Int...) { lock.withLock { completeStatuses = statuses } }
+    func failCompletes(_ faults: Fault...) { lock.withLock { completeFaults = faults } }
     func answerCompleteBody(_ body: String) { lock.withLock { completeBody = body } }
     func processing(_ statuses: String...) { lock.withLock { assetStatuses = statuses } }
 
@@ -101,7 +103,8 @@ final class FakeUploadServer: @unchecked Sendable {
             switch (request.method, complete) {
             case ("HEAD", false):
                 let session = sessions[index]
-                return .init(status: 204, headers: ["Upload-Offset": "\(session.received.count)", "Upload-Length": "\(session.size)", "Upload-Status": "uploading"])
+                let status = _completed.contains(id) ? "finalized" : "uploading"
+                return .init(status: 204, headers: ["Upload-Offset": "\(session.received.count)", "Upload-Length": "\(session.size)", "Upload-Status": status])
             case ("PATCH", false):
                 let offset = Int(request.headers["Upload-Offset"] ?? "") ?? -1
                 if !patchFaults.isEmpty {
@@ -121,12 +124,26 @@ final class FakeUploadServer: @unchecked Sendable {
                 sessions[index].received.append(request.body ?? Data())
                 return .init(status: 204, headers: ["Upload-Offset": "\(sessions[index].received.count)"])
             case ("POST", true):
+                if !completeFaults.isEmpty {
+                    switch completeFaults.removeFirst() {
+                    case .dropAfterApplying:
+                        guard Int64(sessions[index].received.count) == sessions[index].size else { return .init(status: 409, body: "{}") }
+                        if !_completed.contains(id) { _completed.append(id) }
+                        return .init(status: 0, failure: .networkConnectionLost)
+                    case .dropBeforeApplying:
+                        return .init(status: 0, failure: .networkConnectionLost)
+                    case .status(let status):
+                        return .init(status: status, body: "{}")
+                    case .redirect:
+                        return .init(status: 307, headers: ["Location": "https://evil.example/upload"], redirects: true)
+                    }
+                }
                 if !completeStatuses.isEmpty {
                     let status = completeStatuses.count > 1 ? completeStatuses.removeFirst() : completeStatuses[0]
                     if status != 200 { return .init(status: status, body: "{}") }
                 }
                 guard Int64(sessions[index].received.count) == sessions[index].size else { return .init(status: 409, body: "{}") }
-                _completed.append(id)
+                if !_completed.contains(id) { _completed.append(id) }
                 return .init(status: 200, body: completeBody ?? assetJSON(sessions[index], status: "queued"))
             case ("DELETE", false):
                 _cancelled.append(id)
@@ -256,6 +273,18 @@ extension StubbedHTTPTests {
             await #expect(throws: MediaUploadError.unavailable) { try await uploader.upload(try media.file(bytes: bytes)) }
             #expect(patchOffsets().count == 3)
             #expect(upload.cancelled, "an upload that gave up does not leave its session behind")
+        }
+
+        @Test func reconcilesWhenEverySuccessfulFinalizeResponseIsLost() async throws {
+            upload.failCompletes(.dropAfterApplying, .dropAfterApplying, .dropAfterApplying)
+            let (uploader, _) = try await uploader(retry: UploadRetryPolicy(maximumAttempts: 3) { _ in .zero })
+
+            let result = try await uploader.upload(try media.file(bytes: bytes))
+
+            #expect(result == UploadedMedia(assetID: nil))
+            #expect(upload.completedCount == 1, "the server created only one asset")
+            #expect(!upload.cancelled, "a finalized session is not cancelled")
+            #expect(StubProtocol.requests.contains { $0.method == "HEAD" }, "the client reconciled the durable session status")
         }
 
         @Test func finishesAnUploadWhoseFinalAnswerWasNotUnderstood() async throws {
