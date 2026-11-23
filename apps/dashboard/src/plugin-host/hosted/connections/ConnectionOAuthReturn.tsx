@@ -1,16 +1,11 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ApiError } from "@/api/client";
 import { useStudioSession } from "../../session";
-import {
-  connectionKey,
-  connectionsClient,
-  connectionsKey,
-  type OAuthCallback,
-} from "./api";
+import { connectionKey, connectionsClient, connectionsKey } from "./api";
 import { parseOAuthFragment } from "./model";
 
 const reasonKey = {
@@ -41,8 +36,10 @@ function failureReason(error: unknown): keyof typeof reasonKey | undefined {
 /**
  * Finishes an OAuth sign-in when the provider sends the operator back. The
  * callback route returns this page with the provider's answer in the URL
- * fragment; this component posts it once with the session's CSRF token,
- * removes the fragment from the address, and shows the result.
+ * fragment. The page reads it once, takes it out of the address so a
+ * reload or a copied link cannot send it again, posts it once with the
+ * session's CSRF token (the query key is the single-use state), and shows
+ * the result.
  */
 export function ConnectionOAuthReturn({
   pluginId,
@@ -54,37 +51,41 @@ export function ConnectionOAuthReturn({
   const { t } = useTranslation("plugins");
   const session = useStudioSession();
   const location = useLocation();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const handled = useRef<string | null>(null);
-  const complete = useMutation({
-    mutationFn: (callback: OAuthCallback) =>
-      connectionsClient(pluginId).completeOAuth(
+  const [callback] = useState(() => parseOAuthFragment(location.hash));
+  const complete = useQuery({
+    queryKey: [
+      "plugin-connection-oauth-complete",
+      pluginId,
+      connectionId,
+      callback?.state,
+    ],
+    enabled: callback !== null,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => {
+      // The state is single use: remove it from the address first.
+      window.history.replaceState(
+        window.history.state,
+        "",
+        window.location.pathname + window.location.search,
+      );
+      const next = await connectionsClient(pluginId).completeOAuth(
         connectionId,
-        callback,
+        callback!,
         session.csrfToken,
-      ),
-    onSuccess: (next) => {
+      );
       queryClient.setQueryData(connectionKey(pluginId, next.id), next);
       void queryClient.invalidateQueries({
         queryKey: connectionsKey(pluginId),
       });
+      return next;
     },
   });
-  const { mutate } = complete;
-  useEffect(() => {
-    const callback = parseOAuthFragment(location.hash);
-    if (!callback || handled.current === callback.state) return;
-    // The state is single use: post it once, and take it out of the
-    // address so a reload or a copied link cannot send it again.
-    handled.current = callback.state;
-    void navigate(
-      { pathname: location.pathname, search: location.search },
-      { replace: true },
-    );
-    mutate(callback);
-  }, [location.hash, location.pathname, location.search, mutate, navigate]);
-  if (complete.isIdle) return null;
+  if (callback === null) return null;
   if (complete.isPending) {
     return (
       <p className="text-sm text-muted-foreground" role="status">
