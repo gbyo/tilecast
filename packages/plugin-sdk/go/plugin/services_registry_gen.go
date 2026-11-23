@@ -8,60 +8,172 @@ import "context"
 // ServerServices are the registry capabilities a bundled Plugin Manifest
 // API 3 plugin may declare in "services" and call through Services.
 var ServerServices = []ServerService{
-	{ID: "events.publish", Version: 1, Name: "Event publication", Description: "Publish one of this plugin's declared events, at most 4 KiB, to the plugins that subscribe to it.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "activity.read", Version: 1, Name: "Playback activity", Description: "Read proof of play, playback compliance, and current screen activity, including while running automatically.", Category: "read", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "activity.read@1/proof.list", Title: "List proof of play", Description: "List proof-of-play sessions in a range, newest first, with cursor pagination and the safe Activity fields only.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "activity.read@1/proof.summary", Title: "Summarize proof of play", Description: "Summarize confirmed screen playback, content exposure, and session outcomes by screen, content, presentation, or schedule.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "activity.read@1/compliance.summary", Title: "Summarize compliance", Description: "Summarize expected against confirmed playback, with the exclusions and miss reasons Activity reports.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "activity.read@1/screens.current", Title: "Read current screen activity", Description: "Read each screen's health classification and what it is playing now.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
+	{ID: "content.read", Version: 2, Name: "Content library (version 2)", Description: "Read playlists, Layouts, Widgets, media, Data Sources, schedules, and screen groups, including while running automatically.", Category: "read", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "content.read@2/playlists.list", Title: "List playlists", Description: "List playlists, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/playlists.get", Title: "Read playlist", Description: "Read one playlist, its items, and the Data Sources it reaches.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/layouts.list", Title: "List layouts", Description: "List Layouts, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/layouts.get", Title: "Read layout", Description: "Read one Layout and the content it depends on.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/widgets.list", Title: "List widgets", Description: "List Widgets, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/widgets.get", Title: "Read widget", Description: "Read one Widget and its authored configuration, without secrets.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/media.list", Title: "List media", Description: "List images and videos, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/media.get", Title: "Read media item", Description: "Read one image or video, without files, paths, or URLs.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/dataSources.list", Title: "List data sources", Description: "List Data Sources and their refresh status, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/dataSources.get", Title: "Read data source", Description: "Read one Data Source's fields and freshness, without its configuration or cached records.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/schedules.list", Title: "List schedules", Description: "List schedules, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/schedules.get", Title: "Read schedule", Description: "Read one schedule and its targets.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/groups.list", Title: "List screen groups", Description: "List screen groups, oldest first, with cursor pagination.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+		{Name: "content.read@2/groups.get", Title: "Read screen group", Description: "Read one screen group and its member screens.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
+	{ID: "events.publish", Version: 1, Name: "Event publication", Description: "Publish one of this plugin's declared events, at most 4 KiB, to the plugins that subscribe to it.", Category: "manage", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "events.publish@1/publish", Title: "Publish event", Description: "Publish one occurrence of a declared event with a subject and a payload that matches the declared schema.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "feeds.publish", Version: 1, Name: "Feed publication", Description: "Publish the complete record set of one of this plugin's feed datasets.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "feeds.publish", Version: 1, Name: "Feed publication", Description: "Publish the complete record set of one of this plugin's feed datasets.", Category: "manage", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "feeds.publish@1/publish", Title: "Publish feed", Description: "Replace the records of one dataset. The publication names the revision it replaces; a concurrent publication fails with a conflict.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 655360, MaxOutputBytes: 65536},
 		{Name: "feeds.publish@1/revision", Title: "Read feed revision", Description: "Read the current revision of one dataset, the one the next publication replaces.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "http.fetch", Version: 1, Name: "Outbound HTTP", Description: "Send HTTP requests through this plugin's own host connections.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "http.fetch", Version: 1, Name: "Outbound HTTP", Description: "Send HTTP requests through this plugin's own host connections.", Category: "read", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "http.fetch@1/request", Title: "Send request", Description: "Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 1463640, MaxOutputBytes: 22435160},
 	}},
-	{ID: "instance.read", Version: 1, Name: "Installation details", Description: "Read installation facts such as the public address and release version.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
+	{ID: "instance.read", Version: 1, Name: "Installation details", Description: "Read installation facts such as the public address and release version.", Category: "read", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "instance.read@1/get", Title: "Read installation", Description: "Read installation facts such as the public address and release version.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "instances.read", Version: 1, Name: "Own instances", Description: "Read one of this plugin's own instances: name, enabled state, revision, and configuration, never a secret.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "instances.read", Version: 1, Name: "Own instances", Description: "Read one of this plugin's own instances: name, enabled state, revision, and configuration, never a secret.", Category: "read", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "instances.read@1/get", Title: "Read instance", Description: "Read one instance of this plugin by kind and ID. A missing instance answers not_found.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 163840},
 		{Name: "instances.read@1/list", Title: "List instances", Description: "List the IDs, names, and enabled state of this plugin's instances of one kind.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 163840},
 	}},
-	{ID: "organization.read", Version: 1, Name: "Organization details", Description: "Read the organization's name and identifier.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
+	{ID: "organization.read", Version: 1, Name: "Organization details", Description: "Read the organization's name and identifier.", Category: "read", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "organization.read@1/get", Title: "Read organization", Description: "Read the organization's name and identifier.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "screens.read", Version: 1, Name: "Screen directory", Description: "List screens and read non-secret screen facts and reported player capabilities.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
+	{ID: "screens.read", Version: 1, Name: "Screen directory", Description: "List screens and read non-secret screen facts and reported player capabilities.", Category: "read", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "screens.read@1/list", Title: "List screens", Description: "List screens with non-secret facts and reported player capabilities.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "screens.read@1/get", Title: "Read screen", Description: "Read one screen's non-secret facts and reported player capabilities.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "secrets.read", Version: 1, Name: "Plugin secrets", Description: "Read one of this plugin's own secrets.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "secrets.read", Version: 1, Name: "Plugin secrets", Description: "Read one of this plugin's own secrets.", Category: "read", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "secrets.read@1/get", Title: "Read secret", Description: "Read one of this plugin's secrets. An unset or unreadable secret answers secret_unavailable.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "settings.read", Version: 1, Name: "Plugin settings", Description: "Read this plugin's own non-secret settings for the organization or one screen.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "settings.read", Version: 1, Name: "Plugin settings", Description: "Read this plugin's own non-secret settings for the organization or one screen.", Category: "read", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "settings.read@1/get", Title: "Read settings", Description: "Read this plugin's non-secret settings and whether each secret is set.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "storage.kv", Version: 1, Name: "Plugin key/value storage", Description: "Keep small values of this plugin: 128-byte keys, 64 KiB values, 1 MiB in all.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "storage.kv", Version: 1, Name: "Plugin key/value storage", Description: "Keep small values of this plugin: 128-byte keys, 64 KiB values, 1 MiB in all.", Category: "manage", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "storage.kv@1/get", Title: "Read value", Description: "Read one value of this plugin. A missing key answers not_found.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 91480},
 		{Name: "storage.kv@1/set", Title: "Write value", Description: "Store one value of this plugin within the key, value, and quota bounds.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 91480, MaxOutputBytes: 65536},
 		{Name: "storage.kv@1/compareAndSet", Title: "Compare and write value", Description: "Store one value only when the current value equals the expected value; a null expected value means the key must not exist.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 178864, MaxOutputBytes: 65536},
 		{Name: "storage.kv@1/delete", Title: "Delete value", Description: "Delete one value of this plugin.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "targets.resolve", Version: 1, Name: "Resolve display targets", Description: "Validate screen and group selections and resolve them to screens.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
+	{ID: "targets.resolve", Version: 1, Name: "Resolve display targets", Description: "Validate screen and group selections and resolve them to screens.", Category: "read", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "targets.resolve@1/resolve", Title: "Resolve targets", Description: "Validate screen and group selections and resolve them to screens.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
+	{ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Category: "read", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "targets.resolve@2/resolve", Title: "Resolve targets", Description: "Validate explicit all or a nonempty screen, group, and location selection.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "targets.resolve@2/options", Title: "List target options", Description: "List bounded target names and identifiers within the operator's scope.", Mutating: false, Contexts: []string{"studio"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "timers.cancel", Version: 1, Name: "Cancel durable timers", Description: "Cancel a pending callback of this plugin.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "timers.cancel", Version: 1, Name: "Cancel durable timers", Description: "Cancel a pending callback of this plugin.", Category: "manage", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "timers.cancel@1/cancel", Title: "Cancel timer", Description: "Remove the pending timer of a key.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "timers.schedule", Version: 1, Name: "Durable timers", Description: "Schedule a callback of this plugin at a time, with a key and a payload of at most 4 KiB.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+	{ID: "timers.schedule", Version: 1, Name: "Durable timers", Description: "Schedule a callback of this plugin at a time, with a key and a payload of at most 4 KiB.", Category: "manage", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "timers.schedule@1/schedule", Title: "Schedule timer", Description: "Schedule one callback at a time. Scheduling a key again replaces its pending timer.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
-	{ID: "users.read-basic", Version: 1, Name: "User directory", Description: "Read basic user directory facts for attribution and workflows.", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
+	{ID: "users.read-basic", Version: 1, Name: "User directory", Description: "Read basic user directory facts for attribution and workflows.", Category: "directory", Contexts: []string{"studio", "background"}, Operations: []ServerOperation{
 		{Name: "users.read-basic@1/get", Title: "Read user", Description: "Read one user's basic directory facts.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "users.read-basic@1/search", Title: "Search users", Description: "Search active users by name or username.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "users.read-basic@1/list-by-role", Title: "List users by role", Description: "List users holding one role.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
+}
+
+// ActivityReadProofList calls activity.read@1/proof.list: List proof-of-play sessions in a range, newest first, with cursor pagination and the safe Activity fields only
+func (s *Services) ActivityReadProofList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "activity.read@1/proof.list", input, output)
+}
+
+// ActivityReadProofSummary calls activity.read@1/proof.summary: Summarize confirmed screen playback, content exposure, and session outcomes by screen, content, presentation, or schedule
+func (s *Services) ActivityReadProofSummary(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "activity.read@1/proof.summary", input, output)
+}
+
+// ActivityReadComplianceSummary calls activity.read@1/compliance.summary: Summarize expected against confirmed playback, with the exclusions and miss reasons Activity reports
+func (s *Services) ActivityReadComplianceSummary(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "activity.read@1/compliance.summary", input, output)
+}
+
+// ActivityReadScreensCurrent calls activity.read@1/screens.current: Read each screen's health classification and what it is playing now
+func (s *Services) ActivityReadScreensCurrent(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "activity.read@1/screens.current", input, output)
+}
+
+// ContentReadV2PlaylistsList calls content.read@2/playlists.list: List playlists, oldest first, with cursor pagination
+func (s *Services) ContentReadV2PlaylistsList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/playlists.list", input, output)
+}
+
+// ContentReadV2PlaylistsGet calls content.read@2/playlists.get: Read one playlist, its items, and the Data Sources it reaches
+func (s *Services) ContentReadV2PlaylistsGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/playlists.get", input, output)
+}
+
+// ContentReadV2LayoutsList calls content.read@2/layouts.list: List Layouts, oldest first, with cursor pagination
+func (s *Services) ContentReadV2LayoutsList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/layouts.list", input, output)
+}
+
+// ContentReadV2LayoutsGet calls content.read@2/layouts.get: Read one Layout and the content it depends on
+func (s *Services) ContentReadV2LayoutsGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/layouts.get", input, output)
+}
+
+// ContentReadV2WidgetsList calls content.read@2/widgets.list: List Widgets, oldest first, with cursor pagination
+func (s *Services) ContentReadV2WidgetsList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/widgets.list", input, output)
+}
+
+// ContentReadV2WidgetsGet calls content.read@2/widgets.get: Read one Widget and its authored configuration, without secrets
+func (s *Services) ContentReadV2WidgetsGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/widgets.get", input, output)
+}
+
+// ContentReadV2MediaList calls content.read@2/media.list: List images and videos, oldest first, with cursor pagination
+func (s *Services) ContentReadV2MediaList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/media.list", input, output)
+}
+
+// ContentReadV2MediaGet calls content.read@2/media.get: Read one image or video, without files, paths, or URLs
+func (s *Services) ContentReadV2MediaGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/media.get", input, output)
+}
+
+// ContentReadV2DataSourcesList calls content.read@2/dataSources.list: List Data Sources and their refresh status, oldest first, with cursor pagination
+func (s *Services) ContentReadV2DataSourcesList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/dataSources.list", input, output)
+}
+
+// ContentReadV2DataSourcesGet calls content.read@2/dataSources.get: Read one Data Source's fields and freshness, without its configuration or cached records
+func (s *Services) ContentReadV2DataSourcesGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/dataSources.get", input, output)
+}
+
+// ContentReadV2SchedulesList calls content.read@2/schedules.list: List schedules, oldest first, with cursor pagination
+func (s *Services) ContentReadV2SchedulesList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/schedules.list", input, output)
+}
+
+// ContentReadV2SchedulesGet calls content.read@2/schedules.get: Read one schedule and its targets
+func (s *Services) ContentReadV2SchedulesGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/schedules.get", input, output)
+}
+
+// ContentReadV2GroupsList calls content.read@2/groups.list: List screen groups, oldest first, with cursor pagination
+func (s *Services) ContentReadV2GroupsList(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/groups.list", input, output)
+}
+
+// ContentReadV2GroupsGet calls content.read@2/groups.get: Read one screen group and its member screens
+func (s *Services) ContentReadV2GroupsGet(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "content.read@2/groups.get", input, output)
 }
 
 // EventsPublishPublish calls events.publish@1/publish: Publish one occurrence of a declared event with a subject and a payload that matches the declared schema

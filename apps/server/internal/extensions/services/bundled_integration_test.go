@@ -152,7 +152,7 @@ func TestCallersStayInTheirLanes(t *testing.T) {
 		cap := capability
 		found := false
 		for _, entry := range All() {
-			if entry.ID != cap {
+			if entry.ID != cap || (cap == "content.read" && entry.Version != 1) {
 				continue
 			}
 			found = true
@@ -252,4 +252,29 @@ func contains(text, part string) bool {
 		}
 	}
 	return false
+}
+
+// A bundled Plugin Manifest API 3 plugin reads through the same shared read
+// services as a package, once its manifest declares the exact version.
+func TestBundledPluginsCallDeclaredReadServices(t *testing.T) {
+	b := newBundledFixture(t)
+	declared := []packagemanifest.ServiceGrant{{ID: "content.read", Version: 2}, {ID: "activity.read", Version: 1}}
+	for _, operation := range []string{"content.read@2/playlists.list", "content.read@2/media.list", "activity.read@1/proof.list", "activity.read@1/screens.current"} {
+		for _, context := range []string{ContextBackground, ContextSystem} {
+			result := b.call(t, Call{PluginID: samplev3.ID, Context: context, Grants: declared, Operation: operation, Input: []byte(`{}`)})
+			if result.denial != nil || result.failure != nil {
+				t.Errorf("%s %s: %+v %+v", context, operation, result.denial, result.failure)
+			}
+		}
+		// The same call without the declaration is the normal missing grant.
+		result := b.call(t, Call{PluginID: samplev3.ID, Context: ContextBackground, Grants: bundledGrants("organization.read"), Operation: operation, Input: []byte(`{}`)})
+		if result.denial == nil || result.denial.Kind != DenialMissingGrant {
+			t.Errorf("undeclared %s: %+v", operation, result)
+		}
+	}
+	// A bundled plugin declaring content.read@1 still reaches nothing.
+	result := b.call(t, Call{PluginID: samplev3.ID, Context: ContextBackground, Grants: bundledGrants("content.read"), Operation: "content.read@2/playlists.list", Input: []byte(`{}`)})
+	if result.denial == nil || result.denial.Kind != DenialMissingGrant {
+		t.Errorf("content.read@1 declaration reached v2: %+v", result)
+	}
 }

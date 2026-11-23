@@ -620,39 +620,45 @@ func (s *Service) ListDataSources(ctx context.Context, o DataSourceListOptions) 
 	}
 	rows.Close()
 
-	if len(items) > 0 {
-		ids := make([]uuid.UUID, 0, len(items))
-		for _, item := range items {
-			ids = append(ids, item.ID)
+	if err := s.attachRefreshSummaries(ctx, items, itemIndexes); err != nil {
+		return DataSourceListResult{}, err
+	}
+	return DataSourceListResult{Items: items, Total: total, Page: o.Page, PageSize: o.PageSize}, nil
+}
+
+// attachRefreshSummaries sets each listed source's status and cached record
+// count from its refresh state.
+func (s *Service) attachRefreshSummaries(ctx context.Context, items []DataSourceListItem, itemIndexes map[uuid.UUID]int) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	refreshRows, err := s.db.Query(ctx, `SELECT data_source_id,last_success_at,using_cached_data,error_code,available_event_count,available_item_count FROM data_source_refresh_states WHERE data_source_id=ANY($1)`, ids)
+	if err != nil {
+		return err
+	}
+	defer refreshRows.Close()
+	for refreshRows.Next() {
+		var diagnostics DataSourceDiagnostics
+		if err := refreshRows.Scan(
+			&diagnostics.DataSourceID,
+			&diagnostics.LastSuccessfulAt,
+			&diagnostics.UsingCachedData,
+			&diagnostics.ErrorCode,
+			&diagnostics.AvailableEventCount,
+			&diagnostics.AvailableItemCount,
+		); err != nil {
+			return err
 		}
-		refreshRows, err := s.db.Query(ctx, `SELECT data_source_id,last_success_at,using_cached_data,error_code,available_event_count,available_item_count FROM data_source_refresh_states WHERE data_source_id=ANY($1)`, ids)
-		if err != nil {
-			return DataSourceListResult{}, err
-		}
-		defer refreshRows.Close()
-		for refreshRows.Next() {
-			var diagnostics DataSourceDiagnostics
-			if err := refreshRows.Scan(
-				&diagnostics.DataSourceID,
-				&diagnostics.LastSuccessfulAt,
-				&diagnostics.UsingCachedData,
-				&diagnostics.ErrorCode,
-				&diagnostics.AvailableEventCount,
-				&diagnostics.AvailableItemCount,
-			); err != nil {
-				return DataSourceListResult{}, err
-			}
-			if index, ok := itemIndexes[diagnostics.DataSourceID]; ok {
-				items[index].Status = dataSourceStatus(diagnostics)
-				items[index].CachedRecords = diagnostics.AvailableEventCount + diagnostics.AvailableItemCount
-			}
-		}
-		if err := refreshRows.Err(); err != nil {
-			return DataSourceListResult{}, err
+		if index, ok := itemIndexes[diagnostics.DataSourceID]; ok {
+			items[index].Status = dataSourceStatus(diagnostics)
+			items[index].CachedRecords = diagnostics.AvailableEventCount + diagnostics.AvailableItemCount
 		}
 	}
-
-	return DataSourceListResult{Items: items, Total: total, Page: o.Page, PageSize: o.PageSize}, nil
+	return refreshRows.Err()
 }
 
 // GetDataSourceDetail assembles the full Data Source detail view.

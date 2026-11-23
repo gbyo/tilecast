@@ -13361,6 +13361,10 @@ components:
           description: Inbound webhooks a Plugin Manifest API 3 plugin declares. Empty for other plugins.
           items: { $ref: "#/components/schemas/PluginWebhookReview" }
         providers: { $ref: "#/components/schemas/PluginProviderReview" }
+        services:
+          type: array
+          description: Server services a Plugin Manifest API 3 plugin declares, with registry-resolved display metadata. Empty for other plugins.
+          items: { $ref: "#/components/schemas/ServiceGrantReview" }
     PluginProviderReview:
       type: object
       description: >-
@@ -14198,25 +14202,43 @@ components:
         services:
           type: array
           description: Requested Tilecast service grants with registry-resolved display metadata.
+          items: { $ref: "#/components/schemas/ServiceGrantReview" }
+    ServiceGrantReview:
+      type: object
+      description: >-
+        One requested Server service grant with registry-resolved display
+        metadata. Contexts say where it may run: studio calls act for the
+        signed-in operator; background and system calls run without one,
+        under the installation-wide view this grant approves.
+      required: [id, version, name, description, category, contexts, operations]
+      properties:
+        id: { type: string }
+        version: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string, enum: [read, directory, manage, audit] }
+        contexts:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceInvocationContext" }
+        operations:
+          type: array
           items:
             type: object
-            required: [id, version, name, description, category, operations]
+            required: [name, title, description, mutating, contexts]
             properties:
-              id: { type: string }
-              version: { type: integer }
               name: { type: string }
+              title: { type: string }
               description: { type: string }
-              category: { type: string, enum: [read, directory, manage, audit] }
-              operations:
+              mutating: { type: boolean }
+              contexts:
                 type: array
-                items:
-                  type: object
-                  required: [name, title, description, mutating]
-                  properties:
-                    name: { type: string }
-                    title: { type: string }
-                    description: { type: string }
-                    mutating: { type: boolean }
+                items: { $ref: "#/components/schemas/ServiceInvocationContext" }
+    ServiceInvocationContext:
+      type: string
+      description: >-
+        studio runs for a signed-in operator; background runs a scheduled or
+        queued job; system runs a host callback such as an event or webhook.
+      x-extensible-enum: [studio, background, system]
     PluginConnectionConsent:
       type: object
       required: [available, given]

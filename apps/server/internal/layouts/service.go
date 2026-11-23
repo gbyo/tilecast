@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
+	"github.com/tilecast/tilecast/apps/server/internal/keyset"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -114,24 +115,46 @@ func (s *Service) List(ctx context.Context, search string, page, pageSize int) (
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM layouts WHERE deleted_at IS NULL AND($1='' OR name ILIKE '%'||$1||'%')`, search).Scan(&result.Total); err != nil {
 		return result, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT l.id,l.name,l.description,l.orientation,l.canvas_width,l.canvas_height,l.draft_revision,r.revision,r.published_at,CASE WHEN r.id IS NULL THEN FALSE ELSE l.draft_document IS DISTINCT FROM r.document END,l.created_at,l.updated_at,l.preview_image IS NOT NULL,l.preview_capture_version FROM layouts l LEFT JOIN layout_revisions r ON r.id=l.published_revision_id WHERE l.deleted_at IS NULL AND($1='' OR l.name ILIKE '%'||$1||'%') ORDER BY l.updated_at DESC,l.id LIMIT $2 OFFSET $3`, search, pageSize, (page-1)*pageSize)
+	rows, err := s.db.Query(ctx, layoutSummarySelect+` WHERE l.deleted_at IS NULL AND($1='' OR l.name ILIKE '%'||$1||'%') ORDER BY l.updated_at DESC,l.id LIMIT $2 OFFSET $3`, search, pageSize, (page-1)*pageSize)
 	if err != nil {
 		return result, err
 	}
 	defer rows.Close()
-	result.Items = []Summary{}
+	result.Items, err = scanLayoutSummaries(rows)
+	return result, err
+}
+
+// ListAfter is the keyset form of List for callers that need stable
+// continuation: oldest first by creation, the id as the final tie-breaker,
+// at most limit rows after the position.
+func (s *Service) ListAfter(ctx context.Context, search string, after *keyset.After, limit int) ([]Summary, error) {
+	args := []any{strings.TrimSpace(search)}
+	position := keyset.Ascending(after, "l.created_at", "l.id", &args)
+	args = append(args, limit)
+	rows, err := s.db.Query(ctx, layoutSummarySelect+` WHERE l.deleted_at IS NULL AND($1='' OR l.name ILIKE '%'||$1||'%') AND `+position+` ORDER BY l.created_at,l.id LIMIT $`+strconv.Itoa(len(args)), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanLayoutSummaries(rows)
+}
+
+const layoutSummarySelect = `SELECT l.id,l.name,l.description,l.orientation,l.canvas_width,l.canvas_height,l.draft_revision,r.revision,r.published_at,CASE WHEN r.id IS NULL THEN FALSE ELSE l.draft_document IS DISTINCT FROM r.document END,l.created_at,l.updated_at,l.preview_image IS NOT NULL,l.preview_capture_version FROM layouts l LEFT JOIN layout_revisions r ON r.id=l.published_revision_id`
+
+func scanLayoutSummaries(rows pgx.Rows) ([]Summary, error) {
+	items := []Summary{}
 	for rows.Next() {
 		var item Summary
 		var hasPreview bool
-		if err = rows.Scan(&item.ID, &item.Name, &item.Description, &item.Orientation, &item.CanvasWidth, &item.CanvasHeight, &item.DraftRevision, &item.PublishedRevision, &item.PublishedAt, &item.HasUnpublishedChanges, &item.CreatedAt, &item.UpdatedAt, &hasPreview, &item.PreviewCaptureVersion); err != nil {
-			return result, err
+		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Orientation, &item.CanvasWidth, &item.CanvasHeight, &item.DraftRevision, &item.PublishedRevision, &item.PublishedAt, &item.HasUnpublishedChanges, &item.CreatedAt, &item.UpdatedAt, &hasPreview, &item.PreviewCaptureVersion); err != nil {
+			return nil, err
 		}
 		if hasPreview {
 			item.PreviewImageURL = "/api/v1/layouts/" + item.ID.String() + "/preview-image"
 		}
-		result.Items = append(result.Items, item)
+		items = append(items, item)
 	}
-	return result, rows.Err()
+	return items, rows.Err()
 }
 
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (Layout, error) {

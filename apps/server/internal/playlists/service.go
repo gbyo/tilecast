@@ -18,6 +18,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
+	"github.com/tilecast/tilecast/apps/server/internal/keyset"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
@@ -190,7 +191,55 @@ func (s *Service) List(ctx context.Context, search string, page, pageSize int) (
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM playlists p LEFT JOIN playlist_drafts d ON d.playlist_id=p.id WHERE p.deleted_at IS NULL AND p.system_managed=FALSE AND ($1='' OR COALESCE(d.name,p.name) ILIKE '%'||$1||'%')`, search).Scan(&total); err != nil {
 		return ListResult{}, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT p.id,COALESCE(d.name,p.name),COALESCE(d.description,p.description),p.revision,COALESCE(d.revision,p.revision),COALESCE(d.revision,p.revision)<>COALESCE(d.published_draft_revision,p.revision),p.created_at,COALESCE(d.updated_at,p.updated_at),COALESCE(d.source_type,p.source_type),
+	rows, err := s.db.Query(ctx, playlistSummarySelect+`		WHERE p.deleted_at IS NULL AND p.system_managed=FALSE AND ($1='' OR COALESCE(d.name,p.name) ILIKE '%'||$1||'%')
+		ORDER BY COALESCE(d.updated_at,p.updated_at) DESC,p.id LIMIT $2 OFFSET $3`, search, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return ListResult{}, err
+	}
+	defer rows.Close()
+	items, err := scanPlaylistSummaries(rows)
+	if err != nil {
+		return ListResult{}, err
+	}
+	return ListResult{Items: items, Total: total, Page: page, PageSize: pageSize}, nil
+}
+
+// ListAfter is the keyset form of List for callers that need stable
+// continuation: oldest first by creation, the id as the final tie-breaker,
+// at most limit rows after the position. It reads the same summary as List.
+func (s *Service) ListAfter(ctx context.Context, search string, after *keyset.After, limit int) ([]Playlist, error) {
+	args := []any{strings.TrimSpace(search)}
+	position := keyset.Ascending(after, "p.created_at", "p.id", &args)
+	args = append(args, limit)
+	rows, err := s.db.Query(ctx, playlistSummarySelect+`
+		WHERE p.deleted_at IS NULL AND p.system_managed=FALSE AND ($1='' OR COALESCE(d.name,p.name) ILIKE '%'||$1||'%') AND `+position+`
+		ORDER BY p.created_at,p.id LIMIT $`+strconv.Itoa(len(args)), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPlaylistSummaries(rows)
+}
+
+func scanPlaylistSummaries(rows pgx.Rows) ([]Playlist, error) {
+	items := []Playlist{}
+	for rows.Next() {
+		var p Playlist
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Revision, &p.DraftRevision, &p.HasUnpublishedChanges, &p.CreatedAt, &p.UpdatedAt, &p.SourceType, &p.ItemCount); err != nil {
+			return nil, err
+		}
+		p.PublishedRevision = p.Revision
+		p.Items = []Item{}
+		p.Warnings = []string{}
+		p.LayoutUsage = []LayoutUsage{}
+		items = append(items, p)
+	}
+	return items, rows.Err()
+}
+
+// playlistSummarySelect is the one summary read of the playlist library:
+// the draft name and description, the revisions, and the item count.
+const playlistSummarySelect = `SELECT p.id,COALESCE(d.name,p.name),COALESCE(d.description,p.description),p.revision,COALESCE(d.revision,p.revision),COALESCE(d.revision,p.revision)<>COALESCE(d.published_draft_revision,p.revision),p.created_at,COALESCE(d.updated_at,p.updated_at),COALESCE(d.source_type,p.source_type),
 		CASE WHEN COALESCE(d.source_type,p.source_type)='static' THEN
 			CASE WHEN d.playlist_id IS NULL
 				THEN (SELECT count(*) FROM playlist_items pi WHERE pi.playlist_id=p.id)
@@ -222,26 +271,7 @@ func (s *Service) List(ctx context.Context, search string, page, pageSize int) (
 			  )))
 		) END END
 		FROM playlists p LEFT JOIN playlist_drafts d ON d.playlist_id=p.id
-		WHERE p.deleted_at IS NULL AND p.system_managed=FALSE AND ($1='' OR COALESCE(d.name,p.name) ILIKE '%'||$1||'%')
-		ORDER BY COALESCE(d.updated_at,p.updated_at) DESC,p.id LIMIT $2 OFFSET $3`, search, pageSize, (page-1)*pageSize)
-	if err != nil {
-		return ListResult{}, err
-	}
-	defer rows.Close()
-	items := []Playlist{}
-	for rows.Next() {
-		var p Playlist
-		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Revision, &p.DraftRevision, &p.HasUnpublishedChanges, &p.CreatedAt, &p.UpdatedAt, &p.SourceType, &p.ItemCount); err != nil {
-			return ListResult{}, err
-		}
-		p.PublishedRevision = p.Revision
-		p.Items = []Item{}
-		p.Warnings = []string{}
-		p.LayoutUsage = []LayoutUsage{}
-		items = append(items, p)
-	}
-	return ListResult{Items: items, Total: total, Page: page, PageSize: pageSize}, rows.Err()
-}
+`
 
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (Playlist, error) {
 	var p Playlist

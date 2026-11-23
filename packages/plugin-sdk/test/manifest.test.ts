@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import {
+  bundledServerServices,
   isPlayerFacing,
   parsePluginManifest,
   playerEntryTypes,
@@ -114,5 +115,17 @@ describe("plugin manifest schema", () => {
     expect(native.player?.native).toEqual([
       { id: "receiver", services: { required: [], optional: [] } },
     ]);
+  });
+});
+
+describe("shared read services", () => {
+  it("lets a bundled plugin declare content.read@2 and activity.read@1, never content.read@1", () => {
+    const declarable = (id: string, version: number) =>
+      bundledServerServices.some(
+        (service) => service.id === id && service.version === version,
+      );
+    expect(declarable("content.read", 2)).toBe(true);
+    expect(declarable("activity.read", 1)).toBe(true);
+    expect(declarable("content.read", 1)).toBe(false);
   });
 });

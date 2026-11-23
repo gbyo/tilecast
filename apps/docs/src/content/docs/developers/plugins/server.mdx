@@ -188,3 +188,23 @@ func (p *Plugin) CheckContent(ctx context.Context, item plugin.ContentItem) ([]p
 ```
 
 Tilecast passes one changed playlist, Layout, Widget, or media item at a time, as a read-only model. Return named conditions with a severity and a short reason; Tilecast opens, deduplicates, and recovers the incidents. An error keeps the item's earlier conditions and tries again later. See [Plugin provider slots](https://github.com/gbyo/tilecast/blob/main/docs/plugin-providers.md).
+
+## Read content and Activity (Plugin Manifest API 3)
+
+A plugin that needs to know what exists or what played declares a read service in `services`, and only the ones it needs:
+
+- `content.read@2` reads playlists, Layouts, Widgets, media, Data Sources, schedules, and screen groups.
+- `activity.read@1` reads proof of play, playback compliance, and what each screen is showing now.
+
+Both work in a route, a worker or timer, and a host callback. When a person calls your route from Studio, the read uses that person's access, exactly like Studio. When your plugin runs by itself, the read covers the whole installation, because the person who installed the plugin approved that service on its review. It is not administrator access: it reads only that one service, and it never borrows the access of whoever configured the plugin.
+
+```go
+var page struct {
+	Items      []json.RawMessage `json:"items"`
+	NextCursor string            `json:"nextCursor"`
+}
+err := p.services.ContentReadV2PlaylistsList(ctx, map[string]any{"limit": 50}, &page)
+// Pass page.NextCursor back as "cursor" for the next page, with the same filters.
+```
+
+Lists return at most 250 items and use an opaque cursor. Answers never include file paths, secrets, Data Source payloads, or Activity diagnostics. For the exact models and rules, see the [plugin read services reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-read-services.md).

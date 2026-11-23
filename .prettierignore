@@ -26,3 +26,5 @@ apps/setup-relay/dist/
 apps/setup-relay/build/
 # Wrangler writes this file; CI regenerates it and compares the bytes.
 apps/setup-relay/worker-configuration.d.ts
+# Generated from the Server service registry; a Go test compares the bytes.
+packages/plugin-sdk/server-services.json

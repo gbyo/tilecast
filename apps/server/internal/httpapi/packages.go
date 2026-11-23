@@ -186,6 +186,9 @@ type reviewServiceOperation struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Mutating    bool   `json:"mutating"`
+	// Contexts are studio, background, and system: where the operation may
+	// run. Background and system calls run without a signed-in person.
+	Contexts []string `json:"contexts"`
 }
 
 // reviewServiceGrant is one requested Tilecast service with resolved
@@ -197,6 +200,7 @@ type reviewServiceGrant struct {
 	Name        string                   `json:"name"`
 	Description string                   `json:"description"`
 	Category    string                   `json:"category"`
+	Contexts    []string                 `json:"contexts"`
 	Operations  []reviewServiceOperation `json:"operations"`
 }
 
@@ -271,6 +275,7 @@ func summarizeCapabilities(manifest packagemanifest.Manifest) (*reviewCapabiliti
 				Name:        detail.Name,
 				Description: detail.Description,
 				Category:    detail.Category,
+				Contexts:    detail.Contexts,
 				Operations:  make([]reviewServiceOperation, 0, len(detail.Operations)),
 			}
 			for _, operation := range detail.Operations {
@@ -279,6 +284,7 @@ func summarizeCapabilities(manifest packagemanifest.Manifest) (*reviewCapabiliti
 					Title:       operation.Title,
 					Description: operation.Description,
 					Mutating:    operation.Mutating,
+					Contexts:    operation.Contexts,
 				})
 			}
 			review.Services = append(review.Services, grant)

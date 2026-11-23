@@ -16,6 +16,7 @@ import {
   aboutParagraphs,
   capabilityRowKey,
   capabilityRows,
+  type CapabilityRow,
   type ContributionRow,
   type PluginDetailViewModel,
 } from "./detailView";
@@ -147,7 +148,6 @@ export function CapabilitiesSection({
   loading: boolean;
 }) {
   const { t } = useTranslation("plugins");
-  const included = view.plugin?.capabilities ?? [];
   const rows = capabilities ? capabilityRows(capabilities) : [];
   return (
     <DetailSection
@@ -157,22 +157,7 @@ export function CapabilitiesSection({
       {loading ? (
         <Skeleton className="h-16 rounded-lg" />
       ) : view.sourceKind === "included" ? (
-        included.length === 0 ? (
-          <NoSpecialPermissions />
-        ) : (
-          <ItemGroup render={<ul />} className="gap-0">
-            {included.map((capability, index) => (
-              <ItemRow key={capability} separated={index > 0}>
-                <ItemMedia variant="icon">
-                  <CircleCheck aria-hidden="true" />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>{capability}</ItemTitle>
-                </ItemContent>
-              </ItemRow>
-            ))}
-          </ItemGroup>
-        )
+        <IncludedPermissions view={view} />
       ) : capabilities === null ? (
         <Pending>{t("storeDetail.permissions.pending")}</Pending>
       ) : rows.length === 0 ? (
@@ -189,6 +174,42 @@ export function CapabilitiesSection({
         </ItemGroup>
       )}
     </DetailSection>
+  );
+}
+
+/**
+ * An included plugin's behaviors, then the Server services a Plugin
+ * Manifest API 3 plugin declares, rendered like a package's service grants
+ * with where each runs.
+ */
+function IncludedPermissions({ view }: { view: PluginDetailViewModel }) {
+  const included = view.plugin?.capabilities ?? [];
+  const services: CapabilityRow[] = (view.plugin?.services ?? []).map(
+    (grant) => ({ kind: "service", grant }),
+  );
+  if (included.length === 0 && services.length === 0) {
+    return <NoSpecialPermissions />;
+  }
+  return (
+    <ItemGroup render={<ul />} className="gap-0">
+      {included.map((capability, index) => (
+        <ItemRow key={capability} separated={index > 0}>
+          <ItemMedia variant="icon">
+            <CircleCheck aria-hidden="true" />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>{capability}</ItemTitle>
+          </ItemContent>
+        </ItemRow>
+      ))}
+      {services.map((row, index) => (
+        <CapabilityItem
+          key={capabilityRowKey(row)}
+          row={row}
+          separated={included.length + index > 0}
+        />
+      ))}
+    </ItemGroup>
   );
 }
 

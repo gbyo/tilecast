@@ -237,7 +237,12 @@ caller list is for packages only, as before. Phase 1 gives bundled plugins:
 `targets.resolve@2`, `users.read-basic@1`, and the new `settings.read@1` and
 `secrets.read@1`. Phase 2 adds `http.fetch@1`, `storage.kv@1`,
 `timers.schedule@1`, `timers.cancel@1`, `feeds.publish@1`, and
-`instances.read@1`. The new services are for bundled plugins only.
+`instances.read@1`. The new services are for bundled plugins only. The
+platform validation stage adds `content.read@2` and `activity.read@1` for
+packages and bundled plugins. They read the content library and measured
+Activity in all three contexts. A plugin declares each by its exact version;
+installation alone grants nothing. `content.read@1` stays a package-only
+grant. See [Plugin read services](plugin-read-services.md).
 `instances.read@1` reads the plugin's own instances (`get` one, `list` up to
 500, never a secret); a timer callback uses it, because a timer carries only
 its key and payload.
@@ -253,7 +258,10 @@ The host binds the call:
 - The context comes from what the host is doing. A route handler is `studio`
   with the signed-in operator. A worker, a seed, and a validation without an
   operator are `background`. A projection is `system`. A `background` or
-  `system` call never carries an operator.
+  `system` call never carries an operator. It reads the installation-wide
+  view of the operation under the declared service, never as the person who
+  configured the plugin. See
+  [Plugin read services](plugin-read-services.md#one-rule-for-unattended-calls).
 - A call outside a host invocation, under another plugin's invocation, or after
   the invocation ended is refused.
 - A plugin can call only the services that its manifest declares in `services`.
@@ -449,8 +457,9 @@ a delivery engine, notification
 channels, content health providers, plugin capabilities, staff pages, kiosks,
 participant sessions, moderation, public links, Player reports, audio cues,
 serial or GPIO or printer services, stream connections, TCP, installed-package
-parity for `plugin-runtime.state@1`, content services for plugins, or editor
-action slots. A `data_source` field is not valid in a plugin manifest. Phase 2
+parity for `plugin-runtime.state@1`, content write and media services for
+plugins, or editor action slots. The shared content read service,
+`content.read@2`, is part of the platform validation stage. A `data_source` field is not valid in a plugin manifest. Phase 2
 adds host connections, `http.fetch@1`, OAuth 2.0 connections, `storage.kv@1`,
 durable timers, feeds, and `instances.read@1`. Phase 2 does not add webhooks,
 events, the delivery queue, `blob.fetch@1`, `storage.blob@1`, stream or socket

@@ -190,6 +190,10 @@ type CatalogPlugin struct {
 	// Providers are the core provider slots the plugin fills: notification
 	// channels and Content Health checks with the item kinds they read.
 	Providers ProviderReview `json:"providers"`
+
+	// Services are the Server services the plugin declares, with the
+	// contexts each may run in.
+	Services []ServiceReview `json:"services"`
 }
 
 // PluginAttention is a bounded, advisory status note. It never blocks
@@ -331,6 +335,7 @@ func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlug
 		Attention: attention, Connections: append([]ConnectionReview{}, d.Connections...),
 		Feeds: append([]FeedReview{}, d.Feeds...), Events: d.Events.clone(),
 		Webhooks: append([]WebhookReview{}, d.Webhooks...), Providers: d.Providers.clone(),
+		Services: cloneServiceReviews(d.Services),
 	}
 }
 

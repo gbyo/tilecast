@@ -1310,6 +1310,8 @@ export type PluginSummary = {
   webhooks?: PluginWebhookReview[];
   /** Notification channels and Content Health checks the plugin provides. */
   providers?: PluginProviderReview;
+  /** Server services a Plugin Manifest API 3 plugin declares. */
+  services?: PackageServiceGrant[];
 };
 
 export type PluginEventReview =
@@ -1487,19 +1489,33 @@ export type PackageRuntime = {
  * entry is a request the host reviews before installation; nothing here
  * grants itself.
  */
+/**
+ * Where a service operation may run: `studio` acts for the signed-in person;
+ * `background` and `system` run without one, under the installation-wide
+ * access the grant approves. The vocabulary may grow, so Studio treats an
+ * unknown value as a string it does not describe.
+ */
+export type ServiceInvocationContext = string;
+
 export type PackageServiceOperation = {
   name: string;
   title: string;
   description: string;
   mutating: boolean;
+  contexts?: ServiceInvocationContext[];
 };
 
+/**
+ * One Server service grant with registry-resolved display metadata. Packages
+ * and Plugin Manifest API 3 plugins share this shape.
+ */
 export type PackageServiceGrant = {
   id: string;
   version: number;
   name: string;
   description: string;
   category: string;
+  contexts?: ServiceInvocationContext[];
   operations: PackageServiceOperation[];
 };
 

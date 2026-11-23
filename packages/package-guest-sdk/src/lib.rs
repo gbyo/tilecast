@@ -455,6 +455,55 @@ pub mod content {
     }
 }
 
+// ------------------------------------------------------------ content v2
+
+pub mod content_v2 {
+    //! `content.read@2`: the shared content read contract. Every list takes
+    //! `{limit, cursor, ...filters}` and answers `{items, nextCursor}`; the
+    //! cursor is opaque and belongs to the filters it was issued for. It is
+    //! a separate grant from `content.read@1`.
+    use super::{CallError, call_json};
+
+    pub const PLAYLISTS_LIST: &str = "content.read@2/playlists.list";
+    pub const PLAYLISTS_GET: &str = "content.read@2/playlists.get";
+    pub const LAYOUTS_LIST: &str = "content.read@2/layouts.list";
+    pub const LAYOUTS_GET: &str = "content.read@2/layouts.get";
+    pub const WIDGETS_LIST: &str = "content.read@2/widgets.list";
+    pub const WIDGETS_GET: &str = "content.read@2/widgets.get";
+    pub const MEDIA_LIST: &str = "content.read@2/media.list";
+    pub const MEDIA_GET: &str = "content.read@2/media.get";
+    pub const DATA_SOURCES_LIST: &str = "content.read@2/dataSources.list";
+    pub const DATA_SOURCES_GET: &str = "content.read@2/dataSources.get";
+    pub const SCHEDULES_LIST: &str = "content.read@2/schedules.list";
+    pub const SCHEDULES_GET: &str = "content.read@2/schedules.get";
+    pub const GROUPS_LIST: &str = "content.read@2/groups.list";
+    pub const GROUPS_GET: &str = "content.read@2/groups.get";
+
+    /// Calls one content.read@2 operation with a JSON input.
+    pub fn call(operation: &str, input: &serde_json::Value) -> Result<serde_json::Value, CallError> {
+        call_json(operation, input)
+    }
+}
+
+// ---------------------------------------------------------------- activity
+
+pub mod activity {
+    //! `activity.read@1`: proof of play, its summary, playback compliance,
+    //! and current screen activity, in the safe Activity view. Lists use the
+    //! same cursor contract as `content.read@2`.
+    use super::{CallError, call_json};
+
+    pub const PROOF_LIST: &str = "activity.read@1/proof.list";
+    pub const PROOF_SUMMARY: &str = "activity.read@1/proof.summary";
+    pub const COMPLIANCE_SUMMARY: &str = "activity.read@1/compliance.summary";
+    pub const SCREENS_CURRENT: &str = "activity.read@1/screens.current";
+
+    /// Calls one activity.read@1 operation with a JSON input.
+    pub fn call(operation: &str, input: &serde_json::Value) -> Result<serde_json::Value, CallError> {
+        call_json(operation, input)
+    }
+}
+
 // ---------------------------------------------------------------- managed
 
 pub mod managed {

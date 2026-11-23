@@ -2556,30 +2556,6 @@ func (e OAuthTokensTokenType) Valid() bool {
 	}
 }
 
-// Defines values for PackageCapabilitiesServicesCategory.
-const (
-	PackageCapabilitiesServicesCategoryAudit     PackageCapabilitiesServicesCategory = "audit"
-	PackageCapabilitiesServicesCategoryDirectory PackageCapabilitiesServicesCategory = "directory"
-	PackageCapabilitiesServicesCategoryManage    PackageCapabilitiesServicesCategory = "manage"
-	PackageCapabilitiesServicesCategoryRead      PackageCapabilitiesServicesCategory = "read"
-)
-
-// Valid indicates whether the value is a known member of the PackageCapabilitiesServicesCategory enum.
-func (e PackageCapabilitiesServicesCategory) Valid() bool {
-	switch e {
-	case PackageCapabilitiesServicesCategoryAudit:
-		return true
-	case PackageCapabilitiesServicesCategoryDirectory:
-		return true
-	case PackageCapabilitiesServicesCategoryManage:
-		return true
-	case PackageCapabilitiesServicesCategoryRead:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PackageInUseErrorErrorCode.
 const (
 	PackageInUseErrorErrorCodePackageInUse PackageInUseErrorErrorCode = "package_in_use"
@@ -5022,6 +4998,30 @@ func (e ScreenTimelineDomain) Valid() bool {
 	case ScreenTimelineDomainTakeovers:
 		return true
 	case ScreenTimelineDomainUpdates:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServiceGrantReviewCategory.
+const (
+	ServiceGrantReviewCategoryAudit     ServiceGrantReviewCategory = "audit"
+	ServiceGrantReviewCategoryDirectory ServiceGrantReviewCategory = "directory"
+	ServiceGrantReviewCategoryManage    ServiceGrantReviewCategory = "manage"
+	ServiceGrantReviewCategoryRead      ServiceGrantReviewCategory = "read"
+)
+
+// Valid indicates whether the value is a known member of the ServiceGrantReviewCategory enum.
+func (e ServiceGrantReviewCategory) Valid() bool {
+	switch e {
+	case ServiceGrantReviewCategoryAudit:
+		return true
+	case ServiceGrantReviewCategoryDirectory:
+		return true
+	case ServiceGrantReviewCategoryManage:
+		return true
+	case ServiceGrantReviewCategoryRead:
 		return true
 	default:
 		return false
@@ -7505,6 +7505,9 @@ type CatalogPlugin struct {
 	Providers    *PluginProviderReview `json:"providers,omitempty"`
 	Requirements []PluginRequirement   `json:"requirements"`
 
+	// Services Server services a Plugin Manifest API 3 plugin declares, with registry-resolved display metadata. Empty for other plugins.
+	Services *[]ServiceGrantReview `json:"services,omitempty"`
+
 	// Version Definition contract version compiled into this release
 	Version int `json:"version"`
 
@@ -9962,19 +9965,7 @@ type PackageCapabilities struct {
 	} `json:"realtime,omitempty"`
 
 	// Services Requested Tilecast service grants with registry-resolved display metadata.
-	Services *[]struct {
-		Category    PackageCapabilitiesServicesCategory `json:"category"`
-		Description string                              `json:"description"`
-		Id          string                              `json:"id"`
-		Name        string                              `json:"name"`
-		Operations  []struct {
-			Description string `json:"description"`
-			Mutating    bool   `json:"mutating"`
-			Name        string `json:"name"`
-			Title       string `json:"title"`
-		} `json:"operations"`
-		Version int `json:"version"`
-	} `json:"services,omitempty"`
+	Services *[]ServiceGrantReview `json:"services,omitempty"`
 
 	// Storage Request plugin-owned key/value storage.
 	Storage *bool `json:"storage,omitempty"`
@@ -9984,9 +9975,6 @@ type PackageCapabilities struct {
 		Entry string `json:"entry"`
 	} `json:"studioUI,omitempty"`
 }
-
-// PackageCapabilitiesServicesCategory defines model for PackageCapabilities.Services.Category.
-type PackageCapabilitiesServicesCategory string
 
 // PackageContribution One activated contribution: its kind, its package-qualified identity, and its path inside the package.
 type PackageContribution struct {
@@ -12894,6 +12882,29 @@ type SemanticChange struct {
 	Kind        string `json:"kind"`
 	Path        string `json:"path"`
 }
+
+// ServiceGrantReview One requested Server service grant with registry-resolved display metadata. Contexts say where it may run: studio calls act for the signed-in operator; background and system calls run without one, under the installation-wide view this grant approves.
+type ServiceGrantReview struct {
+	Category    ServiceGrantReviewCategory `json:"category"`
+	Contexts    []ServiceInvocationContext `json:"contexts"`
+	Description string                     `json:"description"`
+	Id          string                     `json:"id"`
+	Name        string                     `json:"name"`
+	Operations  []struct {
+		Contexts    []ServiceInvocationContext `json:"contexts"`
+		Description string                     `json:"description"`
+		Mutating    bool                       `json:"mutating"`
+		Name        string                     `json:"name"`
+		Title       string                     `json:"title"`
+	} `json:"operations"`
+	Version int `json:"version"`
+}
+
+// ServiceGrantReviewCategory defines model for ServiceGrantReview.Category.
+type ServiceGrantReviewCategory string
+
+// ServiceInvocationContext studio runs for a signed-in operator; background runs a scheduled or queued job; system runs a host callback such as an event or webhook.
+type ServiceInvocationContext = string
 
 // SessionCreated defines model for SessionCreated.
 type SessionCreated struct {

@@ -9,15 +9,26 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
-// Studio calls act for the signed-in operator and get exactly the decision
-// the equivalent dashboard route gets: the same capability and the same
-// authz object rule. Background calls act for the installation under the
-// package's install-time grant and take no user's screen access. The two
-// are told apart by the call context alone; a Studio call that somehow
-// lacks an actor is refused, never treated as background.
+// One rule decides who a call acts for, for packages and bundled plugins
+// alike:
+//
+//   - A studio call acts for the signed-in operator and gets exactly the
+//     decision the equivalent dashboard route gets: the live capability and
+//     the same authz object rule. A studio call without an actor is refused,
+//     never treated as unattended.
+//   - A background or system call is unattended. It acts for the
+//     installation under the caller's exact install-time service grant, sees
+//     the installation-wide view the operation defines, and never carries
+//     or borrows an operator, including the one who configured the plugin.
+//     It runs only when the registry lists that context for the operation;
+//     the dispatcher checks that before any handler runs.
+//   - Any other context is refused.
+//
+// Unattended is not administrative: the grant names one versioned service,
+// and the operation still applies its own resource rules.
 
-// studioActor returns the operator a Studio call acts for. studio is false
-// for a background call.
+// studioActor returns the operator a studio call acts for. studio is false
+// for an unattended background or system call.
 func studioActor(call Call) (actor authz.Actor, studio bool, failure *CallError) {
 	switch call.Context {
 	case ContextStudio:
@@ -25,7 +36,10 @@ func studioActor(call Call) (actor authz.Actor, studio bool, failure *CallError)
 			return authz.Actor{}, true, forbidden("studio calls require an authenticated actor")
 		}
 		return authz.ActorForRole(call.Actor.UserID, call.Actor.Role, call.Actor.Capabilities), true, nil
-	case ContextBackground:
+	case ContextBackground, ContextSystem:
+		if call.Actor != nil {
+			return authz.Actor{}, false, forbidden("unattended calls never act for an operator")
+		}
 		return authz.Actor{}, false, nil
 	default:
 		return authz.Actor{}, false, forbidden("unknown invocation context")
@@ -36,7 +50,7 @@ func (d *Dispatcher) authorizer() *authz.Authorizer {
 	return authz.New(d.deps.DB)
 }
 
-// authorize runs decide for a Studio call and passes a background call.
+// authorize runs decide for a studio call and passes an unattended call.
 // notFoundMessage is what an object outside the operator's reach reads as.
 func (d *Dispatcher) authorize(ctx context.Context, call Call, notFoundMessage string, decide func(*authz.Authorizer, authz.Actor) error) *CallError {
 	actor, studio, failure := studioActor(call)
@@ -46,8 +60,8 @@ func (d *Dispatcher) authorize(ctx context.Context, call Call, notFoundMessage s
 	return authzFailure(decide(d.authorizer(), actor), notFoundMessage)
 }
 
-// screenAccess resolves the Studio operator's screen access for a list,
-// after checking capability. A background call returns nil: the whole
+// screenAccess resolves the studio operator's screen access for a list,
+// after checking capability. An unattended call returns nil: the whole
 // fleet under the install-time grant.
 func (d *Dispatcher) screenAccess(ctx context.Context, call Call, capability auth.Capability) (*authz.ScreenAccess, *CallError) {
 	actor, studio, failure := studioActor(call)
@@ -64,8 +78,8 @@ func (d *Dispatcher) screenAccess(ctx context.Context, call Call, capability aut
 	return &access, nil
 }
 
-// reachable filters ids for a Studio list with the same predicate the
-// single-object decision uses. A background call keeps every id.
+// reachable filters ids for a studio list with the same predicate the
+// single-object decision uses. An unattended call keeps every id.
 func (d *Dispatcher) reachable(ctx context.Context, call Call, capability auth.Capability, kind authz.Kind, ids []uuid.UUID) (map[uuid.UUID]bool, *CallError) {
 	actor, studio, failure := studioActor(call)
 	if failure != nil {
@@ -85,8 +99,8 @@ func (d *Dispatcher) reachable(ctx context.Context, call Call, capability auth.C
 	return visible, nil
 }
 
-// requireCapability checks a Studio call's capability. It replaces the
-// earlier studioCapability, which passed any call without an actor.
+// requireCapability checks a studio call's capability and passes an
+// unattended call.
 func requireCapability(call Call, capability auth.Capability) *CallError {
 	actor, studio, failure := studioActor(call)
 	if failure != nil || !studio {

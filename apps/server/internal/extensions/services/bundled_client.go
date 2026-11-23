@@ -32,6 +32,7 @@ func BundledCatalogSource() ([]byte, error) {
 		Version     int         `json:"version"`
 		Name        string      `json:"name"`
 		Description string      `json:"description"`
+		Category    string      `json:"category"`
 		Contexts    []string    `json:"contexts"`
 		Operations  []operation `json:"operations"`
 	}
@@ -40,7 +41,7 @@ func BundledCatalogSource() ([]byte, error) {
 		if !entry.AllowsCaller(CallerBundled) {
 			continue
 		}
-		item := capability{ID: entry.ID, Version: entry.Version, Name: entry.Name, Description: entry.Description, Contexts: entry.Contexts}
+		item := capability{ID: entry.ID, Version: entry.Version, Name: entry.Name, Description: entry.Description, Category: entry.Category, Contexts: entry.Contexts}
 		for _, op := range entry.Operations {
 			limits := LimitsOf(op)
 			item.Operations = append(item.Operations, operation{Name: op.Name, Title: op.Title, Mutating: op.Mutating, Contexts: op.Contexts,
@@ -83,8 +84,8 @@ var ServerServices = []ServerService{
 		}
 	}
 	for _, capability := range capabilities {
-		fmt.Fprintf(&out, "\t{ID: %q, Version: %d, Name: %q, Description: %q, Contexts: %#v, Operations: []ServerOperation{\n",
-			capability.ID, capability.Version, capability.Name, capability.Description, capability.Contexts)
+		fmt.Fprintf(&out, "\t{ID: %q, Version: %d, Name: %q, Description: %q, Category: %q, Contexts: %#v, Operations: []ServerOperation{\n",
+			capability.ID, capability.Version, capability.Name, capability.Description, capability.Category, capability.Contexts)
 		for _, operation := range capability.Operations {
 			limits := LimitsOf(operation)
 			fmt.Fprintf(&out, "\t\t{Name: %q, Title: %q, Description: %q, Mutating: %t, Contexts: %#v, MaxInputBytes: %d, MaxOutputBytes: %d},\n",

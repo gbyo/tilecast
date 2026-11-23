@@ -54,3 +54,21 @@ func TestServiceReferences(t *testing.T) {
 		t.Fatal("a missing service was reported available")
 	}
 }
+
+// A bundled plugin declares the shared read services by exact version.
+// content.read@1 stays a package-only grant.
+func TestSharedReadServicesAreDeclarable(t *testing.T) {
+	for _, declared := range []struct {
+		id      string
+		version int
+		ok      bool
+	}{{"content.read", 2, true}, {"activity.read", 1, true}, {"content.read", 1, false}, {"activity.read", 2, false}} {
+		service, ok := LookupServerService(declared.id, declared.version)
+		if ok != declared.ok {
+			t.Errorf("%s@%d declarable = %v", declared.id, declared.version, ok)
+		}
+		if ok && (service.Category != "read" || len(service.Contexts) != 3) {
+			t.Errorf("%s@%d = %+v", declared.id, declared.version, service)
+		}
+	}
+}

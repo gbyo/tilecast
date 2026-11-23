@@ -129,6 +129,26 @@ type Input struct {
 	Targets       []Target               `json:"targets"`
 }
 
+// groupSummarySelect and groupSummaryGroupBy frame the one summary read of
+// Display Groups: identity, presentation assignment, and member count.
+const groupSummarySelect = `SELECT g.id,g.name,g.description,g.display_mode,g.presentation_gateway_screen_id,a.playlist_id,p.name,a.layout_id,l.name,CASE WHEN a.layout_id IS NOT NULL THEN 'layout' WHEN a.playlist_id IS NOT NULL THEN 'playlist' END,g.playback_epoch,g.created_at,g.updated_at,count(m.screen_id) FROM screen_groups g LEFT JOIN screen_group_memberships m ON m.screen_group_id=g.id LEFT JOIN screen_group_playlist_assignments a ON a.screen_group_id=g.id LEFT JOIN playlists p ON p.id=a.playlist_id LEFT JOIN layouts l ON l.id=a.layout_id`
+
+const groupSummaryGroupBy = `GROUP BY g.id,g.display_mode,g.presentation_gateway_screen_id,a.playlist_id,p.name,a.layout_id,l.name`
+
+func scanGroupSummaries(rows pgx.Rows) ([]Group, error) {
+	items := []Group{}
+	for rows.Next() {
+		var g Group
+		if err := rows.Scan(&g.ID, &g.Name, &g.Description, &g.DisplayMode, &g.PresentationGatewayScreenID, &g.PlaylistID, &g.PlaylistName, &g.LayoutID, &g.LayoutName, &g.PresentationType, &g.PlaybackEpoch, &g.CreatedAt, &g.UpdatedAt, &g.MembershipCount); err != nil {
+			return nil, err
+		}
+		g.DisplayMode = normalizeDisplayMode(g.DisplayMode)
+		g.Screens = []GroupScreen{}
+		items = append(items, g)
+	}
+	return items, rows.Err()
+}
+
 func (s *Service) ListGroups(ctx context.Context, search string, page, size int) (GroupList, error) {
 	if page < 1 {
 		page = 1
@@ -141,22 +161,12 @@ func (s *Service) ListGroups(ctx context.Context, search string, page, size int)
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM screen_groups WHERE deleted_at IS NULL AND ($1='' OR name ILIKE '%'||$1||'%')`, strings.TrimSpace(search)).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT g.id,g.name,g.description,g.display_mode,g.presentation_gateway_screen_id,a.playlist_id,p.name,a.layout_id,l.name,CASE WHEN a.layout_id IS NOT NULL THEN 'layout' WHEN a.playlist_id IS NOT NULL THEN 'playlist' END,g.playback_epoch,g.created_at,g.updated_at,count(m.screen_id) FROM screen_groups g LEFT JOIN screen_group_memberships m ON m.screen_group_id=g.id LEFT JOIN screen_group_playlist_assignments a ON a.screen_group_id=g.id LEFT JOIN playlists p ON p.id=a.playlist_id LEFT JOIN layouts l ON l.id=a.layout_id WHERE g.deleted_at IS NULL AND ($1='' OR g.name ILIKE '%'||$1||'%') GROUP BY g.id,g.display_mode,g.presentation_gateway_screen_id,a.playlist_id,p.name,a.layout_id,l.name ORDER BY lower(g.name),g.id LIMIT $2 OFFSET $3`, strings.TrimSpace(search), size, (page-1)*size)
+	rows, err := s.db.Query(ctx, groupSummarySelect+` WHERE g.deleted_at IS NULL AND ($1='' OR g.name ILIKE '%'||$1||'%') `+groupSummaryGroupBy+` ORDER BY lower(g.name),g.id LIMIT $2 OFFSET $3`, strings.TrimSpace(search), size, (page-1)*size)
 	if err != nil {
 		return out, err
 	}
 	defer rows.Close()
-	out.Items = []Group{}
-	for rows.Next() {
-		var g Group
-		if err = rows.Scan(&g.ID, &g.Name, &g.Description, &g.DisplayMode, &g.PresentationGatewayScreenID, &g.PlaylistID, &g.PlaylistName, &g.LayoutID, &g.LayoutName, &g.PresentationType, &g.PlaybackEpoch, &g.CreatedAt, &g.UpdatedAt, &g.MembershipCount); err != nil {
-			return out, err
-		}
-		g.DisplayMode = normalizeDisplayMode(g.DisplayMode)
-		g.Screens = []GroupScreen{}
-		out.Items = append(out.Items, g)
-	}
-	if err = rows.Err(); err != nil {
+	if out.Items, err = scanGroupSummaries(rows); err != nil {
 		return out, err
 	}
 	rows.Close()
