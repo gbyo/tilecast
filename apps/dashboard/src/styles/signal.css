@@ -245,6 +245,17 @@ p {
   content: "";
 }
 
+@media (any-pointer: coarse) {
+  .layout-resize-handle {
+    right: calc(-22px / var(--tc-zoom, 1));
+    bottom: calc(-22px / var(--tc-zoom, 1));
+    width: calc(44px / var(--tc-zoom, 1));
+    min-width: calc(44px / var(--tc-zoom, 1));
+    height: calc(44px / var(--tc-zoom, 1));
+    min-height: calc(44px / var(--tc-zoom, 1));
+  }
+}
+
 .layout-text-primitive {
   display: flex;
   flex-direction: column;
