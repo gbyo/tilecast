@@ -1395,11 +1395,12 @@ describe("Update review", () => {
   });
 
   it("remounts the package interface when an update changes the installed digest", async () => {
-    packages["acme.kiosk"] = installedPackage({
+    const installed = installedPackage({
       capabilities: { studioUI: { entry: "./studio/index.html" } },
     });
+    packages["acme.kiosk"] = installed;
     check = updateCheck({
-      installed: packages["acme.kiosk"]!,
+      installed,
       available: true,
       upToDate: false,
       latest: latest(),
