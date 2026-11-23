@@ -8,6 +8,8 @@ import { HostedSettingsPage } from "./HostedSettingsPage";
 import { HostedConnectionEditor } from "./connections/HostedConnectionEditor";
 import { HostedConnectionsPage } from "./connections/HostedConnectionsPage";
 import { connectionsClient, connectionKey } from "./connections/api";
+import { HostedFeedRecordsPage } from "./feeds/HostedFeedRecordsPage";
+import { HostedFeedsPage } from "./feeds/HostedFeedsPage";
 
 /**
  * The edit page's breadcrumb names the instance. It shares the editor's query
@@ -111,6 +113,20 @@ export function hostedRouteObjects(
             load: (id: string) => connectionsClient(plugin.id).get(id),
           },
         },
+      },
+    );
+  }
+  if ((v3.feeds ?? []).length > 0) {
+    out.push(
+      {
+        path: "feeds",
+        element: <HostedFeedsPage {...props} />,
+        handle: crumb("Feeds", "hosted.breadcrumbs.feeds"),
+      },
+      {
+        path: "feeds/:datasetId",
+        element: <HostedFeedRecordsPage {...props} />,
+        handle: crumb("Records", "hosted.breadcrumbs.feedRecords"),
       },
     );
   }

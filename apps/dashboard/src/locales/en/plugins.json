@@ -558,7 +558,9 @@
       "settings": "Settings",
       "connections": "Connections",
       "newConnection": "New connection",
-      "connection": "Connection"
+      "connection": "Connection",
+      "feeds": "Feeds",
+      "feedRecords": "Records"
     },
     "connections": {
       "title": "Connections",
@@ -724,6 +726,65 @@
           }
         }
       }
+    },
+    "feeds": {
+      "title": "Feeds",
+      "description": "Data this plugin publishes. Each feed is a Data Source that Widgets can show. The plugin keeps the records up to date; you can change some fields here.",
+      "loadError": "The feeds could not be loaded.",
+      "emptyTitle": "Nothing published yet",
+      "emptyDescription": "The plugin publishes its feeds once it is set up and connected.",
+      "stale": "Late",
+      "current": "Up to date",
+      "open": "Records",
+      "neverPublished": "Not published yet",
+      "publishedAt": "Published {{date}}",
+      "recordsDescription": "The records as screens show them. Values from the provider stay unchanged; your changes are kept separately.",
+      "revision": "Revision {{revision}}",
+      "noRecords": "The last publication has no records.",
+      "recordId": "Record",
+      "actions": "Actions",
+      "view": "View",
+      "openRecord": "View record {{id}}",
+      "recordTitle": "Record {{id}}",
+      "recordDescription": "Each field shows the value from the provider and the value on screens. You can change only the fields the plugin allows.",
+      "overridden": "Changed here",
+      "personal": "Personal",
+      "upstream": "From the provider",
+      "effective": "On screens",
+      "local": "Your value",
+      "localHint": "Your value always wins over the provider. Leave it empty and save to use the provider value again.",
+      "localUntilChangedHint": "Your value wins until the provider changes this field. Then Tilecast removes your value and shows the new one.",
+      "saveOverride": "Save",
+      "clearOverride": "Use provider value",
+      "close": "Close",
+      "imageFromProvider": "An image from the provider",
+      "imageReady": "Image ready",
+      "imageMissing": "No image",
+      "policy": {
+        "upstream": "Provider only",
+        "local": "Your value wins",
+        "local_until_changed": "Yours until the provider changes it"
+      },
+      "removed": {
+        "upstream_changed": "Your value was removed on {{date}} because the provider changed this field.",
+        "feed_version_changed": "Your value was removed on {{date}} because the plugin changed this feed.",
+        "retention": "Your value was removed on {{date}} when its retention period ended."
+      },
+      "imageFailure": {
+        "http_refused": "The image address is not HTTPS, so Tilecast did not load it.",
+        "auth_required": "The provider refused access to the image. Check the connection.",
+        "fetch_failed": "Tilecast could not download the image.",
+        "invalid_image": "The file is not a supported image.",
+        "image_too_large": "The image is too large.",
+        "processing_failed": "Tilecast could not store the image.",
+        "quota_exceeded": "The plugin has no room left for images."
+      },
+      "records_one": "{{count}} record",
+      "records_other": "{{count}} records",
+      "widgetsUsing_one": "Used by {{count}} Widget",
+      "widgetsUsing_other": "Used by {{count}} Widgets",
+      "imageIssues_one": "{{count}} image problem",
+      "imageIssues_other": "{{count}} image problems"
     }
   },
   "secrets": {

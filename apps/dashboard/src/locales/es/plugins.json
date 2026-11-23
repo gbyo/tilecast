@@ -562,7 +562,9 @@
       "settings": "Ajustes",
       "connections": "Conexiones",
       "newConnection": "Nueva conexión",
-      "connection": "Conexión"
+      "connection": "Conexión",
+      "feeds": "Fuentes",
+      "feedRecords": "Registros"
     },
     "connections": {
       "title": "Conexiones",
@@ -728,6 +730,68 @@
           }
         }
       }
+    },
+    "feeds": {
+      "title": "Fuentes",
+      "description": "Datos que publica este plugin. Cada fuente es una fuente de datos que los widgets pueden mostrar. El plugin mantiene los registros al día; aquí puede cambiar algunos campos.",
+      "loadError": "No se pudieron cargar las fuentes.",
+      "emptyTitle": "Aún no hay nada publicado",
+      "emptyDescription": "El plugin publica sus fuentes cuando está configurado y conectado.",
+      "stale": "Retrasada",
+      "current": "Al día",
+      "open": "Registros",
+      "neverPublished": "Aún no publicada",
+      "publishedAt": "Publicada el {{date}}",
+      "recordsDescription": "Los registros tal como los muestran las pantallas. Los valores del proveedor no cambian; sus cambios se guardan aparte.",
+      "revision": "Revisión {{revision}}",
+      "noRecords": "La última publicación no tiene registros.",
+      "recordId": "Registro",
+      "actions": "Acciones",
+      "view": "Ver",
+      "openRecord": "Ver el registro {{id}}",
+      "recordTitle": "Registro {{id}}",
+      "recordDescription": "Cada campo muestra el valor del proveedor y el valor en pantalla. Solo puede cambiar los campos que el plugin permite.",
+      "overridden": "Cambiado aquí",
+      "personal": "Personal",
+      "upstream": "Del proveedor",
+      "effective": "En pantalla",
+      "local": "Su valor",
+      "localHint": "Su valor siempre prevalece sobre el del proveedor. Déjelo vacío y guarde para volver al valor del proveedor.",
+      "localUntilChangedHint": "Su valor prevalece hasta que el proveedor cambie este campo. Entonces Tilecast quita su valor y muestra el nuevo.",
+      "saveOverride": "Guardar",
+      "clearOverride": "Usar el valor del proveedor",
+      "close": "Cerrar",
+      "imageFromProvider": "Una imagen del proveedor",
+      "imageReady": "Imagen lista",
+      "imageMissing": "Sin imagen",
+      "policy": {
+        "upstream": "Solo el proveedor",
+        "local": "Prevalece su valor",
+        "local_until_changed": "Suyo hasta que cambie el proveedor"
+      },
+      "removed": {
+        "upstream_changed": "Su valor se quitó el {{date}} porque el proveedor cambió este campo.",
+        "feed_version_changed": "Su valor se quitó el {{date}} porque el plugin cambió esta fuente.",
+        "retention": "Su valor se quitó el {{date}} al terminar su periodo de conservación."
+      },
+      "imageFailure": {
+        "http_refused": "La dirección de la imagen no es HTTPS, así que Tilecast no la cargó.",
+        "auth_required": "El proveedor denegó el acceso a la imagen. Revise la conexión.",
+        "fetch_failed": "Tilecast no pudo descargar la imagen.",
+        "invalid_image": "El archivo no es una imagen compatible.",
+        "image_too_large": "La imagen es demasiado grande.",
+        "processing_failed": "Tilecast no pudo guardar la imagen.",
+        "quota_exceeded": "El plugin no tiene más espacio para imágenes."
+      },
+      "records_one": "{{count}} registro",
+      "records_other": "{{count}} registros",
+      "widgetsUsing_one": "Usada por {{count}} widget",
+      "widgetsUsing_other": "Usada por {{count}} widgets",
+      "imageIssues_one": "{{count}} problema de imagen",
+      "imageIssues_other": "{{count}} problemas de imagen",
+      "records_many": "{{count}} registros",
+      "widgetsUsing_many": "Usada por {{count}} widgets",
+      "imageIssues_many": "{{count}} problemas de imagen"
     }
   },
   "secrets": {
