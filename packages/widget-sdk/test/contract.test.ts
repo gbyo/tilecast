@@ -451,6 +451,32 @@ describe("manifest", () => {
     expect(widgetManifestSchema.safeParse(unknownKey).success).toBe(false);
   });
 
+  it("refuses the plugin-only secret, connection, and personal semantics", () => {
+    const withFields = (fields: unknown[]) => ({
+      ...manifest("tilecast.clock", "tc-widget-clock"),
+      configurationSchema: { fields },
+    });
+    const text = { key: "a", label: "A", control: "text" };
+    expect(widgetManifestSchema.safeParse(withFields([text])).success).toBe(
+      true,
+    );
+    for (const field of [
+      { key: "token", label: "Token", control: "secret" },
+      { key: "service", label: "Service", control: "connection" },
+      { ...text, personal: { retentionDays: 30 } },
+      {
+        key: "rows",
+        label: "Rows",
+        control: "repeating_group",
+        maximumItems: 2,
+        itemFields: [{ ...text, personal: { retentionDays: 30 } }],
+      },
+    ])
+      expect(widgetManifestSchema.safeParse(withFields([field])).success).toBe(
+        false,
+      );
+  });
+
   it("accepts only positive persisted configuration versions", () => {
     expect(
       widgetManifestSchema.safeParse({

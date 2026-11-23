@@ -3,6 +3,8 @@ package contentdefs
 import (
 	"reflect"
 	"testing"
+
+	"github.com/tilecast/tilecast/packages/config-schema/go/configschema"
 )
 
 func TestFontFieldsStayTopLevelAndBounded(t *testing.T) {
@@ -41,5 +43,23 @@ func TestFontFieldValuesNormalizeAndSkipInvalid(t *testing.T) {
 	})
 	if want := []string{"5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("FontFieldValues = %v, want %v", got, want)
+	}
+}
+
+// A Widget schema uses the widget profile of the configuration schema. The
+// plugin-only controls and the personal marker are refused by the validator,
+// not by the Widget editor's good behavior.
+func TestWidgetSchemaRefusesPluginOnlySemantics(t *testing.T) {
+	for name, field := range map[string]FieldDefinition{
+		"secret":     {Key: "token", Label: "Token", Control: "secret"},
+		"connection": {Key: "service", Label: "Service", Control: "connection"},
+		"personal":   {Key: "who", Label: "Who", Control: "text", Personal: &configschema.Personal{RetentionDays: 7}},
+	} {
+		if err := validateSchema(ConfigurationSchema{Fields: []FieldDefinition{field}}); err == nil {
+			t.Errorf("a Widget schema accepted %s", name)
+		}
+	}
+	if err := validateSchema(ConfigurationSchema{Fields: []FieldDefinition{{Key: "title", Label: "Title", Control: "text"}}}); err != nil {
+		t.Fatal(err)
 	}
 }
