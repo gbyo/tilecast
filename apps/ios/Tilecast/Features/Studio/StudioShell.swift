@@ -13,7 +13,6 @@ struct StudioShell: View {
     @State private var managingServers = false
     @State private var addingServer = false
     @State private var slot = StudioSlot()
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var actions: ServerActions {
         ServerActions(add: { addingServer = true }, manage: { managingServers = true })
@@ -22,9 +21,10 @@ struct StudioShell: View {
     var body: some View {
         // The one web view is a sibling of the shell, never a child of a
         // layout, so changing the order does not rebuild it. It is above the
-        // shell in every layout but the tabs. In the tabs it is behind a
-        // transparent tab container, so the floating tab bar shows the page
-        // through its glass instead of being covered by it.
+        // shell in the fallback layout. With native navigation it is behind
+        // the transparent adaptive tab container, so iPhone's bottom tab bar
+        // and iPadOS's top tab bar/sidebar can remain system-owned without
+        // rebuilding or duplicating the WebView.
         ZStack {
             shell.zIndex(webViewBehindTabs ? 1 : 0)
             StudioOverlay().zIndex(webViewBehindTabs ? 0 : 1)
@@ -62,10 +62,10 @@ struct StudioShell: View {
         }
     }
 
-    /// True while native tabs show Studio.
+    /// Native navigation is always a TabView now; iPadOS adapts that tab bar
+    /// into a sidebar itself as the window changes.
     private var webViewBehindTabs: Bool {
         host.page?.bridge.navigation.isAvailable == true
-            && NativeNavigationShell.usesTabs(horizontalSizeClass: horizontalSizeClass)
     }
 
     /// The generic MapKit presentation Studio asked for. The center reports

@@ -67,6 +67,29 @@ describe("SiteHeader", () => {
     ).toBeTruthy();
   });
 
+
+  it("keeps native-host toolbar actions compact but touch-sized", () => {
+    render(
+      <MemoryRouter>
+        <SidebarProvider>
+          <SiteHeader
+            nativeHost
+            navigationTrigger={false}
+            breadcrumbs={[{ label: "Screens", to: "/screens" }]}
+            notifications={{ count: 0, items: [], topPriority: null }}
+            onSearch={() => {}}
+          />
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+
+    const search = screen.getByRole("button", { name: /Search Tilecast/ });
+    const notifications = screen.getByRole("button", { name: /Notifications/ });
+    expect(search.className).toContain("size-11");
+    expect(notifications.className).toContain("size-11");
+    expect(search.textContent).not.toContain("Search Tilecast");
+  });
+
   it("shows an editor's draft name in the last breadcrumb only", async () => {
     // The rename handler must be stable: a new function on every render would
     // re-register it on every render and never settle.

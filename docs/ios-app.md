@@ -42,7 +42,7 @@ Tests can use Studio paths and destination identifiers as data.
 
 | Part                     | Location                                                | Responsibility                                                                                                |
 | ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| App target               | `apps/ios/Tilecast/`                                    | SwiftUI scenes, native tabs and sidebar, server switching, add-server flow, connection states, localized text |
+| App target               | `apps/ios/Tilecast/`                                    | SwiftUI scenes, adaptive tab/sidebar navigation, server switching, add-server flow, connection states, localized text |
 | `TilecastCore`           | `apps/ios/TilecastKit/Sources/TilecastCore/`            | Server profiles, address policy, installation identity, WebKit storage, navigation policy, hosting            |
 | Native authentication    | `apps/ios/TilecastKit/Sources/TilecastCore/Auth/`       | Sign-in callback checks, the iOS session client, the credential store, `NativeAuthSession`, bearer transport  |
 | `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code            |
@@ -258,7 +258,7 @@ A native tap never loads a URL. The sequence is:
 2. Studio finds the identifier in its current model. If the identifier is not there, Studio refuses the request and sends its catalog and state again.
 3. Studio calls React Router's `navigate`.
 4. An unsaved-changes blocker can stop the navigation. The user decides in Studio's own dialog.
-5. On iPhone, the native tab highlight changes immediately. The one Studio WebView stays associated with its last confirmed tab, and the newly selected tab masks that stale frame.
+5. In the adaptive tab UI, the native tab highlight changes immediately. The one Studio WebView stays associated with its last confirmed tab, and the newly selected tab masks that stale frame.
 6. When the route changes, Studio waits across a browser paint boundary before sending `navigation/state`. It also sends the state when the location did not change.
 7. The app settles the WebView onto the destination named by that state and removes the mask. If navigation was blocked, the unchanged state rolls the optimistic tab highlight back instead.
 
@@ -274,17 +274,21 @@ The back button sends `navigation/back` with no path. Studio navigates to the pr
 
 No page needs code for this. The trail comes from the route metadata that Studio already has, so a new page with a breadcrumb gets the bar. The bar has no swipe-back gesture yet: the web view has no back stack of its own, and the gesture would have to call `navigation/back`.
 
-### iPhone
+### Adaptive iPhone and iPad navigation
 
-The app uses a SwiftUI `TabView`:
+The app uses one SwiftUI `TabView` with the `sidebarAdaptable` style instead of choosing a completely different shell from the device idiom or horizontal size class.
 
 - The first destinations that Studio marks `primary` become tabs, up to four. Studio marks Overview, Fleet, and Media as `primary`.
 - The last tab is the app's own More tab.
 - The first tap on More shows a grouped list of every other destination, in Studio's groups, and the server controls: server switching, Add Server, Manage Servers, and Reload.
 - A destination in the list opens in the same Studio page, inside the More tab. More stays selected while a More destination is open.
 - A tap on More while More is selected shows the list again.
+- iPhone uses the system bottom tab bar.
+- iPadOS defaults to the content-first tab-bar representation and can adapt it into the system sidebar as the person changes the representation, rotates the device, or resizes the window. Tilecast does not force the sidebar open just because the horizontal size class is regular.
 
-Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. The app shows no navigation bar above Studio while native navigation is active.
+This follows Apple's current iPadOS guidance: keep functionality stable as space changes, expose more UI when room is available, and prefer a tab bar first when a permanent sidebar would unnecessarily reduce content space.
+
+Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. In the native host, that shared topbar stays compact and keeps search/notification controls at touch-sized hit targets instead of expanding the desktop search field at tablet widths. The app shows no second navigation bar above Studio while native navigation is active.
 
 #### Studio beneath the tab bar
 
@@ -292,18 +296,14 @@ The iOS 26 tab bar floats over its content. Studio must be the content that show
 
 The one Studio web view is a sibling of the shell in `StudioShell`, and it is not a child of any layout. Its layer order depends on the layout:
 
-- In every layout but the tabs, the web view is above the shell. `StudioOverlay` places it over the active slot.
-- In the compact tab layout, the web view is behind the shell. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the tab bar is drawn above the page. The More tab shows either the More list or Studio, because the list is opaque.
+- In the fallback layout, the web view is above the shell. `StudioOverlay` places it over the active slot.
+- With native navigation, the web view is behind the adaptive tab container. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the system navigation is drawn above the page. The More tab shows either the More list or Studio, because the list is opaque.
 - `StudioShell` changes only `zIndex`, so the web view is not rebuilt and no second `WebView` exists.
 - `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom inset that the tab bar causes, and adds the inset to the frame. `StudioOverlay` applies the same inset with `safeAreaPadding(.bottom, _)`, so content scrolls under the bar and stops above it.
 
 `TransparentTabContainer` is the one UIKit adapter for this. `TabView` is a `UITabBarController`, and its container views paint an opaque background that SwiftUI cannot remove. The adapter finds the controller from inside a tab and clears the background color of its container views, never the tab bar. The container views also swallow touches where they are transparent. The adapter gives the controller's view, for that one instance, a runtime subclass with a `hitTest`, and it does the same for each wrapper view that SwiftUI puts around the controller. While Studio shows, the `hitTest` keeps only hits on the tab bar and the navigation bar, so every other touch reaches the web view behind. While the More list shows, it changes nothing. The layering is not verified on a device or a simulator. If Studio is blank in the tabs, a container still paints an opaque background, and the web view must go back above the shell. The regular-width iPad sidebar and the fallback chrome keep the web view above the shell.
 
 The app does not minimize the tab bar while the page scrolls. A `WebView` does not take part in the tab bar's scroll tracking.
-
-### iPad
-
-On an iPad in regular width, the app uses a `NavigationSplitView`. The sidebar shows the server menu at the top, then every catalog group in order, with the secondary group last. The detail column is the same Studio page. An iPad window in compact width uses the iPhone tabs.
 
 ### Fallback
 
@@ -323,7 +323,7 @@ Studio also falls back by itself. If negotiation fails, times out, or reports no
 
 Do not edit these files. After you change the Studio mapping or update `lucide-react`, run `npm run ios:icons:generate`. `make generated-check` fails when the files are out of date. The Lucide ISC license ships in the app bundle in `Resources/Licenses/`.
 
-Tabs, the More list, the iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
+Tabs, the More list, the adaptable iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
 
 ### Plugins
 
@@ -331,7 +331,7 @@ Plugin pages are always Studio pages. A plugin page below `/plugins/` opens in t
 
 ### Adding a destination
 
-To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. On an iPad, the destination appears in its sidebar group. On an iPhone, it appears in More unless its metadata says `primary`. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
+To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. On iPad and iPhone, it appears in More unless its metadata says `primary`; iPadOS can present those tabs in its adaptable sidebar. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
 
 ## Native presentations
 

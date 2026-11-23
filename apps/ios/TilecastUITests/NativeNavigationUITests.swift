@@ -1,6 +1,6 @@
 import XCTest
 
-/// Native navigation against `FixtureStudioServer`, a loopback stand-in for
+/// Adaptive native navigation against `FixtureStudioServer`, a loopback stand-in for
 /// a Tilecast server. The fixture's destinations are made up, so these
 /// tests also show that the shell renders whatever catalog Studio sends.
 final class NativeNavigationUITests: XCTestCase {
@@ -45,7 +45,6 @@ final class NativeNavigationUITests: XCTestCase {
 
     @MainActor
     func testTabsDriveTheOneStudioPage() throws {
-        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPad uses the sidebar")
         launchWithFixtureServer()
         let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(tabBar.waitForExistence(timeout: 20), "native tabs replace the fallback chrome")
@@ -86,7 +85,6 @@ final class NativeNavigationUITests: XCTestCase {
     /// above the bar and leaving an empty strip.
     @MainActor
     func testStudioReachesBeneathTheFloatingTabBar() throws {
-        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPad in regular width uses the sidebar")
         launchWithFixtureServer()
         assertStudioReachesBeneathTheTabBar()
     }
@@ -95,7 +93,6 @@ final class NativeNavigationUITests: XCTestCase {
     /// areas differ.
     @MainActor
     func testStudioReachesBeneathTheTabBarInLandscape() throws {
-        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPad in regular width uses the sidebar")
         XCUIDevice.shared.orientation = .landscapeLeft
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         launchWithFixtureServer()
@@ -128,23 +125,20 @@ final class NativeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testRegularWidthIPadShowsTheSidebar() throws {
-        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPhone uses tabs")
-        XCUIDevice.shared.orientation = .landscapeLeft
+    func testIPadStartsWithContentFirstTabNavigation() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-specific launch behavior")
+        XCUIDevice.shared.orientation = .portrait
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         launchWithFixtureServer()
-        let sidebar = app.collectionViews["native.sidebar"]
-        let layouts = sidebar.staticTexts["Layouts"]
-        XCTAssertTrue(layouts.waitForExistence(timeout: 20), "the sidebar lists Studio's catalog")
-        XCTAssertTrue(sidebar.staticTexts["Room Bookings"].exists)
-        XCTAssertFalse(app.tabBars.firstMatch.exists)
-        XCTAssertTrue(studioText("Overview page").waitForExistence(timeout: 10))
-        let document = documentLabel
 
-        layouts.tap()
-        XCTAssertTrue(studioText("Layouts page").waitForExistence(timeout: 5))
-        sidebar.staticTexts["Room Bookings"].tap()
-        XCTAssertTrue(studioText("Room Bookings page").waitForExistence(timeout: 5))
-        XCTAssertEqual(documentLabel, document)
-        XCTAssertTrue(app.buttons["native.serverMenu"].exists)
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 20), "iPadOS starts with the content-first tab representation")
+        XCTAssertFalse(app.collectionViews["native.sidebar"].exists, "Tilecast must not force a permanent sidebar on iPad")
+        XCTAssertTrue(studioText("Overview page").waitForExistence(timeout: 10))
+
+        tabBar.buttons["More"].tap()
+        XCTAssertTrue(app.buttons["Layouts"].waitForExistence(timeout: 5), "secondary destinations stay reachable without consuming content width")
+        XCTAssertTrue(app.buttons["Manage Servers…"].exists)
     }
+
 }

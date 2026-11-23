@@ -7,20 +7,9 @@ import TilecastCore
 struct NativeNavigationShell: View {
     let page: StudioPage
     let actions: ServerActions
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    /// A regular-width iPad gets a sidebar. An iPhone, or an iPad in a
-    /// compact-width window, gets tabs.
-    static func usesTabs(horizontalSizeClass: UserInterfaceSizeClass?) -> Bool {
-        !(UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular)
-    }
 
     var body: some View {
-        if Self.usesTabs(horizontalSizeClass: horizontalSizeClass) {
-            NativeTabNavigation(page: page, actions: actions)
-        } else {
-            NativeSidebarNavigation(page: page, actions: actions)
-        }
+        NativeTabNavigation(page: page, actions: actions)
     }
 }
 
@@ -28,7 +17,9 @@ extension NavigationCatalog.Destination {
     var imageName: String { NavigationIcon.imageName(for: icon) }
 }
 
-/// iPhone: Studio's primary destinations as tabs, then the app's More tab.
+/// Adaptive top-level navigation. iPhone uses the system bottom tab bar.
+/// iPadOS starts content-first with its top tab bar and lets people reveal
+/// the system sidebar when the window has room for it.
 struct NativeTabNavigation: View {
     let page: StudioPage
     let actions: ServerActions
@@ -65,8 +56,14 @@ struct NativeTabNavigation: View {
                 Label("More", image: AppIcon.more)
             }
         }
-        // Studio is drawn behind the tabs, so the tab container must not
-        // paint over it. The More list draws its own background.
+        // Let iPadOS choose the representation as the window changes instead
+        // of treating every regular-width iPad as a permanently split layout.
+        // Apple recommends starting with the tab bar when content space matters;
+        // people can reveal the system sidebar when they want the hierarchy.
+        .tabViewStyle(.sidebarAdaptable)
+        .defaultAdaptableTabBarPlacement(.tabBar)
+        // Studio is drawn behind the tab container, so it must not paint over
+        // the page. The More list draws its own background.
         .background(.clear)
     }
 
@@ -153,55 +150,5 @@ struct MoreView: View {
         .navigationTitle(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"))
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("native.more")
-    }
-}
-
-/// Regular-width iPad: Studio's catalog as a sidebar beside the one page.
-struct NativeSidebarNavigation: View {
-    @Environment(StudioHost.self) private var host
-    let page: StudioPage
-    let actions: ServerActions
-
-    private var navigation: NativeNavigationModel { page.bridge.navigation }
-
-    var body: some View {
-        // The sidebar stays visible: Studio's topbar replaces the detail
-        // column's navigation bar, which would hold the sidebar button.
-        NavigationSplitView(columnVisibility: .constant(.all)) {
-            List(selection: Binding(
-                get: { navigation.activeDestinationID },
-                set: { if let id = $0 { navigation.open(id) } }
-            )) {
-                Section {
-                    Menu {
-                        ServerMenuItems(actions: actions)
-                        Divider()
-                        Button { page.reload() } label: { Label("Reload", image: AppIcon.reload) }
-                        SignOutButton(page: page)
-                    } label: {
-                        IconLabel(verbatim: host.directory.activeServer?.displayName ?? String(localized: "Tilecast"), image: AppIcon.server)
-                    }
-                    .accessibilityIdentifier("native.serverMenu")
-                }
-                ForEach(navigation.catalog?.groups ?? []) { group in
-                    Section {
-                        ForEach(group.destinations) { destination in
-                            IconLabel(verbatim: destination.title, image: destination.imageName)
-                                .tag(Optional(destination.id))
-                        }
-                    } header: {
-                        if let title = group.title { Text(title).font(.geist(.footnote)) }
-                    }
-                }
-            }
-            .navigationTitle("Tilecast")
-            .toolbar(removing: .sidebarToggle)
-            .accessibilityIdentifier("native.sidebar")
-        } detail: {
-            StudioSlotView()
-                .ignoresSafeArea(edges: .bottom)
-                .studioBackBar(navigation)
-        }
-        .navigationSplitViewStyle(.balanced)
     }
 }
