@@ -31,6 +31,7 @@ import { fileURLToPath } from "node:url";
 import { fixtures as conformanceFixtures } from "./fixtures.mjs";
 import { perfScenarios } from "./perf.mjs";
 import { widgetPerfScenarios } from "./widget-perf.mjs";
+import { electronExecutable, engineFailure } from "./engine-process.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkg = path.join(here, "..");
@@ -207,9 +208,7 @@ if (engine === "android") {
     const started = Date.now();
     let child;
     if (engine === "electron" || engine === "electron-legacy") {
-      const electron =
-        process.env.TILECAST_ELECTRON ??
-        path.join(repo, "node_modules", ".bin", "electron");
+      const electron = electronExecutable(process.env.TILECAST_ELECTRON);
       const runner = path.join(
         repo,
         "apps",
@@ -311,11 +310,13 @@ if (engine === "android") {
       : null;
     const status =
       child.status === 0 && result && !result.failure ? "completed" : "failed";
+    const failure = engineFailure(child, result);
+    if (failure) console.error(`run: ${engine} ${fixture.name}: ${failure}`);
     summary.push({
       fixture: fixture.name,
       status,
       exitCode: child.status,
-      failure: result?.failure ?? (result ? null : "no result"),
+      failure,
       seconds: (Date.now() - started) / 1000,
     });
     console.log(`run: ${engine} ${fixture.name}: ${status}`);
