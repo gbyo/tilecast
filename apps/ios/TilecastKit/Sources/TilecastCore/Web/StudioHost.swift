@@ -69,6 +69,9 @@ public final class StudioHost {
     /// server the user already left cannot build a page.
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var nativeAuthEvents: Task<Void, Never>?
+    /// One auth actor per verified credential identity. Keeping it across
+    /// page/server switches preserves refresh-token single-flight rotation.
+    @ObservationIgnored private var authSessions: [NativeCredentialKey: NativeAuthSession] = [:]
     /// A deep link waiting for its installation's Studio to be ready.
     @ObservationIgnored private var pendingDeepLink: PendingDeepLink?
     /// Whether launch finished choosing a server, so a link that arrives
@@ -145,6 +148,7 @@ public final class StudioHost {
         // verified in this connection; other credentials are deleted locally.
         if let nativeAuth, nativeAuth.key.serverID == id { await nativeAuth.signOut() }
         if wasActive { closePage() }
+        discardAuthSessions(forServer: id)
         guard let removed = directory.remove(id) else { return }
         credentials.deleteRefreshTokens(forServer: removed.id)
         await removeDataStore(removed.websiteDataStoreID)
@@ -174,6 +178,7 @@ public final class StudioHost {
     /// old website data is deleted first.
     public func trustNewInstallation(_ id: UUID, identity: InstallationIdentity) async throws(ServerDirectoryError) {
         closePage()
+        discardAuthSessions(forServer: id)
         // Never sent anywhere: the address now belongs to another installation.
         credentials.deleteRefreshTokens(forServer: id)
         if let oldStore = try directory.rebind(id, to: identity) {
@@ -230,12 +235,19 @@ public final class StudioHost {
                 applicationName: applicationName,
                 system: system
             )
-            let auth = NativeAuthSession(
-                key: NativeCredentialKey(profile: current),
-                address: current.address,
-                exchanger: sessionService(current.address),
-                store: credentials
-            )
+            let key = NativeCredentialKey(profile: current)
+            let auth: NativeAuthSession
+            if let existing = authSessions[key], existing.address == current.address {
+                auth = existing
+            } else {
+                auth = NativeAuthSession(
+                    key: key,
+                    address: current.address,
+                    exchanger: sessionService(current.address),
+                    store: credentials
+                )
+                authSessions[key] = auth
+            }
             page.bridge.onSignedOut = { [weak self, weak page] in
                 if let self, let page { self.studioSignedOut(page) }
             }
@@ -448,6 +460,10 @@ public final class StudioHost {
                 deliverPendingDeepLink()
             }
         }
+    }
+
+    private func discardAuthSessions(forServer id: UUID) {
+        authSessions = authSessions.filter { $0.key.serverID != id }
     }
 
     private func closePage() {
