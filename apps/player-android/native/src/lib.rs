@@ -41,6 +41,7 @@ pub mod paths;
 pub mod presentation_capabilities;
 pub mod renderer;
 pub mod renderer_profile;
+pub mod resume;
 pub mod selection;
 pub mod server_link;
 pub mod stores;
