@@ -28,12 +28,14 @@ export type ConfirmedPlaying =
  * Each cell has a soft color identity and a quiet 24-hour trend below the
  * figure, drawn from real uptime data.
  */
+const NO_TREND: UptimeBucket[] = [];
+
 export function FleetStatus({
   summary,
   attentionCount,
   attentionPending,
   confirmed,
-  trend = [],
+  trend = NO_TREND,
 }: {
   summary: FleetSummary;
   attentionCount: number;

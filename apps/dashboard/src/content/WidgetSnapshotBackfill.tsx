@@ -366,20 +366,13 @@ function CompatibilitySnapshotCapture({
   const sourcesFailed =
     sourcesSettled &&
     sourcePreviews.some((preview) => preview.isError || !preview.data);
-  const previewDatasets = declaredSources.reduce<PreviewDatasets>(
-    (all, id, index) => ({
-      ...all,
-      ...previewDatasetMaps(id, sourcePreviews[index]?.data),
-    }),
-    {},
-  );
-  const previewCurrencies = declaredSources.reduce<PreviewDatasetCurrencies>(
-    (all, id, index) => ({
-      ...all,
-      ...previewDatasetCurrencies(id, sourcePreviews[index]?.data),
-    }),
-    {},
-  );
+  const previewDatasets: PreviewDatasets = {};
+  const previewCurrencies: PreviewDatasetCurrencies = {};
+  declaredSources.forEach((id, index) => {
+    const data = sourcePreviews[index]?.data;
+    Object.assign(previewDatasets, previewDatasetMaps(id, data));
+    Object.assign(previewCurrencies, previewDatasetCurrencies(id, data));
+  });
   const ready = Boolean(compiled.data) && sourcesSettled && !sourcesFailed;
   const failed =
     compiled.isError || (definitions.isError && !definition) || sourcesFailed;

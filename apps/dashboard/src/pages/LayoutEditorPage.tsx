@@ -198,6 +198,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useEffectEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useLibraryFonts } from "../fonts/libraryFonts";
@@ -1025,51 +1026,53 @@ export function LayoutEditorPage() {
     };
   }, [setViewport, viewAt, canvasWidth, getViewport]);
   // Cmd/Ctrl 0 fits, 1 is 100%, +/- zoom about the center; Space arms panning.
+  const onViewportKey = useEffectEvent((event: KeyboardEvent) => {
+    const controlCommand =
+      (event.ctrlKey || event.metaKey) &&
+      isEditorCommandShortcutTarget(event.target);
+    if (
+      event.defaultPrevented ||
+      (isInteractiveShortcutTarget(event.target) && !controlCommand)
+    )
+      return;
+    if (event.code === "Space") {
+      event.preventDefault();
+      if (!spaceHeld.current) {
+        spaceHeld.current = true;
+        setPanMode((mode) => (mode === "idle" ? "ready" : mode));
+      }
+      return;
+    }
+    if (!event.ctrlKey && !event.metaKey) return;
+    if (event.key === "=" || event.key === "+") {
+      event.preventDefault();
+      zoomIn();
+    } else if (event.key === "-") {
+      event.preventDefault();
+      zoomOut();
+    } else if (event.key === "0") {
+      event.preventDefault();
+      fitZoom();
+    } else if (event.key === "1") {
+      event.preventDefault();
+      zoomTo(1);
+    }
+  });
+  const onViewportKeyUp = useEffectEvent((event: KeyboardEvent) => {
+    if (event.code !== "Space") return;
+    spaceHeld.current = false;
+    setPanMode((mode) => (mode === "ready" ? "idle" : mode));
+  });
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const controlCommand =
-        (event.ctrlKey || event.metaKey) &&
-        isEditorCommandShortcutTarget(event.target);
-      if (
-        event.defaultPrevented ||
-        (isInteractiveShortcutTarget(event.target) && !controlCommand)
-      )
-        return;
-      if (event.code === "Space") {
-        event.preventDefault();
-        if (!spaceHeld.current) {
-          spaceHeld.current = true;
-          setPanMode((mode) => (mode === "idle" ? "ready" : mode));
-        }
-        return;
-      }
-      if (!event.ctrlKey && !event.metaKey) return;
-      if (event.key === "=" || event.key === "+") {
-        event.preventDefault();
-        zoomIn();
-      } else if (event.key === "-") {
-        event.preventDefault();
-        zoomOut();
-      } else if (event.key === "0") {
-        event.preventDefault();
-        fitZoom();
-      } else if (event.key === "1") {
-        event.preventDefault();
-        zoomTo(1);
-      }
-    };
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space") return;
-      spaceHeld.current = false;
-      setPanMode((mode) => (mode === "ready" ? "idle" : mode));
-    };
+    const onKey = (event: KeyboardEvent) => onViewportKey(event);
+    const onKeyUp = (event: KeyboardEvent) => onViewportKeyUp(event);
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [fitZoom, zoomIn, zoomOut, zoomTo]);
+  }, []);
   /**
    * Middle-button or Space + primary drag pans. Touch can opt in when the
    * gesture starts on the canvas (or a locked placement), so one-finger
@@ -2253,138 +2256,123 @@ export function LayoutEditorPage() {
     window.addEventListener("pointercancel", cancel);
     window.addEventListener("blur", cancel);
   };
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => {
-      // Base UI owns the keyboard for the lifetime of an open context menu.
-      if (openContextMenus.current.size > 0) return;
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+  const onEditorKey = useEffectEvent((event: KeyboardEvent) => {
+    // Base UI owns the keyboard for the lifetime of an open context menu.
+    if (openContextMenus.current.size > 0) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      void save();
+      return;
+    }
+    const controlCommand =
+      (event.ctrlKey || event.metaKey) &&
+      isEditorCommandShortcutTarget(event.target);
+    if (
+      event.defaultPrevented ||
+      (isInteractiveShortcutTarget(event.target) && !controlCommand)
+    )
+      return;
+    if (event.key === "Escape" && activeToolRef.current) {
+      setActiveTool(null);
+      return;
+    }
+    if (
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      (event.key === "/" || event.key.toLowerCase() === "a") &&
+      !window.document.querySelector('[role="dialog"]')
+    ) {
+      event.preventDefault();
+      setAddMenuOpen(true);
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
+      event.preventDefault();
+      redo();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+      event.preventDefault();
+      duplicateSelection();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      copySelection();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+      pasteClipboard();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      selectAll();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {
+      event.preventDefault();
+      if (event.shiftKey) ungroupSelection();
+      else groupSelection();
+      return;
+    }
+    // The bracket shortcuts mirror the Arrange submenu, with Shift for the extremes.
+    // Shift rewrites the key on most layouts, so both faces of the bracket count.
+    if (event.ctrlKey || event.metaKey) {
+      const forward = event.key === "]" || event.key === "}";
+      const backward = event.key === "[" || event.key === "{";
+      if (forward || backward) {
         event.preventDefault();
-        void save();
+        arrangeSelection(
+          event.shiftKey
+            ? forward
+              ? "front"
+              : "back"
+            : forward
+              ? "forward"
+              : "backward",
+        );
         return;
       }
-      const controlCommand =
-        (event.ctrlKey || event.metaKey) &&
-        isEditorCommandShortcutTarget(event.target);
-      if (
-        event.defaultPrevented ||
-        (isInteractiveShortcutTarget(event.target) && !controlCommand)
-      )
-        return;
-      if (event.key === "Escape" && activeToolRef.current) {
-        setActiveTool(null);
-        return;
-      }
-      if (
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        (event.key === "/" || event.key.toLowerCase() === "a") &&
-        !window.document.querySelector('[role="dialog"]')
-      ) {
-        event.preventDefault();
-        setAddMenuOpen(true);
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
-        event.preventDefault();
-        redo();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
-        event.preventDefault();
-        duplicateSelection();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
-        copySelection();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
-        pasteClipboard();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
-        event.preventDefault();
-        selectAll();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        if (event.shiftKey) ungroupSelection();
-        else groupSelection();
-        return;
-      }
-      // The bracket shortcuts mirror the Arrange submenu, with Shift for the extremes.
-      // Shift rewrites the key on most layouts, so both faces of the bracket count.
-      if (event.ctrlKey || event.metaKey) {
-        const forward = event.key === "]" || event.key === "}";
-        const backward = event.key === "[" || event.key === "{";
-        if (forward || backward) {
-          event.preventDefault();
-          arrangeSelection(
-            event.shiftKey
-              ? forward
-                ? "front"
-                : "back"
-              : forward
-                ? "forward"
-                : "backward",
+    }
+    if (event.key === "Delete" || event.key === "Backspace") {
+      deleteSelection();
+      return;
+    }
+    const delta = event.shiftKey ? 10 : 1;
+    if (
+      ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+    ) {
+      event.preventDefault();
+      // update() runs this once, outside React; it is not a state updater.
+      // react-doctor-disable-next-line react-doctor/no-impure-state-updater
+      mutateSelected((item) => {
+        const current = documentRef.current;
+        if (!current) return;
+        if (item.locked) return;
+        if (event.key === "ArrowLeft") item.x = Math.max(0, item.x - delta);
+        if (event.key === "ArrowRight")
+          item.x = Math.min(current.canvas.width - item.width, item.x + delta);
+        if (event.key === "ArrowUp") item.y = Math.max(0, item.y - delta);
+        if (event.key === "ArrowDown")
+          item.y = Math.min(
+            current.canvas.height - item.height,
+            item.y + delta,
           );
-          return;
-        }
-      }
-      if (event.key === "Delete" || event.key === "Backspace") {
-        deleteSelection();
-        return;
-      }
-      const delta = event.shiftKey ? 10 : 1;
-      if (
-        ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
-      ) {
-        event.preventDefault();
-        // update() runs this once, outside React; it is not a state updater.
-        // react-doctor-disable-next-line react-doctor/no-impure-state-updater
-        mutateSelected((item) => {
-          const current = documentRef.current;
-          if (!current) return;
-          if (item.locked) return;
-          if (event.key === "ArrowLeft") item.x = Math.max(0, item.x - delta);
-          if (event.key === "ArrowRight")
-            item.x = Math.min(
-              current.canvas.width - item.width,
-              item.x + delta,
-            );
-          if (event.key === "ArrowUp") item.y = Math.max(0, item.y - delta);
-          if (event.key === "ArrowDown")
-            item.y = Math.min(
-              current.canvas.height - item.height,
-              item.y + delta,
-            );
-        });
-      }
-    };
+      });
+    }
+  });
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => onEditorKey(event);
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [
-    arrangeSelection,
-    copySelection,
-    deleteSelection,
-    duplicateSelection,
-    groupSelection,
-    mutateSelected,
-    pasteClipboard,
-    redo,
-    save,
-    selectAll,
-    undo,
-    ungroupSelection,
-  ]);
+  }, []);
   if (layoutQuery.isError)
     return (
       <Empty>

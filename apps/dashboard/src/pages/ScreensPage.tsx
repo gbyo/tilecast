@@ -1521,11 +1521,13 @@ function ArchiveScreenDialog({
   );
 }
 
+const NO_LOCATIONS: Location[] = [];
+
 export function ScreenListContent({
   screens,
   loading,
   canManage,
-  locations: locationItems = [],
+  locations: locationItems = NO_LOCATIONS,
   locationsError = false,
   csrfToken = "",
   onRefresh,
