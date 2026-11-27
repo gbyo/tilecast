@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
 import type { FeatureCollection, Point } from "geojson";
 import {
   GeoJSONSource,
   LngLatBounds,
   type Map as MapLibreMap,
+  type MapLayerMouseEvent,
 } from "maplibre-gl";
 import { ExternalLink, MapPinned } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -103,8 +111,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
   const navigate = useNavigate();
   const nativeHost = useNativeHost();
   const mapRef = useRef<MapLibreMap | null>(null);
-  const dataRef = useRef(featureCollection(screens));
-  const screensRef = useRef(screens);
+  const mapListenersRef = useRef<(() => void)[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nativeMapDismissed, setNativeMapDismissed] = useState(false);
   const [nativePresentFailed, setNativePresentFailed] = useState(false);
@@ -115,6 +122,12 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
   );
   const unmappedCount = screens.length - mapped.length;
   const data = useMemo(() => featureCollection(screens), [screens]);
+  const dataRef = useRef(data);
+  const screensRef = useRef(screens);
+  useLayoutEffect(() => {
+    dataRef.current = data;
+    screensRef.current = screens;
+  });
   const fitKey = useMemo(
     () =>
       mapped
@@ -182,99 +195,111 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     return false;
   }, [nativeHost, nativeMapUsable, nativePayload]);
 
-  dataRef.current = data;
-  screensRef.current = screens;
-
   const handleMapChange = useCallback((map: MapLibreMap | null) => {
+    // The map that is going away drops the listeners handleStyleReady added.
+    for (const stop of mapListenersRef.current) stop();
+    mapListenersRef.current = [];
     mapRef.current = map;
   }, []);
 
-  const handleStyleReady = useCallback((map: MapLibreMap) => {
-    map.addSource(MAP_SOURCE_ID, {
-      type: "geojson",
-      data: dataRef.current,
-      cluster: true,
-      clusterMaxZoom: 15,
-      clusterRadius: 44,
-    });
-    map.addLayer({
-      id: CLUSTER_LAYER_ID,
-      type: "circle",
-      source: MAP_SOURCE_ID,
-      filter: ["has", "point_count"],
-      paint: {
-        "circle-color": "#2563eb",
-        "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 50, 28],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ffffff",
-      },
-    });
-    map.addLayer({
-      id: CLUSTER_COUNT_LAYER_ID,
-      type: "symbol",
-      source: MAP_SOURCE_ID,
-      filter: ["has", "point_count"],
-      layout: {
-        "text-field": ["get", "point_count_abbreviated"],
-        "text-size": 12,
-      },
-      paint: { "text-color": "#ffffff" },
-    });
-    map.addLayer({
-      id: SCREEN_LAYER_ID,
-      type: "circle",
-      source: MAP_SOURCE_ID,
-      filter: ["!", ["has", "point_count"]],
-      paint: {
-        "circle-color": [
-          "match",
-          ["get", "status"],
-          "online",
-          "#16a34a",
-          "recent",
-          "#65a30d",
-          "stale",
-          "#d97706",
-          "offline",
-          "#dc2626",
-          "disabled",
-          "#64748b",
-          "revoked",
-          "#64748b",
-          "#64748b",
-        ],
-        "circle-radius": 8,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ffffff",
-      },
-    });
+  const handleStyleReady = useCallback(
+    (map: MapLibreMap) => {
+      map.addSource(MAP_SOURCE_ID, {
+        type: "geojson",
+        data: dataRef.current,
+        cluster: true,
+        clusterMaxZoom: 15,
+        clusterRadius: 44,
+      });
+      map.addLayer({
+        id: CLUSTER_LAYER_ID,
+        type: "circle",
+        source: MAP_SOURCE_ID,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": "#2563eb",
+          "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 50, 28],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      map.addLayer({
+        id: CLUSTER_COUNT_LAYER_ID,
+        type: "symbol",
+        source: MAP_SOURCE_ID,
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": ["get", "point_count_abbreviated"],
+          "text-size": 12,
+        },
+        paint: { "text-color": "#ffffff" },
+      });
+      map.addLayer({
+        id: SCREEN_LAYER_ID,
+        type: "circle",
+        source: MAP_SOURCE_ID,
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": [
+            "match",
+            ["get", "status"],
+            "online",
+            "#16a34a",
+            "recent",
+            "#65a30d",
+            "stale",
+            "#d97706",
+            "offline",
+            "#dc2626",
+            "disabled",
+            "#64748b",
+            "revoked",
+            "#64748b",
+            "#64748b",
+          ],
+          "circle-radius": 8,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
 
-    map.on("click", CLUSTER_LAYER_ID, (event) => {
-      const feature = event.features?.[0];
-      if (!feature || feature.geometry.type !== "Point") return;
-      const clusterId = Number(feature.properties?.cluster_id);
-      const source = map.getSource(MAP_SOURCE_ID);
-      if (!(source instanceof GeoJSONSource) || !Number.isFinite(clusterId))
-        return;
-      const coordinates = feature.geometry.coordinates as [number, number];
-      void source
-        .getClusterExpansionZoom(clusterId)
-        .then((zoom) => map.easeTo({ center: coordinates, zoom }));
-    });
-    map.on("click", SCREEN_LAYER_ID, (event) => {
-      const screenId: unknown = event.features?.[0]?.properties?.screenId;
-      if (typeof screenId === "string") setSelectedId(screenId);
-    });
-    for (const layer of [CLUSTER_LAYER_ID, SCREEN_LAYER_ID]) {
-      map.on("mouseenter", layer, () => {
-        map.getCanvas().style.cursor = "pointer";
+      const listen = <T extends "click" | "mouseenter" | "mouseleave">(
+        type: T,
+        layer: string,
+        listener: (event: MapLayerMouseEvent) => void,
+      ) => {
+        map.on(type, layer, listener);
+        mapListenersRef.current.push(() => map.off(type, layer, listener));
+      };
+
+      listen("click", CLUSTER_LAYER_ID, (event) => {
+        const feature = event.features?.[0];
+        if (!feature || feature.geometry.type !== "Point") return;
+        const clusterId = Number(feature.properties?.cluster_id);
+        const source = map.getSource(MAP_SOURCE_ID);
+        if (!(source instanceof GeoJSONSource) || !Number.isFinite(clusterId))
+          return;
+        const coordinates = feature.geometry.coordinates as [number, number];
+        void source
+          .getClusterExpansionZoom(clusterId)
+          .then((zoom) => map.easeTo({ center: coordinates, zoom }));
       });
-      map.on("mouseleave", layer, () => {
-        map.getCanvas().style.cursor = "";
+      listen("click", SCREEN_LAYER_ID, (event) => {
+        const screenId: unknown = event.features?.[0]?.properties?.screenId;
+        if (typeof screenId === "string") setSelectedId(screenId);
       });
-    }
-    fitScreens(map, screensRef.current);
-  }, []);
+      for (const layer of [CLUSTER_LAYER_ID, SCREEN_LAYER_ID]) {
+        listen("mouseenter", layer, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        listen("mouseleave", layer, () => {
+          map.getCanvas().style.cursor = "";
+        });
+      }
+      fitScreens(map, screensRef.current);
+    },
+    [dataRef, screensRef],
+  );
 
   useEffect(() => {
     const map = mapRef.current;

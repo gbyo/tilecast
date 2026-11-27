@@ -22,6 +22,7 @@ import type {
 } from "@/api/types";
 import { AuthProvider } from "@/auth/AuthProvider";
 import { builtinCapabilities } from "@/test/capabilities";
+import { RethrowRouteError } from "@/test/RethrowRouteError";
 import { WidgetEditorPage } from "@/pages/WidgetEditorPage";
 import { WidgetSnapshotQueue } from "./WidgetSnapshotQueue";
 
@@ -200,6 +201,7 @@ export function renderEditorRoute(url: string) {
     [
       {
         path: "/",
+        errorElement: <RethrowRouteError />,
         element: (
           <>
             <CurrentPath />

@@ -1,4 +1,11 @@
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
 import { useLocation, useNavigate } from "react-router";
 import {
   resolveActiveDestination,
@@ -117,7 +124,10 @@ export function useNativeNavigation(
   const stateJson = JSON.stringify(navigationState(navigation, location));
 
   const latest = useRef({ navigation, location, navigate });
-  latest.current = { navigation, location, navigate };
+
+  useLayoutEffect(() => {
+    latest.current = { navigation, location, navigate };
+  });
 
   useEffect(() => {
     if (!enabled) return;

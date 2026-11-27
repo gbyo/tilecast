@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { StudioSessionProvider, type StudioSession } from "./session";
 import { builtinCapabilities } from "../test/capabilities";
+import { RethrowRouteError } from "../test/RethrowRouteError";
 export { StudioSessionProvider };
 
 /**
@@ -65,8 +66,12 @@ export function renderPluginRoute(
   // the same navigation blocking the shipped shell provides.
   const router = createMemoryRouter(
     [
-      ...patterns.map((pattern) => ({ path: pattern, element })),
-      { path: "*", element },
+      ...patterns.map((pattern) => ({
+        path: pattern,
+        element,
+        errorElement: <RethrowRouteError />,
+      })),
+      { path: "*", element, errorElement: <RethrowRouteError /> },
     ],
     { initialEntries: [path] },
   );

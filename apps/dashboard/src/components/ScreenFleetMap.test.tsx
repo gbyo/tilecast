@@ -31,6 +31,7 @@ vi.mock("maplibre-gl", () => {
         maplibre.handlers.set(event, layerOrHandler as () => void);
       }
     });
+    off = vi.fn();
     resize = maplibre.resize;
     remove = vi.fn();
     isStyleLoaded = vi.fn(() => false);

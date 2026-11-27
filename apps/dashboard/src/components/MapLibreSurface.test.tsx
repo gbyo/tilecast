@@ -30,6 +30,7 @@ vi.mock("maplibre-gl", () => {
     on = vi.fn((event: string, handler: (event?: unknown) => void) => {
       maplibre.handlers.set(event, handler);
     });
+    off = vi.fn();
     once = vi.fn();
     getContainer = vi.fn(() => document.createElement("div"));
     resize = vi.fn();

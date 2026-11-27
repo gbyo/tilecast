@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useLayoutEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker, useNavigate } from "react-router";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -49,7 +49,6 @@ export function useNavigationWarning({
   // Set while a confirmed link replays, so the blocker below lets it pass.
   const confirmed = useRef(false);
   const latest = useRef({ dirty, allowPrefix, shouldBlock });
-  latest.current = { dirty, allowPrefix, shouldBlock };
 
   const warnsFor = (current: NavigationLocation, next: NavigationLocation) => {
     const state = latest.current;
@@ -60,7 +59,6 @@ export function useNavigationWarning({
     return true;
   };
   const warnsRef = useRef(warnsFor);
-  warnsRef.current = warnsFor;
 
   // Navigation that does not start from a link click, such as a native
   // host's navigation request or the command palette, reaches React Router
@@ -69,7 +67,11 @@ export function useNavigationWarning({
     warnsRef.current(currentLocation, nextLocation),
   );
   const blockerRef = useRef(blocker);
-  blockerRef.current = blocker;
+  useLayoutEffect(() => {
+    latest.current = { dirty, allowPrefix, shouldBlock };
+    warnsRef.current = warnsFor;
+    blockerRef.current = blocker;
+  });
   const asking = useRef(false);
 
   useEffect(() => {

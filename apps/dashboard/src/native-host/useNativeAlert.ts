@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { useNativeHost } from "./NativeHostProvider";
 import type { AlertPresentPayload } from "./protocol";
 
@@ -29,7 +29,9 @@ function newAlertId() {
 export function useNativeAlert() {
   const host = useNativeHost();
   const hostRef = useRef(host);
-  hostRef.current = host;
+  useLayoutEffect(() => {
+    hostRef.current = host;
+  });
   const pending = useRef(new Map<string, (actionId: string) => void>());
   const available = host.status === "ready" && host.capabilities.nativeAlerts;
 

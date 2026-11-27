@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
 import {
   Marker,
   type Map as MapLibreMap,
@@ -22,15 +28,18 @@ export function ScreenPositionPicker({
   const { t } = useTranslation(["screens", "common"]);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
+  const dragEndRef = useRef<(() => void) | null>(null);
+  const clickRef = useRef<((event: MapMouseEvent) => void) | null>(null);
   const onChangeRef = useRef(onChange);
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange;
+  });
   const easedRef = useRef<{
     map: MapLibreMap;
     latitude: number;
     longitude: number;
   } | null>(null);
   const [mapGeneration, setMapGeneration] = useState(0);
-
-  onChangeRef.current = onChange;
 
   const effectivePosition = value ?? locationPosition;
   // Depend on the coordinates, not the object: the parent may build a new
@@ -45,28 +54,43 @@ export function ScreenPositionPicker({
       onChangeRef.current({ longitude: center.lng, latitude: center.lat });
   };
 
-  const handleMapChange = useCallback((map: MapLibreMap | null) => {
-    markerRef.current?.remove();
+  const removeMarker = useCallback(() => {
+    const marker = markerRef.current;
+    if (marker && dragEndRef.current) marker.off("dragend", dragEndRef.current);
+    marker?.remove();
     markerRef.current = null;
-    mapRef.current = map;
-    if (!map) return;
-
-    map.on("click", (event: MapMouseEvent) => {
-      onChangeRef.current({
-        longitude: event.lngLat.lng,
-        latitude: event.lngLat.lat,
-      });
-    });
-    setMapGeneration((value) => value + 1);
+    dragEndRef.current = null;
   }, []);
+
+  const handleMapChange = useCallback(
+    (map: MapLibreMap | null) => {
+      removeMarker();
+      // The map that is going away stops reporting clicks.
+      if (mapRef.current && clickRef.current)
+        mapRef.current.off("click", clickRef.current);
+      clickRef.current = null;
+      mapRef.current = map;
+      if (!map) return;
+
+      const handleClick = (event: MapMouseEvent) => {
+        onChangeRef.current({
+          longitude: event.lngLat.lng,
+          latitude: event.lngLat.lat,
+        });
+      };
+      clickRef.current = handleClick;
+      map.on("click", handleClick);
+      setMapGeneration((value) => value + 1);
+    },
+    [onChangeRef, removeMarker],
+  );
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     if (latitude === undefined || longitude === undefined) {
-      markerRef.current?.remove();
-      markerRef.current = null;
+      removeMarker();
       return;
     }
 
@@ -91,18 +115,20 @@ export function ScreenPositionPicker({
       const marker = new Marker({ draggable: true })
         .setLngLat([longitude, latitude])
         .addTo(map);
-      marker.on("dragend", () => {
+      const handleDragEnd = () => {
         const position = marker.getLngLat();
         onChangeRef.current({
           longitude: position.lng,
           latitude: position.lat,
         });
-      });
+      };
+      marker.on("dragend", handleDragEnd);
+      dragEndRef.current = handleDragEnd;
       markerRef.current = marker;
     } else {
       markerRef.current.setLngLat([longitude, latitude]);
     }
-  }, [latitude, longitude, mapGeneration]);
+  }, [latitude, longitude, mapGeneration, onChangeRef, removeMarker]);
 
   return (
     <div className="space-y-2">

@@ -15,6 +15,7 @@ import "./styles/load-reveal.css";
 import "./styles/screens.css";
 import "./styles/data-sources.css";
 import "./styles/studio-density.css";
+import { RootErrorElement } from "./components/RootErrorElement";
 import { DrawerIndentShell } from "./components/ui/drawer";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -25,7 +26,9 @@ const queryClient = new QueryClient({
 // A data router is used (instead of the <BrowserRouter> component) so descendant routes can use
 // navigation blocking (useBlocker) for unsaved-change protection. The whole app remains a single
 // splat route rendering <App/>, which continues to resolve studioRoutes via useRoutes.
-const router = createBrowserRouter([{ path: "*", element: <App /> }]);
+const router = createBrowserRouter([
+  { path: "*", element: <App />, errorElement: <RootErrorElement /> },
+]);
 
 function render() {
   createRoot(document.getElementById("root")!).render(

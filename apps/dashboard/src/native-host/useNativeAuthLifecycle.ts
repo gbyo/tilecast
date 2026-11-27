@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useAuth } from "@/auth/AuthProvider";
 import { useNativeHost } from "./NativeHostProvider";
 
@@ -20,7 +20,9 @@ export function useNativeAuthLifecycle() {
   const auth = useAuth();
   const enabled = host.status === "ready" && host.capabilities.authLifecycle;
   const current = useRef({ host, auth });
-  current.current = { host, auth };
+  useLayoutEffect(() => {
+    current.current = { host, auth };
+  });
   const { addSignOutHook } = auth;
 
   useEffect(() => {

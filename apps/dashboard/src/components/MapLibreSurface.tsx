@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
 import { createTilecastMap, mapLibreErrorMessage } from "../lib/maplibre";
@@ -38,14 +44,15 @@ export function MapLibreSurface({
   const zoomRef = useRef(initialZoom);
   const onMapChangeRef = useRef(onMapChange);
   const onStyleReadyRef = useRef(onStyleReady);
+  useLayoutEffect(() => {
+    centerRef.current = initialCenter;
+    zoomRef.current = initialZoom;
+    onMapChangeRef.current = onMapChange;
+    onStyleReadyRef.current = onStyleReady;
+  });
   const [attempt, setAttempt] = useState(0);
   const [phase, setPhase] = useState<MapPhase>("loading");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
-
-  centerRef.current = initialCenter;
-  zoomRef.current = initialZoom;
-  onMapChangeRef.current = onMapChange;
-  onStyleReadyRef.current = onStyleReady;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -126,6 +133,9 @@ export function MapLibreSurface({
       disposed = true;
       window.clearTimeout(timeout);
       onMapChangeRef.current?.(null);
+      map.off("error", handleError);
+      map.off("style.load", handleStyleLoad);
+      map.off("idle", handleIdle);
       map.remove();
     };
   }, [attempt]);
