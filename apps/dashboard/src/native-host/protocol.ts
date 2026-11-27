@@ -361,7 +361,8 @@ function isObject(value: unknown): value is JsonObject {
 }
 
 function onlyKeys(value: JsonObject, allowed: readonly string[]) {
-  return Object.keys(value).every((key) => allowed.includes(key));
+  const permitted = new Set(allowed);
+  return Object.keys(value).every((key) => permitted.has(key));
 }
 
 function isBoundedString(value: unknown, max: number): value is string {

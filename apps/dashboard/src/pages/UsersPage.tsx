@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -131,6 +131,10 @@ function roleUsesMedia(role?: Role) {
 export function UsersPage() {
   const { t } = useTranslation(["account", "common"]);
   const locale = useFormatLocale();
+  const lastSignedInFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }),
+    [locale],
+  );
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -221,9 +225,9 @@ export function UsersPage() {
                       <>
                         {" · "}
                         {t("users.list.lastSignedIn", {
-                          date: new Intl.DateTimeFormat(locale, {
-                            dateStyle: "medium",
-                          }).format(new Date(user.lastLoginAt)),
+                          date: lastSignedInFormat.format(
+                            new Date(user.lastLoginAt),
+                          ),
                         })}
                       </>
                     ) : (

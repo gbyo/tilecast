@@ -136,7 +136,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
   const [scopes, setScopes] = useState<IntegrationScope[]>([
     "data_source:write",
   ]);
+  const selectedScopes = new Set(scopes);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const selectedSourceIds = new Set(sourceIds);
   const [sourceSearch, setSourceSearch] = useState("");
   const matchingSources = useMemo(() => {
     const needle = sourceSearch.trim().toLowerCase();
@@ -373,7 +375,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                   >
                     <Checkbox
                       id={"token-scope-" + scope}
-                      checked={scopes.includes(scope)}
+                      checked={selectedScopes.has(scope)}
                       onCheckedChange={(checked) =>
                         setScopes(
                           checked === true
@@ -482,7 +484,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                           >
                             <Checkbox
                               id={"token-source-" + source.id}
-                              checked={sourceIds.includes(source.id)}
+                              checked={selectedSourceIds.has(source.id)}
                               onCheckedChange={(checked) =>
                                 setSourceIds(
                                   checked === true

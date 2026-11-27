@@ -192,9 +192,9 @@ export function buildActivityLink(
     if (range.from) params.set("from", range.from);
     if (range.to) params.set("to", range.to);
   }
-  const permitted = activityTabFilterKeys[tab];
+  const permitted = new Set(activityTabFilterKeys[tab]);
   for (const [key, value] of Object.entries(filters)) {
-    if (!value || !permitted.includes(key)) continue;
+    if (!value || !permitted.has(key)) continue;
     const values = allowedValues[tab]?.[key];
     if (values && !values.includes(value)) continue;
     params.set(key, value);

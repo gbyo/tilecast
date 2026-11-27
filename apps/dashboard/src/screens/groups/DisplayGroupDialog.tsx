@@ -53,6 +53,7 @@ export function DisplayGroupDialog({
   const [name, setName] = useState(group?.name ?? "");
   const [description, setDescription] = useState(group?.description ?? "");
   const [screenIds, setScreenIds] = useState<string[]>([]);
+  const selectedScreenIds = new Set(screenIds);
   // An empty group has no anchor in restricted screen access, so a
   // restricted operator names the first screens with the group. The server
   // creates both in one transaction and refuses an empty group.
@@ -175,7 +176,7 @@ export function DisplayGroupDialog({
                         >
                           <Checkbox
                             id={id}
-                            checked={screenIds.includes(screen.id)}
+                            checked={selectedScreenIds.has(screen.id)}
                             onCheckedChange={(checked) =>
                               setScreenIds((current) =>
                                 checked === true

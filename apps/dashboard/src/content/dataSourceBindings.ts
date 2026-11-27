@@ -245,8 +245,7 @@ export function dataFormatGuideFor(
       deduplicated.push(entry);
       continue;
     }
-    for (const type of field.types)
-      if (!merged.types.includes(type)) merged.types.push(type);
+    merged.types = [...new Set([...merged.types, ...field.types])];
     merged.required = merged.required || field.required;
   }
   const kinds = sourceField.acceptedDataSourceKinds?.length

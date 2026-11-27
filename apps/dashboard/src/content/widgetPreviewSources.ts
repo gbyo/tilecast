@@ -170,12 +170,16 @@ export function widgetPreviewFonts(
   configuration: Record<string, unknown>,
 ): string[] {
   const fonts: string[] = [];
+  const seen = new Set<string>();
   for (const field of fields) {
     if (field.control !== "font") continue;
     const value = configuration[field.key];
     if (typeof value !== "string" || !LIBRARY_FONT_ID.test(value)) continue;
     const id = value.toLowerCase();
-    if (!fonts.includes(id) && fonts.length < MAX_PREVIEW_FONTS) fonts.push(id);
+    if (!seen.has(id) && fonts.length < MAX_PREVIEW_FONTS) {
+      seen.add(id);
+      fonts.push(id);
+    }
   }
   return fonts;
 }

@@ -54,6 +54,8 @@ function useDataSourceDefinitions(
     staleTime: 5 * 60_000,
   });
   const all = definitions.data?.dataSources ?? [];
+  const providerIds = new Set(providers);
+  const excludedIds = new Set(exclude);
   return {
     isLoading: definitions.isLoading,
     all,
@@ -64,8 +66,8 @@ function useDataSourceDefinitions(
     offered: all.filter(
       (definition) =>
         !definition.deprecation?.deprecated &&
-        (!providers?.length || providers.includes(definition.id)) &&
-        !exclude?.includes(definition.id),
+        (!providerIds.size || providerIds.has(definition.id)) &&
+        !excludedIds.has(definition.id),
     ),
   };
 }

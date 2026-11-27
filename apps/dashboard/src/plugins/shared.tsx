@@ -193,6 +193,7 @@ export function TargetFields<TForm extends FieldValues>({
   const selectedIds = Array.isArray(targetIds.field.value)
     ? (targetIds.field.value as string[])
     : [];
+  const selectedIdSet = new Set(selectedIds);
   const errorId = idPrefix + "-targets-error";
   const targets = (source?.query.data?.items ?? []).map((item) => ({
     id: item.id,
@@ -255,7 +256,7 @@ export function TargetFields<TForm extends FieldValues>({
           <div className="grid max-h-56 gap-1 overflow-auto">
             {targets.map((target) => {
               const targetId = idPrefix + "-target-" + target.id;
-              const checked = selectedIds.includes(target.id);
+              const checked = selectedIdSet.has(target.id);
               return (
                 <Field
                   key={target.id}

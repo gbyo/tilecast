@@ -981,7 +981,9 @@ export function TakeoverDialogs({
   const [name, setName] = useState("");
   const [playlistId, setPlaylistId] = useState("");
   const [screenIds, setScreenIds] = useState<string[]>([]);
+  const selectedScreenIds = new Set(screenIds);
   const [groupIds, setGroupIds] = useState<string[]>([]);
+  const selectedGroupIds = new Set(groupIds);
   const [minutes, setMinutes] = useState(60);
   const [takeoverClass, setTakeoverClass] = useState<"operator" | "emergency">(
     "operator",
@@ -1047,14 +1049,15 @@ export function TakeoverDialogs({
     },
   });
   const offlineSelected = screens.filter(
-    (item) => screenIds.includes(item.id) && item.status !== "online",
+    (item) => selectedScreenIds.has(item.id) && item.status !== "online",
   ).length;
   /* Taking over the whole fleet at once is the one shape of this action with no
      screen left showing normal content, so it is the one that has to be held
      rather than clicked. Ticking every box by hand counts the same as using the
      All screens toggle. */
   const everyScreenSelected =
-    screens.length > 0 && screens.every((item) => screenIds.includes(item.id));
+    screens.length > 0 &&
+    screens.every((item) => selectedScreenIds.has(item.id));
   const ready = Boolean(
     name && playlistId && (screenIds.length > 0 || groupIds.length > 0),
   );
@@ -1243,7 +1246,7 @@ export function TakeoverDialogs({
                   >
                     <Checkbox
                       className="mt-0.5"
-                      checked={screenIds.includes(item.id)}
+                      checked={selectedScreenIds.has(item.id)}
                       onCheckedChange={(checked) =>
                         setScreenIds((ids) =>
                           checked
@@ -1274,7 +1277,7 @@ export function TakeoverDialogs({
                   >
                     <Checkbox
                       className="mt-0.5"
-                      checked={groupIds.includes(group.id)}
+                      checked={selectedGroupIds.has(group.id)}
                       onCheckedChange={(checked) =>
                         setGroupIds((ids) =>
                           checked

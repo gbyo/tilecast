@@ -57,6 +57,7 @@ import {
   type PreviewDatasetCurrencies,
   type PreviewDatasets,
 } from "./previewRecords";
+import { cachedDateTimeFormat, cachedNumberFormat } from "@/lib/intl";
 
 export type WidgetsT = TFunction<["content", "common"], undefined>;
 
@@ -781,7 +782,7 @@ function PreviewNode({
                 : regional.timeFormat === "24-hour"
                   ? false
                   : undefined;
-        return new Intl.DateTimeFormat(formatLocale, {
+        return cachedDateTimeFormat(formatLocale, {
           timeStyle: format[2] === "true" ? "medium" : "short",
           ...(hour12 === undefined ? {} : { hour12 }),
           timeZone: timezone,
@@ -1180,7 +1181,7 @@ export function formatPresentationValue(
           numberOptions.minimumFractionDigits =
             binding.precision ?? (binding.format === "integer" ? 0 : undefined);
         }
-        result = new Intl.NumberFormat(profile.locale, numberOptions).format(
+        result = cachedNumberFormat(profile.locale, numberOptions).format(
           binding.format === "percent" ? numeric / 100 : numeric,
         );
       }

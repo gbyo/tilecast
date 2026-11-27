@@ -120,6 +120,7 @@ export function PresentationNetworksPanel({
   // and is never rehydrated from a GET response.
   const [secret, setSecret] = useState("");
   const [assignmentIds, setAssignmentIds] = useState<string[]>([]);
+  const assignedScreenIds = new Set(assignmentIds);
   const [assignmentSearch, setAssignmentSearch] = useState("");
 
   const detail = useQuery({
@@ -710,7 +711,7 @@ export function PresentationNetworksPanel({
                             >
                               <Checkbox
                                 id={"presentation-network-screen-" + screen.id}
-                                checked={assignmentIds.includes(screen.id)}
+                                checked={assignedScreenIds.has(screen.id)}
                                 onCheckedChange={(checked) =>
                                   setAssignmentIds((current) =>
                                     checked === true

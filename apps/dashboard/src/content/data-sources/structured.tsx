@@ -680,10 +680,11 @@ export function StructuredDataSourceEditor({
   // A Source saved before its times were mapped, or one whose author skipped them, cannot
   // reach the suggestion: that applies only to a mapping with nothing in it yet. Detection
   // already knows which fields are timestamps, so it offers them as one deliberate action.
+  const mappedValueFields = new Set(Object.values(mapping?.valueFields ?? {}));
   const unmappedTimestamps = detectedFields.filter(
     (field) =>
       field.type === "datetime" &&
-      !Object.values(mapping?.valueFields ?? {}).includes(field.key) &&
+      !mappedValueFields.has(field.key) &&
       field.key !== mapping?.title &&
       field.key !== mapping?.subtitle,
   );

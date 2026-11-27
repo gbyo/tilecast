@@ -125,6 +125,7 @@ export function PlaylistDetailsDrawer({
   onSaveTagRule: () => void;
 }) {
   const { t } = useTranslation("playlists");
+  const selectedTagIds = new Set(tagIds);
   const sourceTypeItems = sourceTypeOptions.map((option) => ({
     value: option.value,
     label: t(option.labelKey),
@@ -261,7 +262,7 @@ export function PlaylistDetailsDrawer({
                           key={tag.id}
                           variant="outline"
                           size="sm"
-                          pressed={tagIds.includes(tag.id)}
+                          pressed={selectedTagIds.has(tag.id)}
                           disabled={!canManage}
                           onPressedChange={() => onTagToggle(tag.id)}
                         >

@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useLayoutEffect,
-} from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import {
   Marker,
   type Map as MapLibreMap,
@@ -26,20 +20,14 @@ export function ScreenPositionPicker({
   onChange: (value?: MapCoordinates) => void;
 }) {
   const { t } = useTranslation(["screens", "common"]);
-  const mapRef = useRef<MapLibreMap | null>(null);
+  const [map, setMap] = useState<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
-  const dragEndRef = useRef<(() => void) | null>(null);
-  const clickRef = useRef<((event: MapMouseEvent) => void) | null>(null);
   const onChangeRef = useRef(onChange);
-  useLayoutEffect(() => {
-    onChangeRef.current = onChange;
-  });
   const easedRef = useRef<{
     map: MapLibreMap;
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [mapGeneration, setMapGeneration] = useState(0);
 
   const effectivePosition = value ?? locationPosition;
   // Depend on the coordinates, not the object: the parent may build a new
@@ -47,53 +35,57 @@ export function ScreenPositionPicker({
   // map under a user who is panning to choose a position.
   const latitude = effectivePosition?.latitude;
   const longitude = effectivePosition?.longitude;
+  const hasPosition = latitude !== undefined && longitude !== undefined;
+  const positionRef = useRef({ latitude, longitude });
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange;
+    positionRef.current = { latitude, longitude };
+  });
 
   const placeAtMapCenter = () => {
-    const center = mapRef.current?.getCenter().wrap();
+    const center = map?.getCenter().wrap();
     if (center)
       onChangeRef.current({ longitude: center.lng, latitude: center.lat });
   };
 
-  const removeMarker = useCallback(() => {
-    const marker = markerRef.current;
-    if (marker && dragEndRef.current) marker.off("dragend", dragEndRef.current);
-    marker?.remove();
-    markerRef.current = null;
-    dragEndRef.current = null;
-  }, []);
+  // A click on the map chooses that position.
+  useEffect(() => {
+    if (!map) return;
+    const handleClick = (event: MapMouseEvent) => {
+      onChangeRef.current({
+        longitude: event.lngLat.lng,
+        latitude: event.lngLat.lat,
+      });
+    };
+    map.on("click", handleClick);
+    return () => {
+      map.off("click", handleClick);
+    };
+  }, [map]);
 
-  const handleMapChange = useCallback(
-    (map: MapLibreMap | null) => {
-      removeMarker();
-      // The map that is going away stops reporting clicks.
-      if (mapRef.current && clickRef.current)
-        mapRef.current.off("click", clickRef.current);
-      clickRef.current = null;
-      mapRef.current = map;
-      if (!map) return;
-
-      const handleClick = (event: MapMouseEvent) => {
-        onChangeRef.current({
-          longitude: event.lngLat.lng,
-          latitude: event.lngLat.lat,
-        });
-      };
-      clickRef.current = handleClick;
-      map.on("click", handleClick);
-      setMapGeneration((value) => value + 1);
-    },
-    [onChangeRef, removeMarker],
-  );
+  // The marker lives while the map and a position exist; dragging it chooses
+  // the dropped position.
+  useEffect(() => {
+    const { latitude: lat, longitude: lng } = positionRef.current;
+    if (!map || lat === undefined || lng === undefined) return;
+    const marker = new Marker({ draggable: true })
+      .setLngLat([lng, lat])
+      .addTo(map);
+    const handleDragEnd = () => {
+      const position = marker.getLngLat();
+      onChangeRef.current({ longitude: position.lng, latitude: position.lat });
+    };
+    marker.on("dragend", handleDragEnd);
+    markerRef.current = marker;
+    return () => {
+      marker.off("dragend", handleDragEnd);
+      marker.remove();
+      markerRef.current = null;
+    };
+  }, [map, hasPosition]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (latitude === undefined || longitude === undefined) {
-      removeMarker();
-      return;
-    }
-
+    if (!map || latitude === undefined || longitude === undefined) return;
     // The map reports itself after mount, which re-runs this effect with the
     // same coordinates; only ease when the map or the position changed.
     const eased = easedRef.current;
@@ -110,25 +102,8 @@ export function ScreenPositionPicker({
         duration: 250,
       });
     }
-
-    if (!markerRef.current) {
-      const marker = new Marker({ draggable: true })
-        .setLngLat([longitude, latitude])
-        .addTo(map);
-      const handleDragEnd = () => {
-        const position = marker.getLngLat();
-        onChangeRef.current({
-          longitude: position.lng,
-          latitude: position.lat,
-        });
-      };
-      marker.on("dragend", handleDragEnd);
-      dragEndRef.current = handleDragEnd;
-      markerRef.current = marker;
-    } else {
-      markerRef.current.setLngLat([longitude, latitude]);
-    }
-  }, [latitude, longitude, mapGeneration, onChangeRef, removeMarker]);
+    markerRef.current?.setLngLat([longitude, latitude]);
+  }, [map, latitude, longitude]);
 
   return (
     <div className="space-y-2">
@@ -181,7 +156,7 @@ export function ScreenPositionPicker({
               : [0, 0]
           }
           initialZoom={effectivePosition ? 17 : 1}
-          onMapChange={handleMapChange}
+          onMapChange={setMap}
           loadingLabel={t("shared.mapLoading")}
           errorTitle={t("shared.mapLoadErrorTitle")}
           errorBody={t("shared.mapLoadErrorBody")}
