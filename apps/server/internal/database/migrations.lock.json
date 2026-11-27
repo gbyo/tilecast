@@ -850,5 +850,11 @@
     "file": "00143_plugin_feeds.sql",
     "owner": "core",
     "sha256": "10a5c48eb2a1d66b781b5c9fb757df29a0b5c2d30f8708014f6c057b0f26e0ae"
+  },
+  {
+    "version": 144,
+    "file": "00144_plugin_deliveries.sql",
+    "owner": "core",
+    "sha256": "fb0d682634a92682a0b899a21fe29ee4186ed803b1d671c719402de3e34e339a"
   }
 ]

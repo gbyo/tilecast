@@ -3065,6 +3065,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugins/{pluginId}/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md. */
+    get: operations["getPluginStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Returns a parked delivery to the end of its subject's queue with the same delivery ID; its attempts start again. The audit event names the delivery, its kind, and its subject, never its payload. */
+    post: operations["retryPluginDelivery"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/deliveries/{deliveryId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Deletes a parked delivery. The plugin never receives it. The audit event names the delivery, its kind, and its subject, never its payload. */
+    delete: operations["discardPluginDelivery"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect": {
     parameters: {
       query?: never;
@@ -8674,6 +8725,50 @@ export interface components {
       /** @description The provider's error code. Never the provider's description. */
       error?: string;
     };
+    PluginStatus: {
+      pluginId: string;
+      installed: boolean;
+      deliveries: components["schemas"]["PluginDeliveryStatus"];
+    };
+    PluginDeliveryStatus: {
+      /** @description Deliveries that wait or run now. */
+      pending: number;
+      running: number;
+      parkedCount: number;
+      /** @description The newest parked deliveries. */
+      parked: components["schemas"]["PluginParkedDelivery"][];
+      /** @description Deliveries the host expired: pending 7 days after they became due, or parked 14 days. */
+      expiredCount: number;
+      /** Format: date-time */
+      lastExpiredAt: string | null;
+      lastFailure: null | {
+        /** @description A stable failure code, for example handler_error, handler_timeout, handler_panic, or lease_expired. */
+        code: string;
+        kind?: string;
+        /** Format: date-time */
+        at: string;
+      };
+    };
+    PluginParkedDelivery: {
+      /**
+       * Format: uuid
+       * @description The stable delivery ID the plugin receives on every attempt.
+       */
+      id: string;
+      kind: string;
+      /** @description The timer key, the event name, or the webhook ID. */
+      source: string;
+      /** @description The order key within the kind. */
+      subject: string;
+      attempts: number;
+      lastError: string;
+      /** Format: date-time */
+      dueAt: string;
+      /** Format: date-time */
+      parkedAt: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
     PluginFeedDataset: {
       /**
        * Format: uuid
@@ -13436,6 +13531,7 @@ export interface components {
   parameters: {
     /** @description Registry identifier such as countdown_bar. */
     PluginID: string;
+    PluginDeliveryID: string;
     /** @description A connection record of the plugin. */
     PluginConnectionID: string;
     /** @description Store package identifier such as countdown_bar. */
@@ -22553,6 +22649,124 @@ export interface operations {
         content?: never;
       };
       /** @description plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getPluginStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Plugin status */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginStatus"];
+          };
+        };
+      };
+      /** @description plugin_not_found — the plugin is unknown or is not on Plugin Manifest API 3 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  retryPluginDelivery: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        deliveryId: components["parameters"]["PluginDeliveryID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The delivery as it was parked */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginParkedDelivery"];
+          };
+        };
+      };
+      /** @description plugins.deliveries.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  discardPluginDelivery: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        deliveryId: components["parameters"]["PluginDeliveryID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The discarded delivery */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginParkedDelivery"];
+          };
+        };
+      };
+      /** @description plugins.deliveries.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID */
       404: {
         headers: {
           [name: string]: unknown;

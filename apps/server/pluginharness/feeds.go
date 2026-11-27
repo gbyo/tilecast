@@ -118,10 +118,11 @@ func (h *Harness) ConnectOAuth(connection uuid.UUID, authorize func(authorizatio
 	return nil
 }
 
-// RunTimers delivers the due timers and reports how many ran.
+// RunTimers runs every due delivery of the plugin delivery queue (timers,
+// events, and webhook requests) and reports how many ran.
 func (h *Harness) RunTimers() int {
 	h.t.Helper()
-	ran, err := h.service.RunDueTimers(h.Ctx)
+	ran, err := h.service.RunDeliveries(h.Ctx)
 	if err != nil {
 		h.t.Fatal(err)
 	}

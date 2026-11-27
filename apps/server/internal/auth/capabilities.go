@@ -79,11 +79,13 @@ const (
 
 	// Owner-reserved. These are whole-installation authority: a backup holds
 	// every password hash and TOTP secret, an integration token is a standing
-	// credential, and a Player release reaches every screen. Only the
+	// credential, a Player release reaches every screen, and a parked plugin
+	// delivery runs plugin code again or loses its work for good. Only the
 	// built-in Owner role holds them; a custom role can never include them.
-	CapSystemBackups      Capability = "system.backups"
-	CapIntegrationsManage Capability = "integrations.manage"
-	CapPlayerReleases     Capability = "player.releases"
+	CapSystemBackups          Capability = "system.backups"
+	CapIntegrationsManage     Capability = "integrations.manage"
+	CapPlayerReleases         Capability = "player.releases"
+	CapPluginDeliveriesManage Capability = "plugins.deliveries.manage"
 )
 
 // CapabilityGroup names the Studio area a capability belongs to. It is
@@ -197,6 +199,7 @@ var capabilityCatalog = []CapabilityDefinition{
 	reserved(CapSystemBackups, GroupAdministration),
 	reserved(CapIntegrationsManage, GroupAdministration),
 	reserved(CapPlayerReleases, GroupAdministration),
+	reserved(CapPluginDeliveriesManage, GroupPlugins),
 }
 
 var capabilityIndex = func() map[Capability]CapabilityDefinition {

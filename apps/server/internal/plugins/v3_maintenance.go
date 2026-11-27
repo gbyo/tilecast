@@ -16,32 +16,32 @@ import (
 )
 
 // Host maintenance for Plugin Manifest API 3 storage: schedule boundaries,
-// durable timers, expired OAuth attempts, and personal-data retention.
+// the delivery loop, feed images, expired OAuth attempts, and personal-data
+// retention.
 
 const (
 	scheduleTick  = 30 * time.Second
 	retentionTick = 6 * time.Hour
+	imageTick     = 5 * time.Second
 )
 
 // RunMaintenance runs the host's API 3 loops until ctx ends.
 func (s *Service) RunMaintenance(ctx context.Context) {
 	schedule := time.NewTicker(scheduleTick)
 	retention := time.NewTicker(retentionTick)
-	timers := time.NewTicker(timerTick)
+	images := time.NewTicker(imageTick)
 	defer schedule.Stop()
 	defer retention.Stop()
-	defer timers.Stop()
+	defer images.Stop()
+	go s.RunDeliveryLoop(ctx)
 	s.maintain(ctx, true)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-timers.C:
+		case <-images.C:
 			if s.backgroundJobs != nil && !s.backgroundJobs.Allowed() {
 				continue
-			}
-			if _, err := s.RunDueTimers(ctx); err != nil && ctx.Err() == nil {
-				s.logger.Warn("plugin timer pass failed", "error", err)
 			}
 			if _, err := s.RunFeedImageImports(ctx); err != nil && ctx.Err() == nil {
 				s.logger.Warn("plugin feed image pass failed", "error", err)

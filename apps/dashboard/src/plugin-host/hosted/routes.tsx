@@ -10,6 +10,8 @@ import { HostedConnectionsPage } from "./connections/HostedConnectionsPage";
 import { connectionsClient, connectionKey } from "./connections/api";
 import { HostedFeedRecordsPage } from "./feeds/HostedFeedRecordsPage";
 import { HostedFeedsPage } from "./feeds/HostedFeedsPage";
+import { HostedStatusPage } from "./status/HostedStatusPage";
+import { hasStatusPage } from "./status/model";
 
 /**
  * The edit page's breadcrumb names the instance. It shares the editor's query
@@ -33,8 +35,8 @@ const crumb = (breadcrumb: string, key: string) => ({
 
 /**
  * The pages the host generates for a Plugin Manifest API 3 plugin: the list,
- * the create and edit pages of each instance kind, the settings page, and
- * the connection pages.
+ * the create and edit pages of each instance kind, the settings page, the
+ * connection and feed pages, and the status page.
  * The first kind also answers `new` and `:id` directly below the plugin's
  * route, the addresses its pages had before the host generated them.
  */
@@ -129,6 +131,13 @@ export function hostedRouteObjects(
         handle: crumb("Records", "hosted.breadcrumbs.feedRecords"),
       },
     );
+  }
+  if (hasStatusPage(v3)) {
+    out.push({
+      path: "status",
+      element: <HostedStatusPage {...props} />,
+      handle: crumb("Status", "hosted.breadcrumbs.status"),
+    });
   }
   if (v3.settings?.organization?.length && v3.instances.length > 0) {
     out.push({

@@ -5316,6 +5316,80 @@ paths:
           {
             description: "plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found",
           }
+  /api/v1/plugins/{pluginId}/status:
+    get:
+      operationId: getPluginStatus
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+      responses:
+        "200":
+          description: Plugin status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginStatus" }
+        "404":
+          {
+            description: "plugin_not_found — the plugin is unknown or is not on Plugin Manifest API 3",
+          }
+  /api/v1/plugins/{pluginId}/deliveries/{deliveryId}/retry:
+    post:
+      operationId: retryPluginDelivery
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Returns a parked delivery to the end of its subject's queue with the same delivery ID; its attempts start again. The audit event names the delivery, its kind, and its subject, never its payload.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginDeliveryID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: The delivery as it was parked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginParkedDelivery" }
+        "403":
+          { description: plugins.deliveries.manage and CSRF token required }
+        "404":
+          {
+            description: "plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID",
+          }
+  /api/v1/plugins/{pluginId}/deliveries/{deliveryId}:
+    delete:
+      operationId: discardPluginDelivery
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner-reserved plugins.deliveries.manage and the admin scope. Cookie requests also require CSRF. Deletes a parked delivery. The plugin never receives it. The audit event names the delivery, its kind, and its subject, never its payload.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginDeliveryID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: The discarded delivery
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginParkedDelivery" }
+        "403":
+          { description: plugins.deliveries.manage and CSRF token required }
+        "404":
+          {
+            description: "plugin_not_found or plugin_delivery_not_found — no parked delivery of the plugin has the ID",
+          }
   /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect:
     post:
       operationId: disconnectPluginConnectionOAuth
@@ -11129,6 +11203,11 @@ components:
       required: true
       schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
       description: Registry identifier such as countdown_bar.
+    PluginDeliveryID:
+      in: path
+      name: deliveryId
+      required: true
+      schema: { type: string, format: uuid }
     PluginConnectionID:
       in: path
       name: connectionId
@@ -14298,6 +14377,93 @@ components:
             maxLength: 64,
             description: The provider's error code. Never the provider's description.,
           }
+    PluginStatus:
+      type: object
+      required: [pluginId, installed, deliveries]
+      properties:
+        pluginId: { type: string }
+        installed: { type: boolean }
+        deliveries: { $ref: "#/components/schemas/PluginDeliveryStatus" }
+    PluginDeliveryStatus:
+      type: object
+      required:
+        [
+          pending,
+          running,
+          parkedCount,
+          parked,
+          expiredCount,
+          lastExpiredAt,
+          lastFailure,
+        ]
+      properties:
+        pending:
+          {
+            type: integer,
+            minimum: 0,
+            description: "Deliveries that wait or run now.",
+          }
+        running: { type: integer, minimum: 0 }
+        parkedCount: { type: integer, minimum: 0 }
+        parked:
+          type: array
+          maxItems: 50
+          description: The newest parked deliveries.
+          items: { $ref: "#/components/schemas/PluginParkedDelivery" }
+        expiredCount:
+          {
+            type: integer,
+            minimum: 0,
+            description: "Deliveries the host expired: pending 7 days after they became due, or parked 14 days.",
+          }
+        lastExpiredAt: { type: [string, "null"], format: date-time }
+        lastFailure:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [code, at]
+              properties:
+                code:
+                  {
+                    type: string,
+                    description: "A stable failure code, for example handler_error, handler_timeout, handler_panic, or lease_expired.",
+                  }
+                kind:
+                  { type: string, x-extensible-enum: [timer, event, webhook] }
+                at: { type: string, format: date-time }
+    PluginParkedDelivery:
+      type: object
+      required:
+        [
+          id,
+          kind,
+          source,
+          subject,
+          attempts,
+          lastError,
+          dueAt,
+          parkedAt,
+          expiresAt,
+        ]
+      properties:
+        id:
+          {
+            type: string,
+            format: uuid,
+            description: "The stable delivery ID the plugin receives on every attempt.",
+          }
+        kind: { type: string, x-extensible-enum: [timer, event, webhook] }
+        source:
+          {
+            type: string,
+            description: "The timer key, the event name, or the webhook ID.",
+          }
+        subject: { type: string, description: "The order key within the kind." }
+        attempts: { type: integer, minimum: 0 }
+        lastError: { type: string }
+        dueAt: { type: string, format: date-time }
+        parkedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
     PluginFeedDataset:
       type: object
       required:

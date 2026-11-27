@@ -40,56 +40,57 @@ The five built-in roles are protected. Their capability sets are in code, not
 in the database. An upgrade that adds a capability gives it to the built-in
 roles in a predictable way. No account can edit a built-in role.
 
-| Capability                 | Owner | Administrator | Editor | Contributor | Viewer |
-| -------------------------- | ----- | ------------- | ------ | ----------- | ------ |
-| `media.read`               | yes   | yes           | yes    | yes         | yes    |
-| `media.upload`             | yes   | yes           | yes    | yes         | -      |
-| `media.edit`               | yes   | yes           | yes    | yes         | -      |
-| `media.organize`           | yes   | yes           | yes    | yes         | -      |
-| `media.tags.assign`        | yes   | yes           | yes    | yes         | -      |
-| `media.archive`            | yes   | yes           | yes    | -           | -      |
-| `media.delete`             | yes   | yes           | yes    | -           | -      |
-| `media.folders.manage`     | yes   | yes           | yes    | yes         | -      |
-| `media.tags.manage`        | yes   | yes           | yes    | yes         | -      |
-| `media.collections.manage` | yes   | yes           | yes    | yes         | -      |
-| `widget.read`              | yes   | yes           | yes    | yes         | yes    |
-| `widget.edit`              | yes   | yes           | yes    | yes         | -      |
-| `widget.delete`            | yes   | yes           | yes    | -           | -      |
-| `datasource.read`          | yes   | yes           | yes    | yes         | yes    |
-| `datasource.edit`          | yes   | yes           | yes    | yes         | -      |
-| `datasource.manage`        | yes   | yes           | yes    | -           | -      |
-| `playlist.read`            | yes   | yes           | yes    | yes         | yes    |
-| `playlist.edit`            | yes   | yes           | yes    | yes         | -      |
-| `playlist.publish`         | yes   | yes           | yes    | -           | -      |
-| `playlist.delete`          | yes   | yes           | yes    | -           | -      |
-| `layout.read`              | yes   | yes           | yes    | yes         | yes    |
-| `layout.edit`              | yes   | yes           | yes    | yes         | -      |
-| `layout.publish`           | yes   | yes           | yes    | -           | -      |
-| `layout.delete`            | yes   | yes           | yes    | -           | -      |
-| `campaign.read`            | yes   | yes           | yes    | yes         | yes    |
-| `campaign.edit`            | yes   | yes           | yes    | -           | -      |
-| `campaign.publish`         | yes   | yes           | -      | -           | -      |
-| `content.review`           | yes   | yes           | yes    | -           | -      |
-| `screen.read`              | yes   | yes           | yes    | yes         | yes    |
-| `screen.manage`            | yes   | yes           | -      | -           | -      |
-| `screen.pair`              | yes   | yes           | -      | -           | -      |
-| `screen.assign`            | yes   | yes           | -      | -           | -      |
-| `screen.locations.manage`  | yes   | yes           | -      | -           | -      |
-| `screen.networks.manage`   | yes   | yes           | -      | -           | -      |
-| `schedule.read`            | yes   | yes           | yes    | yes         | yes    |
-| `schedule.edit`            | yes   | yes           | -      | -           | -      |
-| `activity.read`            | yes   | yes           | yes    | yes         | yes    |
-| `activity.audit`           | yes   | yes           | yes    | -           | -      |
-| `activity.manage`          | yes   | yes           | -      | -           | -      |
-| `plugins.use`              | yes   | yes           | yes    | yes         | yes    |
-| `plugins.manage`           | yes   | yes           | -      | -           | -      |
-| `users.manage`             | yes   | yes           | -      | -           | -      |
-| `roles.manage`             | yes   | yes           | -      | -           | -      |
-| `settings.manage`          | yes   | yes           | -      | -           | -      |
-| `system.manage`            | yes   | yes           | -      | -           | -      |
-| `system.backups`           | yes   | -             | -      | -           | -      |
-| `integrations.manage`      | yes   | -             | -      | -           | -      |
-| `player.releases`          | yes   | -             | -      | -           | -      |
+| Capability                  | Owner | Administrator | Editor | Contributor | Viewer |
+| --------------------------- | ----- | ------------- | ------ | ----------- | ------ |
+| `media.read`                | yes   | yes           | yes    | yes         | yes    |
+| `media.upload`              | yes   | yes           | yes    | yes         | -      |
+| `media.edit`                | yes   | yes           | yes    | yes         | -      |
+| `media.organize`            | yes   | yes           | yes    | yes         | -      |
+| `media.tags.assign`         | yes   | yes           | yes    | yes         | -      |
+| `media.archive`             | yes   | yes           | yes    | -           | -      |
+| `media.delete`              | yes   | yes           | yes    | -           | -      |
+| `media.folders.manage`      | yes   | yes           | yes    | yes         | -      |
+| `media.tags.manage`         | yes   | yes           | yes    | yes         | -      |
+| `media.collections.manage`  | yes   | yes           | yes    | yes         | -      |
+| `widget.read`               | yes   | yes           | yes    | yes         | yes    |
+| `widget.edit`               | yes   | yes           | yes    | yes         | -      |
+| `widget.delete`             | yes   | yes           | yes    | -           | -      |
+| `datasource.read`           | yes   | yes           | yes    | yes         | yes    |
+| `datasource.edit`           | yes   | yes           | yes    | yes         | -      |
+| `datasource.manage`         | yes   | yes           | yes    | -           | -      |
+| `playlist.read`             | yes   | yes           | yes    | yes         | yes    |
+| `playlist.edit`             | yes   | yes           | yes    | yes         | -      |
+| `playlist.publish`          | yes   | yes           | yes    | -           | -      |
+| `playlist.delete`           | yes   | yes           | yes    | -           | -      |
+| `layout.read`               | yes   | yes           | yes    | yes         | yes    |
+| `layout.edit`               | yes   | yes           | yes    | yes         | -      |
+| `layout.publish`            | yes   | yes           | yes    | -           | -      |
+| `layout.delete`             | yes   | yes           | yes    | -           | -      |
+| `campaign.read`             | yes   | yes           | yes    | yes         | yes    |
+| `campaign.edit`             | yes   | yes           | yes    | -           | -      |
+| `campaign.publish`          | yes   | yes           | -      | -           | -      |
+| `content.review`            | yes   | yes           | yes    | -           | -      |
+| `screen.read`               | yes   | yes           | yes    | yes         | yes    |
+| `screen.manage`             | yes   | yes           | -      | -           | -      |
+| `screen.pair`               | yes   | yes           | -      | -           | -      |
+| `screen.assign`             | yes   | yes           | -      | -           | -      |
+| `screen.locations.manage`   | yes   | yes           | -      | -           | -      |
+| `screen.networks.manage`    | yes   | yes           | -      | -           | -      |
+| `schedule.read`             | yes   | yes           | yes    | yes         | yes    |
+| `schedule.edit`             | yes   | yes           | -      | -           | -      |
+| `activity.read`             | yes   | yes           | yes    | yes         | yes    |
+| `activity.audit`            | yes   | yes           | yes    | -           | -      |
+| `activity.manage`           | yes   | yes           | -      | -           | -      |
+| `plugins.use`               | yes   | yes           | yes    | yes         | yes    |
+| `plugins.manage`            | yes   | yes           | -      | -           | -      |
+| `users.manage`              | yes   | yes           | -      | -           | -      |
+| `roles.manage`              | yes   | yes           | -      | -           | -      |
+| `settings.manage`           | yes   | yes           | -      | -           | -      |
+| `system.manage`             | yes   | yes           | -      | -           | -      |
+| `system.backups`            | yes   | -             | -      | -           | -      |
+| `integrations.manage`       | yes   | -             | -      | -           | -      |
+| `player.releases`           | yes   | -             | -      | -           | -      |
+| `plugins.deliveries.manage` | yes   | -             | -      | -           | -      |
 
 The matrix is generated from `apps/dashboard/src/test/builtin-capabilities.json`.
 A Go test fails when that fixture differs from the Server definition.
@@ -105,9 +106,12 @@ screen when they are used. A custom role that had `screen.manage` before these
 capabilities existed does not receive them. An Owner or an account with
 `roles.manage` adds them to a custom role.
 
-Three capabilities are Owner-reserved: `system.backups`, `integrations.manage`,
-and `player.releases`. Only the built-in Owner role holds them. A custom role
-cannot include them.
+Four capabilities are Owner-reserved: `system.backups`, `integrations.manage`,
+`player.releases`, and `plugins.deliveries.manage`. Only the built-in Owner role
+holds them. A custom role cannot include them. `plugins.deliveries.manage`
+retries or discards a parked plugin delivery
+([plugin delivery](plugin-delivery.md)): a retry runs plugin code again, and a
+discard loses the work for good.
 
 ## Custom roles
 

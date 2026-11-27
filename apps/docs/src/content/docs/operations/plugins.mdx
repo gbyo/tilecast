@@ -153,6 +153,24 @@ When a feed includes images, Tilecast downloads them itself after each publicati
 
 Feed images and records are part of your backups. A feed field that holds personal data, such as a meeting organizer, is deleted after the retention period the plugin declares; it stays in older backups until they expire.
 
+## Check a plugin's status
+
+A plugin that does work in the background, such as syncing a calendar every
+few minutes, has a **Status** page. Open the plugin and select **Status**.
+
+- **Plugin work** shows how many items wait and how many run now, and the
+  last failure, such as "The plugin did not finish within 30 seconds."
+- Tilecast retries a failed item with a growing delay. After eight failures
+  it stops and lists the item under **failed 8 times**, so the plugin's other
+  work continues.
+- An Owner can **Retry** a failed item, which runs it again, or **Discard**
+  it, which removes it for good. Other people see the list without these
+  actions. Tilecast removes a failed item after 14 days.
+- Work that waits for more than 7 days expires. The page counts expired
+  items, because the plugin never received them.
+
+Removing a plugin deletes its waiting and failed work.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:

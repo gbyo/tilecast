@@ -564,7 +564,8 @@
       "newConnection": "Nueva conexión",
       "connection": "Conexión",
       "feeds": "Fuentes",
-      "feedRecords": "Registros"
+      "feedRecords": "Registros",
+      "status": "Estado"
     },
     "connections": {
       "title": "Conexiones",
@@ -800,6 +801,55 @@
         "personal_one": "{{field}} es un dato personal y se elimina {{count}} día después de su último cambio",
         "personal_many": "{{field}} es un dato personal y se elimina {{count}} días después de su último cambio",
         "personal_other": "{{field}} es un dato personal y se elimina {{count}} días después de su último cambio"
+      }
+    },
+    "status": {
+      "title": "Estado",
+      "description": "El trabajo que Tilecast ejecuta para este plugin y los problemas que puede resolver.",
+      "loadError": "No se pudo cargar el estado.",
+      "open": "Estado",
+      "deliveries": {
+        "title": "Trabajo del plugin",
+        "healthy": "Sin problemas",
+        "parked_one": "{{count}} necesita atención",
+        "parked_many": "{{count}} necesitan atención",
+        "parked_other": "{{count}} necesitan atención",
+        "pending_one": "{{count}} en espera",
+        "pending_many": "{{count}} en espera",
+        "pending_other": "{{count}} en espera",
+        "running_one": "{{count}} en ejecución",
+        "running_many": "{{count}} en ejecución",
+        "running_other": "{{count}} en ejecución",
+        "lastFailure": "Último fallo: {{reason}} ({{date}})",
+        "expiredTitle_one": "{{count}} elemento caducó",
+        "expiredTitle_many": "{{count}} elementos caducaron",
+        "expiredTitle_other": "{{count}} elementos caducaron",
+        "expiredDescription": "El plugin nunca recibió este trabajo: esperó más de 7 días, o falló y nadie lo reintentó en 14 días. Última caducidad: {{date}}."
+      },
+      "parked": {
+        "title_one": "{{count}} elemento falló 8 veces",
+        "title_many": "{{count}} elementos fallaron 8 veces",
+        "title_other": "{{count}} elementos fallaron 8 veces",
+        "description": "Reintentar ejecuta el plugin de nuevo con el mismo elemento. Descartar elimina el elemento; el plugin nunca lo recibe.",
+        "ownerOnly": "Solo un propietario puede reintentar o descartar estos elementos.",
+        "meta": "{{reason}} · {{attempts}} intentos · Falló {{parked}} · Se elimina {{expires}}",
+        "retry": "Reintentar",
+        "discard": "Descartar",
+        "discardTitle": "¿Descartar este elemento?",
+        "discardBody": "El plugin nunca lo recibe. No se puede deshacer.",
+        "retriedToast": "El elemento se ejecutará de nuevo.",
+        "discardedToast": "El elemento se descartó."
+      },
+      "kinds": {
+        "timer": "Temporizador",
+        "event": "Evento",
+        "webhook": "Solicitud de webhook"
+      },
+      "failures": {
+        "handler_error": "El plugin informó un error",
+        "handler_timeout": "El plugin no terminó en 30 segundos",
+        "handler_panic": "El plugin se detuvo inesperadamente",
+        "lease_expired": "El servidor se detuvo mientras se ejecutaba el plugin"
       }
     }
   },

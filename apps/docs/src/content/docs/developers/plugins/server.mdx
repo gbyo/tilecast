@@ -107,9 +107,9 @@ swapped, err := p.services.KVCompareAndSet(ctx, "calendar:"+instanceID, cursor, 
 _, err = p.services.ScheduleTimer(ctx, "sync:"+instanceID, time.Now().Add(5*time.Minute), []byte(instanceID))
 ```
 
-Implement `HandleTimer(ctx context.Context, timer plugin.Timer) error` on your plugin. Tilecast calls it with no signed-in person, for at most 30 seconds, and calls it **at least once**: after a crash or an error the same timer can run again, so make the handler safe to repeat. Returning an error retries the timer with a growing delay, up to ten attempts.
+Implement `HandleTimer(ctx context.Context, timer plugin.Timer) error` on your plugin. Tilecast calls it with no signed-in person, for at most 30 seconds, and calls it **at least once**: after a crash or an error the same timer can run again, so make the handler safe to repeat. Returning an error retries the timer with a growing delay, from 5 seconds up to 15 minutes. After eight failed attempts Tilecast parks the timer: the plugin's **Status** page shows it, and an Owner can retry or discard it.
 
-Limits: keys up to 128 bytes, values up to 64 KiB, 1 MiB of values per plugin, timer payloads up to 4 KiB, and 1,000 pending timers. Values and timers are kept when the plugin is removed; timers wait until it is installed again. If you bump `definitionVersion`, Tilecast drops timers from the old definition, so schedule the ones you need again. See [Plugin storage and timers](https://github.com/gbyo/tilecast/blob/main/docs/plugin-storage.md) for every rule.
+Limits: keys up to 128 bytes, values up to 64 KiB, 1 MiB of values per plugin, timer payloads up to 4 KiB, and 1,000 pending timers. Values are kept when the plugin is removed; removing the plugin deletes its pending timers. If you bump `definitionVersion`, Tilecast drops timers from the old definition, so schedule the ones you need again. See [Plugin storage and timers](https://github.com/gbyo/tilecast/blob/main/docs/plugin-storage.md) and [Plugin delivery](https://github.com/gbyo/tilecast/blob/main/docs/plugin-delivery.md) for every rule.
 
 ## Publish a feed (Plugin Manifest API 3)
 
