@@ -147,6 +147,13 @@ static void
 forward_page_message (TcHost *host, JsonObject *message)
 {
   const char *type = json_object_get_string_member_with_default (message, "type", "");
+  if (g_strcmp0 (type, "diagnostics.visual_trace") == 0) {
+    /* Written only to the local trace file, never to tilecastd. Without
+     * --visual-trace the page has no sink and sends nothing; a message that
+     * arrives anyway is dropped here. */
+    tc_visual_trace_page_message (host->trace, message);
+    return;
+  }
   if (g_strcmp0 (type, "runtime.ready") == 0) {
     host->runtime_ready = FALSE;
     g_clear_pointer (&host->runtime_support, json_node_unref);
@@ -157,6 +164,7 @@ forward_page_message (TcHost *host, JsonObject *message)
       host->runtime_support = json_node_copy (support);
     }
     host->runtime_ready = TRUE;
+    tc_visual_trace_document_ready (host->trace);
     tc_protocol_send_ready (host);
     if (host->current_plugins_json != NULL)
       tc_view_deliver (host, "plugin.state", host->current_plugins_json);
@@ -348,6 +356,33 @@ read_bridge_script (TcHost *host, const char *name, GError **error)
   return contents;
 }
 
+/* --visual-trace: the Runtime's trace sink, injected into the page world of
+ * the trusted top document only, before the Runtime loads. Deep mode adds a
+ * fixed constant before it; nothing variable is ever placed in script
+ * source. The sink forwards batches through the native relay as
+ * "diagnostics.visual_trace" reports, which forward_page_message writes to
+ * the trace file and nowhere else. */
+static const char VISUAL_TRACE_DEEP_SCRIPT[] =
+  "Object.defineProperty(globalThis, '__tilecastVisualTraceDeep', { value: true, configurable: true });";
+
+static gboolean
+add_visual_trace_scripts (TcHost *host, WebKitUserContentManager *manager, const char *const *allow, GError **error)
+{
+  g_autofree char *sink = read_bridge_script (host, "tilecast-visual-trace.js", error);
+  if (sink == NULL)
+    return FALSE;
+  if (host->visual_trace_deep) {
+    g_autoptr (WebKitUserScript) deep = webkit_user_script_new (
+      VISUAL_TRACE_DEEP_SCRIPT, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
+      allow, NULL);
+    tc_visual_trace_add_script (host->trace, manager, deep);
+  }
+  g_autoptr (WebKitUserScript) script = webkit_user_script_new (
+    sink, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, allow, NULL);
+  tc_visual_trace_add_script (host->trace, manager, script);
+  return TRUE;
+}
+
 /* How long a release renderer waits for the media socket before it builds the
  * web context. The release self-test starts the renderer before its host
  * binds the socket, and the self-test renderer is not restarted. Development
@@ -446,6 +481,17 @@ tc_view_create (TcHost *host, GError **error)
   g_autoptr (WebKitUserScript) native_script = webkit_user_script_new_for_world (
     relay, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, world, allow, NULL);
   webkit_user_content_manager_add_script (manager, native_script);
+  /* The trace file opens first: without a recorder the page gets no sink, so
+   * the Runtime records (and deep mode samples) nothing it cannot keep. */
+  if (host->visual_trace)
+    host->trace = tc_visual_trace_start (host, host->visual_trace_dir, host->visual_trace_seconds,
+                                         host->visual_trace_deep);
+  if (host->trace != NULL && !add_visual_trace_scripts (host, manager, allow, error)) {
+    g_clear_pointer (&host->trace, tc_visual_trace_stop);
+    g_object_unref (settings);
+    g_object_unref (manager);
+    return FALSE;
+  }
   g_autoptr (WebKitUserScript) script = webkit_user_script_new (
     bridge, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, allow, NULL);
   webkit_user_content_manager_add_script (manager, script);
@@ -486,6 +532,7 @@ tc_view_create (TcHost *host, GError **error)
   else
     wpe_toplevel_fullscreen (toplevel);
   wpe_toplevel_set_title (toplevel, "Tilecast");
+  tc_visual_trace_attach (host->trace, wpe_view);
 
   webkit_web_view_load_uri (host->view, RUNTIME_URI);
   return TRUE;

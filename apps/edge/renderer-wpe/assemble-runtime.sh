@@ -31,4 +31,6 @@ print(f"assemble-runtime: {len(manifest['files'])} runtime files verified")
 PY
 cp "$here/web/tilecast-bridge.js" "$dest/tilecast-bridge.js"
 cp "$here/web/tilecast-native-relay.js" "$dest/tilecast-native-relay.js"
+# Read by the host only with --visual-trace (docs/tilecast-edge-visual-trace.md).
+cp "$here/web/tilecast-visual-trace.js" "$dest/tilecast-visual-trace.js"
 echo "assemble-runtime: runtime assembled in $dest"

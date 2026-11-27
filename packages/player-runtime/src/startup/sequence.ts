@@ -19,6 +19,7 @@
  */
 import type { RuntimeClock, TimerHandle } from "../clock/scheduler";
 import { PULSE_CYCLE_MS, StartupView, type RevealHandle } from "./view";
+import { visualTrace } from "../diagnostics/visual-trace";
 
 /** One full loop of the pulse: the shortest visible startup. */
 export const STARTUP_MIN_INTRO_MS = PULSE_CYCLE_MS;
@@ -211,6 +212,8 @@ export class StartupSequence implements StartupSignals {
   }
 
   private enter(phase: StartupPhase): void {
+    const trace = visualTrace();
+    if (trace.enabled) trace.record("startup", "startup.phase", { phase });
     this.phaseValue = phase;
     this.options.surface?.setPhase(phase);
     if (!this.covering) {

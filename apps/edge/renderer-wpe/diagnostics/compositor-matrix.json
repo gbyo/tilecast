@@ -1,0 +1,78 @@
+{
+  "schema": "tilecast-compositor-matrix-v1",
+  "note": "Each configuration changes one variable from the Skia default. Every variable was checked in the WPE WebKit 2.54.0 source (see docs/tilecast-edge-wpe-compositor-lab.md). Combine variables only after the single-variable runs say what each one changes.",
+  "scenes": [
+    "opacity-basic",
+    "crossfade",
+    "crossfade-cleanup-variants",
+    "transform-3d",
+    "startup-minimal",
+    "video-crossfade"
+  ],
+  "presets": {
+    "baseline": [
+      { "name": "skia", "env": {} },
+      {
+        "name": "texturemapper",
+        "env": { "WEBKIT_USE_SKIA_FOR_COMPOSITION": "0" }
+      },
+      {
+        "name": "skia-cpu",
+        "env": { "WEBKIT_SKIA_ENABLE_CPU_RENDERING": "1" }
+      },
+      {
+        "name": "skia-show-damage",
+        "env": { "WEBKIT_SHOW_DAMAGE": "1" },
+        "inspect": "off",
+        "visualOnly": "paints a damage overlay into the presented frames; watch the screen or film it"
+      },
+      { "name": "skia-show-fps", "env": { "WEBKIT_SHOW_FPS": "1" } }
+    ],
+    "versions": [
+      { "name": "skia", "env": {} },
+      {
+        "name": "texturemapper",
+        "env": { "WEBKIT_USE_SKIA_FOR_COMPOSITION": "0" }
+      },
+      { "name": "skia-cpu", "env": { "WEBKIT_SKIA_ENABLE_CPU_RENDERING": "1" } }
+    ],
+    "extended": [
+      {
+        "name": "skia-gpu-painting-1",
+        "env": { "WEBKIT_SKIA_GPU_PAINTING_THREADS": "1" }
+      },
+      {
+        "name": "skia-cpu-painting-1",
+        "env": {
+          "WEBKIT_SKIA_ENABLE_CPU_RENDERING": "1",
+          "WEBKIT_SKIA_CPU_PAINTING_THREADS": "1"
+        },
+        "note": "CPU painting threads apply only with CPU rendering; compare with skia-cpu"
+      },
+      {
+        "name": "skia-linear-tiles",
+        "env": { "WEBKIT_SKIA_USE_LINEAR_TILE_TEXTURES": "1" }
+      },
+      {
+        "name": "skia-no-dmabuf-atlas",
+        "env": { "WEBKIT_DISABLE_DMABUF_ATLAS": "1" }
+      },
+      {
+        "name": "buffer-linear-xrgb",
+        "env": { "WPE_BUFFER_FORMAT": "XR24:0" },
+        "note": "DRM_FORMAT_XRGB8888 with DRM_FORMAT_MOD_LINEAR for the view's buffers"
+      },
+      {
+        "name": "vblank-timer",
+        "env": { "WEBKIT_FORCE_VBLANK_TIMER": "1" },
+        "note": "WebKit paces frames with a timer instead of the DRM vblank monitor"
+      },
+      {
+        "name": "drm-legacy-kms",
+        "env": { "WPE_DRM_DISABLE_ATOMIC": "1" },
+        "note": "WPEPlatform DRM uses drmModePageFlip instead of atomic commits"
+      },
+      { "name": "no-explicit-sync", "env": { "WPE_USE_EXPLICIT_SYNC": "0" } }
+    ]
+  }
+}

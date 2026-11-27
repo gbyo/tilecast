@@ -26,6 +26,7 @@ import {
   type VideoReuseRejection,
 } from "../engine/playback-policy";
 import { swapLayers, type RunningTransition } from "../transitions/crossfade";
+import { visualTrace, type TraceTag } from "../diagnostics/visual-trace";
 import { ImageSurface } from "./image-surface";
 import { LayoutSurface } from "./layout-surface";
 import { isRestartable, type MediaSurface, type SurfaceSink } from "./surface";
@@ -42,6 +43,8 @@ import { widgetComponent } from "../engine/model";
 import type { RuntimeWidgetHost } from "../widgets/host";
 
 interface Layer {
+  /** Stable name for visual traces: the two layers never change roles. */
+  name: "a" | "b";
   el: HTMLDivElement;
   surface: MediaSurface | null;
   mount: number | null;
@@ -88,6 +91,7 @@ export class Stage {
     private readonly options: StageOptions,
   ) {
     this.front = {
+      name: "a",
       el: layerA,
       surface: null,
       mount: null,
@@ -95,6 +99,7 @@ export class Stage {
       fill: 0,
     };
     this.back = {
+      name: "b",
       el: layerB,
       surface: null,
       mount: null,
@@ -131,6 +136,8 @@ export class Stage {
 
   /** A Tilecast surface owns the screen: release every item surface. */
   clear(): void {
+    const trace = visualTrace();
+    if (trace.enabled) trace.record("stage", "stage.clear");
     this.transition?.cancel();
     this.transition = null;
     for (const layer of [this.front, this.back]) {
@@ -204,6 +211,10 @@ export class Stage {
     front.mount = mount;
     front.restarts = entry.restarts;
     diagnostics?.count("decoders-reused");
+    const trace = visualTrace();
+    if (trace.enabled) {
+      trace.record("stage", "stage.reuse", { mount, layer: front.name });
+    }
     surface.rebind(entry.item, this.sink(mount), mount).then(
       () => {
         if (front.surface === surface && front.mount === mount) {
@@ -253,8 +264,24 @@ export class Stage {
     }
     layer.surface = surface;
     layer.el.replaceChildren(surface.element);
+    const trace = visualTrace();
+    if (trace.enabled) {
+      trace.record("stage", "stage.fill", {
+        mount: entry.mount,
+        layer: layer.name,
+        kind: entry.item.kind,
+      });
+    }
     surface.prepare().then(
       (readiness) => {
+        if (trace.enabled) {
+          trace.record("stage", "stage.ready", {
+            mount: entry.mount,
+            layer: layer.name,
+            current: layer.surface === surface,
+            empty: readiness?.empty === true,
+          });
+        }
         if (layer.surface === surface) {
           this.options.send({
             type: "SURFACE_READY",
@@ -281,6 +308,26 @@ export class Stage {
     const outgoing = this.front;
     this.front = incoming;
     this.back = outgoing;
+    const trace = visualTrace();
+    let tag: TraceTag | undefined;
+    if (trace.enabled) {
+      tag = {
+        scope: "stage",
+        fields: {
+          tx: trace.nextId("transition"),
+          mount: entry.mount,
+          incoming: incoming.name,
+          outgoing: outgoing.name,
+        },
+      };
+      trace.record("stage", "stage.swap", {
+        ...tag.fields,
+        transition: entry.transition,
+        kind: entry.item.kind,
+        outgoingMount: outgoing.mount,
+        outgoingVisible: outgoing.el.classList.contains("visible"),
+      });
+    }
     const transition = swapLayers(
       incoming.el,
       outgoing.surface || outgoing.el.classList.contains("visible")
@@ -288,9 +335,17 @@ export class Stage {
         : null,
       entry.transition,
       { durationScale: this.options.animationScale },
+      tag,
     );
     this.transition = transition;
-    void incoming.surface?.activate();
+    const activation = incoming.surface?.activate();
+    if (tag && activation) {
+      const fields = tag.fields;
+      void activation.then(
+        () => trace.record("stage", "stage.activated", fields),
+        () => trace.record("stage", "stage.activate-failed", fields),
+      );
+    }
     // Capture the layer and its fill now: the delayed cleanup must act on the
     // layer that actually faded out, and only if it was not refilled since.
     const capturedFill = outgoing.fill;
@@ -299,14 +354,33 @@ export class Stage {
       capturedFill,
       currentFill: outgoing.fill,
     });
-    void transition.finished.then(() => {
+    void transition.finished.then((outcome) => {
       if (this.transition === transition) this.transition = null;
-      if (shouldPauseOutgoingLayer(state())) outgoing.surface?.pause();
-      if (shouldClearOutgoingLayer(state())) this.empty(outgoing);
+      const pause = shouldPauseOutgoingLayer(state());
+      if (pause) outgoing.surface?.pause();
+      if (tag && pause)
+        trace.record("stage", "stage.outgoing-paused", tag.fields);
+      const clear = shouldClearOutgoingLayer(state());
+      if (clear) this.empty(outgoing);
+      if (tag) {
+        trace.record("stage", "stage.settled", {
+          ...tag.fields,
+          outcome,
+          outgoingCleared: clear,
+          outgoingVisible: outgoing.el.classList.contains("visible"),
+        });
+      }
     });
   }
 
   private empty(layer: Layer): void {
+    const trace = visualTrace();
+    if (trace.enabled && layer.surface) {
+      trace.record("stage", "stage.dispose", {
+        mount: layer.mount,
+        layer: layer.name,
+      });
+    }
     layer.surface?.pause();
     layer.surface?.dispose();
     layer.surface = null;

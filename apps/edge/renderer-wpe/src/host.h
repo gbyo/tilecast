@@ -23,10 +23,14 @@
 #include "present-relay.h"
 #include "preview-pixels.h"
 #include "rw-channel.h"
+#include "visual-trace.h"
 
 G_BEGIN_DECLS
 
 #define TC_RENDERER_VERSION "0.1.0"
+#ifndef TC_BUILD_COMMIT
+#define TC_BUILD_COMMIT "unknown"
+#endif
 #define TC_IPC_PROTOCOL_VERSION 1
 #define TC_MAX_FRAME_BYTES (4u * 1024u * 1024u)
 #define TC_MAX_CONTENT_REFS 1024
@@ -59,6 +63,13 @@ struct _TcHost {
   gboolean console_to_stderr;
   /* Exit after this many seconds (CI); 0 means run until stopped. */
   guint exit_after_seconds;
+  /* --visual-trace (operator diagnostics, docs/tilecast-edge-visual-trace.md).
+   * Off by default; when off nothing below is created or connected. */
+  gboolean visual_trace;
+  gboolean visual_trace_deep;
+  guint visual_trace_seconds;
+  char *visual_trace_dir;
+  TcVisualTrace *trace;
 
   GMainLoop *loop;
   int exit_code;

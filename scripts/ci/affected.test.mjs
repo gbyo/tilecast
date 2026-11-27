@@ -309,6 +309,18 @@ test("the native registry and the event fixture reach their consumers", () => {
   for (const area of ["player_core", "plugins", "runtime", "windows"])
     assert.equal(events[area], true, area);
 });
+test("renderer diagnostics select the job that runs their tests", () => {
+  const diagnostics = affected([
+    "apps/edge/renderer-wpe/diagnostics/tilecast_wpe_debug.py",
+  ]);
+  assert.equal(diagnostics.edge_rust, true);
+  assert.equal(diagnostics.edge_wpe, true);
+  // Other renderer paths keep their own areas.
+  assert.equal(
+    affected(["apps/edge/renderer-wpe/src/view.c"]).edge_rust,
+    false,
+  );
+});
 test("the shared ABI constant and WPE bridge select the Runtime lane", () => {
   for (const path of [
     "crates/player-types/src/frames.rs",

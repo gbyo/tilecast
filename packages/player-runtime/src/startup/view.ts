@@ -20,6 +20,9 @@ import {
   transformOf,
   type CardPlan,
 } from "./motion";
+import { visualTrace, type TraceTag } from "../diagnostics/visual-trace";
+
+const STARTUP_TAG: TraceTag = { scope: "startup", fields: {} };
 
 /** The pulse in runtime.css: one loop, and the front tile's peak in it. */
 export const PULSE_CYCLE_MS = 1500;
@@ -178,6 +181,8 @@ export class StartupView {
   }
 
   remove(): void {
+    const trace = visualTrace();
+    if (trace.enabled) trace.record("startup", "startup.remove");
     for (const element of [this.root, ...this.root.querySelectorAll("*")]) {
       for (const animation of animations(element)) animation.cancel();
     }
@@ -195,6 +200,10 @@ export class StartupView {
         easing: "ease-out",
         fill: "forwards",
       });
+      const trace = visualTrace();
+      if (trace.enabled) {
+        trace.watchAnimation(STARTUP_TAG, "reduced-fade", fade, this.root);
+      }
       const finished = fade.finished.then(() => undefined);
       return { covered: finished, finished };
     }
@@ -206,28 +215,53 @@ export class StartupView {
   }
 
   private async choreograph(markCovered: () => void): Promise<void> {
+    const trace = visualTrace();
     // Ride a beat that is about to land on the front tile; otherwise settle
     // from wherever the pulse is now.
     const started = this.pulseStartedAt();
     if (started !== null) {
       const untilPeak = untilFrontPeak(performance.now() - started);
+      if (trace.enabled) {
+        trace.record("startup", "startup.pulse", {
+          pulseStart: started,
+          untilPeak,
+          waits: untilPeak <= PULSE_CATCH_MS,
+        });
+      }
       if (untilPeak <= PULSE_CATCH_MS) await wait(untilPeak);
+    } else if (trace.enabled) {
+      trace.record("startup", "startup.pulse", { pulseStart: null });
     }
     const plan = this.plan();
+    if (trace.enabled) trace.record("startup", "startup.settle");
     this.settle();
+    if (trace.enabled) {
+      trace.record("startup", "startup.push", {
+        perspective: plan.perspective,
+        samples: plan.samples.length,
+        duration: PUSH_MS,
+        delay: PUSH_DELAY_MS,
+      });
+    }
     await this.push(plan);
+    if (trace.enabled) trace.record("startup", "startup.push-end");
     // The card covers every pixel: become the plain sheet in the same frame.
     this.root.style.background = CANVAS_COLOR;
     this.logo.style.visibility = "hidden";
+    if (trace.enabled) trace.record("startup", "startup.covered");
     markCovered();
     await wait(WHITE_HOLD_MS);
-    await this.root
-      .animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: RESOLVE_MS,
-        easing: "cubic-bezier(0.25, 0.1, 0.25, 1)",
-        fill: "forwards",
-      })
-      .finished.then(() => undefined);
+    const resolve = this.root.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: RESOLVE_MS,
+      easing: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+      fill: "forwards",
+    });
+    if (trace.enabled) {
+      trace.record("startup", "startup.resolve", { duration: RESOLVE_MS });
+      trace.watchAnimation(STARTUP_TAG, "resolve", resolve, this.root);
+    }
+    await resolve.finished.then(() => undefined);
+    if (trace.enabled) trace.record("startup", "startup.resolve-end");
   }
 
   private plan(): CardPlan {
@@ -258,7 +292,7 @@ export class StartupView {
       for (const animation of animations(tile)) animation.cancel();
       tile.style.animation = "none";
       if (tile === this.front) {
-        tile.animate(
+        const settle = tile.animate(
           [from, { opacity: "1", transform: "translate(0px, 0px)" }],
           {
             duration: SETTLE_MS,
@@ -266,12 +300,16 @@ export class StartupView {
             fill: "forwards",
           },
         );
+        const trace = visualTrace();
+        if (trace.enabled) {
+          trace.watchAnimation(STARTUP_TAG, "front-settle", settle, tile);
+        }
       } else {
         tile.style.opacity = from.opacity;
         tile.style.transform = from.transform;
       }
     }
-    this.mark.animate(
+    const recede = this.mark.animate(
       [
         { opacity: 1, transform: "scale(1)" },
         { opacity: 0, transform: "scale(0.97)" },
@@ -282,6 +320,10 @@ export class StartupView {
         fill: "forwards",
       },
     );
+    const trace = visualTrace();
+    if (trace.enabled) {
+      trace.watchAnimation(STARTUP_TAG, "mark-recede", recede, this.mark);
+    }
   }
 
   private push(plan: CardPlan): Promise<unknown> {
@@ -301,13 +343,18 @@ export class StartupView {
       })),
       timing,
     );
-    this.shade.animate(
+    const shade = this.shade.animate(
       plan.samples.map((sample) => ({
         offset: sample.offset,
         opacity: sample.shade,
       })),
       timing,
     );
+    const trace = visualTrace();
+    if (trace.enabled) {
+      trace.watchAnimation(STARTUP_TAG, "card-push", card, this.card);
+      trace.watchAnimation(STARTUP_TAG, "shade", shade, this.shade);
+    }
     return card.finished;
   }
 }

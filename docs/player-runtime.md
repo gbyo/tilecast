@@ -238,6 +238,8 @@ In the third case the video is far from the shared position for more of the minu
 
 A log line has a limit of one for each kind in 5 s and 12 in a minute in total. A conformance run logs nothing. Read the snapshot with `__tilecastRuntime.diagnostics()`. `describe()` does not include it, because the conformance suite compares `describe()` between engines.
 
+A host can inject a visual trace sink before the Runtime loads (`src/diagnostics/visual-trace.ts`). Then the stage, the Layout zones, the crossfade and the startup reveal record their steps as `tilecast-visual-v1` records: ordinals, closed tokens and `performance.now()` times only. Without the sink the Runtime records nothing, and each call site costs one boolean check. The trace never changes a presentation decision. `src/transitions/crossfade.test.ts` checks that the DOM state of a crossfade is the same with and without it. The Edge renderer injects the sink only with `--visual-trace`. See [tilecast-edge-visual-trace.md](tilecast-edge-visual-trace.md).
+
 ### 4.4 Hardware qualification
 
 The tests prove the counts of actors, mounts and decoders, the evidence order, the seek and rebind behavior, and the corrector against a model. They do not prove smooth playback. A headless WPE run does not decode video to a display. Before a release that relies on this change, run a Mirror group with a single looping video on an older Linux PC and read `diagnostics()` after several minutes. `decoders-created` must stay at 1 for each presentation, and `unexpected-remounts` must stay at 0. A rise in `seeks-correction` or `stalls` shows a pipeline that cannot hold the shared position.

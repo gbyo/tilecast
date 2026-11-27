@@ -7,6 +7,8 @@
  * swap is cancelled, which jumps both layers to their resting state at once.
  */
 
+import { visualTrace, type TraceTag } from "../diagnostics/visual-trace";
+
 export const CROSSFADE_MS = 300;
 
 export type TransitionOutcome = "finished" | "cancelled";
@@ -55,13 +57,19 @@ function stack(incoming: HTMLElement, outgoing: HTMLElement | null): void {
 export function fadeIn(
   element: HTMLElement,
   duration: number,
+  tag?: TraceTag,
 ): RunningTransition {
+  const trace = visualTrace();
   element.style.opacity = "0";
+  if (trace.enabled && tag) trace.record(tag.scope, "fade.pin", tag.fields);
   const animation = element.animate([{ opacity: 0 }, { opacity: 1 }], {
     duration,
     easing: "ease",
     fill: "both",
   });
+  if (trace.enabled && tag) {
+    trace.watchAnimation(tag, "fade-in", animation, element);
+  }
 
   let outcome: TransitionOutcome | null = null;
   let resolve!: (value: TransitionOutcome) => void;
@@ -71,6 +79,9 @@ export function fadeIn(
     outcome = value;
     element.style.removeProperty("opacity");
     animation.cancel();
+    if (trace.enabled && tag) {
+      trace.record(tag.scope, "fade.unpin", { ...tag.fields, outcome: value });
+    }
     resolve(value);
   };
   animation.finished.then(
@@ -89,20 +100,32 @@ export function swapLayers(
   outgoing: HTMLElement | null,
   kind: string,
   timing: TransitionTiming,
+  tag?: TraceTag,
 ): RunningTransition {
+  const trace = visualTrace();
+  const traced = trace.enabled && tag !== undefined;
   const duration =
     kind === "none" ? 0 : Math.round(CROSSFADE_MS * timing.durationScale);
   stack(incoming, outgoing);
+  if (traced) {
+    trace.record(tag.scope, "swap.stack", {
+      ...tag.fields,
+      duration,
+      hasOutgoing: outgoing !== null,
+    });
+  }
   if (duration <= 0 || typeof incoming.animate !== "function") {
     settle(incoming, outgoing);
+    if (traced) trace.record(tag.scope, "swap.cut", tag.fields);
     return { finished: Promise.resolve("finished"), cancel() {} };
   }
 
   // The resting state is expressed by the `visible` class; the fade only
   // carries the incoming layer to it. The outgoing layer keeps its `visible`
   // class, and so full opacity, until the end.
-  const fade = fadeIn(incoming, duration);
+  const fade = fadeIn(incoming, duration, tag);
   incoming.classList.add(VISIBLE);
+  if (traced) trace.record(tag.scope, "swap.visible", tag.fields);
 
   let outcome: TransitionOutcome | null = null;
   let resolve!: (value: TransitionOutcome) => void;
@@ -111,6 +134,9 @@ export function swapLayers(
     if (outcome) return;
     outcome = value;
     settle(incoming, outgoing);
+    if (traced) {
+      trace.record(tag.scope, "swap.settle", { ...tag.fields, outcome: value });
+    }
     fade.cancel();
     resolve(value);
   };

@@ -1,0 +1,119 @@
+<!doctype html>
+<!--
+  transform-3d: an animated perspective transform with no opacity change. A
+  small yellow card inside a perspective container is pushed toward the
+  camera until it covers the screen (fill: forwards). When `finished`
+  resolves, the main thread paints the page yellow and hides the card, as
+  the Tilecast startup does when its card covers the screen.
+
+  Every sampled point goes from black to yellow and must never go back. An
+  engine that composites the end of the transform animation with the
+  element's resting transform shows the small card again until the main
+  thread commits: the detector reports a reversal at the screen edges.
+
+  Variants (join with ':'):
+    preserve-3d   the card is a preserve-3d group with a tilted child plane
+    cross-camera  the card is tilted 40 degrees and its near edge ends behind
+                  the camera plane, at every view size (the end depth comes
+                  from the card's own height)
+    busy-end      block the main thread for 120 ms around the end
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(0, 0, 0);
+        overflow: hidden;
+      }
+      #stage {
+        position: absolute;
+        inset: 0;
+        perspective: 800px;
+      }
+      #card {
+        position: absolute;
+        left: 40%;
+        top: 40%;
+        width: 20%;
+        height: 20%;
+        background: rgb(240, 200, 40);
+        will-change: transform;
+      }
+      #card.group {
+        background: transparent;
+        transform-style: preserve-3d;
+      }
+      #card .plane {
+        position: absolute;
+        inset: 0;
+        background: rgb(240, 200, 40);
+        transform: rotateX(4deg);
+      }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <div id="stage"><div id="card"></div></div>
+    <script>
+      const DURATION = 900;
+      const card = document.getElementById("card");
+      const stage = document.getElementById("stage");
+      if (Lab.has("preserve-3d")) {
+        card.className = "group";
+        const plane = document.createElement("div");
+        plane.className = "plane";
+        card.appendChild(plane);
+      }
+      Lab.palette({ black: [0, 0, 0], yellow: [240, 200, 40] });
+      // Translate toward the camera, then tilt about the card's own centre: the
+      // tilt is constant, so every point of the card only moves outward from
+      // the perspective origin and the covered area only grows. With
+      // cross-camera the near edge ends past the camera plane (z > 800 px)
+      // while the card's centre stays in front of it. Rotated about its
+      // centre, the near edge sits (height / 2) * sin(TILT) in front of the
+      // centre, so the end depth is set from the card's real height: half of
+      // that reach past the plane.
+      const PERSPECTIVE = 800;
+      const TILT = Lab.has("cross-camera") ? 40 : 12;
+      const reach = (card.offsetHeight / 2) * Math.sin((TILT * Math.PI) / 180);
+      const END_Z = Lab.has("cross-camera") ? PERSPECTIVE - reach / 2 : 690;
+      const keyframes = [
+        { transform: `translateZ(0px) rotateX(${TILT}deg)` },
+        { transform: `translateZ(${END_Z}px) rotateX(${TILT}deg)` },
+      ];
+      Lab.run(async () => {
+        document.body.style.background = "rgb(0, 0, 0)";
+        stage.style.visibility = "visible";
+        card.style.transform = `rotateX(${TILT}deg)`;
+        // The small card is on screen: nothing is checked until the push.
+        Lab.marker("reset");
+        await Lab.sleep(300);
+        Lab.marker("arm");
+        await Lab.sleep(100);
+        Lab.marker("transition-start", {
+          path: "black:yellow",
+          rules: "reversal",
+        });
+        const push = card.animate(keyframes, {
+          duration: DURATION,
+          easing: "linear",
+          fill: "forwards",
+        });
+        Lab.stallAtEnd(push, DURATION);
+        await push.finished;
+        Lab.marker("transition-end");
+        // Covered: become the plain sheet in the same task.
+        document.body.style.background = "rgb(240, 200, 40)";
+        stage.style.visibility = "hidden";
+        push.cancel();
+        Lab.marker("settled", { color: "yellow" });
+        await Lab.sleep(400);
+      });
+    </script>
+  </body>
+</html>
