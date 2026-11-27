@@ -48,6 +48,17 @@ type BundledCall struct {
 	Actor     *BundledActor
 	Operation string
 	Input     []byte
+	// Restrictions narrow what the invocation may do beyond its context.
+	Restrictions InvocationRestrictions
+}
+
+// InvocationRestrictions narrow one host invocation. The dispatcher
+// enforces them for every operation, so a later network-reaching operation
+// is refused as soon as the registry marks it.
+type InvocationRestrictions struct {
+	// DenyNetwork refuses every service operation that reaches the
+	// network.
+	DenyNetwork bool
 }
 
 // BundledServiceCaller runs a bundled call through the service registry's
@@ -57,9 +68,10 @@ type BundledServiceCaller interface {
 }
 
 type invocation struct {
-	pluginID string
-	context  string
-	actor    *BundledActor
+	pluginID     string
+	context      string
+	actor        *BundledActor
+	restrictions InvocationRestrictions
 }
 
 type invocationKey struct{}
@@ -108,6 +120,12 @@ func (s *Service) systemInvocation(ctx context.Context, pluginID string) (contex
 	return s.invocations.issue(ctx, &invocation{pluginID: pluginID, context: invocationSystem})
 }
 
+// restrictedSystemInvocation is a system invocation with restrictions, for
+// a hook that must not do everything a system callback may.
+func (s *Service) restrictedSystemInvocation(ctx context.Context, pluginID string, restrictions InvocationRestrictions) (context.Context, func()) {
+	return s.invocations.issue(ctx, &invocation{pluginID: pluginID, context: invocationSystem, restrictions: restrictions})
+}
+
 // SetServiceCaller wires the service registry's dispatcher for bundled
 // Plugin Manifest API 3 plugins.
 func (s *Service) SetServiceCaller(caller BundledServiceCaller) {
@@ -135,7 +153,7 @@ func (t serviceTransport) CallService(ctx context.Context, operation string, inp
 	}
 	return t.service.serviceCaller.CallBundled(ctx, BundledCall{
 		PluginID: t.pluginID, Grants: t.grants, Context: item.context, Actor: item.actor,
-		Operation: operation, Input: input,
+		Operation: operation, Input: input, Restrictions: item.restrictions,
 	})
 }
 

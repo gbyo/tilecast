@@ -1,0 +1,49 @@
+{
+  "apiVersion": 3,
+  "id": "provider_hooks",
+  "definitionVersion": 1,
+  "name": "Provider Hooks",
+  "description": "Inbound webhooks of every Phase 3 mode.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "settings": {
+    "organization": [
+      {
+        "key": "signingSecret",
+        "label": "Signing secret",
+        "control": "secret"
+      },
+      {
+        "key": "standardSecret",
+        "label": "Standard Webhooks secret",
+        "control": "secret"
+      },
+      {
+        "key": "region",
+        "label": "Region",
+        "control": "text",
+        "maxLength": 40
+      }
+    ]
+  },
+  "webhooks": [
+    {
+      "id": "doors",
+      "title": "Door controller",
+      "authentication": "token",
+      "deliveryId": {
+        "header": "X-Event-Id"
+      },
+      "forwardHeaders": ["X-Event-Type"],
+      "signature": {
+        "scheme": "standard-webhooks",
+        "secret": "standardSecret"
+      }
+    }
+  ]
+}

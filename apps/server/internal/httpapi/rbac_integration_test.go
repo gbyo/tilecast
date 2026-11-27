@@ -134,6 +134,7 @@ func withRBACEnvironment(t *testing.T, run func(*rbacEnvironment)) {
 		pairingLimiter:    newRateLimiter(1000, time.Minute),
 		codeLimiter:       newRateLimiter(1000, time.Minute),
 		operationsLimiter: newRateLimiter(1000, time.Minute),
+		webhookLimiter:    newRateLimiter(webhookAddressLimit, webhookAddressWindow),
 		installLimiter:    newRateLimiter(1000, time.Minute),
 	}
 	s.scheduling = scheduling.NewService(pool, deviceService, scheduling.Limits{MaxSchedules: 100, MaxTargetsPerSchedule: 100, MaxGroupsPerScreen: 10, PrefetchDays: 7, ActivationGraceSeconds: 60, ClockSkewWarningSeconds: 300})

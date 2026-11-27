@@ -3065,6 +3065,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/hooks/{pluginId}/{webhookId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description The inbound endpoint of a webhook that a Plugin Manifest API 3 plugin declares. It takes no session and no CSRF token. The host authenticates the request in the declared mode: a tch_ webhook token in the Authorization header, a signature it verifies with the plugin's organization signing secret, or the event ID of a fetch-back request. The raw body is at most 64 KiB, and the host stops reading at one byte more. The host answers a declared echo-query handshake (before authentication) or echo-json handshake (after a valid signature) with the value as text/plain, and runs no plugin code. Otherwise it stores a replay receipt and queues the request in one transaction, and only after that commits answers the declared acknowledgement status, 200 or 202, with no body. A repeated delivery ID answers the same status and queues nothing. Every authentication failure answers the same 401. The endpoint address used for a url.body signature is built from TILECAST_PUBLIC_URL, never from Host or forwarding headers. Other methods answer 405. See docs/plugin-webhooks.md. */
+    post: operations["receivePluginWebhook"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/webhooks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Requires plugins.use. The webhooks a Plugin Manifest API 3 plugin declares, with the exact endpoint address, its reachability, the state of the signing secret, the latest accepted, repeated, and refused requests, and, for a token webhook, its tokens without secrets. */
+    get: operations["listPluginWebhooks"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens. */
+    post: operations["createPluginWebhookToken"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens/{tokenId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Revokes a token for good. A revoked token never authenticates again. */
+    delete: operations["revokePluginWebhookToken"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugins/{pluginId}/status": {
     parameters: {
       query?: never;
@@ -8284,6 +8352,68 @@ export interface components {
       /** @description Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins. */
       feeds?: components["schemas"]["PluginFeedReview"][];
       events?: components["schemas"]["PluginEventReview"];
+      /** @description Inbound webhooks a Plugin Manifest API 3 plugin declares. Empty for other plugins. */
+      webhooks?: components["schemas"]["PluginWebhookReview"][];
+    };
+    PluginWebhookReview: {
+      id: string;
+      title: string;
+      description?: string;
+      authentication: string;
+      scheme?: string;
+      /** @enum {integer} */
+      ackStatus: 200 | 202;
+      handshake?: string;
+      /** @description The endpoint below the Server's public address, /api/v1/hooks/<plugin>/<webhook>. */
+      path: string;
+      /** @description A SaaS provider sends the requests, so the Server needs a public HTTPS address. */
+      requiresPublicHttps: boolean;
+      /** @description The organization secret setting the operator fills in. */
+      signingSecretKey?: string;
+    };
+    PluginWebhookToken: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      publicId: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      createdBy?: string;
+      /** Format: date-time */
+      lastUsedAt?: string;
+      /** Format: date-time */
+      revokedAt?: string;
+    };
+    PluginWebhookState: {
+      id: string;
+      title: string;
+      description?: string;
+      authentication: string;
+      scheme?: string;
+      /** @enum {integer} */
+      ackStatus: 200 | 202;
+      handshake?: string;
+      /** @description The exact endpoint, built from TILECAST_PUBLIC_URL. */
+      endpointUrl?: string;
+      /** @description available (the public address is HTTPS; the Server cannot prove that it is reachable from outside), public_https_required (a SaaS provider needs a public HTTPS address), local_network (a token webhook on a plain HTTP address), or public_url_missing. */
+      reachability: string;
+      requiresPublicHttps: boolean;
+      signingSecret?: string;
+      signingSecretKey?: string;
+      acceptedCount: number;
+      duplicateCount: number;
+      pending: number;
+      /** Format: date-time */
+      lastAcceptedAt?: string;
+      /** Format: date-time */
+      lastDuplicateAt?: string;
+      /** Format: date-time */
+      lastRefusedAt?: string;
+      /** @description The stable code of the latest refused request. Never a detail of the request. */
+      lastRefusal?: string;
+      /** @description The tokens of a token webhook, on the Webhooks list only. Never a secret. */
+      tokens?: components["schemas"]["PluginWebhookToken"][];
     };
     /** @description Server events a Plugin Manifest API 3 plugin publishes and receives. Empty lists for other plugins. */
     PluginEventReview: {
@@ -8743,6 +8873,8 @@ export interface components {
       error?: string;
     };
     PluginStatus: {
+      /** @description The plugin's inbound webhooks, without tokens. */
+      webhooks: components["schemas"]["PluginWebhookState"][];
       pluginId: string;
       installed: boolean;
       deliveries: components["schemas"]["PluginDeliveryStatus"];
@@ -13566,6 +13698,8 @@ export interface components {
   parameters: {
     /** @description Registry identifier such as countdown_bar. */
     PluginID: string;
+    /** @description The webhook ID a plugin declares. */
+    PluginWebhookID: string;
     PluginDeliveryID: string;
     /** @description A connection record of the plugin. */
     PluginConnectionID: string;
@@ -22685,6 +22819,229 @@ export interface operations {
       };
       /** @description plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  receivePluginWebhook: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description The webhook ID a plugin declares. */
+        webhookId: components["parameters"]["PluginWebhookID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/octet-stream": string;
+      };
+    };
+    responses: {
+      /** @description The request was queued durably (a webhook that declares ackStatus 200), it repeated an accepted delivery, or the host answered a handshake. A handshake answer is the value as text/plain. */
+      200: {
+        headers: {
+          "Cache-Control"?: "no-store";
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description The request was queued durably, or it repeated an accepted delivery. No body. */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description invalid_body, invalid_handshake, invalid_event_id, delivery_id_missing, or header_too_large */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description unauthenticated — the same answer for every authentication failure */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description not_found — the plugin is not installed or does not declare this webhook */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description method_not_allowed — the endpoint takes POST */
+      405: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description body_too_large — the body is larger than 64 KiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description rate_limited — too many requests from this address; see Retry-After */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description webhook_unavailable — the signing secret is not set or cannot be used, the webhook has 500 undelivered requests, or the Server cannot queue now; see Retry-After */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listPluginWebhooks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Webhooks */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginWebhookState"][];
+          };
+        };
+      };
+      /** @description plugin_not_found — the plugin is unknown or is not on Plugin Manifest API 3 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createPluginWebhookToken: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description The webhook ID a plugin declares. */
+        webhookId: components["parameters"]["PluginWebhookID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The token, with its secret this one time */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginWebhookToken"] & {
+              /** @description tch_<public id>.<secret>. Shown once. */
+              token: string;
+            };
+          };
+        };
+      };
+      /** @description invalid_plugin_webhook_token — the name is empty or too long */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_webhook_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_webhook_not_token, plugin_webhook_token_limit, or plugin_not_found when the plugin is not installed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  revokePluginWebhookToken: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description The webhook ID a plugin declares. */
+        webhookId: components["parameters"]["PluginWebhookID"];
+        tokenId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The revoked token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginWebhookToken"];
+          };
+        };
+      };
+      /** @description plugin_webhook_token_not_found — no active token with this ID */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_webhook_not_token */
+      409: {
         headers: {
           [name: string]: unknown;
         };

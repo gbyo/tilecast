@@ -11,11 +11,11 @@ An engine claims due items and gives each item to the plugin.
 
 ## Kinds
 
-| Kind      | Producer                      | Source              | Subject                               | Hook            |
-| --------- | ----------------------------- | ------------------- | ------------------------------------- | --------------- |
-| `timer`   | `timers.schedule@1`           | the timer key       | the timer key                         | `HandleTimer`   |
-| `event`   | an event                      | the full event name | see [plugin events](plugin-events.md) | `HandleEvent`   |
-| `webhook` | an inbound request (phase 3C) | the webhook ID      | the webhook ID                        | `HandleWebhook` |
+| Kind      | Producer                                                      | Source              | Subject                               | Hook            |
+| --------- | ------------------------------------------------------------- | ------------------- | ------------------------------------- | --------------- |
+| `timer`   | `timers.schedule@1`                                           | the timer key       | the timer key                         | `HandleTimer`   |
+| `event`   | an event                                                      | the full event name | see [plugin events](plugin-events.md) | `HandleEvent`   |
+| `webhook` | an inbound request, see [plugin webhooks](plugin-webhooks.md) | the webhook ID      | the webhook ID                        | `HandleWebhook` |
 
 A later kind, for example a Player report, is a new kind value. It is not a
 new queue.

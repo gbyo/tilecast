@@ -193,6 +193,33 @@ Before you install a plugin, its page in the Store lists the events it
 publishes and receives under **Events**. That list is for your information:
 receiving an event doesn't give a plugin any other access.
 
+### Webhooks
+
+Some plugins receive requests from other systems: a provider telling the
+plugin that something changed, or a device on your network reporting an
+event. Those plugins have a **Webhooks** page with one card for each address.
+Each card shows:
+
+- the exact address to give the other system, with a copy button;
+- whether it can work on this Server. A cloud provider can only reach a
+  public HTTPS address, so set `TILECAST_PUBLIC_URL` to one. Tilecast can't
+  test from the outside whether the provider really reaches it;
+- the signing secret, when the provider signs its requests. Paste the
+  provider's secret into the plugin's **Settings**; Tilecast shows only
+  whether it's set;
+- the last request it accepted, and the last one it refused and why.
+
+For a webhook that uses tokens, select **Create token** and copy the token
+right away: Tilecast keeps only a hash of it and can't show it again. Give it
+to the sending system, which sends it as `Authorization: Bearer <token>`.
+**Revoke** stops a token for good. Creating and revoking tokens needs the
+**Manage plugins** permission.
+
+The plugin's Store page lists its webhooks under **Webhooks** before you
+install it, with how each one is checked and whether it needs a public HTTPS
+address. Removing the plugin deletes its tokens and any requests it hasn't
+handled yet.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:

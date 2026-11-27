@@ -77,6 +77,10 @@ type Call struct {
 	Grants    []packagemanifest.ServiceGrant
 	Operation string
 	Input     []byte
+	// DenyNetwork refuses every operation that reaches the network. The
+	// plugin host sets it for an invocation that must stay local, such as
+	// a webhook verify hook.
+	DenyNetwork bool
 }
 
 // Denial is a transport-level refusal: unknown operation, missing
@@ -248,6 +252,9 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		}
 	default:
 		return nil, &Denial{Kind: DenialForbiddenContext, Message: "unknown invocation context"}, nil
+	}
+	if call.DenyNetwork && operation.Network {
+		return nil, &Denial{Kind: DenialForbiddenContext, Message: "this invocation may not reach the network"}, nil
 	}
 	// The operation, the caller, the grant, the context, and the actor are
 	// decided; now the operation's own bound applies to the input.

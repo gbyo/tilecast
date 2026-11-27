@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -68,6 +69,12 @@ type Service struct {
 	secrets       *pluginsecrets.Store
 	serviceCaller BundledServiceCaller
 	invocations   invocationSet
+
+	// Inbound webhooks: the verify hook time limit (tests shorten it) and
+	// the process-local fetch-back address limit.
+	verifyTimeout      time.Duration
+	webhookLimiterOnce sync.Once
+	fetchBackLimiter   *addressLimiter
 	// outbound sends connection requests; it is built on first use unless
 	// WithOutbound supplied one.
 	outbound     *outbound.Engine
@@ -174,6 +181,11 @@ type CatalogPlugin struct {
 	// Events are the Server events the plugin publishes and the events it
 	// receives, with the publisher of each.
 	Events EventReview `json:"events"`
+
+	// Webhooks are the inbound endpoints the host owns for the plugin,
+	// with the authentication of each and whether it needs a public HTTPS
+	// address.
+	Webhooks []WebhookReview `json:"webhooks"`
 }
 
 // PluginAttention is a bounded, advisory status note. It never blocks
@@ -314,6 +326,7 @@ func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlug
 		Configured: status.configured, Active: status.active, InstanceCount: status.count,
 		Attention: attention, Connections: append([]ConnectionReview{}, d.Connections...),
 		Feeds: append([]FeedReview{}, d.Feeds...), Events: d.Events.clone(),
+		Webhooks: append([]WebhookReview{}, d.Webhooks...),
 	}
 }
 

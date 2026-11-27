@@ -3990,6 +3990,42 @@ func (e PluginRequirementKind) Valid() bool {
 	}
 }
 
+// Defines values for PluginWebhookReviewAckStatus.
+const (
+	PluginWebhookReviewAckStatusN200 PluginWebhookReviewAckStatus = 200
+	PluginWebhookReviewAckStatusN202 PluginWebhookReviewAckStatus = 202
+)
+
+// Valid indicates whether the value is a known member of the PluginWebhookReviewAckStatus enum.
+func (e PluginWebhookReviewAckStatus) Valid() bool {
+	switch e {
+	case PluginWebhookReviewAckStatusN200:
+		return true
+	case PluginWebhookReviewAckStatusN202:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginWebhookStateAckStatus.
+const (
+	PluginWebhookStateAckStatusN200 PluginWebhookStateAckStatus = 200
+	PluginWebhookStateAckStatusN202 PluginWebhookStateAckStatus = 202
+)
+
+// Valid indicates whether the value is a known member of the PluginWebhookStateAckStatus enum.
+func (e PluginWebhookStateAckStatus) Valid() bool {
+	switch e {
+	case PluginWebhookStateAckStatusN200:
+		return true
+	case PluginWebhookStateAckStatusN202:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PowerAssistResult.
 const (
 	PowerAssistResultConfirmedWorking PowerAssistResult = "confirmed_working"
@@ -7486,6 +7522,9 @@ type CatalogPlugin struct {
 
 	// Version Definition contract version compiled into this release
 	Version int `json:"version"`
+
+	// Webhooks Inbound webhooks a Plugin Manifest API 3 plugin declares. Empty for other plugins.
+	Webhooks *[]PluginWebhookReview `json:"webhooks,omitempty"`
 }
 
 // CatalogPluginCategory defines model for CatalogPlugin.Category.
@@ -11447,6 +11486,9 @@ type PluginStatus struct {
 		Reason        *string `json:"reason,omitempty"`
 		State         string  `json:"state"`
 	} `json:"subscriptions"`
+
+	// Webhooks The plugin's inbound webhooks, without tokens.
+	Webhooks []PluginWebhookState `json:"webhooks"`
 }
 
 // PluginStore defines model for PluginStore.
@@ -11560,6 +11602,75 @@ type PluginStoreSource struct {
 	CatalogId  *string `json:"catalogId,omitempty"`
 	Kind       string  `json:"kind"`
 	Repository *string `json:"repository,omitempty"`
+}
+
+// PluginWebhookReview defines model for PluginWebhookReview.
+type PluginWebhookReview struct {
+	AckStatus      PluginWebhookReviewAckStatus `json:"ackStatus"`
+	Authentication string                       `json:"authentication"`
+	Description    *string                      `json:"description,omitempty"`
+	Handshake      *string                      `json:"handshake,omitempty"`
+	Id             string                       `json:"id"`
+
+	// Path The endpoint below the Server's public address, /api/v1/hooks/<plugin>/<webhook>.
+	Path string `json:"path"`
+
+	// RequiresPublicHttps A SaaS provider sends the requests, so the Server needs a public HTTPS address.
+	RequiresPublicHttps bool    `json:"requiresPublicHttps"`
+	Scheme              *string `json:"scheme,omitempty"`
+
+	// SigningSecretKey The organization secret setting the operator fills in.
+	SigningSecretKey *string `json:"signingSecretKey,omitempty"`
+	Title            string  `json:"title"`
+}
+
+// PluginWebhookReviewAckStatus defines model for PluginWebhookReview.AckStatus.
+type PluginWebhookReviewAckStatus int
+
+// PluginWebhookState defines model for PluginWebhookState.
+type PluginWebhookState struct {
+	AcceptedCount  int                         `json:"acceptedCount"`
+	AckStatus      PluginWebhookStateAckStatus `json:"ackStatus"`
+	Authentication string                      `json:"authentication"`
+	Description    *string                     `json:"description,omitempty"`
+	DuplicateCount int                         `json:"duplicateCount"`
+
+	// EndpointUrl The exact endpoint, built from TILECAST_PUBLIC_URL.
+	EndpointUrl     *string    `json:"endpointUrl,omitempty"`
+	Handshake       *string    `json:"handshake,omitempty"`
+	Id              string     `json:"id"`
+	LastAcceptedAt  *time.Time `json:"lastAcceptedAt,omitempty"`
+	LastDuplicateAt *time.Time `json:"lastDuplicateAt,omitempty"`
+
+	// LastRefusal The stable code of the latest refused request. Never a detail of the request.
+	LastRefusal   *string    `json:"lastRefusal,omitempty"`
+	LastRefusedAt *time.Time `json:"lastRefusedAt,omitempty"`
+	Pending       int        `json:"pending"`
+
+	// Reachability available (the public address is HTTPS; the Server cannot prove that it is reachable from outside), public_https_required (a SaaS provider needs a public HTTPS address), local_network (a token webhook on a plain HTTP address), or public_url_missing.
+	Reachability        string  `json:"reachability"`
+	RequiresPublicHttps bool    `json:"requiresPublicHttps"`
+	Scheme              *string `json:"scheme,omitempty"`
+	SigningSecret       *string `json:"signingSecret,omitempty"`
+	SigningSecretKey    *string `json:"signingSecretKey,omitempty"`
+	Title               string  `json:"title"`
+
+	// Tokens The tokens of a token webhook, on the Webhooks list only. Never a secret.
+	Tokens *[]PluginWebhookToken `json:"tokens,omitempty"`
+}
+
+// PluginWebhookStateAckStatus defines model for PluginWebhookState.AckStatus.
+type PluginWebhookStateAckStatus int
+
+// PluginWebhookToken defines model for PluginWebhookToken.
+type PluginWebhookToken struct {
+	CreatedAt  time.Time           `json:"createdAt"`
+	CreatedBy  *openapi_types.UUID `json:"createdBy,omitempty"`
+	Id         openapi_types.UUID  `json:"id"`
+	LastUsedAt *time.Time          `json:"lastUsedAt,omitempty"`
+	Name       string              `json:"name"`
+	PublicId   string              `json:"publicId"`
+	RevokedAt  *time.Time          `json:"revokedAt,omitempty"`
 }
 
 // PolicyDocument defines model for PolicyDocument.
@@ -13814,6 +13925,9 @@ type PluginDeliveryID = openapi_types.UUID
 // PluginID defines model for PluginID.
 type PluginID = string
 
+// PluginWebhookID defines model for PluginWebhookID.
+type PluginWebhookID = string
+
 // ResourceID defines model for ResourceID.
 type ResourceID = openapi_types.UUID
 
@@ -15225,6 +15339,23 @@ type RemovePluginParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// CreatePluginWebhookTokenJSONBody defines parameters for CreatePluginWebhookToken.
+type CreatePluginWebhookTokenJSONBody struct {
+	Name string `json:"name"`
+}
+
+// CreatePluginWebhookTokenParams defines parameters for CreatePluginWebhookToken.
+type CreatePluginWebhookTokenParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RevokePluginWebhookTokenParams defines parameters for RevokePluginWebhookToken.
+type RevokePluginWebhookTokenParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // CreatePresentationNetworkParams defines parameters for CreatePresentationNetwork.
 type CreatePresentationNetworkParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -16115,6 +16246,9 @@ type CompletePluginConnectionOAuthJSONRequestBody = PluginConnectionOAuthCallbac
 
 // SetPluginFeedOverrideJSONRequestBody defines body for SetPluginFeedOverride for application/json ContentType.
 type SetPluginFeedOverrideJSONRequestBody SetPluginFeedOverrideJSONBody
+
+// CreatePluginWebhookTokenJSONRequestBody defines body for CreatePluginWebhookToken for application/json ContentType.
+type CreatePluginWebhookTokenJSONRequestBody CreatePluginWebhookTokenJSONBody
 
 // CreatePresentationNetworkJSONRequestBody defines body for CreatePresentationNetwork for application/json ContentType.
 type CreatePresentationNetworkJSONRequestBody = PresentationNetworkCreateInput
@@ -18242,6 +18376,12 @@ type ClientInterface interface {
 	// Creates a Form Data Source (a Data Source provider). The server publishes the supplied draft schema as the form's first immutable revision and the creator becomes its manager. Requires the editor+ global role.
 	CreateForm(ctx context.Context, body CreateFormJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ReceivePluginWebhookWithBody performs a POST /api/v1/hooks/{pluginId}/{webhookId} (the `ReceivePluginWebhook` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// The inbound endpoint of a webhook that a Plugin Manifest API 3 plugin declares. It takes no session and no CSRF token. The host authenticates the request in the declared mode: a tch_ webhook token in the Authorization header, a signature it verifies with the plugin's organization signing secret, or the event ID of a fetch-back request. The raw body is at most 64 KiB, and the host stops reading at one byte more. The host answers a declared echo-query handshake (before authentication) or echo-json handshake (after a valid signature) with the value as text/plain, and runs no plugin code. Otherwise it stores a replay receipt and queues the request in one transaction, and only after that commits answers the declared acknowledgement status, 200 or 202, with no body. A repeated delivery ID answers the same status and queues nothing. Every authentication failure answers the same 401. The endpoint address used for a url.body signature is built from TILECAST_PUBLIC_URL, never from Host or forwarding headers. Other methods answer 405. See docs/plugin-webhooks.md.
+	ReceivePluginWebhookWithBody(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// InstallableUxPlayArtifact performs a GET /api/v1/install/airplay/uxplay (the `InstallableUxPlayArtifact` operationId) request.
 	//
 	// Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
@@ -19623,6 +19763,28 @@ type ClientInterface interface {
 	//
 	// Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
 	GetPluginStatus(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPluginWebhooks performs a GET /api/v1/plugins/{pluginId}/webhooks (the `ListPluginWebhooks` operationId) request.
+	//
+	// Requires plugins.use. The webhooks a Plugin Manifest API 3 plugin declares, with the exact endpoint address, its reachability, the state of the signing secret, the latest accepted, repeated, and refused requests, and, for a token webhook, its tokens without secrets.
+	ListPluginWebhooks(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePluginWebhookTokenWithBody performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+	CreatePluginWebhookTokenWithBody(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePluginWebhookToken performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+	CreatePluginWebhookToken(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, body CreatePluginWebhookTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokePluginWebhookToken performs a DELETE /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens/{tokenId} (the `RevokePluginWebhookToken` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Revokes a token for good. A revoked token never authenticates again.
+	RevokePluginWebhookToken(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, tokenId openapi_types.UUID, params *RevokePluginWebhookTokenParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPresentationNetworks List Presentation Networks
 	//
@@ -23680,6 +23842,22 @@ func (c *Client) CreateForm(ctx context.Context, body CreateFormJSONRequestBody,
 	return c.Client.Do(req)
 }
 
+// ReceivePluginWebhookWithBody performs a POST /api/v1/hooks/{pluginId}/{webhookId} (the `ReceivePluginWebhook` operationId) request,
+// with any type of body and a specified content type.
+//
+// The inbound endpoint of a webhook that a Plugin Manifest API 3 plugin declares. It takes no session and no CSRF token. The host authenticates the request in the declared mode: a tch_ webhook token in the Authorization header, a signature it verifies with the plugin's organization signing secret, or the event ID of a fetch-back request. The raw body is at most 64 KiB, and the host stops reading at one byte more. The host answers a declared echo-query handshake (before authentication) or echo-json handshake (after a valid signature) with the value as text/plain, and runs no plugin code. Otherwise it stores a replay receipt and queues the request in one transaction, and only after that commits answers the declared acknowledgement status, 200 or 202, with no body. A repeated delivery ID answers the same status and queues nothing. Every authentication failure answers the same 401. The endpoint address used for a url.body signature is built from TILECAST_PUBLIC_URL, never from Host or forwarding headers. Other methods answer 405. See docs/plugin-webhooks.md.
+func (c *Client) ReceivePluginWebhookWithBody(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReceivePluginWebhookRequestWithBody(c.Server, pluginId, webhookId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // InstallableUxPlayArtifact performs a GET /api/v1/install/airplay/uxplay (the `InstallableUxPlayArtifact` operationId) request.
 //
 // Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
@@ -27462,6 +27640,68 @@ func (c *Client) RemovePlugin(ctx context.Context, pluginId PluginID, params *Re
 // Requires plugins.use. The operational status of a Plugin Manifest API 3 plugin: its delivery queue (pending, running, and parked deliveries, expired deliveries, and the last stable failure code). The status never holds a payload, a secret, or an error text. See docs/plugin-delivery.md.
 func (c *Client) GetPluginStatus(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPluginStatusRequest(c.Server, pluginId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPluginWebhooks performs a GET /api/v1/plugins/{pluginId}/webhooks (the `ListPluginWebhooks` operationId) request.
+//
+// Requires plugins.use. The webhooks a Plugin Manifest API 3 plugin declares, with the exact endpoint address, its reachability, the state of the signing secret, the latest accepted, repeated, and refused requests, and, for a token webhook, its tokens without secrets.
+func (c *Client) ListPluginWebhooks(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPluginWebhooksRequest(c.Server, pluginId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePluginWebhookTokenWithBody performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+func (c *Client) CreatePluginWebhookTokenWithBody(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePluginWebhookTokenRequestWithBody(c.Server, pluginId, webhookId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePluginWebhookToken performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+func (c *Client) CreatePluginWebhookToken(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, body CreatePluginWebhookTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePluginWebhookTokenRequest(c.Server, pluginId, webhookId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevokePluginWebhookToken performs a DELETE /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens/{tokenId} (the `RevokePluginWebhookToken` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Revokes a token for good. A revoked token never authenticates again.
+func (c *Client) RevokePluginWebhookToken(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, tokenId openapi_types.UUID, params *RevokePluginWebhookTokenParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokePluginWebhookTokenRequest(c.Server, pluginId, webhookId, tokenId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -38233,6 +38473,49 @@ func NewCreateFormRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
+// NewReceivePluginWebhookRequestWithBody constructs an http.Request for the ReceivePluginWebhook method, with any body, and a specified content type
+func NewReceivePluginWebhookRequestWithBody(server string, pluginId PluginID, webhookId PluginWebhookID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhookId", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/hooks/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewInstallableUxPlayArtifactRequest constructs an http.Request for the InstallableUxPlayArtifact method
 func NewInstallableUxPlayArtifactRequest(server string) (*http.Request, error) {
 	var err error
@@ -46376,6 +46659,172 @@ func NewGetPluginStatusRequest(server string, pluginId PluginID) (*http.Request,
 	return req, nil
 }
 
+// NewListPluginWebhooksRequest constructs an http.Request for the ListPluginWebhooks method
+func NewListPluginWebhooksRequest(server string, pluginId PluginID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/webhooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePluginWebhookTokenRequest calls the generic CreatePluginWebhookToken builder with application/json body
+func NewCreatePluginWebhookTokenRequest(server string, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, body CreatePluginWebhookTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePluginWebhookTokenRequestWithBody(server, pluginId, webhookId, params, "application/json", bodyReader)
+}
+
+// NewCreatePluginWebhookTokenRequestWithBody constructs an http.Request for the CreatePluginWebhookToken method, with any body, and a specified content type
+func NewCreatePluginWebhookTokenRequestWithBody(server string, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhookId", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/webhooks/%s/tokens", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRevokePluginWebhookTokenRequest constructs an http.Request for the RevokePluginWebhookToken method
+func NewRevokePluginWebhookTokenRequest(server string, pluginId PluginID, webhookId PluginWebhookID, tokenId openapi_types.UUID, params *RevokePluginWebhookTokenParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhookId", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "tokenId", tokenId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/webhooks/%s/tokens/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListPresentationNetworksRequest constructs an http.Request for the ListPresentationNetworks method
 func NewListPresentationNetworksRequest(server string) (*http.Request, error) {
 	var err error
@@ -54180,6 +54629,14 @@ type ClientWithResponsesInterface interface {
 	// Creates a Form Data Source (a Data Source provider). The server publishes the supplied draft schema as the form's first immutable revision and the creator becomes its manager. Requires the editor+ global role.
 	CreateFormWithResponse(ctx context.Context, body CreateFormJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFormResponse, error)
 
+	// ReceivePluginWebhookWithBodyWithResponse performs a POST /api/v1/hooks/{pluginId}/{webhookId} (the `ReceivePluginWebhook` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// The inbound endpoint of a webhook that a Plugin Manifest API 3 plugin declares. It takes no session and no CSRF token. The host authenticates the request in the declared mode: a tch_ webhook token in the Authorization header, a signature it verifies with the plugin's organization signing secret, or the event ID of a fetch-back request. The raw body is at most 64 KiB, and the host stops reading at one byte more. The host answers a declared echo-query handshake (before authentication) or echo-json handshake (after a valid signature) with the value as text/plain, and runs no plugin code. Otherwise it stores a replay receipt and queues the request in one transaction, and only after that commits answers the declared acknowledgement status, 200 or 202, with no body. A repeated delivery ID answers the same status and queues nothing. Every authentication failure answers the same 401. The endpoint address used for a url.body signature is built from TILECAST_PUBLIC_URL, never from Host or forwarding headers. Other methods answer 405. See docs/plugin-webhooks.md.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ReceivePluginWebhookWithBodyWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReceivePluginWebhookResponse, error)
+
 	// InstallableUxPlayArtifactWithResponse performs a GET /api/v1/install/airplay/uxplay (the `InstallableUxPlayArtifact` operationId) request.
 	//
 	// Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
@@ -55911,6 +56368,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPluginStatusWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*GetPluginStatusResponse, error)
+
+	// ListPluginWebhooksWithResponse performs a GET /api/v1/plugins/{pluginId}/webhooks (the `ListPluginWebhooks` operationId) request.
+	//
+	// Requires plugins.use. The webhooks a Plugin Manifest API 3 plugin declares, with the exact endpoint address, its reachability, the state of the signing secret, the latest accepted, repeated, and refused requests, and, for a token webhook, its tokens without secrets.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPluginWebhooksWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*ListPluginWebhooksResponse, error)
+
+	// CreatePluginWebhookTokenWithBodyWithResponse performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreatePluginWebhookTokenWithBodyWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePluginWebhookTokenResponse, error)
+
+	// CreatePluginWebhookTokenWithResponse performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+	CreatePluginWebhookTokenWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, body CreatePluginWebhookTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePluginWebhookTokenResponse, error)
+
+	// RevokePluginWebhookTokenWithResponse performs a DELETE /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens/{tokenId} (the `RevokePluginWebhookToken` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Revokes a token for good. A revoked token never authenticates again.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RevokePluginWebhookTokenWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, tokenId openapi_types.UUID, params *RevokePluginWebhookTokenParams, reqEditors ...RequestEditorFn) (*RevokePluginWebhookTokenResponse, error)
 
 	// ListPresentationNetworksWithResponse List Presentation Networks
 	//
@@ -63199,6 +63684,47 @@ func (r CreateFormResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CreateFormResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// ReceivePluginWebhookResponse200Headers the declared response headers of an HTTP 200 response for ReceivePluginWebhook
+type ReceivePluginWebhookResponse200Headers struct {
+	CacheControl *string
+}
+
+type ReceivePluginWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *ReceivePluginWebhookResponse200Headers
+}
+
+// GetBody returns the raw response body bytes
+func (r ReceivePluginWebhookResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReceivePluginWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReceivePluginWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReceivePluginWebhookResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70915,6 +71441,163 @@ func (r GetPluginStatusResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetPluginStatusResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPluginWebhooksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []PluginWebhookState `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPluginWebhooksResponse) GetJSON200() *struct {
+	Data []PluginWebhookState `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPluginWebhooksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPluginWebhooksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPluginWebhooksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPluginWebhooksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreatePluginWebhookTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data struct {
+			CreatedAt  time.Time           `json:"createdAt"`
+			CreatedBy  *openapi_types.UUID `json:"createdBy,omitempty"`
+			Id         openapi_types.UUID  `json:"id"`
+			LastUsedAt *time.Time          `json:"lastUsedAt,omitempty"`
+			Name       string              `json:"name"`
+			PublicId   string              `json:"publicId"`
+			RevokedAt  *time.Time          `json:"revokedAt,omitempty"`
+
+			// Token tch_<public id>.<secret>. Shown once.
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePluginWebhookTokenResponse) GetJSON201() *struct {
+	Data struct {
+		CreatedAt  time.Time           `json:"createdAt"`
+		CreatedBy  *openapi_types.UUID `json:"createdBy,omitempty"`
+		Id         openapi_types.UUID  `json:"id"`
+		LastUsedAt *time.Time          `json:"lastUsedAt,omitempty"`
+		Name       string              `json:"name"`
+		PublicId   string              `json:"publicId"`
+		RevokedAt  *time.Time          `json:"revokedAt,omitempty"`
+
+		// Token tch_<public id>.<secret>. Shown once.
+		Token string `json:"token"`
+	} `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r CreatePluginWebhookTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePluginWebhookTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePluginWebhookTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreatePluginWebhookTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokePluginWebhookTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginWebhookToken `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RevokePluginWebhookTokenResponse) GetJSON200() *struct {
+	Data PluginWebhookToken `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r RevokePluginWebhookTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokePluginWebhookTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokePluginWebhookTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokePluginWebhookTokenResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -79718,6 +80401,20 @@ func (c *ClientWithResponses) CreateFormWithResponse(ctx context.Context, body C
 	return ParseCreateFormResponse(rsp)
 }
 
+// ReceivePluginWebhookWithBodyWithResponse performs a POST /api/v1/hooks/{pluginId}/{webhookId} (the `ReceivePluginWebhook` operationId) request,
+// with any type of body and a specified content type.
+//
+// The inbound endpoint of a webhook that a Plugin Manifest API 3 plugin declares. It takes no session and no CSRF token. The host authenticates the request in the declared mode: a tch_ webhook token in the Authorization header, a signature it verifies with the plugin's organization signing secret, or the event ID of a fetch-back request. The raw body is at most 64 KiB, and the host stops reading at one byte more. The host answers a declared echo-query handshake (before authentication) or echo-json handshake (after a valid signature) with the value as text/plain, and runs no plugin code. Otherwise it stores a replay receipt and queues the request in one transaction, and only after that commits answers the declared acknowledgement status, 200 or 202, with no body. A repeated delivery ID answers the same status and queues nothing. Every authentication failure answers the same 401. The endpoint address used for a url.body signature is built from TILECAST_PUBLIC_URL, never from Host or forwarding headers. Other methods answer 405. See docs/plugin-webhooks.md.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ReceivePluginWebhookWithBodyWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReceivePluginWebhookResponse, error) {
+	rsp, err := c.ReceivePluginWebhookWithBody(ctx, pluginId, webhookId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReceivePluginWebhookResponse(rsp)
+}
+
 // InstallableUxPlayArtifactWithResponse performs a GET /api/v1/install/airplay/uxplay (the `InstallableUxPlayArtifact` operationId) request.
 //
 // Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
@@ -82894,6 +83591,58 @@ func (c *ClientWithResponses) GetPluginStatusWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseGetPluginStatusResponse(rsp)
+}
+
+// ListPluginWebhooksWithResponse performs a GET /api/v1/plugins/{pluginId}/webhooks (the `ListPluginWebhooks` operationId) request.
+//
+// Requires plugins.use. The webhooks a Plugin Manifest API 3 plugin declares, with the exact endpoint address, its reachability, the state of the signing secret, the latest accepted, repeated, and refused requests, and, for a token webhook, its tokens without secrets.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPluginWebhooksWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*ListPluginWebhooksResponse, error) {
+	rsp, err := c.ListPluginWebhooks(ctx, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPluginWebhooksResponse(rsp)
+}
+
+// CreatePluginWebhookTokenWithBodyWithResponse performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreatePluginWebhookTokenWithBodyWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePluginWebhookTokenResponse, error) {
+	rsp, err := c.CreatePluginWebhookTokenWithBody(ctx, pluginId, webhookId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePluginWebhookTokenResponse(rsp)
+}
+
+// CreatePluginWebhookTokenWithResponse performs a POST /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens (the `CreatePluginWebhookToken` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a token for one token webhook. The answer holds the token tch_<public id>.<secret> once; it is never shown again. The Server stores only the SHA-256 digest of the secret. A webhook has at most 10 active tokens.
+func (c *ClientWithResponses) CreatePluginWebhookTokenWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, params *CreatePluginWebhookTokenParams, body CreatePluginWebhookTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePluginWebhookTokenResponse, error) {
+	rsp, err := c.CreatePluginWebhookToken(ctx, pluginId, webhookId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePluginWebhookTokenResponse(rsp)
+}
+
+// RevokePluginWebhookTokenWithResponse performs a DELETE /api/v1/plugins/{pluginId}/webhooks/{webhookId}/tokens/{tokenId} (the `RevokePluginWebhookToken` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Revokes a token for good. A revoked token never authenticates again.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RevokePluginWebhookTokenWithResponse(ctx context.Context, pluginId PluginID, webhookId PluginWebhookID, tokenId openapi_types.UUID, params *RevokePluginWebhookTokenParams, reqEditors ...RequestEditorFn) (*RevokePluginWebhookTokenResponse, error) {
+	rsp, err := c.RevokePluginWebhookToken(ctx, pluginId, webhookId, tokenId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokePluginWebhookTokenResponse(rsp)
 }
 
 // ListPresentationNetworksWithResponse List Presentation Networks
@@ -89349,6 +90098,35 @@ func ParseCreateFormResponse(rsp *http.Response) (*CreateFormResponse, error) {
 	return response, nil
 }
 
+// ParseReceivePluginWebhookResponse parses an HTTP response from a ReceivePluginWebhookWithResponse call
+func ParseReceivePluginWebhookResponse(rsp *http.Response) (*ReceivePluginWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReceivePluginWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers ReceivePluginWebhookResponse200Headers
+		if values := rsp.Header.Values("Cache-Control"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Cache-Control", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.CacheControl = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseInstallableUxPlayArtifactResponse parses an HTTP response from a InstallableUxPlayArtifactWithResponse call
 func ParseInstallableUxPlayArtifactResponse(rsp *http.Response) (*InstallableUxPlayArtifactResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -94814,6 +95592,119 @@ func ParseGetPluginStatusResponse(rsp *http.Response) (*GetPluginStatusResponse,
 		response.JSON200 = &dest
 
 	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListPluginWebhooksResponse parses an HTTP response from a ListPluginWebhooksWithResponse call
+func ParseListPluginWebhooksResponse(rsp *http.Response) (*ListPluginWebhooksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPluginWebhooksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []PluginWebhookState `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePluginWebhookTokenResponse parses an HTTP response from a CreatePluginWebhookTokenWithResponse call
+func ParseCreatePluginWebhookTokenResponse(rsp *http.Response) (*CreatePluginWebhookTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePluginWebhookTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data struct {
+				CreatedAt  time.Time           `json:"createdAt"`
+				CreatedBy  *openapi_types.UUID `json:"createdBy,omitempty"`
+				Id         openapi_types.UUID  `json:"id"`
+				LastUsedAt *time.Time          `json:"lastUsedAt,omitempty"`
+				Name       string              `json:"name"`
+				PublicId   string              `json:"publicId"`
+				RevokedAt  *time.Time          `json:"revokedAt,omitempty"`
+
+				// Token tch_<public id>.<secret>. Shown once.
+				Token string `json:"token"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokePluginWebhookTokenResponse parses an HTTP response from a RevokePluginWebhookTokenWithResponse call
+func ParseRevokePluginWebhookTokenResponse(rsp *http.Response) (*RevokePluginWebhookTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokePluginWebhookTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginWebhookToken `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
 		break // No content-type
 
 	}

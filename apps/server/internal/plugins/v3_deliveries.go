@@ -52,6 +52,10 @@ func (t deliveryTarget) Accepts(kind, source string) bool {
 	case plugindelivery.KindEvent:
 		_, ok := t.hosted.plugin.(plugin.EventHandler)
 		return ok && t.hosted.manifest.Subscribes(source)
+	case plugindelivery.KindWebhook:
+		_, ok := t.hosted.plugin.(plugin.WebhookHandler)
+		_, declared := t.hosted.manifest.WebhookByID(source)
+		return ok && declared
 	}
 	return false
 }
@@ -85,6 +89,16 @@ func (t deliveryTarget) Deliver(ctx context.Context, delivery plugindelivery.Del
 			return err
 		}
 		return handler.HandleEvent(ctx, event)
+	case plugindelivery.KindWebhook:
+		handler, ok := t.hosted.plugin.(plugin.WebhookHandler)
+		if !ok {
+			return errNotAccepted
+		}
+		webhook, err := webhookDelivery(delivery)
+		if err != nil {
+			return err
+		}
+		return handler.HandleWebhook(ctx, webhook)
 	}
 	return errNotAccepted
 }
@@ -137,6 +151,9 @@ type PluginStatus struct {
 	Subscriptions []SubscriptionStatus `json:"subscriptions"`
 	// PublishedEvents are the events the plugin publishes.
 	PublishedEvents []PublishedEventStatus `json:"publishedEvents"`
+	// Webhooks are the plugin's inbound endpoints: reachability, signing
+	// secret state, and the latest accepted and refused requests.
+	Webhooks []WebhookState `json:"webhooks"`
 }
 
 func (s *Service) v3Plugin(pluginID string) (hostedPlugin, error) {
@@ -166,6 +183,9 @@ func (s *Service) Status(ctx context.Context, pluginID string) (PluginStatus, er
 		return PluginStatus{}, err
 	}
 	status.Deliveries = deliveries
+	if status.Webhooks, err = s.webhookStates(ctx, pluginID, false); err != nil {
+		return PluginStatus{}, err
+	}
 	return status, nil
 }
 

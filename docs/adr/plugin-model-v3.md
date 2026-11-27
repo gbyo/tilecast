@@ -32,8 +32,14 @@ attempt with the session, because the Studio session cookie is
   [plugin events](../plugin-events.md). `events.publish@1` opens its own host
   transaction. It does not share a transaction with the other writes of the
   plugin. The `handle_event` export of an installed plugin stays in phase 6.
-- Webhooks (phase 3C), notification channels and Content Health providers
-  (phase 3D), and the phase 3 proof plugins (phase 3E) are not implemented.
+- Phase 3C is implemented for bundled plugins: inbound webhooks with
+  `token`, `signature`, and `fetch-back` authentication, host handshakes,
+  replay receipts, a declared acknowledgement status of 200 or 202, and the
+  Webhooks page. See [plugin webhooks](../plugin-webhooks.md). The
+  `handle_webhook` and `verify_webhook` exports of an installed plugin stay
+  in phase 6, and the `public` mode stays in phase 4.
+- Notification channels and Content Health providers (phase 3D) and the
+  phase 3 proof plugins (phase 3E) are not implemented.
 
 Later phases are not implemented. The current contracts are [Plugin API v1](../plugin-api.md),
 [Plugin API v2](../plugin-api-v2.md), [Extension packages](../packages.md),
@@ -510,7 +516,8 @@ provider in 1 second without network access.
 - The connection declares a JSON Pointer to the event ID and a pattern. The
   pattern is at most `^[A-Za-z0-9_.:-]{1,128}$`.
 - The host extracts the event ID, drops the rest of the request, and answers
-  `202`. A request without a valid event ID receives `400`.
+  the declared acknowledgement status (see Delivery). A request without a
+  valid event ID receives `400`.
 - The host delivers only the event ID to `handle_webhook`. The plugin reads
   the event from the provider with `http.fetch@1` and an authenticated
   connection of the same plugin.
@@ -533,13 +540,27 @@ The host answers handshakes itself. Plugin code does not run.
 
 #### Delivery
 
-1. The host authenticates the request and checks the body limit. The upper
+1. The host checks the body limit and authenticates the request. The upper
    limit is 64 KiB.
-2. The host writes the request to the plugin inbox.
-3. The host answers `202` at once. Microsoft Graph, for example, treats an
-   answer after 3 seconds as a failure.
+2. The host checks the replay receipt and writes the request to the delivery
+   queue in one transaction.
+3. After that transaction commits, the host answers the webhook's declared
+   acknowledgement status: `ackStatus` is `200` or `202`, and the default is
+   `202`. It answers at once. Microsoft Graph, for example, treats an answer
+   after 3 seconds as a failure.
 4. The host delivers the request to the plugin with the event delivery rules
    in section 9.
+
+Correction (phase 3C): an earlier text of this record fixed the answer at
+`202`. Providers do not agree. Planning Center retries every answer except
+`200`. Microsoft Graph asks for `202` after validation and durable queueing.
+A webhook declares `200` or `202`, and no other status. Both values have the
+same safety rules: the host answers only after the request is stored, and a
+repeated delivery ID receives the same status and queues nothing. A
+handshake answers `200` on its own path.
+
+A plugin declares at most 8 webhooks. Each one is an endpoint that anyone can
+reach and a separate review item.
 
 #### Reachability
 
@@ -630,8 +651,10 @@ are not the Player plugin events of Plugin API v2.
   `plugin.<identity>.<name>@<version>`.
 - A payload is at most 4 KiB. It carries no `secret` field. A `personal`
   field is refused.
-- `events.publish@1` writes the event in the publisher's transaction. The
-  delivery rules below apply to each subscriber.
+- `events.publish@1` opens its own host transaction. It writes the event and
+  one delivery for each subscriber in that transaction. It does not share a
+  transaction with the other writes of the plugin, such as `storage.kv@1`.
+  The delivery rules below apply to each subscriber.
 - A plugin subscribes by the full name. The install review shows each
   subscription and the plugin that publishes it.
 - A subscription to an event of a plugin that is not installed is accepted

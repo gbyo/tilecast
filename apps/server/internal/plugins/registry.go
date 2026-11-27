@@ -60,6 +60,9 @@ type Definition struct {
 	// Events are the Server events a Plugin Manifest API 3 plugin publishes
 	// and receives.
 	Events EventReview
+	// Webhooks are the inbound endpoints of a Plugin Manifest API 3
+	// plugin.
+	Webhooks []WebhookReview
 }
 
 // Requirement is declarative context shown before installation. It is never
@@ -124,7 +127,7 @@ func definitionFromManifest(m plugin.Manifest) Definition {
 		Requirements: requirements, Capabilities: append([]string{}, m.Uses...),
 		Documentation: documentation, Installable: m.IsInstallable(),
 		PlayerFacing: m.PlayerFacing(), Connections: connectionReviews(m), Feeds: feedReviews(m),
-		Events: eventReview(m),
+		Events: eventReview(m), Webhooks: webhookReviews(m),
 	}
 }
 

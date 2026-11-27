@@ -565,7 +565,8 @@
       "connection": "Conexión",
       "feeds": "Fuentes",
       "feedRecords": "Registros",
-      "status": "Estado"
+      "status": "Estado",
+      "webhooks": "Webhooks"
     },
     "connections": {
       "title": "Conexiones",
@@ -903,6 +904,113 @@
         "fields_one": "{{count}} campo",
         "fields_many": "{{count}} campos",
         "fields_other": "{{count}} campos"
+      }
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "Direcciones a las que otros sistemas envían solicitudes para este plugin. Tilecast comprueba cada solicitud antes de que el plugin la vea.",
+      "loadError": "No se pudieron cargar los webhooks.",
+      "open": "Webhooks",
+      "endpoint": "Dirección del endpoint",
+      "copy": "Copiar {{label}}",
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar. Seleccione el texto y cópielo.",
+      "verification": "Verificación",
+      "acknowledgement": "Respuesta",
+      "ackStatus": "HTTP {{status}} después de guardar la solicitud",
+      "handshake": "Comprobación del endpoint",
+      "signingSecret": "Secreto de firma",
+      "enterSecret": "Introdúzcalo en Configuración",
+      "never": "nunca",
+      "accepted_one": "{{count}} solicitud aceptada. Última: {{when}}.",
+      "accepted_many": "{{count}} solicitudes aceptadas. Última: {{when}}.",
+      "accepted_other": "{{count}} solicitudes aceptadas. Última: {{when}}.",
+      "duplicates_one": "{{count}} solicitud repetida ignorada.",
+      "duplicates_many": "{{count}} solicitudes repetidas ignoradas.",
+      "duplicates_other": "{{count}} solicitudes repetidas ignoradas.",
+      "pending_one": "{{count}} solicitud espera al plugin.",
+      "pending_many": "{{count}} solicitudes esperan al plugin.",
+      "pending_other": "{{count}} solicitudes esperan al plugin.",
+      "lastRefused": "Último rechazo: {{reason}} ({{when}}).",
+      "authentication": {
+        "token": "Token",
+        "signature": "Firmado",
+        "fetch-back": "Consulta posterior"
+      },
+      "schemes": {
+        "standard-webhooks": "Firma Standard Webhooks",
+        "hmac-sha256": "Firma HMAC-SHA256",
+        "verify": "Comprobado por el plugin"
+      },
+      "handshakes": {
+        "echo-query": "Tilecast responde a la comprobación del proveedor",
+        "echo-json": "Tilecast responde a la comprobación firmada del proveedor"
+      },
+      "reachability": {
+        "available": "La dirección pública usa HTTPS. Tilecast no puede comprobar si el proveedor puede alcanzarla.",
+        "public_https_required": "Este webhook necesita una dirección pública HTTPS. Configure TILECAST_PUBLIC_URL con una dirección HTTPS que el proveedor pueda alcanzar.",
+        "local_network": "La dirección pública usa HTTP sin cifrar. Los sistemas de su red que alcancen esta dirección pueden usar el webhook.",
+        "public_url_missing": "TILECAST_PUBLIC_URL no tiene una dirección utilizable, así que este webhook no tiene endpoint."
+      },
+      "refusals": {
+        "token_invalid": "el token faltaba, era incorrecto o estaba revocado",
+        "signing_secret_unavailable": "el secreto de firma no está configurado",
+        "signing_secret_unusable": "el secreto de firma tiene un formato incorrecto",
+        "signature_missing": "la solicitud no estaba firmada",
+        "signature_invalid": "la firma no coincidía",
+        "timestamp_missing": "faltaba la hora firmada",
+        "timestamp_out_of_range": "la hora firmada difería más de 5 minutos",
+        "delivery_id_missing": "faltaba el ID de entrega",
+        "verify_failed": "la comprobación del plugin la rechazó",
+        "verify_timeout": "la comprobación del plugin tardó más de 1 segundo",
+        "verify_panic": "la comprobación del plugin falló",
+        "event_id_invalid": "el ID de evento faltaba o no era válido",
+        "rate_limited": "demasiadas solicitudes desde una dirección",
+        "queue_full": "demasiadas solicitudes esperan al plugin",
+        "header_too_large": "un encabezado era demasiado largo",
+        "body_too_large": "el cuerpo superaba 64 KiB",
+        "handshake_value_too_large": "el valor de comprobación faltaba o era demasiado largo"
+      },
+      "secretStates": {
+        "set": "Configurado",
+        "not_set": "Sin configurar",
+        "needs_value": "Necesita un valor nuevo"
+      },
+      "tokens": {
+        "title": "Tokens",
+        "description": "Un sistema emisor pone el token en el encabezado Authorization después de la palabra Bearer. Cada token solo sirve para este webhook.",
+        "shownOnce": "Copie este token ahora. Tilecast solo guarda un hash y no puede mostrarlo de nuevo.",
+        "newToken": "Token nuevo",
+        "dismiss": "Ya lo copié",
+        "name": "Nombre del token",
+        "create": "Crear token",
+        "created": "Token creado",
+        "empty": "Todavía no hay tokens.",
+        "manageOnly": "Solo las cuentas que administran plugins pueden crear o revocar tokens.",
+        "revoked": "Token revocado",
+        "revokeTitle": "¿Revocar {{name}}?",
+        "revokeBody": "Los sistemas que usan este token dejan de funcionar de inmediato. Un token revocado no se puede reactivar.",
+        "revoke": "Revocar",
+        "revokedBadge": "Revocado",
+        "lastUsed": "último uso {{when}}",
+        "neverUsed": "nunca usado"
+      },
+      "status": {
+        "title": "Webhooks",
+        "description": "Si cada dirección de entrada puede funcionar aquí.",
+        "attention": "Requiere atención",
+        "ready": "Listo",
+        "lastAccepted": "Última aceptada {{when}}",
+        "noneAccepted": "Todavía no se aceptó ninguna solicitud",
+        "lastRefusal": "último rechazo: {{reason}}"
+      },
+      "review": {
+        "title": "Webhooks",
+        "description": "Direcciones en su servidor a las que otros sistemas envían solicitudes para este plugin. Tilecast comprueba cada solicitud; el plugin nunca elige su propia dirección.",
+        "publicHttps": "necesita una dirección pública HTTPS",
+        "localAllowed": "funciona desde su red",
+        "handshake": "{{handshake}}",
+        "secret": "Usted introduce el secreto de firma del proveedor en la configuración del plugin. El plugin nunca lo lee."
       }
     }
   },

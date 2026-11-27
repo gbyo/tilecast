@@ -1307,10 +1307,13 @@ export type PluginSummary = {
   feeds?: PluginFeedReview[];
   /** Server events a Plugin Manifest API 3 plugin publishes and receives. */
   events?: PluginEventReview;
+  webhooks?: PluginWebhookReview[];
 };
 
 export type PluginEventReview =
   import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginEventReview"];
+export type PluginWebhookReview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginWebhookReview"];
 
 export type PluginFeedReview =
   import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginFeedReview"];

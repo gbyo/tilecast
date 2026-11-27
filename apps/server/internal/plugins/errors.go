@@ -3,6 +3,7 @@ package plugins
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -41,6 +42,16 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error, logger *slog.
 		writeErrorCode(w, http.StatusNotFound, "plugin_instance_not_found", "The plugin instance was not found.")
 	case errors.Is(err, ErrInvalid):
 		writeErrorCode(w, http.StatusBadRequest, "invalid_plugin_configuration", err.Error())
+	case errors.Is(err, ErrWebhookNotFound):
+		writeErrorCode(w, http.StatusNotFound, "plugin_webhook_not_found", "The plugin does not declare this webhook.")
+	case errors.Is(err, ErrWebhookNotToken):
+		writeErrorCode(w, http.StatusConflict, "plugin_webhook_not_token", "This webhook does not use tokens.")
+	case errors.Is(err, ErrWebhookTokenNotFound):
+		writeErrorCode(w, http.StatusNotFound, "plugin_webhook_token_not_found", "The active webhook token was not found.")
+	case errors.Is(err, ErrWebhookTokenLimit):
+		writeErrorCode(w, http.StatusConflict, "plugin_webhook_token_limit", fmt.Sprintf("A webhook has at most %d active tokens. Revoke one first.", MaxActiveWebhookTokens))
+	case errors.Is(err, ErrWebhookTokenInvalid):
+		writeErrorCode(w, http.StatusBadRequest, "invalid_plugin_webhook_token", err.Error())
 	case errors.Is(err, plugin.ErrOutOfScope):
 		writeErrorCode(w, http.StatusForbidden, "out_of_scope", "Some of the selected screens are outside your screen access.")
 	default:

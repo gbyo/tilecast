@@ -1,13 +1,14 @@
 import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
-import { Activity, Plug, Rss, Settings2 } from "lucide-react";
+import { Activity, Plug, Rss, Settings2, Webhook } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { buttonVariants } from "@/components/ui/button";
 import { hasStatusPage } from "./status/model";
+import { hasWebhooksPage } from "./webhooks/model";
 
 /**
  * Links to the host-generated pages a plugin's manifest asks for: its
- * feeds, its connections, its settings, and its status.
+ * feeds, its connections, its webhooks, its settings, and its status.
  */
 export function HostedPluginLinks({
   manifest,
@@ -26,6 +27,11 @@ export function HostedPluginLinks({
       to: `${route}/connections`,
       icon: Plug,
       label: t("hosted.connections.open"),
+    },
+    hasWebhooksPage(manifest) && {
+      to: `${route}/webhooks`,
+      icon: Webhook,
+      label: t("hosted.webhooks.open"),
     },
     (manifest.settings?.organization?.length ?? 0) > 0 && {
       to: `${route}/settings`,

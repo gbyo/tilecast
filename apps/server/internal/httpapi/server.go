@@ -133,6 +133,7 @@ type server struct {
 	pairingLimiter        *rateLimiter
 	codeLimiter           *rateLimiter
 	operationsLimiter     *rateLimiter
+	webhookLimiter        *rateLimiter
 	operations            OperationsConfig
 	settings              *settings.Service
 	updates               *updates.Service
@@ -210,6 +211,7 @@ func New(deps Dependencies) *API {
 		pairingLimiter:        newRateLimiter(10, time.Minute),
 		codeLimiter:           newRateLimiter(30, 10*time.Minute),
 		operationsLimiter:     newRateLimiter(60, time.Minute),
+		webhookLimiter:        newRateLimiter(webhookAddressLimit, webhookAddressWindow),
 		// Provisioning is unauthenticated by necessity — the box has no
 		// credential until it pairs — so it gets its own budget, generous
 		// enough for a cart of machines behind one NAT.
