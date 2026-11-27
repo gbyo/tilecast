@@ -29,9 +29,14 @@ typedef struct _TcVisualTrace TcVisualTrace;
 #define TC_VISUAL_TRACE_MAX_SECONDS 1800
 #define TC_VISUAL_TRACE_FILE "visual-trace.jsonl"
 
-/* Starts the trace for `view`. Returns NULL, with a warning, if the trace
- * file cannot be opened; the renderer then runs exactly as without it. */
-TcVisualTrace *tc_visual_trace_start (TcHost *host, WPEView *view, const char *dir, guint seconds, gboolean deep);
+/* Opens the trace file. Returns NULL, with a warning, if it cannot be opened;
+ * the renderer then installs no page script and runs exactly as without it. */
+TcVisualTrace *tc_visual_trace_start (TcHost *host, const char *dir, guint seconds, gboolean deep);
+/* Adds one of the page scripts that give the Runtime its sink (at most two);
+ * the trace removes them again when its window ends. */
+void tc_visual_trace_add_script (TcVisualTrace *trace, WebKitUserContentManager *manager, WebKitUserScript *script);
+/* Starts recording `view`: the header, buffer signals, clock and window. */
+void tc_visual_trace_attach (TcVisualTrace *trace, WPEView *view);
 /* A "diagnostics.visual_trace" page message. Ignored once the window ended. */
 void tc_visual_trace_page_message (TcVisualTrace *trace, JsonObject *message);
 /* A Runtime document finished loading: sample its clock now. */

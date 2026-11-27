@@ -252,7 +252,42 @@ test_page_batch_rejects_wrong_schema_and_bounds_records (void)
   g_string_free (json, TRUE);
   g_assert_cmpuint (tc_trace_write_page_batch (writer, big, 1, &invalid), ==, TC_TRACE_MAX_RECORDS_PER_BATCH);
   g_assert_cmpuint (invalid, ==, 10);
+
+  /* Counters outside what a gint64 holds exactly are refused before any conversion. */
+  static const char *const bad_seq[] = { "1e30", "-1", "1.5" };
+  for (guint i = 0; i < G_N_ELEMENTS (bad_seq); i++) {
+    g_autofree char *text = g_strdup_printf (
+      "{\"batch\":{\"schema\":\"tilecast-visual-v1\",\"seq\":%s,\"sentAt\":1,"
+      "\"records\":[{\"t\":1,\"scope\":\"stage\",\"ev\":\"e\"}]}}", bad_seq[i]);
+    g_autoptr (JsonParser) seq_parser = json_parser_new ();
+    invalid = 0;
+    g_assert_cmpuint (tc_trace_write_page_batch (writer, parse_object (seq_parser, text), 1, &invalid), ==, 0);
+    g_assert_cmpuint (invalid, ==, 1);
+  }
+  g_autoptr (JsonParser) dropped_parser = json_parser_new ();
+  JsonObject *huge_dropped = parse_object (
+    dropped_parser, "{\"batch\":{\"schema\":\"tilecast-visual-v1\",\"seq\":2,\"sentAt\":1,\"dropped\":1e30,"
+                    "\"records\":[{\"t\":1,\"scope\":\"stage\",\"ev\":\"e\"}]}}");
+  g_assert_cmpuint (tc_trace_write_page_batch (writer, huge_dropped, 1, &invalid), ==, 1);
   tc_trace_writer_close (writer, NULL);
+}
+
+static void
+test_writer_keeps_the_trace_when_rotation_fails (void)
+{
+  g_autofree char *dir = temp_dir ();
+  g_autoptr (GError) error = NULL;
+  g_autofree char *current = g_build_filename (dir, "t.jsonl", NULL);
+  g_autofree char *previous = g_build_filename (dir, "t.jsonl.prev", NULL);
+  g_assert_true (g_file_set_contents (current, "{\"run\":1}\n", -1, NULL));
+  /* A directory where the previous copy goes makes the rename fail. */
+  g_assert_cmpint (g_mkdir (previous, 0700), ==, 0);
+  g_autofree char *inside = g_build_filename (previous, "x", NULL);
+  g_assert_true (g_file_set_contents (inside, "x", -1, NULL));
+  g_assert_null (tc_trace_writer_open (dir, "t.jsonl", 1 << 20, &error));
+  g_assert_nonnull (error);
+  g_autofree char *kept = read_all (current);
+  g_assert_cmpstr (kept, ==, "{\"run\":1}\n");
 }
 
 static void
@@ -333,6 +368,7 @@ main (int argc, char **argv)
   g_test_add_func ("/visual-trace/writer/bounds", test_writer_bounds_and_summary_reserve);
   g_test_add_func ("/visual-trace/writer/refusals", test_writer_refuses_long_lines_and_bad_paths);
   g_test_add_func ("/visual-trace/writer/rotation", test_writer_keeps_one_previous_and_never_follows_links);
+  g_test_add_func ("/visual-trace/writer/rotation-failure", test_writer_keeps_the_trace_when_rotation_fails);
   g_test_add_func ("/visual-trace/tokens", test_tokens_and_keys);
   g_test_add_func ("/visual-trace/record/safe-values", test_page_record_keeps_only_safe_values);
   g_test_add_func ("/visual-trace/record/required", test_page_record_requires_time_scope_and_event);

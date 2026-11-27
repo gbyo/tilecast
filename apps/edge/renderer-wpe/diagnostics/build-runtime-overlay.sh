@@ -47,9 +47,18 @@ if [[ $modified -gt 0 ]]; then
     done < <("${git[@]}" ls-files --others --exclude-standard -z | sort -z)
   } | sha256sum | cut -d' ' -f1)
 fi
+# Plain `if` blocks: a failed test in an assignment or a trailing `&&` would
+# end the script under `set -e` for a clean checkout.
 identity=$commit
-[[ $modified -gt 0 ]] && identity=$commit-dirty
-[[ -n $label ]] || label=tc-${commit:0:12}$([[ $modified -gt 0 ]] && echo -dirty)
+if [[ $modified -gt 0 ]]; then
+  identity=$commit-dirty
+fi
+if [[ -z $label ]]; then
+  label=tc-${commit:0:12}
+  if [[ $modified -gt 0 ]]; then
+    label=$label-dirty
+  fi
+fi
 [[ $label =~ ^[a-z0-9][a-z0-9.-]{0,47}$ ]] || { echo "build-runtime-overlay: bad --label" >&2; exit 2; }
 
 # The Runtime build must not be older than what it was built from.
@@ -58,9 +67,11 @@ if [[ ! -f $runtime/runtime-manifest.json ]]; then
   echo "build-runtime-overlay: $runtime is missing; run: npm run build --workspace @tilecast/player-runtime" >&2
   exit 1
 fi
-stale=$(find "$src/packages/player-runtime/src" "$src/packages/presentation-model/src" -type f -newer "$runtime/runtime-manifest.json" 2>/dev/null | head -3)
+# -print -quit: one path and no pipe, so many stale files cannot fail the
+# assignment under pipefail before the rebuild instruction is shown.
+stale=$(find "$src/packages/player-runtime/src" "$src/packages/presentation-model/src" -type f -newer "$runtime/runtime-manifest.json" -print -quit 2>/dev/null || true)
 if [[ -n $stale ]]; then
-  echo "build-runtime-overlay: the Runtime build is older than its sources (e.g. ${stale%%$'\n'*}); run: npm run build --workspace @tilecast/player-runtime" >&2
+  echo "build-runtime-overlay: the Runtime build is older than its sources (e.g. $stale); run: npm run build --workspace @tilecast/player-runtime" >&2
   exit 1
 fi
 

@@ -336,6 +336,8 @@ const rules = [
     /^apps\/edge\/(renderer-wpe|web-renderer-wpe|session-bridge)\//,
     ["edge_wpe", "edge_conformance", "edge_server"],
   ],
+  // The field diagnostics' Python tests run in the Edge Rust job.
+  [/^apps\/edge\/renderer-wpe\/diagnostics\//, ["edge_rust"]],
   [
     /^apps\/edge\/(packaging|release|tilecast-edge-migrate|tilecast-edge-update)\//,
     ["edge_rust", "edge_migration"],

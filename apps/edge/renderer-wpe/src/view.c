@@ -375,11 +375,11 @@ add_visual_trace_scripts (TcHost *host, WebKitUserContentManager *manager, const
     g_autoptr (WebKitUserScript) deep = webkit_user_script_new (
       VISUAL_TRACE_DEEP_SCRIPT, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
       allow, NULL);
-    webkit_user_content_manager_add_script (manager, deep);
+    tc_visual_trace_add_script (host->trace, manager, deep);
   }
   g_autoptr (WebKitUserScript) script = webkit_user_script_new (
     sink, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, allow, NULL);
-  webkit_user_content_manager_add_script (manager, script);
+  tc_visual_trace_add_script (host->trace, manager, script);
   return TRUE;
 }
 
@@ -481,7 +481,13 @@ tc_view_create (TcHost *host, GError **error)
   g_autoptr (WebKitUserScript) native_script = webkit_user_script_new_for_world (
     relay, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, world, allow, NULL);
   webkit_user_content_manager_add_script (manager, native_script);
-  if (host->visual_trace && !add_visual_trace_scripts (host, manager, allow, error)) {
+  /* The trace file opens first: without a recorder the page gets no sink, so
+   * the Runtime records (and deep mode samples) nothing it cannot keep. */
+  if (host->visual_trace)
+    host->trace = tc_visual_trace_start (host, host->visual_trace_dir, host->visual_trace_seconds,
+                                         host->visual_trace_deep);
+  if (host->trace != NULL && !add_visual_trace_scripts (host, manager, allow, error)) {
+    g_clear_pointer (&host->trace, tc_visual_trace_stop);
     g_object_unref (settings);
     g_object_unref (manager);
     return FALSE;
@@ -526,9 +532,7 @@ tc_view_create (TcHost *host, GError **error)
   else
     wpe_toplevel_fullscreen (toplevel);
   wpe_toplevel_set_title (toplevel, "Tilecast");
-  if (host->visual_trace)
-    host->trace = tc_visual_trace_start (host, wpe_view, host->visual_trace_dir, host->visual_trace_seconds,
-                                         host->visual_trace_deep);
+  tc_visual_trace_attach (host->trace, wpe_view);
 
   webkit_web_view_load_uri (host->view, RUNTIME_URI);
   return TRUE;

@@ -35,7 +35,17 @@ struct _TcVisualTrace {
   gint64 *presented_us;
   gsize presented_count;
   GString *line;
+  /* The page scripts that give the Runtime its sink, removed when the
+   * window ends so a later document records nothing. */
+  WebKitUserContentManager *manager;
+  WebKitUserScript *scripts[2];
 };
+
+/* Ends the current document's tracing (the sink's stop() is a fixed,
+ * argument-free call) and keeps later documents from getting a sink. */
+static const char STOP_PAGE_SCRIPT[] =
+  "(() => { const sink = globalThis.__tilecastVisualTrace;"
+  " if (sink && typeof sink.stop === 'function') sink.stop(); })();";
 
 static void
 write_line (TcVisualTrace *trace)
@@ -147,6 +157,14 @@ finish (TcVisualTrace *trace, const char *ended_by)
     return;
   trace->finished = TRUE;
   g_cancellable_cancel (trace->cancellable);
+  for (guint i = 0; i < G_N_ELEMENTS (trace->scripts); i++) {
+    if (trace->manager != NULL && trace->scripts[i] != NULL)
+      webkit_user_content_manager_remove_script (trace->manager, trace->scripts[i]);
+    g_clear_pointer (&trace->scripts[i], webkit_user_script_unref);
+  }
+  g_clear_object (&trace->manager);
+  if (trace->host->view != NULL)
+    webkit_web_view_evaluate_javascript (trace->host->view, STOP_PAGE_SCRIPT, -1, NULL, NULL, NULL, NULL, NULL);
   g_clear_handle_id (&trace->window_source, g_source_remove);
   g_clear_handle_id (&trace->clock_source, g_source_remove);
   disconnect_view (trace);
@@ -205,6 +223,11 @@ on_window_end (gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
+/* The delimited build identity runtime_overlay.py reads back from the binary:
+ * the prefix, the identity and its terminating NUL, compared exactly. */
+#define TC_BUILD_ID_PREFIX "tilecast-build-id:"
+static const char tc_build_id[] = TC_BUILD_ID_PREFIX TC_BUILD_COMMIT;
+
 static void
 write_header (TcVisualTrace *trace, WPEView *view)
 {
@@ -219,7 +242,7 @@ write_header (TcVisualTrace *trace, WPEView *view)
   json_builder_set_member_name (builder, "rendererVersion");
   json_builder_add_string_value (builder, TC_RENDERER_VERSION);
   json_builder_set_member_name (builder, "buildCommit");
-  json_builder_add_string_value (builder, TC_BUILD_COMMIT);
+  json_builder_add_string_value (builder, tc_build_id + strlen (TC_BUILD_ID_PREFIX));
   json_builder_set_member_name (builder, "clock");
   json_builder_add_string_value (builder, "CLOCK_MONOTONIC microseconds; runtime t is performance.now() ms");
   json_builder_set_member_name (builder, "startMono");
@@ -259,7 +282,7 @@ write_header (TcVisualTrace *trace, WPEView *view)
 }
 
 TcVisualTrace *
-tc_visual_trace_start (TcHost *host, WPEView *view, const char *dir, guint seconds, gboolean deep)
+tc_visual_trace_start (TcHost *host, const char *dir, guint seconds, gboolean deep)
 {
   g_autoptr (GError) error = NULL;
   TcTraceWriter *writer = tc_trace_writer_open (dir, TC_VISUAL_TRACE_FILE, TC_TRACE_MAX_FILE_BYTES, &error);
@@ -277,6 +300,34 @@ tc_visual_trace_start (TcHost *host, WPEView *view, const char *dir, guint secon
   trace->deep = deep;
   trace->presented_us = g_new (gint64, TC_TRACE_MAX_PACING_SAMPLES);
   trace->line = g_string_sized_new (512);
+  return trace;
+}
+
+void
+tc_visual_trace_add_script (TcVisualTrace *trace, WebKitUserContentManager *manager, WebKitUserScript *script)
+{
+  for (guint i = 0; i < G_N_ELEMENTS (trace->scripts); i++) {
+    if (trace->scripts[i] == NULL) {
+      if (trace->manager == NULL)
+        trace->manager = g_object_ref (manager);
+      g_return_if_fail (trace->manager == manager);
+      webkit_user_content_manager_add_script (manager, script);
+      trace->scripts[i] = webkit_user_script_ref (script);
+      return;
+    }
+  }
+  g_return_if_reached ();
+}
+
+void
+tc_visual_trace_attach (TcVisualTrace *trace, WPEView *view)
+{
+  if (trace == NULL || trace->finished)
+    return;
+  guint seconds = trace->seconds;
+  gboolean deep = trace->deep;
+  TcTraceWriter *writer = trace->writer;
+  trace->started_us = g_get_monotonic_time ();
   trace->view = view;
   g_object_add_weak_pointer (G_OBJECT (view), (gpointer *) &trace->view);
   write_header (trace, view);
@@ -287,7 +338,6 @@ tc_visual_trace_start (TcHost *host, WPEView *view, const char *dir, guint secon
   trace->clock_source = g_timeout_add (CLOCK_SAMPLE_INTERVAL_MS, on_clock_tick, trace);
   g_message ("visual-trace: recording %s%u s to %s", deep ? "a deep trace for " : "", seconds,
              tc_trace_writer_path (writer));
-  return trace;
 }
 
 void

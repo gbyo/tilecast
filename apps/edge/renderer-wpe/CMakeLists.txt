@@ -17,7 +17,17 @@ endif()
 # Tilecast commit it was built from; the visual trace header repeats it. A
 # release build leaves it "unknown".
 set(TILECAST_BUILD_COMMIT "unknown" CACHE STRING "Tilecast git commit of this build (diagnostics only)")
-if(NOT TILECAST_BUILD_COMMIT MATCHES "^(unknown|[0-9a-f]{40}(-dirty)?)$")
+# CMake regular expressions have no {n} repetition, so the length is a separate check.
+set(_tc_commit_valid FALSE)
+if(TILECAST_BUILD_COMMIT STREQUAL "unknown")
+  set(_tc_commit_valid TRUE)
+elseif(TILECAST_BUILD_COMMIT MATCHES "^([0-9a-f]+)(-dirty)?$")
+  string(LENGTH "${CMAKE_MATCH_1}" _tc_commit_length)
+  if(_tc_commit_length EQUAL 40)
+    set(_tc_commit_valid TRUE)
+  endif()
+endif()
+if(NOT _tc_commit_valid)
   message(FATAL_ERROR "TILECAST_BUILD_COMMIT must be 'unknown', a 40-digit commit, or a commit with '-dirty'")
 endif()
 add_compile_definitions(TC_BUILD_COMMIT="${TILECAST_BUILD_COMMIT}")

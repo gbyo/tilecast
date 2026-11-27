@@ -57,19 +57,40 @@ def main():
             assert summary["transitions"] >= 2 and summary["markers"] > 4, summary
             assert summary["pacing"]["frames"] > 10 and summary["import"]["count"] > 0, summary
             assert summary["import"]["failures"] == 0, summary["import"]
+            assert summary["inspection"]["framesChecked"] > 0, summary["inspection"]
             assert summary["variant"] == variant, summary
             assert os.path.getsize(os.path.join(out, "timeline.jsonl")) < 64 * 1024 * 1024
             print(f"lab: {scene} {variant or ''}: {summary['result']}, {summary['pacing']['frames']} frames, "
                   f"anomalies {summary['anomalies']['byKind']}, WebKit {summary['webkit']}")
-        # Refusals: unknown scene, bad variant, relative output.
-        for bad in (["--scene=other"], ["--scene=crossfade", "--variant=has space"]):
-            result = subprocess.run([args.lab, *bad, f"--out={work}/x"], env=env, capture_output=True)
-            assert result.returncode == 4, bad
-        result = subprocess.run([args.lab, "--scene=crossfade", "--out=relative"], env=env, capture_output=True)
-        assert result.returncode == 4
-        result = subprocess.run([args.lab, "--scene=crossfade", f"--out={work}/y", "--inspector=0.0.0.0:9222"],
-                                env=env, capture_output=True)
-        assert result.returncode == 4, "the lab accepted a non-loopback inspector address"
+        # Refusals, each checked by its own message so another validation
+        # failure cannot satisfy it. Every one passes the real scenes directory.
+        refusals = [
+            (["--scene=other"], "--scene must be one of"),
+            (["--scene=crossfade", "--variant=has space"], "--variant must be a short name"),
+            # The baseline crossfade reads no variant; a misspelled one is not silently recorded.
+            (["--scene=crossfade", "--variant=busy-end"], "crossfade takes no variant"),
+            (["--scene=crossfade-cleanup-variants", "--variant=retain-animaton"], "crossfade-cleanup-variants takes"),
+            (["--scene=crossfade", "--grid=65536x65536"], "--grid must be CxR"),
+            (["--scene=crossfade", "--inspector=0.0.0.0:9222"], "--inspector takes 127.0.0.1:PORT"),
+        ]
+        for bad, message in refusals:
+            result = subprocess.run([args.lab, *bad, f"--out={work}/x", f"--scenes-dir={scenes}"], env=env,
+                                    capture_output=True, text=True)
+            assert result.returncode == 4 and message in result.stderr, (bad, result.returncode, result.stderr[-500:])
+        result = subprocess.run([args.lab, "--scene=crossfade", "--out=relative", f"--scenes-dir={scenes}"], env=env,
+                                capture_output=True, text=True)
+        assert result.returncode == 4 and "--out must be a clean absolute path" in result.stderr, result.stderr
+        # A scenes directory without the scene's page is a setup failure at
+        # once, not a wait for the timeout.
+        partial = os.path.join(work, "partial-scenes")
+        shutil.copytree(scenes, partial)
+        os.remove(os.path.join(partial, "opacity-basic.html"))
+        out = os.path.join(work, "missing-scene")
+        result = subprocess.run([args.lab, "--platform=headless", "--scene=opacity-basic", "--size=640x360",
+                                 f"--out={out}", f"--scenes-dir={partial}", "--timeout=200"],
+                                env=env, capture_output=True, text=True, timeout=120)
+        assert result.returncode == 4 and "cannot load scene opacity-basic" in result.stderr, result.stderr[-1000:]
+        assert json.load(open(os.path.join(out, "summary.json")))["result"] == "scene_not_found"
     print("lab: smoke runs passed")
     return 0
 

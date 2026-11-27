@@ -30,7 +30,7 @@ docs/tilecast-edge-wpe-compositor-lab.md.
   lab matrix [--preset baseline|versions|extended] [--wpe release,LABEL]
              [--scenes a,b] [--iterations N]
 
-  bundle --out FILE.tar.gz [--trace] [--results DIR ...] [--renderer-log]
+  bundle --out FILE.tar.gz [--trace] [--traces DIR ...] [--results DIR ...] [--renderer-log]
 """
 import argparse
 import datetime
@@ -43,6 +43,7 @@ import re
 import shutil
 import shlex
 import socket
+import stat
 import subprocess
 import sys
 import tarfile
@@ -81,6 +82,15 @@ VARIANT = re.compile(r"^[A-Za-z0-9_.:-]{1,48}$")
 ARG = re.compile(r"^[A-Za-z0-9_./=:,+-]+$")
 MAX_OVERLAY_BYTES = 2 * 1024 * 1024 * 1024
 MAX_LAB_BYTES = 256 * 1024 * 1024
+# Room for tar headers and padding over an archive's own content bound.
+TAR_OVERHEAD_BYTES = 16 * 1024 * 1024
+# The lab gives up after this long (its own --timeout); systemd stops its unit
+# a little later if the lab itself stops making progress.
+LAB_TIMEOUT_SECONDS = 900
+LAB_RUNTIME_MAX_SECONDS = LAB_TIMEOUT_SECONDS + 120
+# Files read into a bundle or a collected trace: a trace is bounded by the
+# renderer, a lab dump by the lab; this is a ceiling for both.
+MAX_COLLECTED_FILE_BYTES = 512 * 1024 * 1024
 
 ENV_ALLOWLIST = environment.ENV_ALLOWLIST
 
@@ -173,9 +183,13 @@ def parse_exec_start(show_output):
     return argv
 
 
-def trace_dropin(argv, seconds, deep, env, unset=()):
+def check_trace_seconds(seconds):
     if not 5 <= seconds <= 1800:
         raise Refused("--seconds must be between 5 and 1800")
+
+
+def trace_dropin(argv, seconds, deep, env, unset=()):
+    check_trace_seconds(seconds)
     command = list(argv) + ["--visual-trace", f"--visual-trace-seconds={seconds}"]
     if deep:
         command.append("--visual-trace-deep")
@@ -212,14 +226,31 @@ def overlay_dropin(source, target, label):
     )
 
 
+def open_tar(data, what):
+    """A tar archive from bytes; a damaged one is a refusal, not a traceback."""
+    try:
+        return tarfile.open(fileobj=io.BytesIO(data))
+    except (tarfile.TarError, EOFError, OSError) as error:
+        raise Refused(f"the {what} is not a readable tar file ({error})")
+
+
 def read_overlay_tar(data, arch):
     """Checks an overlay archive and returns (manifest, {path: bytes}).
 
     Only regular files and directories under wpe/, no absolute paths, no '..',
     every file listed in the manifest with its SHA-256 and nothing extra.
     """
+    try:
+        return _read_overlay_tar(data, arch)
+    except (tarfile.TarError, EOFError, UnicodeError) as error:
+        raise Refused(f"the overlay archive is damaged ({error})")
+    except ValueError as error:
+        raise Refused(f"the overlay manifest is not valid JSON ({error})")
+
+
+def _read_overlay_tar(data, arch):
     files = {}
-    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+    with open_tar(data, "overlay archive") as archive:
         total = 0
         for member in archive.getmembers():
             name = member.name
@@ -255,8 +286,15 @@ def read_overlay_tar(data, arch):
 
 
 def read_lab_tar(data):
+    try:
+        return _read_lab_tar(data)
+    except (tarfile.TarError, EOFError, UnicodeError) as error:
+        raise Refused(f"the lab bundle is damaged ({error})")
+
+
+def _read_lab_tar(data):
     members = {}
-    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+    with open_tar(data, "lab bundle") as archive:
         total = 0
         for member in archive.getmembers():
             parts = Path(member.name).parts
@@ -287,6 +325,89 @@ def write_tree(target, files, executable=lambda path, mode: mode):
 
 def is_executable_overlay_file(relative, _mode):
     return relative.startswith("libexec/") or relative.startswith("bin/")
+
+
+def read_archive(path, limit):
+    """An archive's bytes, refused before it is read when it is larger than limit allows."""
+    bound = limit + TAR_OVERHEAD_BYTES
+    try:
+        with open(path, "rb") as handle:
+            if os.fstat(handle.fileno()).st_size > bound:
+                raise Refused(f"{path} is larger than the {limit // (1024 * 1024)} MiB bound")
+            data = handle.read(bound + 1)
+    except OSError as error:
+        raise Refused(f"cannot read {path}: {error.strerror or error}")
+    if len(data) > bound:
+        raise Refused(f"{path} is larger than the {limit // (1024 * 1024)} MiB bound")
+    return data
+
+
+def open_directory(path):
+    """A descriptor for a directory, refused when the path itself is a symbolic link."""
+    return os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+
+
+def read_regular(directory_fd, name, limit=MAX_COLLECTED_FILE_BYTES):
+    """The bytes of a regular file in a directory another account can write.
+
+    The file is opened without following a symbolic link (and without waiting
+    on a FIFO), and the opened descriptor must be a regular file, so a swapped
+    path cannot make root read something else. None when it is not there.
+    """
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=directory_fd)
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise Refused(f"refusing {name}: it is not a regular file this tool will read ({error.strerror or error})")
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise Refused(f"refusing {name}: it is not a regular file")
+        if info.st_size > limit:
+            raise Refused(f"refusing {name}: it is larger than {limit // (1024 * 1024)} MiB")
+        data = handle.read(limit + 1)
+    if len(data) > limit:
+        raise Refused(f"refusing {name}: it is larger than {limit // (1024 * 1024)} MiB")
+    return data
+
+
+def read_regular_files(directory, names):
+    """{name: bytes} of the regular files among names in directory (see read_regular)."""
+    try:
+        directory_fd = open_directory(directory)
+    except FileNotFoundError:
+        return {}
+    except OSError as error:
+        raise Refused(f"cannot open {directory}: {error.strerror or error}")
+    try:
+        found = {}
+        for name in names:
+            data = read_regular(directory_fd, name)
+            if data is not None:
+                found[name] = data
+        return found
+    finally:
+        os.close(directory_fd)
+
+
+def write_replacing(directory, name, data):
+    """Publishes a root-written file in a directory another account owns.
+
+    The content goes to a new file created exclusively (never an existing path)
+    and is renamed over the destination, so whatever the directory's owner put
+    at that name is replaced, never opened or written through.
+    """
+    directory_fd = open_directory(directory)
+    try:
+        temporary = f".{name}.{os.getpid()}.{os.urandom(6).hex()}"
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644,
+                     dir_fd=directory_fd)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data if isinstance(data, bytes) else data.encode())
+        os.replace(temporary, name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+    finally:
+        os.close(directory_fd)
 
 
 # ---- system helpers -------------------------------------------------------
@@ -485,7 +606,13 @@ def running_artifacts(paths, pid):
         binary = hashlib.sha256((proc / "exe").read_bytes()).hexdigest()
     except OSError:
         binary = None
-    return {"binary": binary, "runtime": tree_hashes(proc / "root" / RELEASE_WEB_TARGET.lstrip("/"))}
+    try:
+        runtime = tree_hashes(proc / "root" / RELEASE_WEB_TARGET.lstrip("/"))
+    except OSError as error:
+        # The renderer can exit while its tree is read; that is a failed check, not a crash.
+        raise Refused(f"cannot read the running renderer's Runtime through /proc/{pid}/root "
+                      f"({error.strerror or error}); see journalctl -u {RENDERER_UNIT}")
+    return {"binary": binary, "runtime": runtime}
 
 
 def describe_expectation(expected):
@@ -539,7 +666,8 @@ def trace_support(paths):
     if problem is None:
         return True, where
     return False, (f"{where} has {problem}. Tracing the real Runtime needs the instrumented renderer and Runtime of "
-                   "#1946. Build the diagnostic Tilecast overlay from that checkout (`wpe-local.sh --runtime-overlay`) "
+                   "#1946. Build the diagnostic Tilecast overlay from that checkout against the release's WebKit "
+                   "(`wpe-local.sh --label NAME --release-pin --runtime-overlay-only`) "
                    "and install it first: `runtime-overlay install tilecast-runtime-overlay-<label>-<arch>.tar`. "
                    "`runtime-overlay restore` removes it again, and so does a reboot.")
 
@@ -597,10 +725,7 @@ def session_record(paths, pid, args, requested, unset, result, expected):
         },
         "wpe": dict(running_wpe(paths, pid), releaseVersion=release.get("wpeWebkitVersion")),
     }
-    try:
-        record["previous"] = json.loads(paths.session.read_text()).get("current")
-    except (OSError, ValueError):
-        record["previous"] = None
+    record["previous"] = previous_session(paths)
     return {"current": {k: v for k, v in record.items() if k != "previous"}, "previous": record["previous"]}
 
 
@@ -613,39 +738,84 @@ def rollback(paths, unit, name, web=False):
         pass
 
 
+def write_session(paths, record):
+    paths.state.mkdir(parents=True, exist_ok=True, mode=0o755)
+    paths.session.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+
+
+def previous_session(paths):
+    try:
+        return json.loads(paths.session.read_text()).get("current")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def record_refused_attempt(paths, args, requested, unset, problems):
+    """The renderer started with the trace before the check refused it, so the
+    cache now holds that attempt's trace (and the earlier one as .prev). The
+    session record says so, so `trace collect` never labels those files as an
+    earlier verified run."""
+    write_session(paths, {
+        "current": {
+            "schema": "tilecast-trace-session-v1",
+            "tool": TOOL_VERSION,
+            "startedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+            "seconds": args.seconds,
+            "deep": bool(args.deep),
+            "refused": True,
+            "problems": problems,
+            "profile": {"requestedEnv": requested, "requestedCompositor": environment.classify_compositor(requested),
+                        "unsetInherited": unset, "verified": False},
+            "files": "visual-trace.jsonl is this refused attempt; visual-trace.jsonl.prev is the run before it",
+        },
+        "previous": previous_session(paths),
+    })
+
+
 def trace_enable(paths, args):
     require_root()
     env = parse_env(args.env)
+    check_trace_seconds(args.seconds)
     # A new trace replaces the previous one: read the unit's own ExecStart and
-    # environment, not the ones this tool's earlier drop-in set.
+    # environment, not the ones this tool's earlier drop-in set. The earlier
+    # drop-in comes back if the new request is refused before anything restarts.
+    previous = paths.run_units / f"{RENDERER_UNIT}.d" / TRACE_DROPIN
+    previous_text = read_optional(previous)
     if remove_dropin(paths, RENDERER_UNIT, TRACE_DROPIN):
         systemctl("daemon-reload")
-    supported, where = trace_support(paths)
-    if not supported:
-        raise Refused(where)
-    argv = parse_exec_start(unit_show(RENDERER_UNIT, "ExecStart").get("ExecStart", ""))
-    inherited, _ = unit_inherited(paths, RENDERER_UNIT)
-    expected_env, unset, conflicts = environment.plan_environment(env, inherited, args.clear_inherited)
-    if conflicts:
-        raise Refused(environment.describe_conflicts(conflicts, environment.classify_compositor(env)))
-    expected = expected_artifacts(paths)
-    path = write_dropin(paths, RENDERER_UNIT, TRACE_DROPIN, trace_dropin(argv, args.seconds, args.deep, env, unset))
+    try:
+        supported, where = trace_support(paths)
+        if not supported:
+            raise Refused(where)
+        argv = parse_exec_start(unit_show(RENDERER_UNIT, "ExecStart").get("ExecStart", ""))
+        inherited, _ = unit_inherited(paths, RENDERER_UNIT)
+        expected_env, unset, conflicts = environment.plan_environment(env, inherited, args.clear_inherited)
+        if conflicts:
+            raise Refused(environment.describe_conflicts(conflicts, env))
+        expected = expected_artifacts(paths)
+        text = trace_dropin(argv, args.seconds, args.deep, env, unset)
+    except Refused:
+        if previous_text is not None:
+            write_dropin(paths, RENDERER_UNIT, TRACE_DROPIN, previous_text)
+            systemctl("daemon-reload")
+        raise
+    path = write_dropin(paths, RENDERER_UNIT, TRACE_DROPIN, text)
     try:
         pid = restart_renderers(paths)
         result = environment.verify_process_environment(paths.proc, pid, expected_env)
         problems = result["problems"] + verify_artifacts(expected, running_artifacts(paths, pid))
         if not problems:
             settle(paths, pid)
-    except Refused:
+    except Refused as refusal:
         rollback(paths, RENDERER_UNIT, TRACE_DROPIN)
+        record_refused_attempt(paths, args, env, unset, [str(refusal)])
         raise
     if problems:
         rollback(paths, RENDERER_UNIT, TRACE_DROPIN)
+        record_refused_attempt(paths, args, env, unset, problems)
         raise Refused("the renderer does not run the configuration this trace was asked for, so no trace was "
                       "kept; the drop-in is removed and the renderer restarted:\n  " + "\n  ".join(problems))
-    paths.state.mkdir(parents=True, exist_ok=True, mode=0o755)
-    paths.session.write_text(json.dumps(session_record(paths, pid, args, env, unset, result, expected),
-                                        indent=2, sort_keys=True) + "\n")
+    write_session(paths, session_record(paths, pid, args, env, unset, result, expected))
     commit = (f", Tilecast commit {expected['commit'][:12]}{' + local changes' if expected.get('modifiedFiles') else ''}"
               if expected["commit"] else "")
     print(f"trace: the renderer (pid {pid}) is recording {args.seconds} s{' (deep)' if args.deep else ''}; "
@@ -665,20 +835,26 @@ def trace_disable(paths, _args):
         print("trace: was not enabled.")
 
 
+TRACE_FILES = ("visual-trace.jsonl", "visual-trace.jsonl.prev")
+
+
 def trace_collect(paths, args):
     out = Path(args.out)
+    # The renderer's account owns the trace directory: read without following links.
+    traces = read_regular_files(paths.trace_dir, TRACE_FILES)
+    if not traces:
+        raise Refused(f"no trace in {paths.trace_dir}; was the renderer started with `trace enable`?")
     out.mkdir(parents=True, exist_ok=True)
     copied = []
-    for name in ("visual-trace.jsonl", "visual-trace.jsonl.prev"):
-        source = paths.trace_dir / name
-        if source.is_file():
-            shutil.copyfile(source, out / name)
-            copied.append(name)
-    if not copied:
-        raise Refused(f"no trace in {paths.trace_dir}; was the renderer started with `trace enable`?")
+    for name, data in traces.items():
+        (out / name).write_bytes(data)
+        copied.append(name)
     if paths.session.is_file():
         shutil.copyfile(paths.session, out / "trace-meta.json")
         copied.append("trace-meta.json")
+        if (previous_session(paths) or {}).get("refused"):
+            print("trace: the last `trace enable` was refused after the renderer had started, so "
+                  "visual-trace.jsonl is that refused attempt (trace-meta.json says why), not a verified profile.")
     else:
         print("trace: no session record: this trace was not started by `trace enable` on this screen, so its "
               "environment and Tilecast commit are only what the trace header says.")
@@ -692,7 +868,7 @@ def runtime_overlay_install(paths, args):
     require_root()
     if provisional_update(paths):
         raise Refused("an Edge update is provisional; let it confirm or roll back first")
-    data = Path(args.tar).read_bytes()
+    data = read_archive(args.tar, runtime_overlay.MAX_BYTES)
     if args.sha256 and hashlib.sha256(data).hexdigest() != args.sha256.lower():
         raise Refused("the archive does not match --sha256")
     try:
@@ -748,18 +924,44 @@ def runtime_overlay_install(paths, args):
           "an unexpected state, check that it was built from the screen's release commit plus the diagnostics.")
 
 
+def release_running(paths, expected):
+    """(pid, problems) of the running renderer against the release's own files."""
+    pid = main_pid(RENDERER_UNIT)
+    if not pid or not unit_active(RENDERER_UNIT):
+        return None, ["the renderer is not running"]
+    try:
+        return pid, verify_artifacts(expected, running_artifacts(paths, pid))
+    except Refused as refusal:
+        return pid, [str(refusal)]
+
+
 def runtime_overlay_restore(paths, _args):
     require_root()
-    if not remove_dropin(paths, RENDERER_UNIT, RUNTIME_DROPIN):
-        print("runtime-overlay: none installed; the renderer runs the release's own files.")
-        return
-    pid = restart_renderers(paths, web=False)
     expected = release_expectation(paths)
+    removed = remove_dropin(paths, RENDERER_UNIT, RUNTIME_DROPIN)
+    # A trace enabled under the overlay passes --visual-trace, which a release
+    # renderer without the option refuses at startup: restoring disables it too.
+    trace_removed = remove_dropin(paths, RENDERER_UNIT, TRACE_DROPIN) if removed else False
+    if not removed:
+        # Nothing to remove is only the wanted configuration: an earlier restore
+        # may have removed the drop-in and then failed to restart the renderer.
+        pid, problems = release_running(paths, expected)
+        if not problems:
+            print(f"runtime-overlay: none installed; the renderer (pid {pid}) runs the release's own files, "
+                  f"verified against {expected['origin']}.")
+            return
+        print("runtime-overlay: none installed, but the renderer does not run the release's own files "
+              f"({problems[0]}); restarting it.")
+    pid = restart_renderers(paths, web=False)
     problems = verify_artifacts(expected, running_artifacts(paths, pid))
     if problems:
-        raise Refused("the renderer restarted but does not run the release's own files:\n  " + "\n  ".join(problems))
+        raise Refused("the renderer restarted but does not run the release's own files; run "
+                      "`runtime-overlay restore` again, or reboot the screen:\n  " + "\n  ".join(problems))
     print(f"runtime-overlay: restored; the renderer (pid {pid}) runs the release's files, verified against "
           f"{expected['origin']}.")
+    if trace_removed:
+        print("runtime-overlay: the visual trace that ran with the overlay was disabled as well; "
+              "`trace collect` still copies what it recorded.")
 
 
 def runtime_overlay_status(paths, _args):
@@ -795,7 +997,12 @@ def doctor_state(paths):
         exec_problem = None
     except Refused as refusal:
         argv, exec_problem = None, str(refusal)
-    supported, support_message = trace_support(paths)
+    try:
+        supported, support_message = trace_support(paths)
+    except Refused as refusal:
+        # A drop-in that names a missing overlay: tracing is unavailable, and the
+        # overlay problem is reported below.
+        supported, support_message = False, str(refusal)
     state = {
         "release": {"edgeVersion": release.get("versionName"), "wpeVersion": release.get("wpeWebkitVersion"),
                     "arch": platform.machine()},
@@ -826,7 +1033,8 @@ def doctor_state(paths):
         except Refused:
             expected = None
         live = {"environment": {"renderer": observation["main"], "webProcess": observation["web"]},
-                "compositor": environment.classify_compositor(observation["web"] or observation["main"] or {}),
+                "compositor": environment.classify_compositor(
+                    observation["web"] if observation["web"] is not None else (observation["main"] or {})),
                 "wpe": running_wpe(paths, pid)}
         if expected is not None:
             live["artifactProblems"] = verify_artifacts(expected, running_artifacts(paths, pid))
@@ -915,8 +1123,11 @@ def doctor(paths, args):
             print(f"{marks[level]} {text}")
         blocks = sum(1 for level, _ in findings if level == "block")
         print(f"doctor: {blocks} blocking problem(s)." if blocks else "doctor: nothing blocks the experiments.")
-        print("doctor: the lab runs on the release as installed; only `trace enable` needs the diagnostic "
-              "Tilecast overlay.")
+        if state["traceSupport"]["ok"]:
+            print("doctor: the lab runs on the release as installed.")
+        else:
+            print("doctor: the lab runs on the release as installed; only `trace enable` needs the diagnostic "
+                  "Tilecast overlay.")
     return 1 if any(level == "block" for level, _ in findings) else 0
 
 
@@ -927,7 +1138,7 @@ def overlay_install(paths, args):
     require_root()
     if provisional_update(paths):
         raise Refused("an Edge update is provisional; let it confirm or roll back first")
-    data = Path(args.tar).read_bytes()
+    data = read_archive(args.tar, MAX_OVERLAY_BYTES)
     if args.sha256 and hashlib.sha256(data).hexdigest() != args.sha256.lower():
         raise Refused("the overlay archive does not match --sha256")
     manifest, files = read_overlay_tar(data, platform.machine())
@@ -1001,7 +1212,7 @@ def overlay_status(paths, _args):
 
 def lab_install(paths, args):
     require_root()
-    members = read_lab_tar(Path(args.tar).read_bytes())
+    members = read_lab_tar(read_archive(args.tar, MAX_LAB_BYTES))
     staging = paths.state / ".staging-lab"
     shutil.rmtree(staging, ignore_errors=True)
     write_tree(staging, members, lambda relative, mode: bool(mode))
@@ -1015,7 +1226,8 @@ def lab_command(paths, scene, variant, iterations, inspect, out):
     if not SCENE.match(scene):
         raise Refused("--scene must be a scene name")
     command = [str(paths.lab / "bin" / "tilecast-wpe-compositor-lab"), "--platform=drm", f"--scene={scene}",
-               f"--iterations={iterations}", f"--out={out}", f"--inspect={inspect}"]
+               f"--iterations={iterations}", f"--out={out}", f"--inspect={inspect}",
+               f"--timeout={LAB_TIMEOUT_SECONDS}"]
     if variant:
         if not VARIANT.match(variant):
             raise Refused("--variant must be a short name")
@@ -1032,6 +1244,9 @@ def lab_unit_properties(paths, out, env, overlay):
         "TTYPath=/dev/tty1", "StandardInput=tty-force", "TTYReset=yes", "TTYVHangup=yes",
         f"StandardOutput=file:{out}/lab.log", f"StandardError=file:{out}/lab.log",
         "NoNewPrivileges=yes", "PrivateTmp=yes", "ProtectHome=yes", "ProtectSystem=strict",
+        # The lab's own --timeout ends a normal run; this bounds one that hangs,
+        # so `systemd-run --wait` returns and the renderers start again.
+        f"RuntimeMaxSec={LAB_RUNTIME_MAX_SECONDS}",
         f"ReadWritePaths={out}", "InaccessiblePaths=-/var/lib/tilecast-edge",
         f"Environment=HOME={home}", f"Environment=XDG_CACHE_HOME={home}/cache",
         f"Environment=XDG_CONFIG_HOME={home}/config", f"Environment=XDG_DATA_HOME={home}/data",
@@ -1065,7 +1280,8 @@ def run_lab(paths, scene, variant, iterations, env, wpe, inspect, tag):
     shutil.chown(out / "home", "tilecast", "tilecast")
     run_info = {"scene": scene, "variant": variant, "iterations": iterations, "wpe": wpe or "release",
                 "env": env, "inspect": inspect, "tool": TOOL_VERSION}
-    (out / "run.json").write_text(json.dumps(run_info, indent=2) + "\n")
+    # The lab's account owns out/: root never opens a path there that it did not just create.
+    write_replacing(out, "run.json", json.dumps(run_info, indent=2) + "\n")
     props = lab_unit_properties(paths, out, env, overlay)
     command = lab_command(paths, scene, variant, iterations, inspect, out)
     args = ["systemd-run", "--wait", "--collect", "--quiet", f"--unit={LAB_UNIT}", "--service-type=exec"]
@@ -1079,12 +1295,17 @@ def run_lab(paths, scene, variant, iterations, env, wpe, inspect, tag):
     run_info.update({"requestedEnv": env, "requestedCompositor": environment.classify_compositor(env),
                      "observed": check["observed"], "observedCompositor": check["compositor"],
                      "environmentVerified": check["ok"], "environmentProblems": check["problems"], "exit": status})
-    (out / "run.json").write_text(json.dumps(run_info, indent=2) + "\n")
+    write_replacing(out, "run.json", json.dumps(run_info, indent=2) + "\n")
     if not check["ok"]:
         raise Refused(f"lab run {tag}: the environment that reached the lab is not the profile's, so the run is "
                       f"not counted (see {out}/run.json):\n  " + "\n  ".join(check["problems"]))
-    summary_path = out / "summary.json"
-    summary = json.loads(summary_path.read_text()) if summary_path.is_file() else {"result": "no_summary"}
+    raw = read_regular_files(out, ("summary.json",)).get("summary.json")
+    try:
+        summary = json.loads(raw) if raw is not None else {"result": "no_summary"}
+    except ValueError:
+        summary = {"result": "unreadable_summary"}
+    if not isinstance(summary, dict):
+        summary = {"result": "unreadable_summary"}
     summary["_run"] = {"dir": str(out), "exit": status, "wpe": wpe or "release", "env": env, "tag": tag,
                        "compositor": check["compositor"]}
     return summary
@@ -1320,6 +1541,20 @@ def known_private_values(root=Path("/")):
 RESULT_FILES = re.compile(r"^(summary\.json|timeline\.jsonl|run\.json|anomaly-\d+-(before|frame|after)-seq\d+\.ppm)$")
 
 
+# The doctor fields a bundle carries. The renderer's ExecStart is left out: a
+# custom argument can hold a path or a host, which the bundle does not collect.
+BUNDLE_DOCTOR_FIELDS = ("release", "updateProvisional", "inheritedCompositorEnvironment", "toolSettings",
+                        "traceSupport", "runtimeOverlay", "live")
+BUNDLE_DOCTOR_RENDERER_FIELDS = ("active", "pid", "restarts", "unitFile", "dropIns", "execStartProblem")
+COLLECTED_TRACE_FILES = TRACE_FILES + ("trace-meta.json",)
+
+
+def bundle_doctor_state(state):
+    projected = {name: state.get(name) for name in BUNDLE_DOCTOR_FIELDS}
+    projected["renderer"] = {name: state["renderer"].get(name) for name in BUNDLE_DOCTOR_RENDERER_FIELDS}
+    return projected
+
+
 def bundle(paths, args):
     out = Path(args.out)
     index = {"schema": "tilecast-graphics-bundle-v1", "tool": TOOL_VERSION, "files": [], "privacy": (
@@ -1343,7 +1578,7 @@ def bundle(paths, args):
         "compositorDropins": compositor_dropins(paths),
         "overlays": [json.loads(p.read_text()) for p in sorted(paths.overlays.glob("*/base.json"))],
         "runtimeOverlays": [json.loads(p.read_text()) for p in sorted(paths.runtime_overlays.glob("*/base.json"))],
-        "doctor": doctor_state(paths),
+        "doctor": bundle_doctor_state(doctor_state(paths)),
     }
     # The Tilecast commit this screen was running, when it is a diagnostic build.
     try:
@@ -1369,18 +1604,28 @@ def bundle(paths, args):
             index["files"].append(relative)
 
         add("facts.json", json.dumps(facts, indent=2) + "\n")
+        # Trace and result directories belong to other accounts: every file is
+        # read without following a link and must be a regular file.
         if args.trace:
-            for name in ("visual-trace.jsonl", "visual-trace.jsonl.prev"):
-                source = paths.trace_dir / name
-                if source.is_file():
-                    add(f"trace/{name}", source.read_bytes())
+            for name, data in read_regular_files(paths.trace_dir, TRACE_FILES).items():
+                add(f"trace/{name}", data)
             if paths.session.is_file():
                 add("trace/trace-meta.json", paths.session.read_bytes())
+        for collected in getattr(args, "traces", None) or ():
+            directory = Path(collected)
+            found = read_regular_files(directory, COLLECTED_TRACE_FILES)
+            if not found:
+                raise Refused(f"{directory} has no collected trace (run `trace collect --out {directory}`)")
+            for name, data in found.items():
+                add(f"traces/{directory.name}/{name}", data)
         for result in args.results or ():
             directory = Path(result)
-            for path in sorted(directory.iterdir()):
-                if path.is_file() and RESULT_FILES.match(path.name):
-                    add(f"lab/{directory.name}/{path.name}", path.read_bytes())
+            try:
+                names = sorted(name for name in os.listdir(directory) if RESULT_FILES.match(name))
+            except OSError as error:
+                raise Refused(f"cannot list {directory}: {error.strerror or error}")
+            for name, data in read_regular_files(directory, names).items():
+                add(f"lab/{directory.name}/{name}", data)
         if args.renderer_log:
             journal = run(["journalctl", "-u", RENDERER_UNIT, "-b", "-o", "short-monotonic", "--no-pager",
                            "-n", "5000"], check=False)
@@ -1459,6 +1704,8 @@ def parser():
     pack.add_argument("--out", required=True)
     pack.add_argument("--trace", action="store_true", help="include the renderer's visual trace")
     pack.add_argument("--results", action="append", help="a lab result directory to include")
+    pack.add_argument("--traces", action="append",
+                      help="a directory written by `trace collect` to include (repeat for each comparison)")
     pack.add_argument("--renderer-log", action="store_true", help="include the sanitized renderer journal")
     pack.set_defaults(handler=bundle)
     return top

@@ -128,6 +128,21 @@ test("forwards a batch through the native relay unchanged", () => {
   ]);
 });
 
+test("the renderer's stop() at the end of its window silences the sink", () => {
+  const { page, reports } = fixture();
+  assert.equal(vm.runInContext("__tilecastVisualTrace.active()", page), true);
+  // The renderer's fixed STOP_PAGE_SCRIPT (src/visual-trace.c).
+  vm.runInContext(
+    "(() => { const sink = globalThis.__tilecastVisualTrace;" +
+      " if (sink && typeof sink.stop === 'function') sink.stop(); })();",
+    page,
+  );
+  assert.equal(vm.runInContext("__tilecastVisualTrace.active()", page), false);
+  page.batch = batch([{ t: 1, scope: "stage", ev: "after" }]);
+  vm.runInContext("__tilecastVisualTrace.emit(batch)", page);
+  assert.deepEqual(reports, []);
+});
+
 test("splits a batch that is over the relay bound and never truncates", () => {
   const { page, reports } = fixture();
   const records = Array.from({ length: 128 }, (_, i) => {

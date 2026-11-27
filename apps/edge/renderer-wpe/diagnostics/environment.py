@@ -108,8 +108,22 @@ def parse_environment_files_property(value):
 
 
 def parse_unset(value):
-    """UnsetEnvironment= names (a NAME or a NAME=VALUE both unset NAME)."""
-    return {word.partition("=")[0] for word in value.split() if word}
+    """UnsetEnvironment= entries as {(name, value or None)}.
+
+    A bare NAME removes the variable whatever its value; NAME=VALUE removes it
+    only when its effective value is exactly VALUE (systemd.exec(5)).
+    """
+    entries = set()
+    for word in value.split():
+        name, sep, text = word.partition("=")
+        if name:
+            entries.add((name, text if sep else None))
+    return entries
+
+
+def is_unset(name, value, entries):
+    """Does an UnsetEnvironment= entry set remove NAME with this effective value?"""
+    return (name, None) in entries or (name, value) in entries
 
 
 def allowlisted(environment):
@@ -176,6 +190,10 @@ def inherited_environment(show, manager_environment, read_file, tool_dropins):
 
     Returns [{"name", "value", "source"}], sorted by name. A variable the
     unit's own UnsetEnvironment= removes does not reach the process.
+
+    Sources are collected in systemd's precedence order, lowest first: the
+    service manager's environment, then the unit's Environment=, then its
+    EnvironmentFile= files. The last one collected is the effective value.
     """
     found, unset = {}, set()
 
@@ -183,9 +201,12 @@ def inherited_environment(show, manager_environment, read_file, tool_dropins):
         if name in ENV_ALLOWLIST:
             found.setdefault(name, []).append((value, source))
 
+    for name, value in manager_environment.items():
+        add(name, value, "the service manager's environment (systemctl show-environment)")
+    has_effective = "Environment" in show
     effective = parse_environment_property(show.get("Environment", ""))
     files = [path for path in [show.get("FragmentPath", "")] + show.get("DropInPaths", "").split() if path]
-    attributed, tool_owned, scanned = set(), set(), False
+    scanned_values, tool_owned, scanned = {}, set(), False
     for path in files:
         text = read_file(path)
         if text is None:
@@ -198,14 +219,28 @@ def inherited_environment(show, manager_environment, read_file, tool_dropins):
                 unset |= parse_unset(line[len("UnsetEnvironment="):])
             if not line.startswith("Environment="):
                 continue
-            for name, value in parse_environment_property(line[len("Environment="):]).items():
+            assignments = line[len("Environment="):]
+            if not assignments.strip():
+                # An empty Environment= discards every earlier assignment.
+                scanned_values.clear()
+                tool_owned.clear()
+                continue
+            for name, value in parse_environment_property(assignments).items():
                 if name not in ENV_ALLOWLIST:
                     continue
                 if mine:
                     tool_owned.add(name)
+                    scanned_values.pop(name, None)
                 else:
-                    add(name, value, path)
-                    attributed.add(name)
+                    tool_owned.discard(name)
+                    scanned_values.setdefault(name, []).append((value, path))
+    for name, assignments in scanned_values.items():
+        # systemd's own merged Environment property decides what survived;
+        # the scan only names where it came from.
+        if has_effective and name not in effective:
+            continue
+        for value, path in assignments:
+            add(name, value, path)
     if not scanned:
         # Without the files, the property is all there is. It includes this
         # tool's own UnsetEnvironment=, which only a scan can tell apart.
@@ -213,7 +248,7 @@ def inherited_environment(show, manager_environment, read_file, tool_dropins):
     # Effective Environment= that no scanned file explains (a transient unit,
     # a file this tool cannot read, a template): still reaches the process.
     for name, value in effective.items():
-        if name in ENV_ALLOWLIST and name not in attributed and name not in tool_owned:
+        if name in ENV_ALLOWLIST and name not in scanned_values and name not in tool_owned:
             add(name, value, "the unit's Environment= (file not found)")
     for path in parse_environment_files_property(show.get("EnvironmentFiles", "")):
         text = read_file(path)
@@ -221,13 +256,12 @@ def inherited_environment(show, manager_environment, read_file, tool_dropins):
             continue
         for name, value in parse_environment_file(text).items():
             add(name, value, f"EnvironmentFile {path}")
-    for name, value in manager_environment.items():
-        add(name, value, "the service manager's environment (systemctl show-environment)")
-    for name in unset:
-        found.pop(name, None)
+    for name in list(found):
+        if is_unset(name, found[name][-1][0], unset):
+            del found[name]
     result = []
     for name in sorted(found):
-        # The last assignment systemd reads wins; report each source, take the last value.
+        # The last source in precedence order wins; report each source, take the last value.
         value, source = found[name][-1]
         result.append({"name": name, "value": value, "source": source,
                        "sources": [{"value": v, "source": s} for v, s in found[name]]})
@@ -248,13 +282,24 @@ def plan_environment(requested, inherited, clear):
     return dict(requested), unset, conflicts
 
 
-def describe_conflicts(conflicts, requested_label):
+def describe_conflicts(conflicts, requested):
+    """The refusal for inherited variables a profile does not set.
+
+    requested is the profile's environment. The compositor named is the one
+    of the whole environment that would reach the renderer (the profile plus
+    the inherited extras), not of the extras alone.
+    """
+    requested_label = classify_compositor(requested)
     lines = [f"the renderer would not run the {requested_label} configuration: systemd already sets "
              "compositor variables that the profile does not:"]
     for item in conflicts:
         lines.append(f"  {item['name']}={item['value']}  from {item['source']}")
-    lines.append(f"With those variables the renderer runs as {classify_compositor({i['name']: i['value'] for i in conflicts})},"
-                 " not as the profile says. Remove them, or run again with --clear-inherited, which adds "
+    actual = classify_compositor({**requested, **{i["name"]: i["value"] for i in conflicts}})
+    if actual != requested_label:
+        effect = f"With those variables the renderer runs as {actual}, not as the profile says."
+    else:
+        effect = f"The compositor stays {actual}, but those variables change the run the profile describes."
+    lines.append(effect + " Remove them, or run again with --clear-inherited, which adds "
                  "UnsetEnvironment= to this tool's temporary drop-in.")
     return "\n".join(lines)
 

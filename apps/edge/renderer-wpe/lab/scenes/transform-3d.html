@@ -14,7 +14,8 @@
   Variants (join with ':'):
     preserve-3d   the card is a preserve-3d group with a tilted child plane
     cross-camera  the card is tilted 40 degrees and its near edge ends behind
-                  the camera plane
+                  the camera plane, at every view size (the end depth comes
+                  from the card's own height)
     busy-end      block the main thread for 120 ms around the end
 -->
 <html>
@@ -72,9 +73,15 @@
       // Translate toward the camera, then tilt about the card's own centre: the
       // tilt is constant, so every point of the card only moves outward from
       // the perspective origin and the covered area only grows. With
-      // cross-camera the near edge ends past the camera plane (z > 800 px).
+      // cross-camera the near edge ends past the camera plane (z > 800 px)
+      // while the card's centre stays in front of it. Rotated about its
+      // centre, the near edge sits (height / 2) * sin(TILT) in front of the
+      // centre, so the end depth is set from the card's real height: half of
+      // that reach past the plane.
+      const PERSPECTIVE = 800;
       const TILT = Lab.has("cross-camera") ? 40 : 12;
-      const END_Z = Lab.has("cross-camera") ? 760 : 690;
+      const reach = (card.offsetHeight / 2) * Math.sin((TILT * Math.PI) / 180);
+      const END_Z = Lab.has("cross-camera") ? PERSPECTIVE - reach / 2 : 690;
       const keyframes = [
         { transform: `translateZ(0px) rotateX(${TILT}deg)` },
         { transform: `translateZ(${END_Z}px) rotateX(${TILT}deg)` },

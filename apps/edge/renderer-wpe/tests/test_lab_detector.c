@@ -165,6 +165,47 @@ test_palette_bounds (void)
   g_assert_false (tc_lab_detector_settled (detector, "missing"));
   g_assert_null (tc_lab_detector_new (0, 1));
   g_assert_null (tc_lab_detector_new (17, 16));
+  /* 65536 x 65536 wraps to 0 as an unsigned product; it must still be refused. */
+  g_assert_null (tc_lab_detector_new (65536, 65536));
+  g_assert_null (tc_lab_detector_new (G_MAXUINT, 2));
+  TcLabDetector *largest = tc_lab_detector_new (16, 16);
+  g_assert_nonnull (largest);
+  g_assert_cmpuint (tc_lab_detector_points (largest), ==, TC_LAB_MAX_POINTS);
+  tc_lab_detector_free (largest);
+  tc_lab_detector_free (detector);
+}
+
+static void
+test_refused_path_keeps_the_active_one (void)
+{
+  TcLabDetector *detector = crossfade_detector ();
+  g_assert_true (tc_lab_detector_transition_start (detector, "a", "b", TC_LAB_RULE_REVERSAL | TC_LAB_RULE_FOREIGN));
+  TcRgb samples[12];
+  fill (samples, 12, mix (RED, BLUE, 0.5));
+  TcLabFrameMetrics metrics;
+  g_assert_cmpint (tc_lab_detector_frame (detector, samples, &metrics), ==, TC_LAB_OK);
+  const char *const bad[] = { "black", "missing" };
+  g_assert_false (tc_lab_detector_transition_path (detector, bad, 2, TC_LAB_RULE_REVERSAL));
+  /* Still judged on a -> b with the progress it had. */
+  fill (samples, 12, mix (RED, BLUE, 0.6));
+  g_assert_cmpint (tc_lab_detector_frame (detector, samples, &metrics), ==, TC_LAB_OK);
+  g_assert_cmpfloat_with_epsilon (metrics.mix_mean, 0.6, 0.02);
+  g_assert_true (tc_lab_detector_in_transition (detector));
+  g_assert_true (tc_lab_frame_was_checked (&metrics));
+  tc_lab_detector_free (detector);
+}
+
+static void
+test_a_path_back_to_its_start_is_refused_for_reversal (void)
+{
+  TcLabDetector *detector = crossfade_detector ();
+  const char *const there_and_back[] = { "a", "b", "a" };
+  g_assert_false (tc_lab_detector_transition_path (detector, there_and_back, 3, TC_LAB_RULE_REVERSAL));
+  g_assert_false (tc_lab_detector_checking (detector));
+  /* Without the reversal rule the path is usable. */
+  g_assert_true (tc_lab_detector_transition_path (detector, there_and_back, 3, TC_LAB_RULE_FOREIGN));
+  const char *const distinct[] = { "a", "b" };
+  g_assert_true (tc_lab_detector_transition_path (detector, distinct, 2, TC_LAB_RULE_REVERSAL));
   tc_lab_detector_free (detector);
 }
 
@@ -256,5 +297,7 @@ main (int argc, char **argv)
   g_test_add_func ("/lab-detector/palette", test_palette_bounds);
   g_test_add_func ("/lab-detector/sampling", test_sample_grid_and_channel_order);
   g_test_add_func ("/lab-detector/path", test_path_progress);
+  g_test_add_func ("/lab-detector/path-refused", test_refused_path_keeps_the_active_one);
+  g_test_add_func ("/lab-detector/path-overlap", test_a_path_back_to_its_start_is_refused_for_reversal);
   return g_test_run ();
 }

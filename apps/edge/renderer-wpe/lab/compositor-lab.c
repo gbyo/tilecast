@@ -19,7 +19,9 @@
  *                   counts: the file to attach to a bug;
  *   anomaly-*.ppm   optional frame dumps.
  *
- * Exit status: 0 clean, 3 anomalies found, 4 setup failure, 5 timeout.
+ * Exit status: 0 clean (or a pacing-only run with --inspect=off), 3 anomalies
+ * found, 4 setup or output failure, 5 timeout, 6 no anomaly but inspection
+ * incomplete (frames that should have been checked could not be read).
  */
 #include "buffer-timeline.h"
 #include "lab-detector.h"
@@ -54,8 +56,30 @@
 #define TC_LAB_SCENES_DIR ""
 #endif
 
-static const char *const SCENES[] = {
-  "opacity-basic", "crossfade", "crossfade-cleanup-variants", "transform-3d", "startup-minimal", "video-crossfade", NULL,
+/* Each scene with the variants it reads (lab/scenes/); a variant a scene
+ * does not read would be recorded beside a baseline result. */
+typedef struct {
+  const char *name;
+  const char *const *variants;
+} Scene;
+
+static const char *const OPACITY_VARIANTS[] = { "busy-end", "forwards", "no-pin", NULL };
+static const char *const NO_VARIANTS[] = { NULL };
+static const char *const CLEANUP_VARIANTS[] = { "retain-animation", "keep-pin",      "no-pin",        "commit-final",
+                                                "outgoing-1f",      "outgoing-2f",   "keep-outgoing", "image",
+                                                "busy-end",         NULL };
+static const char *const TRANSFORM_VARIANTS[] = { "preserve-3d", "cross-camera", "busy-end", NULL };
+static const char *const BUSY_END_ONLY[] = { "busy-end", NULL };
+static const char *const VIDEO_VARIANTS[] = { "hidden-start", "busy-end", NULL };
+
+static const Scene SCENES[] = {
+  { "opacity-basic", OPACITY_VARIANTS },
+  { "crossfade", NO_VARIANTS },
+  { "crossfade-cleanup-variants", CLEANUP_VARIANTS },
+  { "transform-3d", TRANSFORM_VARIANTS },
+  { "startup-minimal", BUSY_END_ONLY },
+  { "video-crossfade", VIDEO_VARIANTS },
+  { NULL, NULL },
 };
 
 typedef enum {
@@ -115,6 +139,10 @@ typedef struct {
   gsize imports;
   guint64 import_failures;
   const char *import_problem;
+  /* Inspected frames a rule judged, and those inside the settle grace that
+   * no rule judged (the detector's "settling" state). */
+  guint64 frames_checked;
+  guint64 frames_in_grace;
   guint64 markers;
   guint64 transitions;
   int completed_iterations;
@@ -126,7 +154,8 @@ typedef struct {
   guint64 anomalies;
   GHashTable *anomaly_kinds; /* name -> count */
   GPtrArray *anomaly_list;   /* JsonNode* */
-  int dumps;
+  int dumps;                /* anomaly dumps attempted (the budget) */
+  int dumps_written;        /* anomaly frames actually written */
   int dump_after;           /* frames still to dump after an anomaly */
   int dump_group;
   ContextFrame ring[LAB_MAX_CONTEXT];
@@ -147,14 +176,31 @@ write_line (Lab *lab)
   g_string_truncate (lab->line, 0);
 }
 
-static gboolean
-known_scene (const char *scene)
+static const Scene *
+find_scene (const char *scene)
 {
-  for (guint i = 0; SCENES[i] != NULL; i++) {
-    if (g_strcmp0 (scene, SCENES[i]) == 0)
-      return TRUE;
+  for (guint i = 0; SCENES[i].name != NULL; i++) {
+    if (g_strcmp0 (scene, SCENES[i].name) == 0)
+      return &SCENES[i];
   }
-  return FALSE;
+  return NULL;
+}
+
+/* Every ':'-separated name of `variant` is one the scene reads. */
+static gboolean
+variants_supported (const Scene *scene, const char *variant, const char **unknown)
+{
+  g_auto (GStrv) names = g_strsplit (variant, ":", -1);
+  for (guint i = 0; names[i] != NULL; i++) {
+    gboolean found = FALSE;
+    for (guint k = 0; scene->variants[k] != NULL && !found; k++)
+      found = g_strcmp0 (names[i], scene->variants[k]) == 0;
+    if (!found) {
+      *unknown = scene->variants[0] == NULL ? "(this scene takes no variant)" : NULL;
+      return FALSE;
+    }
+  }
+  return TRUE;
 }
 
 /* Scene files: lower-case names with one of a few extensions, directly in
@@ -188,7 +234,9 @@ handle_scene_request (WebKitURISchemeRequest *request, gpointer user_data)
   Lab *lab = user_data;
   const char *path = webkit_uri_scheme_request_get_path (request);
   g_autofree char *file = scene_path_allowed (path) ? g_build_filename (lab->scenes_dir, path + 1, NULL) : NULL;
-  int fd = file ? open (file, O_RDONLY | O_NOFOLLOW | O_CLOEXEC) : -1;
+  /* O_NONBLOCK: a FIFO with no writer must not block the main loop (and with
+   * it the lab's own timeout) before fstat refuses it. */
+  int fd = file ? open (file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC) : -1;
   struct stat info;
   if (fd < 0 || fstat (fd, &info) != 0 || !S_ISREG (info.st_mode)) {
     if (fd >= 0)
@@ -203,19 +251,17 @@ handle_scene_request (WebKitURISchemeRequest *request, gpointer user_data)
 
 /* ---- frame inspection -------------------------------------------------- */
 
+/* The formats the lab can read back. WPE WebKit 2.54's DMA-BUF pixel import
+ * reads XR24 and AR24 only; anything else is "unsupported_format" here, not
+ * an import failure later. */
 static gboolean
-pixel_order (WPEBuffer *buffer, TcLabChannelOrder *order, guint *declared_stride)
+pixel_order (WPEBuffer *buffer, TcLabChannelOrder *order)
 {
-  *declared_stride = 0;
   if (WPE_IS_BUFFER_DMA_BUF (buffer)) {
     switch (wpe_buffer_dma_buf_get_format (WPE_BUFFER_DMA_BUF (buffer))) {
     case 0x34325258: /* XR24 */
     case 0x34325241: /* AR24 */
       *order = TC_LAB_ORDER_BGRX;
-      return TRUE;
-    case 0x34324258: /* XB24 */
-    case 0x34324241: /* AB24 */
-      *order = TC_LAB_ORDER_RGBX;
       return TRUE;
     default:
       return FALSE;
@@ -223,10 +269,29 @@ pixel_order (WPEBuffer *buffer, TcLabChannelOrder *order, guint *declared_stride
   }
   if (WPE_IS_BUFFER_SHM (buffer) && wpe_buffer_shm_get_format (WPE_BUFFER_SHM (buffer)) == WPE_PIXEL_FORMAT_ARGB8888) {
     *order = TC_LAB_ORDER_BGRX;
-    *declared_stride = wpe_buffer_shm_get_stride (WPE_BUFFER_SHM (buffer));
     return TRUE;
   }
   return FALSE;
+}
+
+/* The buffer's pixels and the stride of exactly those bytes. SHM is read from
+ * its own backing memory with its own stride: wpe_buffer_import_to_pixels
+ * returns that memory on 2.54.0 but a copy without row padding on 2.54.3, so
+ * its bytes cannot be paired with the SHM stride. DMA-BUF is imported and its
+ * stride derived from the imported size. (transfer none): memory the buffer
+ * owns, valid during this handler. */
+static GBytes *
+buffer_pixels (WPEBuffer *buffer, guint *declared_stride, GError **error)
+{
+  if (WPE_IS_BUFFER_SHM (buffer)) {
+    *declared_stride = wpe_buffer_shm_get_stride (WPE_BUFFER_SHM (buffer));
+    GBytes *data = wpe_buffer_shm_get_data (WPE_BUFFER_SHM (buffer));
+    if (data == NULL)
+      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED, "SHM buffer has no data");
+    return data;
+  }
+  *declared_stride = 0;
+  return wpe_buffer_import_to_pixels (buffer, error);
 }
 
 static void
@@ -235,15 +300,18 @@ context_free (ContextFrame *frame)
   g_clear_pointer (&frame->ppm, g_byte_array_unref);
 }
 
-static void
+static gboolean
 write_dump (Lab *lab, const char *role, guint64 seq, GByteArray *ppm)
 {
   g_autofree char *name = g_strdup_printf ("anomaly-%02d-%s-seq%06" G_GUINT64_FORMAT ".ppm", lab->dump_group, role, seq);
   g_autofree char *path = g_build_filename (lab->out_dir, name, NULL);
   g_autoptr (GError) error = NULL;
   if (!g_file_set_contents_full (path, (const char *) ppm->data, ppm->len, G_FILE_SET_CONTENTS_CONSISTENT, 0644,
-                                 &error))
+                                 &error)) {
     g_warning ("lab: cannot write %s: %s", name, error->message);
+    return FALSE;
+  }
+  return TRUE;
 }
 
 static void
@@ -292,16 +360,15 @@ inspect (Lab *lab, WPEBuffer *buffer, guint64 seq, gint64 mono)
   if (lab->inspect == INSPECT_OFF || !wanted)
     return;
   TcLabChannelOrder order;
-  guint declared_stride;
-  if (!pixel_order (buffer, &order, &declared_stride)) {
+  guint declared_stride = 0;
+  if (!pixel_order (buffer, &order)) {
     lab->import_failures++;
     lab->import_problem = "unsupported_format";
     return;
   }
   gint64 start = g_get_monotonic_time ();
   g_autoptr (GError) error = NULL;
-  /* (transfer none): memory the buffer owns, valid during this handler. */
-  GBytes *bytes = wpe_buffer_import_to_pixels (buffer, &error);
+  GBytes *bytes = buffer_pixels (buffer, &declared_stride, &error);
   gint64 elapsed = g_get_monotonic_time () - start;
   if (bytes == NULL) {
     lab->import_failures++;
@@ -324,23 +391,31 @@ inspect (Lab *lab, WPEBuffer *buffer, guint64 seq, gint64 mono)
   tc_lab_sample_grid (pixels, width, height, stride, order, &lab->probe, lab->columns, lab->rows, samples);
   TcLabFrameMetrics metrics;
   TcLabVerdict verdict = tc_lab_detector_frame (lab->detector, samples, &metrics);
+  gboolean checked = tc_lab_frame_was_checked (&metrics);
+  if (checked)
+    lab->frames_checked++;
+  else if (g_strcmp0 (metrics.state, "settling") == 0)
+    lab->frames_in_grace++;
   g_string_append_printf (lab->line,
                           "{\"type\":\"inspect\",\"seq\":%" G_GUINT64_FORMAT ",\"mono\":%" G_GINT64_FORMAT
                           ",\"state\":\"%s\",\"verdict\":\"%s\",\"rgb\":[%u,%u,%u],\"mixMin\":%.3f,\"mixMax\":%.3f,"
                           "\"mixMean\":%.3f,\"distance\":%.1f,\"hash\":\"%08x\",\"importUs\":%" G_GINT64_FORMAT "}",
-                          seq, mono, metrics.state, tc_lab_verdict_name (verdict), metrics.mean.r, metrics.mean.g,
+                          seq, mono, metrics.state, checked ? tc_lab_verdict_name (verdict) : "unchecked",
+                          metrics.mean.r, metrics.mean.g,
                           metrics.mean.b, metrics.mix_min, metrics.mix_max, metrics.mix_mean, metrics.distance,
                           metrics.hash, elapsed);
   write_line (lab);
 
   gboolean dumped = FALSE;
-  /* Dumps cost a scaled copy of every inspected frame (the context ring), so
-   * that work stops once the dump budget is spent. */
-  if (lab->max_dumps > 0 && (lab->dumps < lab->max_dumps || lab->dump_after > 0)) {
+  /* A scaled copy is made only when something uses it: this frame's dump, an
+   * after-frame still owed, or the context ring while the budget lasts. The
+   * budget counts attempts, so failing writes cannot retry forever. */
+  gboolean dump_now = verdict != TC_LAB_OK && lab->dumps < lab->max_dumps;
+  gboolean ring_wanted = lab->dump_context > 0 && lab->dumps < lab->max_dumps;
+  if (lab->max_dumps > 0 && (dump_now || lab->dump_after > 0 || ring_wanted)) {
     g_autoptr (GByteArray) ppm = g_byte_array_new ();
     if (tc_lab_ppm (pixels, width, height, stride, order, (guint) lab->dump_scale, ppm)) {
-      if (verdict != TC_LAB_OK && lab->dumps < lab->max_dumps) {
-        dumped = TRUE;
+      if (dump_now) {
         lab->dump_group = ++lab->dumps;
         /* The frames before it, oldest first, then this one. */
         for (int i = 0; i < lab->dump_context; i++) {
@@ -348,7 +423,9 @@ inspect (Lab *lab, WPEBuffer *buffer, guint64 seq, gint64 mono)
           if (frame->ppm != NULL)
             write_dump (lab, "before", frame->seq, frame->ppm);
         }
-        write_dump (lab, "frame", seq, ppm);
+        dumped = write_dump (lab, "frame", seq, ppm);
+        if (dumped)
+          lab->dumps_written++;
         lab->dump_after = lab->dump_context;
       } else if (lab->dump_after > 0) {
         lab->dump_after--;
@@ -377,10 +454,13 @@ on_buffer_rendered (WPEView *view, WPEBuffer *buffer, gpointer user_data)
   write_line (lab);
   if (lab->presented < TC_TRACE_MAX_PACING_SAMPLES)
     lab->presented_us[lab->presented++] = now;
-  gboolean moving = tc_lab_detector_checking (lab->detector) && lab->last_transition_frame_us > 0;
-  if (moving && lab->transition_count < TC_TRACE_MAX_PACING_SAMPLES)
+  /* Transition pacing: intervals between frames that are both inside one
+   * transition. Settling, settled and the waits between transitions belong
+   * to "pacing" only; the markers reset the previous frame (handle_marker). */
+  gboolean in_transition = tc_lab_detector_in_transition (lab->detector);
+  if (in_transition && lab->last_transition_frame_us > 0 && lab->transition_count < TC_TRACE_MAX_PACING_SAMPLES)
     lab->transition_intervals[lab->transition_count++] = (double) (now - lab->last_transition_frame_us) / 1000.0;
-  lab->last_transition_frame_us = tc_lab_detector_checking (lab->detector) ? now : 0;
+  lab->last_transition_frame_us = in_transition ? now : 0;
 
   char key[48];
   if (WPE_IS_BUFFER_DMA_BUF (buffer)) {
@@ -478,6 +558,8 @@ handle_marker (Lab *lab, JsonObject *record)
   lab->markers++;
   int iteration = (int) json_object_get_int_member_with_default (record, "iteration", lab->current_iteration);
   lab->current_iteration = iteration;
+  /* Every marker is a transition boundary for transition pacing. */
+  lab->last_transition_frame_us = 0;
   if (g_strcmp0 (ev, "arm") == 0) {
     tc_lab_detector_arm (lab->detector);
   } else if (g_strcmp0 (ev, "transition-start") == 0) {
@@ -495,8 +577,13 @@ handle_marker (Lab *lab, JsonObject *record)
     lab->transitions++;
   } else if (g_strcmp0 (ev, "settled") == 0) {
     const char *color = json_object_get_string_member_with_default (record, "color", NULL);
-    if (!tc_lab_detector_settled (lab->detector, color))
-      tc_lab_detector_reset (lab->detector);
+    /* A settled color the scene never declared is a scene bug; going idle
+     * instead would let every later frame pass unchecked. A scene that means
+     * to stop checking sends "reset". */
+    if (!tc_lab_detector_settled (lab->detector, color)) {
+      g_warning ("lab: the scene settled on a color it did not declare");
+      finish (lab, "scene_error", 4);
+    }
   } else if (g_strcmp0 (ev, "reset") == 0) {
     tc_lab_detector_reset (lab->detector);
   } else if (g_strcmp0 (ev, "iteration-end") == 0) {
@@ -545,7 +632,16 @@ on_lab_message (WebKitUserContentManager *manager, JSCValue *value, gpointer use
   if (g_strcmp0 (type, "done") == 0) {
     lab->completed_iterations = MAX (lab->completed_iterations,
                                      (int) json_object_get_int_member_with_default (message, "iterations", 0));
-    finish (lab, lab->anomalies ? "anomalies" : "pass", lab->anomalies ? 3 : 0);
+    /* A pass needs frames that were read and judged: with readback failing,
+     * zero anomalies says nothing. --inspect=off is an explicit pacing run. */
+    if (lab->anomalies)
+      finish (lab, "anomalies", 3);
+    else if (lab->inspect == INSPECT_OFF)
+      finish (lab, "pacing_only", 0);
+    else if (lab->import_failures > 0 || lab->frames_checked == 0)
+      finish (lab, "incomplete_inspection", 6);
+    else
+      finish (lab, "pass", 0);
     return;
   }
   if (g_strcmp0 (type, "error") == 0) {
@@ -644,7 +740,7 @@ nominal_interval_ms (Lab *lab)
   return millihertz > 0 ? 1000000.0 / millihertz : 0;
 }
 
-static void
+static gboolean
 write_summary (Lab *lab)
 {
   g_autoptr (JsonBuilder) b = json_builder_new ();
@@ -706,13 +802,20 @@ write_summary (Lab *lab)
   json_builder_set_member_name (b, "maxUs");
   json_builder_add_double_value (b, pacing.max_ms);
   json_builder_end_object (b);
+  json_builder_set_member_name (b, "inspection");
+  json_builder_begin_object (b);
+  add_int (b, "framesChecked", (gint64) lab->frames_checked);
+  add_int (b, "framesInSettleGrace", (gint64) lab->frames_in_grace);
+  add_int (b, "framesNotRead", (gint64) lab->import_failures);
+  json_builder_end_object (b);
   add_int (b, "markers", (gint64) lab->markers);
   add_int (b, "transitions", (gint64) lab->transitions);
   json_builder_set_member_name (b, "anomalies");
   json_builder_begin_object (b);
   add_int (b, "total", (gint64) lab->anomalies);
   add_counts (b, "byKind", lab->anomaly_kinds);
-  add_int (b, "dumps", lab->dumps);
+  add_int (b, "dumps", lab->dumps_written);
+  add_int (b, "dumpAttempts", lab->dumps);
   json_builder_set_member_name (b, "first");
   json_builder_begin_array (b);
   for (guint i = 0; i < lab->anomaly_list->len; i++)
@@ -729,8 +832,11 @@ write_summary (Lab *lab)
   json_generator_set_root (generator, root);
   g_autofree char *path = g_build_filename (lab->out_dir, "summary.json", NULL);
   g_autoptr (GError) error = NULL;
-  if (!json_generator_to_file (generator, path, &error))
+  if (!json_generator_to_file (generator, path, &error)) {
     g_warning ("lab: cannot write summary.json: %s", error->message);
+    return FALSE;
+  }
+  return TRUE;
 }
 
 static void
@@ -742,8 +848,15 @@ finish (Lab *lab, const char *result, int exit_code)
   lab->result = result;
   lab->exit_code = exit_code;
   g_cancellable_cancel (lab->cancellable);
-  write_summary (lab);
-  g_string_append_printf (lab->line, "{\"type\":\"end\",\"result\":\"%s\",\"mono\":%" G_GINT64_FORMAT "}", result,
+  /* Without summary.json the run has no result to attach: an output failure,
+   * with the scene's own result kept in the timeline. */
+  gboolean summary_written = write_summary (lab);
+  if (!summary_written)
+    lab->exit_code = 4;
+  g_string_append_printf (lab->line,
+                          "{\"type\":\"end\",\"result\":\"%s\",\"sceneResult\":\"%s\",\"summaryWritten\":%s,"
+                          "\"mono\":%" G_GINT64_FORMAT "}",
+                          summary_written ? result : "output_failed", result, summary_written ? "true" : "false",
                           g_get_monotonic_time ());
   tc_trace_writer_close (lab->timeline, lab->line->str);
   lab->timeline = NULL;
@@ -766,6 +879,24 @@ on_signal (gpointer user_data)
   Lab *lab = user_data;
   finish (lab, "interrupted", 4);
   return G_SOURCE_REMOVE;
+}
+
+/* The scene's own page did not load (a scenes directory without that file):
+ * no scene script runs to report it, so the lab ends here instead of at
+ * its timeout. */
+static gboolean
+on_load_failed (WebKitWebView *view, WebKitLoadEvent event, char *uri, GError *error, gpointer user_data)
+{
+  (void) view;
+  (void) event;
+  (void) uri;
+  Lab *lab = user_data;
+  if (g_error_matches (error, WEBKIT_NETWORK_ERROR, WEBKIT_NETWORK_ERROR_CANCELLED))
+    return FALSE;
+  g_printerr ("tilecast-wpe-compositor-lab: cannot load scene %s from %s: %s\n", lab->scene, lab->scenes_dir,
+              error->message);
+  finish (lab, "scene_not_found", 4);
+  return FALSE;
 }
 
 static void
@@ -860,6 +991,7 @@ create_view (Lab *lab, GError **error)
   WebKitColor black = { 0, 0, 0, 1 };
   webkit_web_view_set_background_color (lab->view, &black);
   g_signal_connect (lab->view, "web-process-terminated", G_CALLBACK (on_web_process_terminated), lab);
+  g_signal_connect (lab->view, "load-failed", G_CALLBACK (on_load_failed), lab);
 
   lab->wpe_view = webkit_web_view_get_wpe_view (lab->view);
   g_signal_connect (lab->wpe_view, "buffer-rendered", G_CALLBACK (on_buffer_rendered), lab);
@@ -949,15 +1081,28 @@ main (int argc, char **argv)
     g_printerr ("tilecast-wpe-compositor-lab: --platform must be drm, wayland or headless\n");
     return 4;
   }
-  if (!known_scene (lab.scene)) {
+  const Scene *scene = find_scene (lab.scene);
+  if (scene == NULL) {
     g_printerr ("tilecast-wpe-compositor-lab: --scene must be one of:");
-    for (guint i = 0; SCENES[i] != NULL; i++)
-      g_printerr (" %s", SCENES[i]);
+    for (guint i = 0; SCENES[i].name != NULL; i++)
+      g_printerr (" %s", SCENES[i].name);
     g_printerr ("\n");
     return 4;
   }
   if (lab.variant != NULL && !tc_trace_token_valid (lab.variant, 48)) {
     g_printerr ("tilecast-wpe-compositor-lab: --variant must be a short name\n");
+    return 4;
+  }
+  const char *no_variant = NULL;
+  if (lab.variant != NULL && !variants_supported (scene, lab.variant, &no_variant)) {
+    g_printerr ("tilecast-wpe-compositor-lab: --variant: %s takes", lab.scene);
+    if (no_variant != NULL) {
+      g_printerr (" no variant\n");
+    } else {
+      for (guint k = 0; scene->variants[k] != NULL; k++)
+        g_printerr ("%s %s", k ? "," : "", scene->variants[k]);
+      g_printerr (" (join with ':')\n");
+    }
     return 4;
   }
   lab.width = 1920;
@@ -970,7 +1115,7 @@ main (int argc, char **argv)
   lab.columns = 8;
   lab.rows = 5;
   if (grid != NULL && (sscanf (grid, "%ux%u", &lab.columns, &lab.rows) != 2 || lab.columns == 0 || lab.rows == 0
-                       || lab.columns * lab.rows > TC_LAB_MAX_POINTS)) {
+                       || lab.columns > TC_LAB_MAX_POINTS / lab.rows)) {
     g_printerr ("tilecast-wpe-compositor-lab: --grid must be CxR with at most %d points\n", TC_LAB_MAX_POINTS);
     return 4;
   }
@@ -1013,6 +1158,11 @@ main (int argc, char **argv)
     return 4;
   }
 
+  lab.detector = tc_lab_detector_new (lab.columns, lab.rows);
+  if (lab.detector == NULL) {
+    g_printerr ("tilecast-wpe-compositor-lab: --grid must be CxR with at most %d points\n", TC_LAB_MAX_POINTS);
+    return 4;
+  }
   lab.started_us = g_get_monotonic_time ();
   lab.timeline = tc_trace_writer_open (lab.out_dir, "timeline.jsonl", LAB_TIMELINE_BYTES, &error);
   if (lab.timeline == NULL) {
@@ -1020,7 +1170,6 @@ main (int argc, char **argv)
     return 4;
   }
   lab.buffers = tc_buffer_timeline_new ();
-  lab.detector = tc_lab_detector_new (lab.columns, lab.rows);
   lab.probe = (TcLabProbe) { 0, 0, 1, 1 };
   lab.line = g_string_sized_new (512);
   lab.fourccs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);

@@ -341,6 +341,92 @@ describe("animations", () => {
   });
 });
 
+describe("ending a trace", () => {
+  const element = { getAnimations: () => [] } as unknown as Element;
+  const pending = () =>
+    ({
+      ready: new Promise(() => undefined),
+      finished: new Promise(() => undefined),
+    }) as unknown as Animation;
+
+  it("stops sampling and watching at the per-document limit", () => {
+    const time = manualClock();
+    const { value } = sink(true);
+    const trace = installVisualTraceForTest(value, time.clock);
+    trace.watchAnimation(
+      { scope: "stage", fields: {} },
+      "fade-in",
+      pending(),
+      element,
+    );
+    expect(time.frames).toHaveLength(1);
+    const internal = trace as unknown as { total: number };
+    internal.total = TRACE_LIMITS.total;
+    trace.record("stage", "e");
+    time.runFrame();
+    expect(time.frames).toHaveLength(0);
+    trace.watchAnimation(
+      { scope: "stage", fields: {} },
+      "fade-in",
+      pending(),
+      element,
+    );
+    expect(time.frames).toHaveLength(0);
+    expect(trace.sample({ scope: "stage", fields: {} }, "x", element)).toBe(
+      trace.sample({ scope: "stage", fields: {} }, "y", element),
+    );
+  });
+
+  it("stops recording and sampling when the host's window ends", () => {
+    const time = manualClock();
+    const { value, batches } = sink(true);
+    let active = true;
+    const trace = installVisualTraceForTest(
+      { ...value, active: () => active },
+      time.clock,
+    );
+    trace.watchAnimation(
+      { scope: "stage", fields: {} },
+      "fade-in",
+      pending(),
+      element,
+    );
+    time.runFrame();
+    trace.flush();
+    expect(time.frames).toHaveLength(1);
+    const before = batches.flatMap((b) => b.records).map((r) => r.ev);
+    expect(before).toContain("deep.sample");
+    active = false;
+    time.runFrame();
+    expect(time.frames).toHaveLength(0);
+    trace.record("stage", "after");
+    trace.flush();
+    const after = batches.flatMap((b) => b.records).map((r) => r.ev);
+    expect(after).toEqual(before);
+  });
+
+  it("accepts a sink with active() and refuses one where it is not a function", () => {
+    const { value } = sink();
+    expect(isVisualTraceSink({ ...value, active: () => true })).toBe(true);
+    expect(isVisualTraceSink({ ...value, active: true })).toBe(false);
+  });
+
+  it("records the effect's end time when the animation is created", () => {
+    const { value, batches } = sink();
+    const trace = installVisualTraceForTest(value, manualClock().clock);
+    const animation = {
+      ...pending(),
+      effect: { getComputedTiming: () => ({ endTime: 600 }) },
+    } as unknown as Animation;
+    trace.watchAnimation({ scope: "stage", fields: {} }, "fade-in", animation);
+    trace.flush();
+    expect(batches[0]!.records[0]).toMatchObject({
+      ev: "anim.create",
+      endTime: 600,
+    });
+  });
+});
+
 describe("sink failures", () => {
   it("never throws into the caller", () => {
     const failing: VisualTraceSink = {

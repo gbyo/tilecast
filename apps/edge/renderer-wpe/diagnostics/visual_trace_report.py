@@ -21,7 +21,6 @@ import json
 import sys
 from collections import defaultdict
 
-FADE_MS = {"fade-in": 300}
 # The Runtime step that ends each animation's effect on screen. Others end
 # when the main thread sees `finished` and stops the accelerated animation.
 CLEANUP = {
@@ -64,11 +63,13 @@ def documents(lines):
     return docs
 
 
-def clock_offset(doc, clocks):
+def clock_offset(doc, clocks, earliest=None):
     """Microseconds to add to (performance.now() ms * 1000) for this document,
     and the half round trip that bounds its error. A clock sample is used only
     if it is consistent with every record of the document (nothing received
-    before it was sent)."""
+    before it was sent) and, after a reload, if its time origin is not before
+    `earliest`: the previous document's last record. A sample that the
+    previous document answered has that document's earlier time origin."""
     records = doc["records"]
     bound = min((r["recv"] - r["rec"]["t"] * 1000 for r in records if "recv" in r), default=None)
     best = None
@@ -76,6 +77,8 @@ def clock_offset(doc, clocks):
         offset = (sample["t0"] + sample["t1"]) / 2 - sample["js"] * 1000
         error = (sample["t1"] - sample["t0"]) / 2
         if bound is not None and offset - error > bound + 1:
+            continue
+        if earliest is not None and offset + error < earliest - 1:
             continue
         if sample["t1"] < (doc["first_recv"] or 0) - 2_000_000:
             continue
@@ -100,10 +103,13 @@ def analyze(lines, window_ms=150):
         nominal_us = gaps[len(gaps) // 2]
 
     events = []
+    earliest = None
     for index, doc in enumerate(documents(lines)):
-        offset, error = clock_offset(doc, clocks)
+        offset, error = clock_offset(doc, clocks, earliest)
         if offset is None:
             continue
+        # The next document's time origin is after this one's last record.
+        earliest = offset + max(record["rec"]["t"] for record in doc["records"]) * 1000
         for record in doc["records"]:
             rec = record["rec"]
             events.append({**rec, "doc": index, "mono": offset + rec["t"] * 1000, "clockError": error})
@@ -172,10 +178,16 @@ def end_windows(group):
         create = next((e for e in group if e["ev"] == "anim.create" and e.get("anim") == anim), None)
         finish = next((e for e in group if e["ev"] in ("anim.finish", "anim.cancel") and e.get("anim") == anim), None)
         label = event.get("label")
+        # Only an animation the trace shows reaching its end has an end window:
+        # its finish time, else the effect end time recorded at creation when
+        # the trace has no finish record. A cancelled animation never ended.
+        if finish and finish["ev"] == "anim.cancel":
+            continue
         duration = None
-        if finish and finish["ev"] == "anim.finish" and isinstance(finish.get("currentTime"), (int, float)):
+        if finish and isinstance(finish.get("currentTime"), (int, float)):
             duration = finish["currentTime"]
-        duration = duration if duration is not None else FADE_MS.get(label)
+        elif finish is None and create and isinstance(create.get("endTime"), (int, float)):
+            duration = create["endTime"]
         if duration is None:
             continue
         # The document timeline and performance.now() share an origin.

@@ -165,15 +165,30 @@ a `blob:` URL, so the lab does not change the GStreamer protocol allowlist.
 | `--timeout`        | 900           | seconds                                                   |
 | `--inspector`      | off           | Web Inspector on a loopback address. See "Web Inspector". |
 
-Exit status: 0 no anomaly, 3 anomalies, 4 setup failure, 5 timeout.
+Exit status and `result`:
+
+| Exit | `result`                                     | Meaning                                                                                 |
+| ---- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 0    | `pass`                                       | inspected frames were judged and no anomaly was found                                   |
+| 0    | `pacing_only`                                | `--inspect=off`: pacing only, no pixel result                                           |
+| 3    | `anomalies`                                  | at least one impossible frame                                                           |
+| 4    | `scene_error`, `scene_not_found`, and others | setup or scene failure; also when `summary.json` cannot be written                      |
+| 5    | `timeout`                                    | the run did not end in `--timeout` seconds                                              |
+| 6    | `incomplete_inspection`                      | no anomaly, but frames that a rule applied to could not be read, or no frame was judged |
+
+A clean result needs frames that were read and judged. If the lab cannot read
+back the presented buffers, the result is `incomplete_inspection`, not `pass`.
 
 Output:
 
 - `summary.json`: versions, compositor variables, buffer kinds and formats,
-  pacing for all frames and during transitions, import cost, anomaly counts and
-  the first anomalies;
+  pacing for all frames and during transitions, import cost, `inspection`
+  (frames judged, frames in the settle grace, frames not read), anomaly counts
+  and the first anomalies;
 - `timeline.jsonl`: the same `frame` and `clock` lines as the visual trace,
-  plus `marker`, `inspect` and `anomaly` lines;
+  plus `marker`, `inspect` and `anomaly` lines. An `inspect` line has the
+  verdict `unchecked` when no rule applied to the frame, for example in the two
+  frames after `settled`. The `end` line has `summaryWritten`;
 - `anomaly-NN-{before,frame,after}-seqNNNNNN.ppm`: frame dumps.
 
 ### Scenes
@@ -189,11 +204,29 @@ All scenes are in `lab/scenes/` and use only `lab.js` and browser APIs.
 | `startup-minimal`            | the startup reveal: pulse, settle, mark recede, perspective card push, white sheet, resolve fade, removal                                                             |
 | `video-crossfade`            | the crossfade with `<video>` content (DMA-BUF external textures on hardware)                                                                                          |
 
-`crossfade-cleanup-variants` variants: `retain-animation`, `keep-pin`,
-`no-pin`, `commit-final`, `outgoing-1f`, `outgoing-2f`, `keep-outgoing`,
-`image`, `busy-end`. Every scene has `busy-end`. It blocks the main thread for
-120 ms around the end of the animation, so a compositor that shows a wrong
-value after the end shows it for many frames.
+Variants of each scene:
+
+| Scene                        | Variants                                                                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `opacity-basic`              | `busy-end`, `forwards`, `no-pin`                                                                                             |
+| `crossfade`                  | none                                                                                                                         |
+| `crossfade-cleanup-variants` | `retain-animation`, `keep-pin`, `no-pin`, `commit-final`, `outgoing-1f`, `outgoing-2f`, `keep-outgoing`, `image`, `busy-end` |
+| `transform-3d`               | `preserve-3d`, `cross-camera`, `busy-end`                                                                                    |
+| `startup-minimal`            | `busy-end`                                                                                                                   |
+| `video-crossfade`            | `hidden-start`, `busy-end`                                                                                                   |
+
+The lab refuses a variant that the scene does not read, so a misspelled
+variant cannot be recorded beside a baseline result. `crossfade` is the
+baseline and takes no variant: use `crossfade-cleanup-variants` for
+`busy-end`.
+
+`busy-end` blocks the main thread for 120 ms around the end of the animation,
+so a compositor that shows a wrong value after the end shows it for many
+frames. The scene starts the block from the animation's own clock, 20 ms
+before the effect ends, after the animation has started.
+
+`cross-camera` sets its end depth from the card's height, so the near edge
+goes past the camera plane at every view size, the 640x360 smoke run included.
 
 These variants are experiments. They are not product changes.
 
@@ -216,6 +249,16 @@ lab imports the pixels (`wpe_buffer_import_to_pixels()`), samples a grid of
 
 Markers arrive over IPC and can come one frame late. The rules allow this.
 
+A `settled` marker with a color that the scene did not declare is a scene
+error. A `transition-start` with an unknown color keeps the active path. A
+path that comes back to a color, such as `a:b:a`, is refused with the
+`reversal` rule, because one color then has two positions on the path.
+
+DMA-BUF buffers are read back only in the `XR24` and `AR24` formats, the
+formats that the WebKit 2.54 importer reads. Other formats are counted as
+`unsupported_format`. SHM buffers are read from their own memory with their
+own stride.
+
 `--inspect=transitions` imports buffers only while a rule applies.
 `--inspect=all` imports every buffer. `--inspect=off` imports none and is the
 setting for pacing measurements. An import runs in the `buffer-rendered`
@@ -228,14 +271,14 @@ The lab inspects the buffer that WPE presents. On DRM, WPEPlatform emits
 `buffer-rendered` from the page-flip handler, after the buffer is on scanout.
 Use this table:
 
-| Lab result in the WPE buffer                            | Screen or camera              | Where the defect is                                                                        |
-| ------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
-| anomaly                                                 | flash                         | WebKit composition: Skia layer state, damage, tiles                                        |
-| no anomaly                                              | flash                         | below WebCore: WPEPlatform DRM page flips, buffer release and reuse, modifiers, the driver |
-| anomaly with `busy-end` only                            | flash during busy main thread | compositor state while the main thread is late                                             |
-| anomaly in `video-crossfade` only                       | flash with video only         | video frames and external textures                                                         |
-| anomaly with one cleanup variant only                   | flash                         | the completion step that the variant changes                                               |
-| no anomaly, Runtime trace shows a wrong order of events | flash                         | the Runtime or its JavaScript and WAAPI state                                              |
+| Lab result in the WPE buffer                            | Screen or camera              | Where the defect is                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| anomaly                                                 | flash                         | WebKit composition: Skia layer state, damage, tiles                                                                                                                                                                                                                                                |
+| no anomaly                                              | flash                         | inconclusive: the grid samples 3x3 regions, so a defect between them is not seen. Add a probe or a denser `--grid` over the defect. If the defect is then inside the sampled area and still not found: below WebCore (WPEPlatform DRM page flips, buffer release and reuse, modifiers, the driver) |
+| anomaly with `busy-end` only                            | flash during busy main thread | compositor state while the main thread is late                                                                                                                                                                                                                                                     |
+| anomaly in `video-crossfade` only                       | flash with video only         | video frames and external textures                                                                                                                                                                                                                                                                 |
+| anomaly with one cleanup variant only                   | flash                         | the completion step that the variant changes                                                                                                                                                                                                                                                       |
+| no anomaly, Runtime trace shows a wrong order of events | flash                         | the Runtime or its JavaScript and WAAPI state                                                                                                                                                                                                                                                      |
 
 A camera at a high frame rate confirms what the panel shows.
 
@@ -244,7 +287,9 @@ A camera at a high frame rate confirms what the panel shows.
 `summary.json` has `pacing` (all presentations) and `pacingDuringTransitions`:
 frames, mean, median, p95, p99 and maximum interval, frames per second, long
 frames (over 1.5 display intervals) and an estimate of missed display
-intervals. Run the same scene with `--inspect=off` for Skia and for
+intervals. `pacingDuringTransitions` counts only the intervals between two
+frames inside the same transition. The settle time and the waits between
+transitions are in `pacing` only. Run the same scene with `--inspect=off` for Skia and for
 TextureMapper to compare smoothness. A fix must keep the Skia pacing.
 
 ## Experiment matrix
@@ -282,6 +327,14 @@ Each lab run writes `run.json` with the variables it requested, the variables
 that the lab and its web process really had, and the compositor that those
 variables mean (see [Environment integrity](#environment-integrity)). A run
 whose environment is not the profile's is not counted.
+
+The result directory belongs to the `tilecast` account, because the lab runs
+as that account. The tool runs as root, so it never opens a path there that it
+did not create: it writes `run.json` to a new file and renames it into place,
+and it reads lab output only as regular files, without following links. The
+lab's transient unit has `RuntimeMaxSec=`, 120 s more than the lab's own
+900 s timeout. A lab that stops making progress is stopped, and the renderers
+start again.
 
 ## Testing another WPE build on a screen
 
@@ -371,7 +424,18 @@ Do not start an Edge update while an overlay is installed. If one starts,
 reboot the screen: the reboot removes the overlay.
 
 `overlay purge` is not needed: an overlay directory is inactive without its
-drop-in. Delete `/var/lib/tilecast-wpe-debug` to remove all diagnostics files.
+drop-in.
+
+To remove all diagnostics files, do these steps in this order:
+
+1. Run `overlay restore` and `runtime-overlay restore`. Each one must report
+   that the renderer runs the release's own files.
+2. Run `doctor`. It must show no overlay of this tool.
+3. Delete `/var/lib/tilecast-wpe-debug`.
+
+If you delete the directory while an overlay drop-in is installed, the
+renderer cannot start: its `BindReadOnlyPaths=` source is gone. To recover,
+run `overlay restore` and `runtime-overlay restore`, or reboot the screen.
 
 ### Patch WebKit and test again
 
@@ -442,7 +506,23 @@ the [field bundle](#field-bundle).
    allowlisted variables with the profile. A variable that is missing, extra or
    different is a mismatch. A web process that does not appear in 30 s is
    "unverified" and also refused. On a mismatch the tool removes its drop-in,
-   restarts the renderer, and prints the differences. No trace is kept.
+   restarts the renderer, and prints the differences. The renderer started with
+   the trace before the check, so the cache holds that attempt's trace. The
+   tool records the refused attempt in `trace-meta.json` (`refused`,
+   `problems`), and `trace collect` says that the trace is not a verified
+   profile.
+
+   A second `trace enable` replaces an active trace. If the tool refuses the
+   new request before it restarts the renderer (a bad `--seconds`, an
+   inherited variable), the active trace drop-in stays as it was.
+
+   The tool reads the effective environment as systemd does: the service
+   manager's environment, then the unit's `Environment=`, then its
+   `EnvironmentFile=` files, and the last one wins. An empty `Environment=`
+   discards the assignments before it. `UnsetEnvironment=NAME` removes the
+   variable. `UnsetEnvironment=NAME=VALUE` removes it only when its value is
+   `VALUE`.
+
 4. **Lab.** The lab runs in a transient unit that sets the profile and
    `UnsetEnvironment=` for every other allowlisted variable. While it runs, the
    tool reads the lab's environment and its web process's. A mismatch stops
@@ -550,8 +630,23 @@ sudo python3 -I tilecast_wpe_debug.py runtime-overlay restore
 
 `runtime-overlay restore` removes the drop-in, restarts the renderer, and
 compares the running binary and Runtime with the signed release manifest
-(`tilecast-edge-release.json`). `runtime-overlay status` prints the commit and
-whether the running process matches.
+(`tilecast-edge-release.json`). A trace enabled with the overlay passes
+`--visual-trace`, which a release renderer without that option refuses at
+startup. So restore also removes the trace drop-in, and says so. `trace
+collect` still copies what the trace recorded. If no overlay drop-in is
+installed, restore checks that the renderer runs the release's files. If it
+does not (an earlier restart failed), restore restarts it again. If the
+restart fails, run `runtime-overlay restore` again or reboot the screen.
+`runtime-overlay status` prints the commit and whether the running process
+matches.
+
+The installer refuses an archive before it changes the screen when the tar
+file is damaged, when the manifest's binary record or Runtime manifest hash
+does not match the files, when a Runtime host file is missing, or when the
+renderer's build identity is not exactly the manifest's commit. A renderer
+built from a modified tree (`<commit>-dirty`) does not pass for the clean
+commit. An archive larger than the 256 MiB bound is refused before it is
+read.
 
 Why this is safe:
 
@@ -608,8 +703,11 @@ screen's release (see [Diagnostic Tilecast overlay](#diagnostic-tilecast-overlay
     the startup and the crossfades on the screen.
 11. Restore: `overlay restore`, then `runtime-overlay restore`, then `doctor`.
     A reboot also restores the signed release.
-12. Make the bundle:
-    `bundle --out graphics.tar.gz --trace --results /var/lib/tilecast-wpe-debug/results/<run> ...`.
+12. Make the bundle with every collected trace:
+    `bundle --out graphics.tar.gz --traces trace-skia --traces trace-texturemapper --traces trace-skia-2.54.3 --results /var/lib/tilecast-wpe-debug/results/<run> ...`.
+    `--trace` copies only the trace in the renderer's cache and its previous
+    copy, and each new trace replaces the oldest. The collected directories
+    keep all three.
 13. On a computer, run `visual_trace_report.py` on each trace. Compare the
     `end-window` frames with the film.
 
@@ -643,13 +741,20 @@ buffer has the wrong picture.
   this tool set, with the Tilecast git commit of an active diagnostic overlay;
 - with `--results`: `summary.json`, `timeline.jsonl`, `run.json` and the
   anomaly dumps of the given lab runs;
-- with `--trace`: the visual traces and `trace-meta.json` (requested and
-  observed environment, Tilecast commit, renderer and Runtime hashes, WPE
-  overlay);
+- with `--trace`: the visual traces in the renderer's cache and
+  `trace-meta.json` (requested and observed environment, Tilecast commit,
+  renderer and Runtime hashes, WPE overlay);
+- with `--traces DIR` (repeat it): the files that `trace collect` wrote to each
+  directory;
 - with `--renderer-log`: the current boot's renderer journal, sanitized.
 
 It does not collect credentials, Server addresses, screen, player or manifest
-IDs, file names, content, EDID, the host name or other journals. The GL
+IDs, file names, content, EDID, the host name or other journals. The `doctor`
+data in the bundle does not include the renderer's `ExecStart`, because a
+custom argument can hold a path or a host.
+
+The trace and result directories belong to other accounts. The tool reads each
+file in them without following a link, and only if it is a regular file. The GL
 renderer string is not collected, because no EGL context is created for it.
 
 `--renderer-log` passes the journal through `sanitize_log.py`. Then it checks

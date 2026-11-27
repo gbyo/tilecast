@@ -102,7 +102,9 @@ gboolean tc_lab_detector_has_color (TcLabDetector *detector, const char *name);
 
 gboolean tc_lab_detector_transition_start (TcLabDetector *detector, const char *from, const char *to,
                                            TcLabRules rules);
-/* The same along 2 to TC_LAB_MAX_PATH palette colors. */
+/* The same along 2 to TC_LAB_MAX_PATH palette colors. Refused (and the
+ * active path kept) for an unknown name, or for a path that repeats a color
+ * when the reversal rule is asked for. */
 gboolean tc_lab_detector_transition_path (TcLabDetector *detector, const char *const *names, guint n,
                                           TcLabRules rules);
 gboolean tc_lab_detector_settled (TcLabDetector *detector, const char *color);
@@ -111,6 +113,11 @@ void tc_lab_detector_arm (TcLabDetector *detector);
 /* Back to idle: no rule applies. */
 void tc_lab_detector_reset (TcLabDetector *detector);
 gboolean tc_lab_detector_checking (TcLabDetector *detector);
+/* Between "transition-start" and "settled": the frames transition pacing counts. */
+gboolean tc_lab_detector_in_transition (TcLabDetector *detector);
+/* Did the last tc_lab_detector_frame apply a rule? FALSE when it was idle,
+ * armed, or inside the settle grace after "settled". */
+gboolean tc_lab_frame_was_checked (const TcLabFrameMetrics *metrics);
 
 /* Checks one frame's samples (tc_lab_detector_points() of them). */
 TcLabVerdict tc_lab_detector_frame (TcLabDetector *detector, const TcRgb *samples, TcLabFrameMetrics *metrics);

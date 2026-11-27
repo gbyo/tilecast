@@ -58,6 +58,11 @@ export interface VisualTraceSink {
   schema: typeof VISUAL_TRACE_SCHEMA;
   deep: boolean;
   emit(batch: TraceBatch): void;
+  /**
+   * False once the host's trace window has ended. Optional: a sink without it
+   * stays active for the life of the document.
+   */
+  active?(): boolean;
 }
 
 /** Identity attached to every record of one traced transition. */
@@ -145,7 +150,8 @@ export function isVisualTraceSink(value: unknown): value is VisualTraceSink {
   return (
     sink.schema === VISUAL_TRACE_SCHEMA &&
     typeof sink.deep === "boolean" &&
-    typeof sink.emit === "function"
+    typeof sink.emit === "function" &&
+    (sink.active === undefined || typeof sink.active === "function")
   );
 }
 
@@ -157,6 +163,17 @@ function timing(animation: Animation): TraceFields {
     startTime: typeof startTime === "number" ? round(startTime) : null,
     currentTime: typeof currentTime === "number" ? round(currentTime) : null,
   };
+}
+
+/** The effect's end on the animation's own timeline, so a trace can tell an
+ * animation that reached its end from one cancelled before it. */
+function effectEnd(animation: Animation): TraceFields {
+  const effect = (animation as Partial<Animation>).effect;
+  if (!effect || typeof effect.getComputedTiming !== "function") return {};
+  const end = effect.getComputedTiming().endTime;
+  return typeof end === "number" && Number.isFinite(end)
+    ? { endTime: round(end) }
+    : {};
 }
 
 interface Clock {
@@ -207,10 +224,14 @@ class ActiveVisualTrace implements VisualTrace {
 
   record(scope: TraceScope, event: string, fields?: TraceFields): void {
     if (this.stopped) return;
+    if (!this.sinkActive()) {
+      this.stop();
+      return;
+    }
     if (this.total >= TRACE_LIMITS.total) {
-      this.stopped = true;
       this.push({ t: round(this.clock.now()), scope: "trace", ev: "limit" });
       this.flush();
+      this.stop();
       return;
     }
     if (this.pending.length >= TRACE_LIMITS.pending) {
@@ -251,7 +272,11 @@ class ActiveVisualTrace implements VisualTrace {
   ): number {
     const anim = this.nextId("animation");
     const base = { ...tag.fields, anim, label };
-    this.record(tag.scope, "anim.create", { ...base, ...timing(animation) });
+    this.record(tag.scope, "anim.create", {
+      ...base,
+      ...timing(animation),
+      ...effectEnd(animation),
+    });
     const ready = (animation as Partial<Animation>).ready;
     if (ready && typeof ready.then === "function") {
       ready.then(
@@ -278,7 +303,7 @@ class ActiveVisualTrace implements VisualTrace {
           }),
       );
     }
-    if (this.deep && element) {
+    if (this.deep && element && !this.stopped) {
       const stop = this.sample(tag, label, element);
       if (finished && typeof finished.then === "function")
         finished.then(stop, stop);
@@ -287,7 +312,8 @@ class ActiveVisualTrace implements VisualTrace {
   }
 
   sample(tag: TraceTag, label: string, element: Element): () => void {
-    if (!this.deep || !this.clock.requestAnimationFrame) return noop;
+    if (this.stopped || !this.deep || !this.clock.requestAnimationFrame)
+      return noop;
     const id = this.nextId("sample");
     this.samples.set(id, { tag, label, element });
     this.startSampling();
@@ -317,6 +343,22 @@ class ActiveVisualTrace implements VisualTrace {
     }
   }
 
+  /** Ends recording and sampling: at the record limit or when the host's window ends. */
+  private stop(): void {
+    this.stopped = true;
+    this.samples.clear();
+    this.pending = [];
+    this.dropped = 0;
+  }
+
+  private sinkActive(): boolean {
+    try {
+      return this.sink.active === undefined || this.sink.active() !== false;
+    } catch {
+      return false;
+    }
+  }
+
   private push(record: TraceRecord): void {
     this.total += 1;
     this.pending.push(record);
@@ -332,6 +374,7 @@ class ActiveVisualTrace implements VisualTrace {
     if (this.sampling) return;
     this.sampling = true;
     const frame = (time: number) => {
+      if (this.samples.size > 0 && !this.sinkActive()) this.stop();
       if (this.samples.size === 0) {
         this.sampling = false;
         return;

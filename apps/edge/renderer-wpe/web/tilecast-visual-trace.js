@@ -38,13 +38,23 @@
     send({ ...batch, records: records.slice(0, half) });
     send({ ...batch, dropped: 0, records: records.slice(half) });
   };
+  // The renderer calls stop() when its trace window ends; the Runtime asks
+  // active() before it records or samples, so nothing runs after that.
+  let active = true;
   const sink = Object.freeze({
     schema: "tilecast-visual-v1",
     deep,
     emit(batch) {
+      if (!active) return;
       try {
         send(batch);
       } catch {}
+    },
+    active() {
+      return active;
+    },
+    stop() {
+      active = false;
     },
   });
   Object.defineProperty(globalThis, "__tilecastVisualTrace", {

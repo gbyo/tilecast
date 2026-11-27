@@ -45,10 +45,37 @@ const Lab = (() => {
     const end = performance.now() + ms;
     while (performance.now() < end) {}
   };
-  /* Busy around `animation`'s end if the variant asks for it. */
+  /* Busy around `animation`'s end if the variant asks for it. The stall is
+   * scheduled from the animation's own clock once it has started (its start
+   * can trail animate() by frames), so it begins 20 ms before the effect ends
+   * and runs past it. `duration` is the fallback when the effect has no end
+   * time. Nothing runs if the animation ends or is cancelled first. */
   const stallAtEnd = (animation, duration, ms = 120) => {
     if (!variants.has("busy-end")) return;
-    setTimeout(() => busy(ms), Math.max(0, duration - 20));
+    let ended = false;
+    let timer = null;
+    const end = () => {
+      ended = true;
+      if (timer !== null) clearTimeout(timer);
+    };
+    animation.finished.then(end, end);
+    animation.ready.then(
+      () => {
+        if (ended) return;
+        const computed = animation.effect?.getComputedTiming?.().endTime;
+        const effectEnd = typeof computed === "number" ? computed : duration;
+        const current =
+          typeof animation.currentTime === "number" ? animation.currentTime : 0;
+        timer = setTimeout(
+          () => {
+            timer = null;
+            if (!ended) busy(ms);
+          },
+          Math.max(0, effectEnd - current - 20),
+        );
+      },
+      () => undefined,
+    );
   };
   const run = async (body) => {
     // Let the first frames settle before measuring anything.

@@ -70,12 +70,15 @@ previous trace stays as `visual-trace.jsonl.prev`.
 ## Mechanism
 
 1. `main.c` parses the options and enables page console output.
-2. `view.c` injects `web/tilecast-visual-trace.js` at document start. The
-   script goes into the page world of the trusted top document only, and only
-   at `tilecast://runtime/index.html`. Deep mode puts one fixed constant before
+2. `view.c` opens the trace file first. If it cannot open it, the renderer
+   injects no script and runs as without the option. Then `view.c` injects
+   `web/tilecast-visual-trace.js` at document start. The script goes into the
+   page world of the trusted top document only, and only at
+   `tilecast://runtime/index.html`. Deep mode puts one fixed constant before
    it. The host never puts a variable value into script source.
 3. The script defines a frozen `globalThis.__tilecastVisualTrace` sink. The
-   Runtime reads the sink once, when it first records.
+   Runtime reads the sink once, when it first records. The sink has
+   `active()`. The Runtime asks it before it records or samples a frame.
 4. The Runtime sends batches of at most 128 records. The sink forwards each
    batch through the existing native relay as a `diagnostics.visual_trace`
    report. A batch that is larger than the relay bound is split. A batch is
@@ -84,6 +87,11 @@ previous trace stays as `visual-trace.jsonl.prev`.
    goes to the local trace file only. It never goes to tilecastd.
 6. `visual-trace.c` follows the presented buffers of the view and samples the
    page clock once each second.
+7. When the trace window ends, `visual-trace.c` removes the injected scripts,
+   so a later document gets no sink. It also calls the sink's `stop()` with a
+   fixed script that has no arguments. After that, `active()` is false, and the
+   Runtime stops recording and stops deep sampling. The Runtime also stops at
+   its own record limit.
 
 This mechanism adds no generic native call bridge and no new script message
 handler. The host checks each record again (`src/visual-trace-format.c`).
@@ -168,7 +176,7 @@ Each stage crossfade has one `tx`:
 | `stage.swap`                             | The swap starts. Includes the outgoing layer and its `visible` state. |
 | `swap.stack`                             | z-index: incoming 1, outgoing 0.                                      |
 | `fade.pin`                               | Inline `opacity: 0` on the incoming layer.                            |
-| `anim.create`                            | `element.animate()` returned. Includes play state and times.          |
+| `anim.create`                            | `element.animate()` returned. Play state, times and effect `endTime`. |
 | `swap.visible`                           | The `visible` class is on the incoming layer.                         |
 | `anim.ready`                             | The animation is ready: `startTime`, `currentTime`, `playState`.      |
 | `anim.finish`, `anim.cancel`             | The animation ended.                                                  |
@@ -198,13 +206,19 @@ python3 apps/edge/renderer-wpe/diagnostics/visual_trace_report.py visual-trace.j
 
 The report maps each Runtime document to the host clock. It uses the clock
 sample with the smallest round trip that agrees with every record of that
-document. Then it prints, for each transition, the Runtime events and the
+document. After a reload, a sample is used for the new document only if its
+time origin is not before the last record of the previous document. A sample
+that the previous document answered has that document's earlier origin, so it
+is not used. Then it prints, for each transition, the Runtime events and the
 presented frames in time order. It flags:
 
 - `end-window`: a frame presented after the end of an animation on the
   compositor clock (`startTime` plus duration) and before the Runtime cleanup
   for that animation. A compositor that shows the resting value of an ended
-  animation shows a wrong picture in these frames.
+  animation shows a wrong picture in these frames. The duration is the
+  `currentTime` of `anim.finish`. Without a finish record, it is the effect's
+  `endTime`, which `anim.create` records. A cancelled animation did not reach
+  its end, so it has no end window.
 - `long-frame`: an interval longer than 1.5 display intervals.
 
 `--json` prints the same analysis as JSON.

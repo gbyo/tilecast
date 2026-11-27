@@ -42,6 +42,9 @@ HOST_FILES = ("tilecast-bridge.js", "tilecast-native-relay.js", "tilecast-visual
 # global for the sink (packages/player-runtime/src/diagnostics/visual-trace.ts).
 BINARY_MARKER = b"visual-trace-seconds"
 RUNTIME_MARKER = b"__tilecastVisualTrace"
+# src/visual-trace.c keeps "tilecast-build-id:<TILECAST_BUILD_COMMIT>" as one
+# NUL-terminated string, so the identity reads back whole and compares exactly.
+BUILD_ID = re.compile(rb"tilecast-build-id:([0-9a-z-]{1,64})\0")
 
 
 def sha256(data):
@@ -55,6 +58,15 @@ def source_id(commit, modified):
 
 def binary_supports_visual_trace(data):
     return BINARY_MARKER in data
+
+
+def build_id(data):
+    """The TILECAST_BUILD_COMMIT a renderer binary was built with, or None.
+
+    None when the binary has no build identity or more than one distinct one.
+    """
+    found = {match.decode() for match in BUILD_ID.findall(data)}
+    return found.pop() if len(found) == 1 else None
 
 
 def runtime_traceable(read, names):
@@ -118,8 +130,9 @@ def pack(renderer, runtime_dir, label, arch, commit, modified_files, diff_sha256
     if not binary_supports_visual_trace(binary):
         raise ValueError("the renderer binary has no --visual-trace option; build it from a checkout with #1946")
     identity = source_id(commit, bool(modified_files))
-    if identity.encode() not in binary:
-        raise ValueError(f"the renderer binary was not built with TILECAST_BUILD_COMMIT={identity}")
+    if build_id(binary) != identity:
+        raise ValueError(f"the renderer binary was not built with TILECAST_BUILD_COMMIT={identity} "
+                         f"(it says {build_id(binary) or 'nothing readable'})")
     runtime_files = read_dir(runtime_dir)
     for name in ("runtime-manifest.json", "index.html", *HOST_FILES):
         if name not in runtime_files:
@@ -161,24 +174,32 @@ def read_tar(data, arch):
     """
     files = {}
     total = 0
-    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-        for member in archive.getmembers():
-            name = member.name
-            parts = Path(name).parts
-            if name.startswith("/") or ".." in parts or not parts or parts[0] != "runtime":
-                raise Invalid(f"member outside runtime/: {name}")
-            if member.isdir():
-                continue
-            if not member.isfile():
-                raise Invalid(f"member is not a regular file: {name}")
-            total += member.size
-            if total > MAX_BYTES:
-                raise Invalid("the archive is larger than the 256 MiB bound")
-            files["/".join(parts[1:])] = archive.extractfile(member).read()
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+            for member in archive.getmembers():
+                name = member.name
+                parts = Path(name).parts
+                if name.startswith("/") or ".." in parts or not parts or parts[0] != "runtime":
+                    raise Invalid(f"member outside runtime/: {name}")
+                if member.isdir():
+                    continue
+                if not member.isfile():
+                    raise Invalid(f"member is not a regular file: {name}")
+                total += member.size
+                if total > MAX_BYTES:
+                    raise Invalid("the archive is larger than the 256 MiB bound")
+                files["/".join(parts[1:])] = archive.extractfile(member).read()
+    except (tarfile.TarError, EOFError, OSError, UnicodeError) as error:
+        raise Invalid(f"the archive is not a readable tar file ({error})")
     raw = files.pop(MANIFEST, None)
     if raw is None:
         raise Invalid(f"the archive has no {MANIFEST}")
-    manifest = json.loads(raw)
+    try:
+        manifest = json.loads(raw)
+    except ValueError as error:
+        raise Invalid(f"the manifest is not JSON ({error})")
+    if not isinstance(manifest, dict):
+        raise Invalid("the manifest is not a JSON object")
     if manifest.get("schema") != SCHEMA or not LABEL.match(str(manifest.get("label", ""))):
         raise Invalid(f"the manifest is not a {SCHEMA} manifest with a valid label")
     if manifest.get("arch") != arch:
@@ -187,25 +208,36 @@ def read_tar(data, arch):
     if not COMMIT.match(str(source.get("commit", ""))):
         raise Invalid("the manifest does not name a full git commit")
     listed = manifest.get("files", {})
-    if set(listed) != set(files):
+    if not isinstance(listed, dict) or set(listed) != set(files):
         raise Invalid("the archive files do not match its manifest")
     for path, entry in listed.items():
-        if sha256(files[path]) != entry.get("sha256"):
+        if not isinstance(entry, dict) or sha256(files[path]) != entry.get("sha256"):
             raise Invalid(f"{path} does not match its manifest hash")
     binary = files.get(BINARY)
     if binary is None:
         raise Invalid(f"the archive has no {BINARY}")
+    # The installer reads this record after it restarts the renderer, so it is
+    # checked against the binary's bytes here, before anything changes.
+    if manifest.get("binary") != {"path": BINARY, "sha256": sha256(binary), "size": len(binary)}:
+        raise Invalid("the manifest's binary record does not match the renderer in the archive")
     if not binary_supports_visual_trace(binary):
         raise Invalid("the renderer in this archive has no --visual-trace option")
     identity = source_id(source["commit"], bool(source.get("modifiedFiles")))
-    if identity.encode() not in binary:
+    if build_id(binary) != identity:
         raise Invalid("the renderer was not built from the commit the manifest names")
     web = {path[len(WEB_DIR) + 1:]: content for path, content in files.items() if path.startswith(WEB_DIR + "/")}
-    if manifest.get("runtime", {}).get("files") != {name: sha256(content) for name, content in sorted(web.items())}:
+    for name in ("runtime-manifest.json", "index.html", *HOST_FILES):
+        if name not in web:
+            raise Invalid(f"the archive has no Runtime file {name}")
+    runtime = manifest.get("runtime")
+    if not isinstance(runtime, dict) or runtime.get("files") != {
+            name: sha256(content) for name, content in sorted(web.items())}:
         raise Invalid("the Runtime file list in the manifest does not match the archive")
+    if runtime.get("manifestSha256") != sha256(web["runtime-manifest.json"]):
+        raise Invalid("the manifest's Runtime manifest hash does not match the archive")
     try:
         verify_runtime_manifest(web)
-    except (KeyError, ValueError) as error:
+    except (KeyError, ValueError, TypeError) as error:
         raise Invalid(f"the Runtime does not match its own manifest: {error}")
     ok, reason = runtime_traceable(lambda name: web[name], list(web))
     if not ok:

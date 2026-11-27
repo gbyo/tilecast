@@ -381,6 +381,57 @@ class TraceReport(unittest.TestCase):
         self.assertIn("WebKit 2.54.0 on drm", text)
         self.assertIn("<-- end-window", text)
 
+    def test_a_cancelled_fade_has_no_end_window(self):
+        lines = trace_lines()
+        for line in lines:
+            if line.get("rec", {}).get("ev") == "anim.finish":
+                line["rec"]["ev"], line["rec"]["currentTime"] = "anim.cancel", 200.0
+        (transition,) = report.analyze(lines)["transitions"]
+        self.assertEqual(transition["endWindows"], [])
+        self.assertEqual([i for i in transition["flagged"] if "end-window" in i["flags"]], [])
+
+    def test_without_a_finish_record_the_recorded_effect_end_is_used(self):
+        lines = [line for line in trace_lines() if line.get("rec", {}).get("ev") != "anim.finish"]
+        (transition,) = report.analyze(lines)["transitions"]
+        self.assertEqual(transition["endWindows"], [])
+        for line in lines:
+            if line.get("rec", {}).get("ev") == "anim.create":
+                line["rec"]["endTime"] = 300.0
+        (transition,) = report.analyze(lines)["transitions"]
+        (window,) = transition["endWindows"]
+        self.assertAlmostEqual(window["ms"], 40.2, places=1)
+
+    def test_a_reload_aligns_the_new_document_with_its_own_clock(self):
+        lines = trace_lines()
+        offset = 6_500_000  # the second document's time origin, 1.5 s after the first's
+        # The second document's own sample has a larger error than the first's,
+        # which must still never be used for it.
+        lines.append({"type": "clock", "t0": offset + 50_000 - 2000, "t1": offset + 50_000 + 2000, "js": 50.0})
+
+        def runtime(t, ev, **fields):
+            lines.append({"type": "runtime", "recv": offset + int(t * 1000) + 2000, "batch": 1, "sentAt": t,
+                          "rec": {"t": t, "scope": fields.pop("scope", "stage"), "ev": ev, **fields}})
+
+        runtime(1, "start", scope="trace")
+        runtime(100, "stage.swap", tx=1, kind="video", incoming="a")
+        runtime(100.2, "anim.create", tx=1, anim=1, label="fade-in")
+        runtime(111, "anim.ready", tx=1, anim=1, label="fade-in", startTime=110.0, currentTime=1.0)
+        runtime(430, "anim.finish", tx=1, anim=1, label="fade-in", currentTime=300.0)
+        runtime(440, "fade.unpin", tx=1)
+        for i in range(30):
+            lines.append({"type": "frame", "ev": "rendered", "mono": offset + 100_000 + i * 16_667, "seq": 101 + i})
+        lines.sort(key=lambda line: line.get("mono", line.get("recv", 0)))
+        result = report.analyze(lines)
+        second = [t for t in result["transitions"] if t["doc"] == 1]
+        self.assertEqual(len(second), 1)
+        flagged = [item["seq"] for item in second[0]["flagged"] if "end-window" in item["flags"]]
+        # The fade ends at 410 ms on the second document's clock (mono 6 910 000)
+        # and is unpinned at 440 ms: frames 120 and 121 fall in between.
+        self.assertEqual(flagged, [120, 121])
+        # The first document keeps its own alignment.
+        first = [t for t in result["transitions"] if t["doc"] == 0][0]
+        self.assertEqual([i["seq"] for i in first["flagged"] if "end-window" in i["flags"]], [19, 20, 21])
+
     def test_documents_split_on_reload(self):
         lines = trace_lines()
         lines.append({"type": "runtime", "recv": 9_000_000, "batch": 1, "sentAt": 1,

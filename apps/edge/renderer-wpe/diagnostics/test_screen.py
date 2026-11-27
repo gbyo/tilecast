@@ -31,7 +31,14 @@ from test_diagnostics import SHOW  # noqa: E402
 
 COMMIT = "c" * 40
 RELEASE_BINARY = b"ELF tilecast-renderer-wpe 1.4.0 (no trace)"
-OVERLAY_BINARY = b"ELF tilecast-renderer-wpe with visual-trace-seconds built from " + COMMIT.encode()
+
+
+def renderer_binary(identity):
+    """A stand-in renderer with the trace option and the delimited build identity of src/visual-trace.c."""
+    return b"ELF tilecast-renderer-wpe with visual-trace-seconds\0tilecast-build-id:" + identity.encode() + b"\0rest"
+
+
+OVERLAY_BINARY = renderer_binary(COMMIT)
 TEXTUREMAPPER = {"WEBKIT_USE_SKIA_FOR_COMPOSITION": "0"}
 
 
@@ -119,11 +126,11 @@ class FakeScreen:
         return env
 
     def unsets(self):
-        names = set()
+        entries = set()
         for path in self.dropin_files():
             for line in parse_assignments(path.read_text(), "UnsetEnvironment"):
-                names |= env_lib.parse_unset(line)
-        return names
+                entries |= env_lib.parse_unset(line)
+        return entries
 
     def binds(self):
         found = {}
@@ -136,8 +143,8 @@ class FakeScreen:
     def process_env(self):
         env = {**self.manager_env, **self.effective()}
         if not self.ignore_unset:
-            for name in self.unsets():
-                env.pop(name, None)
+            entries = self.unsets()
+            env = {name: value for name, value in env.items() if not env_lib.is_unset(name, value, entries)}
         return env
 
     def start(self):
@@ -181,7 +188,8 @@ class FakeScreen:
                 "EnvironmentFiles": "",
                 "DropInPaths": " ".join(str(path) for path in self.dropin_files()),
                 "FragmentPath": "/usr/lib/systemd/system/tilecast-renderer.service",
-                "UnsetEnvironment": " ".join(sorted(self.unsets())),
+                "UnsetEnvironment": " ".join(sorted(name if value is None else f"{name}={value}"
+                                                    for name, value in self.unsets())),
                 "ExecStart": SHOW,
                 "MainPID": str(self.pid) if self.running and unit == tool.RENDERER_UNIT else "0",
                 "ActiveState": "active" if self.running and unit == tool.RENDERER_UNIT else "inactive",
@@ -367,7 +375,11 @@ class InheritedTextureMapper(unittest.TestCase):
             self.assertIn("renderer process: WEBKIT_USE_SKIA_FOR_COMPOSITION=0 is set", str(refused.exception))
             self.assertIn("no trace was kept", str(refused.exception))
             self.assertFalse(screen.trace_dropin_exists())
-            self.assertFalse(screen.paths.session.exists())
+            # The attempt started the renderer with the trace, so its record says it was refused.
+            current = json.loads(screen.paths.session.read_text())["current"]
+            self.assertTrue(current["refused"])
+            self.assertFalse(current["profile"]["verified"])
+            self.assertIn("WEBKIT_USE_SKIA_FOR_COMPOSITION=0 is set", current["problems"][0])
             self.assertEqual(screen.restart_count(), 2)  # the trace start and the rollback
 
     def test_the_web_process_is_checked_as_well_as_the_renderer(self):
@@ -668,7 +680,10 @@ class RuntimeOverlay(unittest.TestCase):
             # A dirty tree needs its diff hash and its own build identity.
             with self.assertRaisesRegex(ValueError, "not built with"):
                 make_overlay(work, modified=3)
-            dirty_binary = OVERLAY_BINARY + b" " + (COMMIT + "-dirty").encode()
+            dirty_binary = renderer_binary(COMMIT + "-dirty")
+            # A dirty renderer never passes for the clean commit it contains.
+            with self.assertRaisesRegex(ValueError, "not built with"):
+                make_overlay(work, binary=dirty_binary)
             _, manifest = make_overlay(work, modified=3, binary=dirty_binary)
             self.assertEqual(manifest["source"]["modifiedFiles"], 3)
             self.assertEqual(manifest["source"]["diffSha256"], "d" * 64)
@@ -763,6 +778,255 @@ class BundleFacts(unittest.TestCase):
             self.assertEqual(facts["runtimeOverlays"][0]["commit"], COMMIT)
             self.assertEqual(facts["doctor"]["live"]["compositor"], "texturemapper")
             self.assertEqual(meta["current"]["profile"]["observed"]["webProcess"], TEXTUREMAPPER)
+
+
+class EnvironmentPrecedence(unittest.TestCase):
+    def read(self, files):
+        return lambda path: files.get(path)
+
+    def test_a_value_qualified_unset_removes_only_that_value(self):
+        show = {"Environment": "WEBKIT_USE_SKIA_FOR_COMPOSITION=0", "DropInPaths": "/etc/a.conf /etc/b.conf"}
+        files = {"/etc/a.conf": "Environment=WEBKIT_USE_SKIA_FOR_COMPOSITION=0\n",
+                 "/etc/b.conf": "UnsetEnvironment=WEBKIT_USE_SKIA_FOR_COMPOSITION=1\n"}
+        found = env_lib.inherited_environment(show, {}, self.read(files), tool.TOOL_DROPINS)
+        self.assertEqual([(i["name"], i["value"]) for i in found], [("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0")])
+        files["/etc/b.conf"] = "UnsetEnvironment=WEBKIT_USE_SKIA_FOR_COMPOSITION=0\n"
+        self.assertEqual(env_lib.inherited_environment(show, {}, self.read(files), tool.TOOL_DROPINS), [])
+        files["/etc/b.conf"] = "UnsetEnvironment=WEBKIT_USE_SKIA_FOR_COMPOSITION\n"
+        self.assertEqual(env_lib.inherited_environment(show, {}, self.read(files), tool.TOOL_DROPINS), [])
+
+    def test_an_environment_reset_discards_earlier_assignments(self):
+        show = {"Environment": "HOME=/h", "FragmentPath": "/usr/lib/r.service", "DropInPaths": "/etc/z.conf"}
+        files = {"/usr/lib/r.service": "[Service]\nEnvironment=WEBKIT_SHOW_FPS=1\n",
+                 "/etc/z.conf": "[Service]\nEnvironment=\nEnvironment=HOME=/h\n"}
+        self.assertEqual(env_lib.inherited_environment(show, {}, self.read(files), tool.TOOL_DROPINS), [])
+        # systemd's merged property decides even when the reset is in a file the scan cannot read.
+        del files["/etc/z.conf"]
+        self.assertEqual(env_lib.inherited_environment(show, {}, self.read(files), tool.TOOL_DROPINS), [])
+
+    def test_the_unit_wins_over_the_service_manager(self):
+        show = {"Environment": "WEBKIT_USE_SKIA_FOR_COMPOSITION=1", "DropInPaths": "/etc/a.conf"}
+        files = {"/etc/a.conf": "Environment=WEBKIT_USE_SKIA_FOR_COMPOSITION=1\n"}
+        found = env_lib.inherited_environment(show, TEXTUREMAPPER, self.read(files), tool.TOOL_DROPINS)
+        self.assertEqual(found[0]["value"], "1")
+        self.assertEqual(found[0]["source"], "/etc/a.conf")
+        self.assertEqual(len(found[0]["sources"]), 2)
+
+    def test_an_extra_that_keeps_the_compositor_is_not_called_another_compositor(self):
+        conflicts = [{"name": "WEBKIT_SHOW_FPS", "value": "1", "source": "/etc/a.conf"}]
+        message = env_lib.describe_conflicts(conflicts, TEXTUREMAPPER)
+        self.assertIn("compositor stays texturemapper", message)
+        self.assertNotIn("runs as skia", message)
+        message = env_lib.describe_conflicts([{"name": "WEBKIT_USE_SKIA_FOR_COMPOSITION", "value": "0",
+                                               "source": "/etc/a.conf"}], {})
+        self.assertIn("runs as texturemapper", message)
+
+
+class TraceReplacement(unittest.TestCase):
+    def test_a_refused_replacement_keeps_the_active_trace(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=True)
+            screen.run(tool.trace_enable)
+            before = (screen.paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.TRACE_DROPIN).read_text()
+            restarts = screen.restart_count()
+            override = screen.paths.etc_units / f"{tool.RENDERER_UNIT}.d"
+            override.mkdir(parents=True, exist_ok=True)
+            (override / "50-fps.conf").write_text("[Service]\nEnvironment=WEBKIT_SHOW_FPS=1\n")
+            screen.unit_env["WEBKIT_SHOW_FPS"] = "1"
+            with self.assertRaises(tool.Refused):
+                screen.run(tool.trace_enable)
+            with self.assertRaisesRegex(tool.Refused, "between 5 and 1800"):
+                screen.run(tool.trace_enable, seconds=1)
+            self.assertEqual((screen.paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.TRACE_DROPIN).read_text(),
+                             before)
+            self.assertEqual(screen.restart_count(), restarts)
+            output, _ = screen.run(tool.trace_disable)
+            self.assertIn("disabled", output)
+
+    def test_a_renderer_that_exits_while_it_is_read_is_rolled_back(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=True)
+
+            def vanished(_directory):
+                raise FileNotFoundError(2, "No such file or directory")
+
+            with mock.patch.object(tool, "tree_hashes", vanished):
+                with self.assertRaisesRegex(tool.Refused, "cannot read the running renderer"):
+                    screen.run(tool.trace_enable)
+            self.assertFalse(screen.trace_dropin_exists())
+            self.assertEqual(screen.restart_count(), 2)
+
+
+class RuntimeOverlayRestore(unittest.TestCase):
+    def test_restore_disables_a_trace_the_release_renderer_cannot_parse(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=False)
+            archive, _ = make_overlay(work)
+            screen.run(tool.runtime_overlay_install, tar=str(archive))
+            screen.run(tool.trace_enable)
+            self.assertTrue(screen.trace_dropin_exists())
+            output, _ = screen.run(tool.runtime_overlay_restore)
+            self.assertFalse(screen.trace_dropin_exists())
+            self.assertIn("visual trace that ran with the overlay was disabled", output)
+
+    def test_a_restore_after_a_failed_restart_restarts_again(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=False)
+            archive, _ = make_overlay(work)
+            screen.run(tool.runtime_overlay_install, tar=str(archive))
+            (screen.paths.run_units / f"{tool.RENDERER_UNIT}.d" / tool.RUNTIME_DROPIN).unlink()
+            screen.running = False  # the restart after the drop-in was removed failed
+            output, _ = screen.run(tool.runtime_overlay_restore)
+            self.assertIn("restarting it", output)
+            self.assertIn("restored", output)
+            self.assertEqual(sha((screen.paths.proc / str(screen.pid) / "exe").read_bytes()), sha(RELEASE_BINARY))
+
+
+class ArchiveBoundaries(unittest.TestCase):
+    def test_a_damaged_or_incomplete_archive_is_a_refusal(self):
+        with tempfile.TemporaryDirectory() as work:
+            archive, _ = make_overlay(work)
+            good = archive.read_bytes()
+            arch = platform.machine()
+            with self.assertRaises(runtime_overlay.Invalid):
+                runtime_overlay.read_tar(good[:len(good) // 3], arch)
+            with self.assertRaises(runtime_overlay.Invalid):
+                runtime_overlay.read_tar(b"not a tar file at all" * 40, arch)
+
+            import tarfile
+
+            def rebuilt(edit):
+                buffer = io.BytesIO()
+                with tarfile.open(fileobj=io.BytesIO(good)) as source, tarfile.open(fileobj=buffer, mode="w") as out:
+                    members = {m.name: source.extractfile(m).read() for m in source.getmembers()}
+                    edit(members)
+                    for name, data in members.items():
+                        info = tarfile.TarInfo(name)
+                        info.size = len(data)
+                        out.addfile(info, io.BytesIO(data))
+                return buffer.getvalue()
+
+            manifest_name = "runtime/" + runtime_overlay.MANIFEST
+
+            def no_binary_record(members):
+                document = json.loads(members[manifest_name])
+                del document["binary"]
+                members[manifest_name] = json.dumps(document).encode()
+
+            def no_host_file(members):
+                document = json.loads(members[manifest_name])
+                name = "renderer-web/tilecast-native-relay.js"
+                del members["runtime/" + name], document["files"][name]
+                del document["runtime"]["files"]["tilecast-native-relay.js"]
+                members[manifest_name] = json.dumps(document).encode()
+
+            def not_json(members):
+                members[manifest_name] = b"{"
+
+            for name, edit in (("binary record", no_binary_record), ("host file", no_host_file),
+                               ("not json", not_json)):
+                with self.assertRaises(runtime_overlay.Invalid, msg=name):
+                    runtime_overlay.read_tar(rebuilt(edit), arch)
+
+    def test_a_dirty_renderer_does_not_pass_for_a_clean_manifest(self):
+        self.assertEqual(runtime_overlay.build_id(renderer_binary(COMMIT + "-dirty")), COMMIT + "-dirty")
+        self.assertEqual(runtime_overlay.build_id(renderer_binary(COMMIT)), COMMIT)
+        self.assertIsNone(runtime_overlay.build_id(renderer_binary(COMMIT) + renderer_binary("unknown")))
+
+    def test_damaged_wpe_and_lab_archives_are_refusals(self):
+        with self.assertRaisesRegex(tool.Refused, "not a readable tar file|damaged"):
+            tool.read_overlay_tar(b"garbage" * 100, platform.machine())
+        with self.assertRaisesRegex(tool.Refused, "not a readable tar file|damaged"):
+            tool.read_lab_tar(b"garbage" * 100)
+
+    def test_an_oversized_archive_is_refused_before_it_is_read(self):
+        with tempfile.TemporaryDirectory() as work:
+            big = Path(work) / "big.tar"
+            with open(big, "wb") as handle:
+                handle.truncate(tool.TAR_OVERHEAD_BYTES + 2048)
+            with self.assertRaisesRegex(tool.Refused, "larger than"):
+                tool.read_archive(big, 1024)
+
+
+class PrivilegedFileAccess(unittest.TestCase):
+    def test_a_symbolic_link_in_another_accounts_directory_is_not_followed(self):
+        with tempfile.TemporaryDirectory() as work:
+            secret = Path(work) / "secret"
+            secret.write_text("root only")
+            results = Path(work) / "results"
+            results.mkdir()
+            (results / "summary.json").symlink_to(secret)
+            (results / "timeline.jsonl").write_text("{}\n")
+            with self.assertRaisesRegex(tool.Refused, "summary.json"):
+                tool.read_regular_files(results, ("timeline.jsonl", "summary.json"))
+            self.assertEqual(tool.read_regular_files(results, ("timeline.jsonl", "missing")),
+                             {"timeline.jsonl": b"{}\n"})
+            os.mkfifo(results / "fifo")
+            with self.assertRaisesRegex(tool.Refused, "not a regular file"):
+                tool.read_regular_files(results, ("fifo",))
+
+    def test_root_written_metadata_replaces_rather_than_writes_through(self):
+        with tempfile.TemporaryDirectory() as work:
+            target = Path(work) / "target"
+            target.write_text("untouched")
+            out = Path(work) / "out"
+            out.mkdir()
+            (out / "run.json").symlink_to(target)
+            tool.write_replacing(out, "run.json", "{}\n")
+            self.assertEqual(target.read_text(), "untouched")
+            self.assertFalse((out / "run.json").is_symlink())
+            self.assertEqual((out / "run.json").read_text(), "{}\n")
+            self.assertEqual(sorted(p.name for p in out.iterdir()), ["run.json"])
+
+
+class DoctorEdges(unittest.TestCase):
+    def test_an_overlay_drop_in_without_its_files_is_reported_not_raised(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=False)
+            archive, _ = make_overlay(work)
+            screen.run(tool.runtime_overlay_install, tar=str(archive))
+            shutil.rmtree(screen.paths.runtime_overlays / "diag-a")
+            output, status = screen.run(tool.doctor, json=True)
+            state = json.loads(output)["state"]
+            self.assertEqual(status, 1)
+            self.assertFalse(state["traceSupport"]["ok"])
+            self.assertIn("files are missing", state["runtimeOverlay"]["problem"])
+
+    def test_the_footer_names_the_overlay_only_when_tracing_needs_it(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=True)
+            screen.start()
+            output, _ = screen.run(tool.doctor)
+            self.assertIn("doctor: the lab runs on the release as installed.", output)
+            self.assertNotIn("needs the diagnostic", output)
+
+    def test_an_empty_web_process_environment_is_what_the_compositor_is_read_from(self):
+        with tempfile.TemporaryDirectory() as work:
+            screen = FakeScreen(work, release_traceable=True, unit_env=TEXTUREMAPPER)
+            screen.start()
+            child = screen.paths.proc / str(screen.pid + 1)
+            (child / "environ").write_bytes(b"HOME=/h\0")
+            output, _ = screen.run(tool.doctor, json=True)
+            self.assertEqual(json.loads(output)["state"]["live"]["compositor"], "skia")
+
+    def test_the_bundle_leaves_out_the_exec_start(self):
+        state = {"release": {}, "updateProvisional": False, "inheritedCompositorEnvironment": [],
+                 "toolSettings": {}, "traceSupport": {}, "runtimeOverlay": None, "live": None,
+                 "renderer": {"active": "active", "pid": 1, "restarts": "0", "unitFile": "/u", "dropIns": [],
+                              "execStart": ["/bin/r", "--server=10.0.0.5:8080"], "execStartProblem": None}}
+        projected = tool.bundle_doctor_state(state)
+        self.assertNotIn("execStart", projected["renderer"])
+        self.assertNotIn("10.0.0.5", json.dumps(projected))
+
+
+class LabBounds(unittest.TestCase):
+    def test_the_lab_unit_has_a_runtime_limit_beyond_the_lab_timeout(self):
+        props = tool.lab_unit_properties(tool.Paths(root=Path("/tmp/none")), Path("/r/run"), {}, None)
+        limit = [int(p.split("=", 1)[1]) for p in props if p.startswith("RuntimeMaxSec=")]
+        self.assertEqual(len(limit), 1)
+        self.assertGreater(limit[0], tool.LAB_TIMEOUT_SECONDS)
+        command = tool.lab_command(tool.Paths(root=Path("/tmp/none")), "crossfade", None, 3, "transitions", "/o")
+        self.assertIn(f"--timeout={tool.LAB_TIMEOUT_SECONDS}", command)
 
 
 if __name__ == "__main__":

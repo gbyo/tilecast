@@ -48,7 +48,8 @@ tc_lab_verdict_name (TcLabVerdict verdict)
 TcLabDetector *
 tc_lab_detector_new (guint columns, guint rows)
 {
-  if (columns == 0 || rows == 0 || columns * rows > TC_LAB_MAX_POINTS)
+  /* Division, not a product that could wrap past the bound. */
+  if (columns == 0 || rows == 0 || columns > TC_LAB_MAX_POINTS / rows)
     return NULL;
   TcLabDetector *detector = g_new0 (TcLabDetector, 1);
   detector->columns = columns;
@@ -130,12 +131,26 @@ tc_lab_detector_transition_path (TcLabDetector *detector, const char *const *nam
 {
   if (n < 2 || n > TC_LAB_MAX_PATH)
     return FALSE;
+  /* Resolve every name first: a refused path leaves the active one as it was. */
+  TcRgb path[TC_LAB_MAX_PATH];
   for (guint i = 0; i < n; i++) {
     int index = find (detector, names[i]);
     if (index < 0)
       return FALSE;
-    detector->path[i] = detector->colors[index];
+    path[i] = detector->colors[index];
   }
+  /* A path that comes back to a color (a:b:a) puts one color at two
+   * progresses, so the reversal rule cannot tell forward motion from a
+   * reversal. It is refused when that rule is asked for. */
+  if (rules & TC_LAB_RULE_REVERSAL) {
+    for (guint i = 0; i < n; i++) {
+      for (guint j = i + 1; j < n; j++) {
+        if (path[i].r == path[j].r && path[i].g == path[j].g && path[i].b == path[j].b)
+          return FALSE;
+      }
+    }
+  }
+  memcpy (detector->path, path, n * sizeof path[0]);
   detector->path_length = n;
   detector->rules = rules;
   detector->state = STATE_TRANSITION;
@@ -167,6 +182,12 @@ void
 tc_lab_detector_reset (TcLabDetector *detector)
 {
   detector->state = STATE_IDLE;
+}
+
+gboolean
+tc_lab_detector_in_transition (TcLabDetector *detector)
+{
+  return detector->state == STATE_TRANSITION;
 }
 
 gboolean
@@ -367,4 +388,10 @@ tc_lab_ppm (const guint8 *pixels, int width, int height, guint stride, TcLabChan
     }
   }
   return TRUE;
+}
+
+gboolean
+tc_lab_frame_was_checked (const TcLabFrameMetrics *metrics)
+{
+  return g_strcmp0 (metrics->state, "transition") == 0 || g_strcmp0 (metrics->state, "settled") == 0;
 }

@@ -11,9 +11,10 @@
  *   resolves, in one task: the pin is removed, the animation cancelled, the
  *   outgoing layer loses `visible`, and its content is released.
  *
- * `crossfade.html` runs exactly that. `crossfade-cleanup-variants.html` runs
- * it with the completion steps changed one at a time (variants below); they
- * are experiments, not product behavior.
+ * `crossfade.html` runs exactly that and takes no variant, `busy-end`
+ * included. `crossfade-cleanup-variants.html` runs it with the completion
+ * steps changed one at a time (variants below); they are experiments, not
+ * product behavior.
  *
  *   retain-animation  do not cancel the finished animation
  *   keep-pin          do not remove the inline opacity (implies retain-animation)
@@ -91,7 +92,7 @@ function crossfadeScene({ variants }) {
       fill: "both",
     });
     incoming.classList.add("visible");
-    Lab.stallAtEnd(animation, DURATION);
+    if (has("busy-end")) Lab.stallAtEnd(animation, DURATION);
     await animation.finished;
     Lab.marker("transition-end");
 

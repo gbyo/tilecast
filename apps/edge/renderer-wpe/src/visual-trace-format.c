@@ -42,8 +42,13 @@ tc_trace_writer_open (const char *dir, const char *name, gsize max_bytes, GError
   }
   g_autofree char *path = g_build_filename (dir, name, NULL);
   g_autofree char *previous = g_strconcat (path, ".prev", NULL);
-  if (g_lstat (path, &st) == 0 && S_ISREG (st.st_mode))
-    g_rename (path, previous);
+  /* Keep one previous trace; if it cannot be kept, do not truncate it either. */
+  if (g_lstat (path, &st) == 0 && S_ISREG (st.st_mode) && g_rename (path, previous) != 0) {
+    int saved = errno;
+    g_set_error (error, G_IO_ERROR, g_io_error_from_errno (saved), "cannot keep the previous trace as %s: %s",
+                 previous, g_strerror (saved));
+    return NULL;
+  }
   int fd = open (path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600);
   if (fd < 0) {
     g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno), "cannot open %s: %s", path, g_strerror (errno));
@@ -186,6 +191,17 @@ finite_number (JsonNode *node, double *out)
   return TRUE;
 }
 
+/* A batch counter: a nonnegative integer that a gint64 holds exactly. */
+static gboolean
+counter_number (JsonNode *node, double *out)
+{
+  double value = 0;
+  if (!finite_number (node, &value) || value < 0 || value != floor (value) || value > 9.0e15)
+    return FALSE;
+  *out = value;
+  return TRUE;
+}
+
 static const char *const SCOPES[] = { "stage", "zone", "startup", "trace", "lab", NULL };
 
 gboolean
@@ -262,13 +278,15 @@ tc_trace_write_page_batch (TcTraceWriter *writer, JsonObject *message, gint64 re
   const char *schema = batch ? json_object_get_string_member_with_default (batch, "schema", NULL) : NULL;
   double seq = 0, sent_at = 0, dropped = 0;
   if (records == NULL || g_strcmp0 (schema, TC_TRACE_SCHEMA) != 0
-      || !finite_number (json_object_get_member (batch, "seq"), &seq)
+      || !counter_number (json_object_get_member (batch, "seq"), &seq)
       || !finite_number (json_object_get_member (batch, "sentAt"), &sent_at)) {
     if (invalid)
       *invalid = 1;
     return 0;
   }
-  finite_number (json_object_get_member (batch, "dropped"), &dropped);
+  /* An absent or out-of-range drop count is reported as none. */
+  if (!counter_number (json_object_get_member (batch, "dropped"), &dropped))
+    dropped = 0;
   guint length = json_array_get_length (records);
   if (length > TC_TRACE_MAX_RECORDS_PER_BATCH) {
     refused += length - TC_TRACE_MAX_RECORDS_PER_BATCH;
