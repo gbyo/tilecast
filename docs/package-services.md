@@ -33,7 +33,9 @@ service identities and versions. It is the one Server service vocabulary. A
 bundled [Plugin Manifest API 3](plugin-api-v3.md#service-client) plugin calls the
 same operations through a generated, typed Go client in the plugin SDK. Each
 capability lists its callers: `package`, `bundled`, or both. `settings.read@1`,
-`secrets.read@1`, and `http.fetch@1` are for bundled plugins only. The old
+`secrets.read@1`, `http.fetch@1`, `storage.kv@1`, `timers.schedule@1`, and
+`timers.cancel@1` are for bundled plugins only. See
+[Plugin storage and timers](plugin-storage.md). The old
 package `http_fetch` import keeps its own contract. A package grant for a
 bundled-only service fails closed, like an unknown one. The `system` context
 now has a producer: a bundled plugin's Player projection. A grant for an unknown version fails
@@ -97,7 +99,10 @@ Each operation has its own transport bounds in the registry
 Every operation that a package can call uses the default, so the package call
 window does not change. A bundled-only operation asks for more only when its
 domain needs it. `http.fetch@1/request` holds a 1 MiB body and a 16 MiB body in
-base64; see [Plugin connections](plugin-connections.md#transport-limits). No
+base64; see [Plugin connections](plugin-connections.md#transport-limits).
+`storage.kv@1/set` and `get` hold one 64 KiB value in base64, and
+`compareAndSet` holds two; see
+[Plugin storage and timers](plugin-storage.md#transport-limits). No
 operation asks for more than 24 MiB. The dispatcher resolves the operation,
 decides the caller, the grant, the context, and the actor, and then applies
 the operation's input bound. A call that is not granted is denied before its

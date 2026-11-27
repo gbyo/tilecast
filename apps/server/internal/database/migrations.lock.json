@@ -838,5 +838,11 @@
     "file": "00141_plugin_oauth_connections.sql",
     "owner": "core",
     "sha256": "d0dc6dad91625fba2b1981fd5e7f07101dff4abdb57c9e378a679d766481fe1c"
+  },
+  {
+    "version": 142,
+    "file": "00142_plugin_kv_and_timers.sql",
+    "owner": "core",
+    "sha256": "c9f0e10e28d5d298a01efd1599e9953673920e54e2708c107637025febfb6ef3"
   }
 ]

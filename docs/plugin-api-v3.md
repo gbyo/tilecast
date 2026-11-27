@@ -235,8 +235,9 @@ A capability has callers: `package`, `bundled`, or both. A capability without a
 caller list is for packages only, as before. Phase 1 gives bundled plugins:
 `organization.read@1`, `instance.read@1`, `screens.read@1`, `targets.resolve@1`,
 `targets.resolve@2`, `users.read-basic@1`, and the new `settings.read@1` and
-`secrets.read@1`. Phase 2 adds `http.fetch@1`. The three new services are for
-bundled plugins only.
+`secrets.read@1`. Phase 2 adds `http.fetch@1`, `storage.kv@1`,
+`timers.schedule@1`, and `timers.cancel@1`. The new services are for bundled
+plugins only.
 
 The call uses the same dispatcher, so it gets the same operation, context,
 validation, authorization decision, and audit as a package call. A test holds
@@ -299,6 +300,14 @@ declares connections. The install review on the plugin's catalog page shows
 each declaration: its origins, whether an operator enters the origin, private
 network, plain HTTP, plaintext secrets, a response or time limit above the
 default, and the OAuth endpoints and scopes.
+
+## Storage and timers
+
+A plugin keeps small values with `storage.kv@1`: 128-byte keys, 64 KiB values,
+1 MiB in all, and an atomic `compareAndSet`. A plugin that declares
+`timers.schedule@1` implements `HandleTimer(ctx, plugin.Timer) error`; the host
+calls it at least once for each due timer, in the `system` context. See
+[Plugin storage and timers](plugin-storage.md).
 
 ## Personal data
 
@@ -399,5 +408,5 @@ participant sessions, moderation, public links, Player reports, audio cues,
 serial or GPIO or printer services, stream connections, TCP, installed-package
 parity for `plugin-runtime.state@1`, content services for plugins, or editor
 action slots. A `data_source` field is not valid in a plugin manifest. Phase 2
-adds host connections, `http.fetch@1`, and OAuth 2.0 connections; feeds,
-`storage.kv@1`, and timers follow in later changes.
+adds host connections, `http.fetch@1`, OAuth 2.0 connections, `storage.kv@1`,
+and durable timers; feeds follow in a later change.

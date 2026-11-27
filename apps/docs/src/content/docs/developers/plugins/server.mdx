@@ -88,3 +88,25 @@ if plugin.IsServiceError(err, plugin.FetchPlaintextSecretRefused) {
 
 Test against `plugintest.Services` with a handler that answers `http.fetch@1/request`, so your tests never reach the internet.
 
+
+## Keep state and schedule work (Plugin Manifest API 3)
+
+Declare `storage.kv@1` to keep small values, such as a sync cursor, and `timers.schedule@1` (plus `timers.cancel@1`) to run code later. Don't create your own tables or goroutines for this.
+
+```go
+// A cursor survives restarts and reinstalls.
+cursor, err := p.services.KVGet(ctx, "calendar:"+instanceID)
+if errors.Is(err, plugin.ErrKVNotFound) {
+	cursor = nil // start a full sync
+}
+
+// Store it only if nobody else moved it meanwhile.
+swapped, err := p.services.KVCompareAndSet(ctx, "calendar:"+instanceID, cursor, next)
+
+// Run HandleTimer again in five minutes. The same key replaces the old timer.
+_, err = p.services.ScheduleTimer(ctx, "sync:"+instanceID, time.Now().Add(5*time.Minute), []byte(instanceID))
+```
+
+Implement `HandleTimer(ctx context.Context, timer plugin.Timer) error` on your plugin. Tilecast calls it with no signed-in person, for at most 30 seconds, and calls it **at least once**: after a crash or an error the same timer can run again, so make the handler safe to repeat. Returning an error retries the timer with a growing delay, up to ten attempts.
+
+Limits: keys up to 128 bytes, values up to 64 KiB, 1 MiB of values per plugin, timer payloads up to 4 KiB, and 1,000 pending timers. Values and timers are kept when the plugin is removed; timers wait until it is installed again. If you bump `definitionVersion`, Tilecast drops timers from the old definition, so schedule the ones you need again. See [Plugin storage and timers](https://github.com/gbyo/tilecast/blob/main/docs/plugin-storage.md) for every rule.
