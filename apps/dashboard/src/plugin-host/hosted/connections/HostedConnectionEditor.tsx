@@ -2,10 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
-import { useConfirm } from "@/components/ConfirmDialog";
 import { apiErrorMessage } from "@/i18n";
 import { PluginPage } from "../../PluginPage";
 import { useStudioSession } from "../../session";
@@ -16,6 +14,9 @@ import {
   type PluginConnection,
 } from "./api";
 import { ConnectionConsents } from "./ConnectionConsents";
+import { ConnectionDelete } from "./ConnectionDelete";
+import { ConnectionOAuth } from "./ConnectionOAuth";
+import { ConnectionOAuthReturn } from "./ConnectionOAuthReturn";
 import {
   ConnectionGeneralForm,
   generalWrite,
@@ -29,8 +30,8 @@ import {
 } from "./HostedConnectionsPage";
 
 /**
- * The generated page of one connection: its name and origin, its network
- * permissions, and what uses it. A new connection shows the general form
+ * The generated page of one connection: its name and origin, the provider
+ * account of an OAuth connection, its network permissions, and what uses it. A new connection shows the general form
  * only; permissions follow once the record exists.
  */
 export function HostedConnectionEditor({
@@ -43,7 +44,6 @@ export function HostedConnectionEditor({
   const session = useStudioSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { confirm, dialog } = useConfirm();
   const client = connectionsClient(pluginId);
   const loaded = useQuery({
     queryKey: connectionKey(pluginId, connectionId ?? ""),
@@ -84,27 +84,19 @@ export function HostedConnectionEditor({
         });
     },
   });
-  const remove = useMutation({
-    mutationFn: () => client.remove(connectionId!, session.csrfToken),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: connectionsKey(pluginId),
-      });
-      toast.add({
-        title: t("hosted.connections.deletedToast"),
-        type: "success",
-      });
-      void navigate(connectionsRoute(manifest));
-    },
-  });
   const readOnly = !session.canManage;
   const title = creating
     ? t("hosted.connections.createTitle")
     : (connection?.name ?? t("hosted.connections.manageTitle"));
   return (
     <>
-      {dialog}
       <PluginPage pluginId={pluginId} title={title}>
+        {connectionId && (
+          <ConnectionOAuthReturn
+            pluginId={pluginId}
+            connectionId={connectionId}
+          />
+        )}
         {loaded.isError && (
           <Alert variant="destructive">
             <AlertDescription>{apiErrorMessage(loaded.error)}</AlertDescription>
@@ -138,42 +130,21 @@ export function HostedConnectionEditor({
         )}
         {connection && (
           <>
+            {connection.oauth && (
+              <>
+                <Separator />
+                <ConnectionOAuth pluginId={pluginId} connection={connection} />
+              </>
+            )}
             <Separator />
             <ConnectionConsents pluginId={pluginId} connection={connection} />
             <Separator />
             <ConnectionReferences connection={connection} />
-            {remove.isError && (
-              <Alert variant="destructive" role="alert">
-                <AlertDescription>
-                  {apiErrorMessage(remove.error)}
-                </AlertDescription>
-              </Alert>
-            )}
-            {!readOnly && (
-              <div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={
-                    remove.isPending || connection.references.length > 0
-                  }
-                  onClick={() =>
-                    void confirm({
-                      title: t("hosted.connections.deleteTitle", {
-                        name: connection.name,
-                      }),
-                      body: t("hosted.connections.deleteBody"),
-                      action: t("common:actions.delete"),
-                      destructive: true,
-                    }).then((ok) => {
-                      if (ok) remove.mutate();
-                    })
-                  }
-                >
-                  {t("hosted.connections.delete")}
-                </Button>
-              </div>
-            )}
+            <ConnectionDelete
+              pluginId={pluginId}
+              connection={connection}
+              afterDelete={connectionsRoute(manifest)}
+            />
           </>
         )}
       </PluginPage>

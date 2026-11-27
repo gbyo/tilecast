@@ -5,6 +5,10 @@ an instance kind. The Server stores the value with envelope encryption. This
 document is the contract for that storage. The decision record is
 [ADR: Plugin Model V3](adr/plugin-model-v3.md), section 6.
 
+A host connection record also owns secrets: the OAuth client secret, the
+access token, the refresh token, and the PKCE verifier of an attempt in
+progress. See [Plugin connections](plugin-connections.md#token-storage).
+
 This record does not cover other secrets:
 
 - The Presentation Network key keeps its own contract. See
@@ -65,8 +69,9 @@ produce the same bytes.
 
 1. `tilecast-secret-v1`
 2. the plugin ID
-3. the owner type: `organization`, `instance`, or `screen`
-4. the owner ID: the organization ID, the instance ID, or the screen ID
+3. the owner type: `organization`, `instance`, `screen`, or `connection`
+4. the owner ID: the organization ID, the instance ID, the screen ID, or the
+   connection record ID
 5. the setting key
 
 A ciphertext that is copied to another plugin, owner, or setting key fails
@@ -88,6 +93,11 @@ value. No error holds key bytes, ciphertext, plaintext, or crypto detail.
   URL, or an error message. An audit event names the keys that changed.
 - The Server does not return a secret through the settings or instance API, and it
   does not export one in a configuration export.
+- Plugin code never reads a `connection` secret. `secrets.read@1` names only
+  `organization`, `instance`, and `screen` owners. The host reads a connection
+  secret itself to authenticate to an OAuth provider and to add a bearer
+  header to `http.fetch@1`. Deleting the connection record deletes its
+  secrets.
 
 ## Commands
 

@@ -66,12 +66,53 @@ const manifest = `{
       "type": "http",
       "origins": "operator",
       "privateNetwork": "allowed"
+    },
+    {
+      "id": "calendar",
+      "title": "Example Calendar",
+      "type": "oauth2",
+      "origins": ["https://api.example.com"],
+      "oauth": {
+        "authorizationEndpoint": "https://auth.example.com/authorize",
+        "tokenEndpoint": "https://auth.example.com/token",
+        "revocationEndpoint": "https://auth.example.com/revoke",
+        "scopes": ["calendar.read", "offline"],
+        "tokenEndpointAuthMethod": "client_secret_basic",
+        "authorizationParameters": { "access_type": "offline", "prompt": "consent" }
+      }
+    },
+    {
+      "id": "calendar_json",
+      "title": "Example Calendar with JSON token requests",
+      "type": "oauth2",
+      "origins": ["https://api.example.com"],
+      "oauth": {
+        "authorizationEndpoint": "https://auth.example.com/authorize",
+        "tokenEndpoint": "https://auth.example.com/json-token",
+        "scopes": ["calendar.read"],
+        "tokenEndpointAuthMethod": "client_secret_post",
+        "tokenRequestFormat": "json"
+      }
+    },
+    {
+      "id": "calendar_public",
+      "title": "Example Calendar for a public client",
+      "type": "oauth2",
+      "origins": ["https://api.example.com"],
+      "oauth": {
+        "authorizationEndpoint": "https://auth.example.com/authorize",
+        "tokenEndpoint": "https://auth.example.com/token",
+        "revocationEndpoint": "https://auth.example.com/revoke",
+        "scopes": ["calendar.read"],
+        "tokenEndpointAuthMethod": "none"
+      }
     }
   ],
   "settings": {
     "organization": [
       { "key": "apiToken", "label": "API token", "control": "secret", "maxLength": 200 },
-      { "key": "primary", "label": "Primary connection", "control": "connection", "connections": ["api"] }
+      { "key": "primary", "label": "Primary connection", "control": "connection", "connections": ["api"] },
+      { "key": "calendar", "label": "Calendar connection", "control": "connection", "connections": ["calendar", "calendar_json", "calendar_public"] }
     ]
   },
   "instances": [

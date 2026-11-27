@@ -5362,7 +5362,7 @@ paths:
     delete:
       operationId: deletePluginConnection
       security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+      description: Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. A connected oauth2 connection must be disconnected first.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/PluginConnectionID" }
@@ -5372,7 +5372,7 @@ paths:
         "403": { description: plugins.manage and CSRF token required }
         "404": { description: plugin_not_found or plugin_connection_not_found }
         "409":
-          description: plugin_connection_in_use — error.details.references lists the settings and instances that use it
+          description: plugin_connection_in_use — error.details.references lists the settings and instances that use it; plugin_connection_connected — disconnect the OAuth connection first
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PluginConnectionInUseError" }
@@ -5408,6 +5408,130 @@ paths:
         "403": { description: plugins.manage and CSRF token required }
         "404": { description: plugin_not_found or plugin_connection_not_found }
         "409": { description: plugin_connection_revision_conflict }
+  /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/start:
+    post:
+      operationId: startPluginConnectionOAuth
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an
+        OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the
+        provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in
+        operator, expires after ten minutes, and replaces an earlier attempt of the connection.
+        Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration
+        authenticates the client.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: The provider authorization URL. The response is not cached.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [authorizationUrl]
+                    properties:
+                      authorizationUrl: { type: string, format: uri }
+        "400": { description: "invalid_plugin_connection — the connection does not use OAuth" }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found or plugin_connection_not_found }
+        "409": { description: "plugin_connection_oauth_unavailable — error.details.reason is public_url_https_required, client_id_required, or client_secret_required" }
+        "503": { description: secrets_unavailable }
+  /api/v1/plugins/{pluginId}/connections/{connectionId}/callback:
+    get:
+      operationId: pluginConnectionOAuthCallback
+      description: >-
+        The redirect URI an operator registers with the OAuth provider. It is a browser navigation
+        from the provider and carries no Tilecast credential: the Studio session cookie is
+        SameSite=Strict and does not arrive on a cross-site navigation. The route changes nothing.
+        It redirects to the fixed Studio page of the connection and puts state, code, and a provider
+        error code in the URL fragment, where Studio completes the attempt. No parameter chooses the
+        destination. The response has Referrer-Policy no-referrer and Cache-Control no-store.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { in: path, name: connectionId, required: true, schema: { type: string } }
+        - { in: query, name: state, required: false, schema: { type: string, maxLength: 256 } }
+        - { in: query, name: code, required: false, schema: { type: string, maxLength: 4096 } }
+        - { in: query, name: error, required: false, schema: { type: string } }
+      responses:
+        "303":
+          description: Redirect to the Studio connection page, or to /plugins for an unknown plugin or connection.
+          headers:
+            Location: { schema: { type: string } }
+  /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete:
+    post:
+      operationId: completePluginConnectionOAuth
+      security: [{ sessionCookie: [] }]
+      description: >-
+        Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot
+        complete an attempt. Consumes the attempt the state names before anything else, so a state
+        is single use across every Server process. The attempt must belong to this plugin, this
+        connection, and the signed-in operator, and must not have expired. The Server exchanges the
+        code with the PKCE verifier at the declared token endpoint through the outbound engine and
+        stores the tokens as encrypted connection secrets. No response holds a token.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PluginConnectionOAuthCallback" }
+      responses:
+        "200":
+          description: The connection is connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginConnection" }
+        "400":
+          description: >-
+            plugin_oauth_failed — error.details.reason is invalid_state, provider_denied,
+            invalid_response, connection_changed, invalid_grant, token_rejected,
+            token_endpoint_unavailable, invalid_token_response, or client_secret_unavailable.
+            invalid_json for a body with an unknown member.
+        "401": { description: A Studio session is required }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found }
+        "409": { description: plugin_connection_oauth_unavailable }
+        "429": { description: rate_limited }
+        "503": { description: secrets_unavailable }
+  /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect:
+    post:
+      operationId: disconnectPluginConnectionOAuth
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Asks the
+        provider to revoke the grant (RFC 7009) when the declaration has a revocation endpoint, then
+        deletes the local tokens in every case. oauth.revocation records confirmed, failed, or
+        not_declared.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: The connection is not connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginConnection" }
+        "400": { description: "invalid_plugin_connection — the connection does not use OAuth" }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found or plugin_connection_not_found }
+        "503": { description: secrets_unavailable }
         "428": { description: expected_revision_required }
   /api/v1/plugins/dependency-graph:
     get:
@@ -12793,7 +12917,7 @@ components:
         id: { type: string }
         title: { type: string }
         description: { type: string }
-        type: { type: string, enum: [http] }
+        type: { type: string, x-extensible-enum: [http, oauth2] }
         operatorOrigin: { type: boolean, description: An Owner or Administrator enters the one origin. }
         origins: { type: array, items: { type: string }, description: The fixed https origins. Empty for an operator connection. }
         privateNetwork: { type: boolean, description: "Private addresses are possible after a separate consent." }
@@ -12801,6 +12925,16 @@ components:
         plaintextSecret: { type: boolean, description: "A secret header over plain HTTP is possible after a third consent." }
         maxResponseBytes: { type: integer, minimum: 1024, maximum: 16777216 }
         timeoutSeconds: { type: integer, minimum: 1, maximum: 60 }
+        oauth:
+          type: object
+          description: The provider side of an oauth2 connection.
+          required: [authorizationEndpoint, tokenEndpoint, scopes, tokenEndpointAuthMethod]
+          properties:
+            authorizationEndpoint: { type: string, format: uri }
+            tokenEndpoint: { type: string, format: uri }
+            revocationEndpoint: { type: string, format: uri }
+            scopes: { type: array, items: { type: string } }
+            tokenEndpointAuthMethod: { type: string, enum: [client_secret_basic, client_secret_post, none] }
     PluginAutomationOperation:
       type: object
       required: [operationId, method, path, risk, cliPath, mcpAction]
@@ -13344,20 +13478,72 @@ components:
           description: ready, or the first reason the connection cannot be used.
         reasons:
           type: array
+          description: Reasons grow with new connection types; a client shows an unknown reason as not ready.
           items:
             type: string
-            enum: [origin_required, private_network_consent_required, plain_http_consent_required, declaration_removed]
+            x-extensible-enum:
+              [
+                origin_required,
+                private_network_consent_required,
+                plain_http_consent_required,
+                declaration_removed,
+                oauth_client_required,
+                oauth_not_connected,
+                oauth_reconnect_required,
+              ]
         notices:
           type: array
           items:
             type: string
-            enum: [consents_need_confirmation, private_addresses_need_consent]
+            x-extensible-enum: [consents_need_confirmation, private_addresses_need_consent, oauth_refresh_failing, oauth_revocation_failed]
         references:
           type: array
           items: { $ref: "#/components/schemas/PluginConnectionReference" }
+        oauth: { $ref: "#/components/schemas/PluginConnectionOAuth" }
         revision: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    PluginConnectionOAuth:
+      type: object
+      description: The OAuth 2.0 state of an oauth2 connection. It never holds a token or the client secret.
+      required: [status, clientSecretRequired, clientSecret, connectAvailable, authorizationEndpoint, scopes]
+      properties:
+        status: { type: string, enum: [not_connected, connected, reconnect_required] }
+        clientId: { type: string, maxLength: 256 }
+        clientSecretRequired: { type: boolean, description: The declaration authenticates the client with a secret. }
+        clientSecret:
+          type: string
+          enum: [set, not_set, needs_value, not_required]
+          description: The state of the write-only client secret.
+        callbackUrl:
+          type: string
+          format: uri
+          description: The exact redirect URI to register with the provider. Absent without an https TILECAST_PUBLIC_URL.
+        connectAvailable: { type: boolean }
+        connectUnavailableReason: { type: string, enum: [public_url_https_required, client_id_required, client_secret_required] }
+        authorizationEndpoint: { type: string, format: uri }
+        scopes: { type: array, items: { type: string } }
+        connectedAt: { type: string, format: date-time }
+        connectedBy: { type: string, format: uuid }
+        accessExpiresAt: { type: string, format: date-time }
+        refreshedAt: { type: string, format: date-time }
+        lastError:
+          type: string
+          description: The stable code of the last failed refresh, such as invalid_grant, token_rejected, or token_endpoint_unavailable.
+        lastErrorAt: { type: string, format: date-time }
+        revocation:
+          type: string
+          enum: [confirmed, failed, not_declared]
+          description: What the last disconnect learned from the provider. Tilecast deletes its tokens in every case.
+        disconnectedAt: { type: string, format: date-time }
+    PluginConnectionOAuthCallback:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, maxLength: 256 }
+        code: { type: string, maxLength: 4096 }
+        error: { type: string, maxLength: 64, description: The provider's error code. Never the provider's description. }
     PluginConnectionReference:
       type: object
       required: [ownerType, ownerId, fieldKey, label]
@@ -13374,6 +13560,9 @@ components:
         definition: { type: string }
         name: { type: string, minLength: 1, maxLength: 120 }
         origin: { type: string, maxLength: 300, description: Required for an operator connection; refused otherwise. }
+        clientId: { type: string, maxLength: 256, description: The OAuth client ID of an oauth2 connection. Refused otherwise. }
+        clientSecret: { type: string, maxLength: 4096, writeOnly: true, description: The OAuth client secret. Write-only. }
+        clearClientSecret: { type: boolean }
     PluginConnectionUpdate:
       type: object
       additionalProperties: false
@@ -13382,6 +13571,12 @@ components:
         definition: { type: string, description: Optional. A record's declaration never changes. }
         name: { type: string, minLength: 1, maxLength: 120 }
         origin: { type: string, maxLength: 300 }
+        clientId:
+          type: string
+          maxLength: 256
+          description: An oauth2 connection's client ID. An empty string removes it. A new client ID deletes the tokens and an attempt in progress.
+        clientSecret: { type: string, maxLength: 4096, writeOnly: true, description: Replaces the write-only client secret. The tokens stay. }
+        clearClientSecret: { type: boolean }
         expectedRevision: { type: integer, minimum: 1 }
     PluginConnectionConsentsWrite:
       type: object

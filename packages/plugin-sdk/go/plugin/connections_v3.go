@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/tilecast/tilecast/packages/config-schema/go/configschema"
 )
@@ -22,11 +24,43 @@ import (
 // consent the declaration makes possible. Plugin code names a connection
 // record; it never states an origin, an address rule, or a credential.
 
-// Connection types. Phase 2 adds OAuth 2.0 connections in a later change of
-// the same phase; stream and socket types arrive in later phases.
+// Connection types. Stream and socket types arrive in later phases.
 const (
-	ConnectionHTTP = "http"
+	ConnectionHTTP   = "http"
+	ConnectionOAuth2 = "oauth2"
 )
+
+// Token endpoint authentication methods of an OAuth 2.0 connection.
+const (
+	ClientSecretBasic = "client_secret_basic"
+	ClientSecretPost  = "client_secret_post"
+	ClientAuthNone    = "none"
+)
+
+// Token request body encodings. RFC 6749 uses a form; some providers take
+// JSON.
+const (
+	TokenRequestForm = "form"
+	TokenRequestJSON = "json"
+)
+
+// OAuth declaration bounds. Sixteen scopes is more than any read-only
+// provider integration needs; eight extra authorization parameters covers
+// access_type, prompt, and provider hints.
+const (
+	MaxOAuthScopes         = 16
+	MaxOAuthScopeLength    = 256
+	MaxOAuthParameters     = 8
+	MaxOAuthParameterValue = 256
+	MaxOAuthEndpointLength = 2048
+)
+
+// reservedOAuthParameters are set by the host. A declaration cannot replace
+// them.
+var reservedOAuthParameters = set("response_type", "client_id", "client_secret", "redirect_uri", "scope", "state",
+	"code", "code_challenge", "code_challenge_method", "code_verifier", "grant_type", "refresh_token", "nonce")
+
+var oauthParameterPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,39}$`)
 
 // Address rules of a connection declaration.
 const (
@@ -83,6 +117,115 @@ type Connection struct {
 	AllowPlaintextSecret bool `json:"allowPlaintextSecret,omitempty"`
 	MaxResponseBytes     int  `json:"maxResponseBytes,omitempty"`
 	TimeoutSeconds       int  `json:"timeoutSeconds,omitempty"`
+	// OAuth is required for type oauth2 and refused otherwise.
+	OAuth *OAuthDeclaration `json:"oauth,omitempty"`
+}
+
+// OAuthDeclaration is the provider side of an OAuth 2.0 connection. The
+// host runs the authorization code flow with PKCE S256 against these
+// endpoints. Plugin code never replaces them at runtime and never receives
+// a token.
+type OAuthDeclaration struct {
+	AuthorizationEndpoint string   `json:"authorizationEndpoint"`
+	TokenEndpoint         string   `json:"tokenEndpoint"`
+	RevocationEndpoint    string   `json:"revocationEndpoint,omitempty"`
+	Scopes                []string `json:"scopes"`
+	// TokenEndpointAuthMethod is client_secret_basic, client_secret_post, or
+	// none. With none the operator enters no client secret.
+	TokenEndpointAuthMethod string `json:"tokenEndpointAuthMethod"`
+	// TokenRequestFormat is form (default) or json.
+	TokenRequestFormat string `json:"tokenRequestFormat,omitempty"`
+	// AuthorizationParameters are extra fixed query parameters of the
+	// authorization request, such as access_type=offline.
+	AuthorizationParameters map[string]string `json:"authorizationParameters,omitempty"`
+}
+
+// NeedsClientSecret reports whether the operator enters a client secret.
+func (o OAuthDeclaration) NeedsClientSecret() bool {
+	return o.TokenEndpointAuthMethod != ClientAuthNone
+}
+
+// JSONTokenRequests reports whether token requests send JSON.
+func (o OAuthDeclaration) JSONTokenRequests() bool { return o.TokenRequestFormat == TokenRequestJSON }
+
+// IsOAuth reports whether the connection is an OAuth 2.0 connection.
+func (c Connection) IsOAuth() bool { return c.Type == ConnectionOAuth2 && c.OAuth != nil }
+
+func validateOAuthEndpoint(where, name, raw string, required bool) error {
+	if raw == "" {
+		if required {
+			return fmt.Errorf("%s oauth needs %s", where, name)
+		}
+		return nil
+	}
+	if len(raw) > MaxOAuthEndpointLength {
+		return fmt.Errorf("%s oauth %s is too long", where, name)
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != SchemeHTTPS || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery ||
+		parsed.Fragment != "" || strings.Contains(raw, "#") || parsed.Opaque != "" {
+		return fmt.Errorf("%s oauth %s must be an https URL without a query, a fragment, or a user name", where, name)
+	}
+	origin, err := OriginOf(parsed)
+	if err != nil || origin.Scheme != SchemeHTTPS {
+		return fmt.Errorf("%s oauth %s must be an https URL", where, name)
+	}
+	return nil
+}
+
+func (o OAuthDeclaration) validate(where string) error {
+	if err := validateOAuthEndpoint(where, "authorizationEndpoint", o.AuthorizationEndpoint, true); err != nil {
+		return err
+	}
+	if err := validateOAuthEndpoint(where, "tokenEndpoint", o.TokenEndpoint, true); err != nil {
+		return err
+	}
+	if err := validateOAuthEndpoint(where, "revocationEndpoint", o.RevocationEndpoint, false); err != nil {
+		return err
+	}
+	if len(o.Scopes) < 1 || len(o.Scopes) > MaxOAuthScopes {
+		return fmt.Errorf("%s oauth needs 1 to %d scopes", where, MaxOAuthScopes)
+	}
+	seen := map[string]bool{}
+	for _, scope := range o.Scopes {
+		if scope == "" || len(scope) > MaxOAuthScopeLength || seen[scope] {
+			return fmt.Errorf("%s oauth has an empty, long, or repeated scope", where)
+		}
+		for _, r := range scope {
+			// RFC 6749 section 3.3: %x21 / %x23-5B / %x5D-7E.
+			if r < 0x21 || r > 0x7e || r == '"' || r == '\\' {
+				return fmt.Errorf("%s oauth scope %q holds a character a scope cannot hold", where, scope)
+			}
+		}
+		seen[scope] = true
+	}
+	switch o.TokenEndpointAuthMethod {
+	case ClientSecretBasic, ClientSecretPost, ClientAuthNone:
+	default:
+		return fmt.Errorf("%s oauth tokenEndpointAuthMethod must be %s, %s, or %s", where, ClientSecretBasic, ClientSecretPost, ClientAuthNone)
+	}
+	switch o.TokenRequestFormat {
+	case "", TokenRequestForm, TokenRequestJSON:
+	default:
+		return fmt.Errorf("%s oauth tokenRequestFormat must be %s or %s", where, TokenRequestForm, TokenRequestJSON)
+	}
+	if len(o.AuthorizationParameters) > MaxOAuthParameters {
+		return fmt.Errorf("%s oauth declares more than %d authorization parameters", where, MaxOAuthParameters)
+	}
+	for key, value := range o.AuthorizationParameters {
+		if !oauthParameterPattern.MatchString(key) || reservedOAuthParameters[key] {
+			return fmt.Errorf("%s oauth authorization parameter %q is invalid or set by the host", where, key)
+		}
+		if value == "" || len(value) > MaxOAuthParameterValue {
+			return fmt.Errorf("%s oauth authorization parameter %q needs a value of 1 to %d bytes", where, key, MaxOAuthParameterValue)
+		}
+		for _, r := range value {
+			if r < 0x20 || r > 0x7e {
+				return fmt.Errorf("%s oauth authorization parameter %q holds a control or non-ASCII character", where, key)
+			}
+		}
+	}
+	return nil
 }
 
 // ConnectionOrigins is the fixed origin list, or the operator marker.
@@ -176,14 +319,25 @@ func (c Connection) FixedOrigins() []Origin {
 func (c Connection) SecurityFingerprint() string {
 	origins := append([]string(nil), c.Origins.Fixed...)
 	sort.Strings(origins)
-	document, _ := json.Marshal(map[string]any{
+	members := map[string]any{
 		"type":                 c.Type,
 		"operator":             c.Origins.Operator,
 		"origins":              origins,
 		"privateNetwork":       c.AllowsPrivateNetwork(),
 		"plainHttp":            c.AllowsPlainHTTP(),
 		"allowPlaintextSecret": c.AllowPlaintextSecret,
-	})
+	}
+	if c.OAuth != nil {
+		scopes := append([]string(nil), c.OAuth.Scopes...)
+		sort.Strings(scopes)
+		members["oauth"] = map[string]any{
+			"authorization": c.OAuth.AuthorizationEndpoint, "token": c.OAuth.TokenEndpoint,
+			"revocation": c.OAuth.RevocationEndpoint, "scopes": scopes,
+			"auth": c.OAuth.TokenEndpointAuthMethod, "format": c.OAuth.TokenRequestFormat,
+			"parameters": c.OAuth.AuthorizationParameters,
+		}
+	}
+	document, _ := json.Marshal(members)
 	sum := sha256.Sum256(document)
 	return hex.EncodeToString(sum[:])
 }
@@ -201,7 +355,25 @@ func (c Connection) validate() error {
 			return err
 		}
 	}
-	if c.Type != ConnectionHTTP {
+	switch c.Type {
+	case ConnectionHTTP:
+		if c.OAuth != nil {
+			return fmt.Errorf("%s declares oauth; only type %q takes it", where, ConnectionOAuth2)
+		}
+	case ConnectionOAuth2:
+		if c.OAuth == nil {
+			return fmt.Errorf("%s has type %q and needs oauth", where, ConnectionOAuth2)
+		}
+		if err := c.OAuth.validate(where); err != nil {
+			return err
+		}
+		// OAuth never uses plain HTTP or a private address: an
+		// authorization response over plain HTTP is not permitted (RFC 9700
+		// section 2.6), and the API origins are fixed provider origins.
+		if c.Origins.Operator || c.PrivateNetwork == NetworkAllowed || c.PlainHTTP == NetworkAllowed || c.AllowPlaintextSecret {
+			return fmt.Errorf("%s is an OAuth connection; it needs fixed https origins and refuses the private network and plain HTTP", where)
+		}
+	default:
 		return fmt.Errorf("%s has unknown type %q", where, c.Type)
 	}
 	for _, rule := range []struct{ name, value string }{{"privateNetwork", c.PrivateNetwork}, {"plainHttp", c.PlainHTTP}} {

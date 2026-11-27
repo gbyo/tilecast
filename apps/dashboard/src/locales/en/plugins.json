@@ -598,11 +598,16 @@
         "origin_required": "Needs an origin",
         "private_network_consent_required": "Needs private network permission",
         "plain_http_consent_required": "Needs plain HTTP permission",
-        "declaration_removed": "No longer declared by the plugin"
+        "declaration_removed": "No longer declared by the plugin",
+        "oauth_client_required": "Needs an OAuth client",
+        "oauth_not_connected": "Not connected",
+        "oauth_reconnect_required": "Reconnect required"
       },
       "notices": {
         "consents_need_confirmation": "The plugin changed what this connection may do since the permissions were given. Give them again to use them.",
-        "private_addresses_need_consent": "Private network addresses are refused until you allow them."
+        "private_addresses_need_consent": "Private network addresses are refused until you allow them.",
+        "oauth_refresh_failing": "The provider could not renew access recently. Requests use the current token until it expires.",
+        "oauth_revocation_failed": "At the last disconnect, the provider could not be asked to revoke Tilecast's access."
       },
       "consents": {
         "title": "Network permissions",
@@ -643,7 +648,81 @@
         "plainHttp": "Can use unencrypted HTTP on your local network after you allow it",
         "plaintextSecret": "Can send a secret over unencrypted HTTP after you allow it",
         "response": "Accepts responses up to {{size}}",
-        "timeout": "Waits up to {{seconds}} seconds for a response"
+        "timeout": "Waits up to {{seconds}} seconds for a response",
+        "oauthAuthorization": "Sends you to {{endpoint}} to grant access",
+        "oauthToken": "Exchanges tokens with {{endpoint}}",
+        "oauthRevocation": "Asks {{endpoint}} to revoke access when you disconnect",
+        "oauthScopes": "Requests access: {{scopes}}"
+      },
+      "oauth": {
+        "title": "Provider account",
+        "description": "Tilecast signs in to the provider with an OAuth client that you register. Tilecast stores the tokens encrypted; plugin code and screens never receive them.",
+        "status": {
+          "not_connected": "Not connected",
+          "connected": "Connected",
+          "reconnect_required": "Reconnect required"
+        },
+        "connectedAt": "Connected {{date}}",
+        "refreshedAt": "Access renewed {{date}}",
+        "scopes": "Access requested",
+        "callbackUrl": "Redirect URI",
+        "callbackUrlHint": "Register this exact address with the provider as an authorized redirect URI.",
+        "copy": "Copy redirect URI",
+        "copied": "The redirect URI was copied.",
+        "copyFailed": "The redirect URI could not be copied.",
+        "clientId": "Client ID",
+        "clientIdHint": "From the OAuth client you registered with the provider.",
+        "clientSecret": "Client secret",
+        "clientSecretHint": "Tilecast stores it encrypted and never shows it again.",
+        "saveClient": "Save client",
+        "clientSavedToast": "The OAuth client was saved.",
+        "changeClientTitle": "Change the client ID?",
+        "changeClientBody": "Tilecast deletes this connection's tokens. Connect again with the new client.",
+        "changeClientConfirm": "Change client ID",
+        "connect": "Connect",
+        "reconnect": "Reconnect",
+        "connecting": "Opening the provider…",
+        "completing": "Finishing the connection…",
+        "disconnect": "Disconnect",
+        "disconnectTitle": "Disconnect {{name}}?",
+        "disconnectBody": "Tilecast asks the provider to revoke its access and deletes its tokens. Requests through this connection stop until you connect again.",
+        "disconnectedToast": "The connection was disconnected.",
+        "disconnectBeforeDelete": "Disconnect this connection before you delete it, so the provider can revoke Tilecast's access.",
+        "unavailable": {
+          "public_url_https_required": "To connect, set TILECAST_PUBLIC_URL to an https address. Providers do not send an authorization response to an unencrypted address.",
+          "client_id_required": "Enter and save the client ID first.",
+          "client_secret_required": "Enter and save the client secret first."
+        },
+        "lastError": "Renewing access failed {{date}}.",
+        "refreshError": {
+          "invalid_grant": "The provider no longer accepts this connection. Connect it again.",
+          "token_rejected": "The provider refused the request. Check the client ID and the client secret.",
+          "token_endpoint_unavailable": "The provider could not be reached. Tilecast tries again later.",
+          "invalid_token_response": "The provider sent an answer Tilecast could not use.",
+          "client_secret_unavailable": "The client secret is missing or cannot be read. Enter it again.",
+          "other": "Tilecast could not renew access."
+        },
+        "revocation": {
+          "confirmed": "The provider confirmed that it revoked Tilecast's access.",
+          "failed": "Tilecast deleted its tokens; the provider could not be asked to revoke access. Remove Tilecast's access in your account at the provider.",
+          "not_declared": "Tilecast deleted its tokens. This provider has no revocation address; remove Tilecast's access in your account at the provider if you no longer use it."
+        },
+        "result": {
+          "connected": "The connection is connected to the provider.",
+          "error": "The provider did not connect this connection.",
+          "reasons": {
+            "invalid_state": "The sign-in expired, was already used, or was started by someone else. Select Connect again.",
+            "provider_denied": "Access was not granted at the provider.",
+            "invalid_response": "The provider's answer was incomplete. Select Connect again.",
+            "connection_changed": "The connection changed during sign-in. Select Connect again.",
+            "invalid_grant": "The provider refused the authorization code. Check the redirect URI and select Connect again.",
+            "token_rejected": "The provider refused the client. Check the client ID and the client secret.",
+            "token_endpoint_unavailable": "The provider could not be reached. Try again later.",
+            "invalid_token_response": "The provider sent an answer Tilecast could not use.",
+            "client_secret_unavailable": "The client secret is missing or cannot be read. Enter it again.",
+            "unavailable": "Tilecast could not finish connecting. Try again."
+          }
+        }
       }
     }
   },

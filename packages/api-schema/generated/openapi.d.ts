@@ -2939,7 +2939,7 @@ export interface paths {
     /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation. */
     put: operations["updatePluginConnection"];
     post?: never;
-    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. */
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references. A connected oauth2 connection must be disconnected first. */
     delete: operations["deletePluginConnection"];
     options?: never;
     head?: never;
@@ -2957,6 +2957,74 @@ export interface paths {
     /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for. */
     put: operations["setPluginConnectionConsents"];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client. */
+    post: operations["startPluginConnectionOAuth"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/connections/{connectionId}/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The redirect URI an operator registers with the OAuth provider. It is a browser navigation from the provider and carries no Tilecast credential: the Studio session cookie is SameSite=Strict and does not arrive on a cross-site navigation. The route changes nothing. It redirects to the fixed Studio page of the connection and puts state, code, and a provider error code in the URL fragment, where Studio completes the attempt. No parameter chooses the destination. The response has Referrer-Policy no-referrer and Cache-Control no-store. */
+    get: operations["pluginConnectionOAuthCallback"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires a Studio session, plugins.manage, the admin scope, and CSRF. A bearer grant cannot complete an attempt. Consumes the attempt the state names before anything else, so a state is single use across every Server process. The attempt must belong to this plugin, this connection, and the signed-in operator, and must not have expired. The Server exchanges the code with the PKCE verifier at the declared token endpoint through the outbound engine and stores the tokens as encrypted connection secrets. No response holds a token. */
+    post: operations["completePluginConnectionOAuth"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Asks the provider to revoke the grant (RFC 7009) when the declaration has a revocation endpoint, then deletes the local tokens in every case. oauth.revocation records confirmed, failed, or not_declared. */
+    post: operations["disconnectPluginConnectionOAuth"];
     delete?: never;
     options?: never;
     head?: never;
@@ -8042,8 +8110,7 @@ export interface components {
       id: string;
       title: string;
       description?: string;
-      /** @enum {string} */
-      type: "http";
+      type: string;
       /** @description An Owner or Administrator enters the one origin. */
       operatorOrigin: boolean;
       /** @description The fixed https origins. Empty for an operator connection. */
@@ -8056,6 +8123,19 @@ export interface components {
       plaintextSecret: boolean;
       maxResponseBytes: number;
       timeoutSeconds: number;
+      /** @description The provider side of an oauth2 connection. */
+      oauth?: {
+        /** Format: uri */
+        authorizationEndpoint: string;
+        /** Format: uri */
+        tokenEndpoint: string;
+        /** Format: uri */
+        revocationEndpoint?: string;
+        scopes: string[];
+        /** @enum {string} */
+        tokenEndpointAuthMethod:
+          "client_secret_basic" | "client_secret_post" | "none";
+      };
     };
     PluginAutomationOperation: {
       operationId: string;
@@ -8388,21 +8468,68 @@ export interface components {
       };
       /** @description ready, or the first reason the connection cannot be used. */
       status: string;
-      reasons: (
-        | "origin_required"
-        | "private_network_consent_required"
-        | "plain_http_consent_required"
-        | "declaration_removed"
-      )[];
-      notices: (
-        "consents_need_confirmation" | "private_addresses_need_consent"
-      )[];
+      /** @description Reasons grow with new connection types; a client shows an unknown reason as not ready. */
+      reasons: string[];
+      notices: string[];
       references: components["schemas"]["PluginConnectionReference"][];
+      oauth?: components["schemas"]["PluginConnectionOAuth"];
       revision: number;
       /** Format: date-time */
       createdAt: string;
       /** Format: date-time */
       updatedAt: string;
+    };
+    /** @description The OAuth 2.0 state of an oauth2 connection. It never holds a token or the client secret. */
+    PluginConnectionOAuth: {
+      /** @enum {string} */
+      status: "not_connected" | "connected" | "reconnect_required";
+      clientId?: string;
+      /** @description The declaration authenticates the client with a secret. */
+      clientSecretRequired: boolean;
+      /**
+       * @description The state of the write-only client secret.
+       * @enum {string}
+       */
+      clientSecret: "set" | "not_set" | "needs_value" | "not_required";
+      /**
+       * Format: uri
+       * @description The exact redirect URI to register with the provider. Absent without an https TILECAST_PUBLIC_URL.
+       */
+      callbackUrl?: string;
+      connectAvailable: boolean;
+      /** @enum {string} */
+      connectUnavailableReason?:
+        | "public_url_https_required"
+        | "client_id_required"
+        | "client_secret_required";
+      /** Format: uri */
+      authorizationEndpoint: string;
+      scopes: string[];
+      /** Format: date-time */
+      connectedAt?: string;
+      /** Format: uuid */
+      connectedBy?: string;
+      /** Format: date-time */
+      accessExpiresAt?: string;
+      /** Format: date-time */
+      refreshedAt?: string;
+      /** @description The stable code of the last failed refresh, such as invalid_grant, token_rejected, or token_endpoint_unavailable. */
+      lastError?: string;
+      /** Format: date-time */
+      lastErrorAt?: string;
+      /**
+       * @description What the last disconnect learned from the provider. Tilecast deletes its tokens in every case.
+       * @enum {string}
+       */
+      revocation?: "confirmed" | "failed" | "not_declared";
+      /** Format: date-time */
+      disconnectedAt?: string;
+    };
+    PluginConnectionOAuthCallback: {
+      state: string;
+      code?: string;
+      /** @description The provider's error code. Never the provider's description. */
+      error?: string;
     };
     PluginConnectionReference: {
       /** @enum {string} */
@@ -8417,12 +8544,22 @@ export interface components {
       name: string;
       /** @description Required for an operator connection; refused otherwise. */
       origin?: string;
+      /** @description The OAuth client ID of an oauth2 connection. Refused otherwise. */
+      clientId?: string;
+      /** @description The OAuth client secret. Write-only. */
+      clientSecret?: string;
+      clearClientSecret?: boolean;
     };
     PluginConnectionUpdate: {
       /** @description Optional. A record's declaration never changes. */
       definition?: string;
       name: string;
       origin?: string;
+      /** @description An oauth2 connection's client ID. An empty string removes it. A new client ID deletes the tokens and an attempt in progress. */
+      clientId?: string;
+      /** @description Replaces the write-only client secret. The tokens stay. */
+      clientSecret?: string;
+      clearClientSecret?: boolean;
       expectedRevision: number;
     };
     PluginConnectionConsentsWrite: {
@@ -21706,7 +21843,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description plugin_connection_in_use — error.details.references lists the settings and instances that use it */
+      /** @description plugin_connection_in_use — error.details.references lists the settings and instances that use it; plugin_connection_connected — disconnect the OAuth connection first */
       409: {
         headers: {
           [name: string]: unknown;
@@ -21777,8 +21914,244 @@ export interface operations {
         };
         content?: never;
       };
+    };
+  };
+  startPluginConnectionOAuth: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The provider authorization URL. The response is not cached. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              /** Format: uri */
+              authorizationUrl: string;
+            };
+          };
+        };
+      };
+      /** @description invalid_plugin_connection — the connection does not use OAuth */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_connection_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_connection_oauth_unavailable — error.details.reason is public_url_https_required, client_id_required, or client_secret_required */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description secrets_unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  pluginConnectionOAuthCallback: {
+    parameters: {
+      query?: {
+        state?: string;
+        code?: string;
+        error?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        connectionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Redirect to the Studio connection page, or to /plugins for an unknown plugin or connection. */
+      303: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  completePluginConnectionOAuth: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PluginConnectionOAuthCallback"];
+      };
+    };
+    responses: {
+      /** @description The connection is connected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginConnection"];
+          };
+        };
+      };
+      /** @description plugin_oauth_failed — error.details.reason is invalid_state, provider_denied, invalid_response, connection_changed, invalid_grant, token_rejected, token_endpoint_unavailable, invalid_token_response, or client_secret_unavailable. invalid_json for a body with an unknown member. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A Studio session is required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_connection_oauth_unavailable */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description rate_limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description secrets_unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  disconnectPluginConnectionOAuth: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        /** @description A connection record of the plugin. */
+        connectionId: components["parameters"]["PluginConnectionID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The connection is not connected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginConnection"];
+          };
+        };
+      };
+      /** @description invalid_plugin_connection — the connection does not use OAuth */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found or plugin_connection_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description expected_revision_required */
       428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description secrets_unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };

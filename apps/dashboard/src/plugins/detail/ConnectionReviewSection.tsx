@@ -34,6 +34,26 @@ export function connectionReviewLines(
     security.push(t("hosted.connections.review.plainHttp"));
   if (connection.plaintextSecret)
     security.push(t("hosted.connections.review.plaintextSecret"));
+  const oauth = connection.oauth;
+  if (oauth) {
+    security.push(
+      t("hosted.connections.review.oauthAuthorization", {
+        endpoint: oauth.authorizationEndpoint,
+      }),
+      t("hosted.connections.review.oauthToken", {
+        endpoint: oauth.tokenEndpoint,
+      }),
+      t("hosted.connections.review.oauthScopes", {
+        scopes: oauth.scopes.join(" "),
+      }),
+    );
+    if (oauth.revocationEndpoint)
+      security.push(
+        t("hosted.connections.review.oauthRevocation", {
+          endpoint: oauth.revocationEndpoint,
+        }),
+      );
+  }
   const limits: string[] = [];
   if (connection.maxResponseBytes > DEFAULT_RESPONSE)
     limits.push(

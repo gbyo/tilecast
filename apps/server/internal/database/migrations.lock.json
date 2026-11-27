@@ -832,5 +832,11 @@
     "file": "00140_plugin_connections.sql",
     "owner": "core",
     "sha256": "cd71efc051d67286ed77851461447f8fdc16b4884786cb297c48af00365e7b76"
+  },
+  {
+    "version": 141,
+    "file": "00141_plugin_oauth_connections.sql",
+    "owner": "core",
+    "sha256": "d0dc6dad91625fba2b1981fd5e7f07101dff4abdb57c9e378a679d766481fe1c"
   }
 ]

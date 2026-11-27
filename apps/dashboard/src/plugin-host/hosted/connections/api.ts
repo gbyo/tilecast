@@ -5,11 +5,26 @@ export type PluginConnection = components["schemas"]["PluginConnection"];
 export type PluginConnectionReference =
   components["schemas"]["PluginConnectionReference"];
 
+export type PluginConnectionOAuth =
+  components["schemas"]["PluginConnectionOAuth"];
+
 export interface ConnectionWrite {
   definition?: string;
   name: string;
   origin?: string;
+  /** OAuth connections only. An empty string removes the client ID. */
+  clientId?: string;
+  /** Write-only. Studio never reads a client secret back. */
+  clientSecret?: string;
+  clearClientSecret?: boolean;
   expectedRevision?: number;
+}
+
+/** What the provider returned to the callback, as Studio hands it on. */
+export interface OAuthCallback {
+  state: string;
+  code?: string;
+  error?: string;
 }
 
 export interface ConsentWrite {
@@ -46,6 +61,22 @@ export function connectionsClient(pluginId: string) {
         method: "PUT",
         headers: csrf(token),
         body: JSON.stringify(body),
+      }),
+    startOAuth: (id: string, token: string) =>
+      request<{ authorizationUrl: string }>(`${base}/${id}/oauth/start`, {
+        method: "POST",
+        headers: csrf(token),
+      }),
+    completeOAuth: (id: string, body: OAuthCallback, token: string) =>
+      request<PluginConnection>(`${base}/${id}/oauth/complete`, {
+        method: "POST",
+        headers: csrf(token),
+        body: JSON.stringify(body),
+      }),
+    disconnectOAuth: (id: string, token: string) =>
+      request<PluginConnection>(`${base}/${id}/oauth/disconnect`, {
+        method: "POST",
+        headers: csrf(token),
       }),
     remove: (id: string, token: string) =>
       request<void>(`${base}/${id}`, {
