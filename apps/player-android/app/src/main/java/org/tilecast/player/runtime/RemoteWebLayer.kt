@@ -166,6 +166,11 @@ private fun PageView(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
+                // Give percentage-height pages a bounded WebView viewport.
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
                 settings.javaScriptEnabled = page.javascriptEnabled
                 settings.domStorageEnabled = page.domStorageEnabled
                 settings.allowFileAccess = false
