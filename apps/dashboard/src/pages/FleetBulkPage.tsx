@@ -202,6 +202,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
     (action !== "assign_playlist" || playlistId !== "") &&
     (action !== "assign_layout" || layoutId !== "");
 
+  const selectedIds = new Set(selected);
   const allSelected = items.length > 0 && selected.length === items.length;
 
   return (
@@ -296,7 +297,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
           ) : (
             <div className="grid max-h-[420px] grid-cols-1 content-start gap-1 overflow-y-auto p-2 sm:grid-cols-2">
               {items.map((item) => {
-                const isSelected = selected.includes(item.id);
+                const isSelected = selectedIds.has(item.id);
                 return (
                   <label
                     className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1 has-checked:border-primary has-checked:bg-accent hover:bg-accent focus-within:outline-2 focus-within:outline-ring focus-within:outline-offset-1"

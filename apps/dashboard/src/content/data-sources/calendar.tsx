@@ -162,6 +162,7 @@ export function CalendarDataSourceEditor({
       };
     });
   const diagnostic = diagnostics.data;
+  const filteredCalendars = new Set(configuration.filterCalendars);
   return (
     <EditorFrame
       title={
@@ -421,8 +422,7 @@ export function CalendarDataSourceEditor({
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {configuration.calendars.map((feed) => {
-              const selected =
-                configuration.filterCalendars?.includes(feed.name) ?? false;
+              const selected = filteredCalendars.has(feed.name);
               return (
                 <label
                   key={feed.name}

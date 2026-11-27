@@ -1,5 +1,5 @@
 import { TriangleAlert } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Badge } from "../ui/badge";
@@ -34,19 +34,27 @@ export function PlaybackCalendarBlock({
 }) {
   const { t } = useTranslation(["schedules", "screens"]);
   const selection = block.selection;
-  const time = new Intl.DateTimeFormat(locale, {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName:
-      day.getTimezoneOffset() === dayEnd.getTimezoneOffset()
-        ? undefined
-        : "short",
-  });
-  const dateLabel = new Intl.DateTimeFormat(locale, {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  }).format(day);
+  const crossesOffsetChange =
+    day.getTimezoneOffset() !== dayEnd.getTimezoneOffset();
+  const time = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: crossesOffsetChange ? "short" : undefined,
+      }),
+    [locale, crossesOffsetChange],
+  );
+  const dateFormat = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      }),
+    [locale],
+  );
+  const dateLabel = dateFormat.format(day);
   const range = (start: Date, end: Date) =>
     t("agenda.timeRange", {
       from: time.format(start),

@@ -119,15 +119,18 @@ function ToastAction({
 function ToastClose({
   className,
   children,
-  render = <Button variant="ghost" size="icon-sm" />,
+  render,
   ...props
 }: ToastPrimitive.Close.Props) {
   const { t } = useTranslation("common");
+  const label = t("actions.closeToast");
   return (
     <ToastPrimitive.Close
       data-slot="toast-close"
-      aria-label={t("actions.closeToast")}
-      render={render}
+      aria-label={label}
+      render={
+        render ?? <Button variant="ghost" size="icon-sm" aria-label={label} />
+      }
       className={cn(
         "relative shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",
         className,

@@ -1,5 +1,5 @@
 import { TriangleAlert } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { PlaybackAgenda } from "../../api/domains/playbackPlan";
@@ -36,20 +36,28 @@ export function PlaybackWeekCalendar({
   );
   const maxHours = Math.max(24, ...days.map((day) => day.hours));
   const today = agendaDate(now).getTime();
-  const weekday = new Intl.DateTimeFormat(locale, { weekday: "short" });
-  const dayNumber = new Intl.DateTimeFormat(locale, { day: "numeric" });
-  const fullDay = new Intl.DateTimeFormat(locale, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-  const hourLabel = new Intl.DateTimeFormat(locale, { hour: "numeric" });
-  const changeHourLabel = new Intl.DateTimeFormat(locale, {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
-  const timezone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const { weekday, dayNumber, fullDay, hourLabel, changeHourLabel } = useMemo(
+    () => ({
+      weekday: new Intl.DateTimeFormat(locale, { weekday: "short" }),
+      dayNumber: new Intl.DateTimeFormat(locale, { day: "numeric" }),
+      fullDay: new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+      hourLabel: new Intl.DateTimeFormat(locale, { hour: "numeric" }),
+      changeHourLabel: new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }),
+    }),
+    [locale],
+  );
+  const timezone = useMemo(
+    () => new Intl.DateTimeFormat().resolvedOptions().timeZone,
+    [],
+  );
   const hasAllDay = days.some((day) => day.allDay);
 
   useEffect(() => {

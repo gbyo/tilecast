@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type {
   PresentationHeader,
   PresentationSize,
@@ -49,7 +55,9 @@ export function usePresentationChrome(
   const presentation = useNativePresentation();
   const json = JSON.stringify(chrome);
   const handler = useRef(onAction);
-  handler.current = onAction;
+  useLayoutEffect(() => {
+    handler.current = onAction;
+  });
 
   useEffect(() => {
     presentation?.update(JSON.parse(json) as PresentationChrome);

@@ -482,14 +482,14 @@ function DefinitionControl({
       />
     );
   if (field.control === "select" || field.control === "data_source_field") {
+    const acceptedTypes = new Set(field.dataSourceFieldTypes);
     const options =
       field.control === "select"
         ? (field.options ?? [])
         : (fieldSource.data?.fields ?? [])
             .filter(
               (sourceField: DataSourceField) =>
-                !field.dataSourceFieldTypes?.length ||
-                field.dataSourceFieldTypes.includes(sourceField.type),
+                !acceptedTypes.size || acceptedTypes.has(sourceField.type),
             )
             .map((sourceField: DataSourceField) => ({
               value: sourceField.key,

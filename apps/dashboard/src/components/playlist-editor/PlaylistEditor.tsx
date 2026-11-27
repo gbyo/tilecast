@@ -264,7 +264,7 @@ export function PlaylistEditorPage() {
   // latest unsaved input for its item, because the inspector builds it from
   // the item as last rendered, which may predate an edit still in flight.
   const itemDrafts = useRef(new Map<string, PlaylistItemInput>());
-  const itemQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const itemQueue = useRef<Promise<unknown> | null>(null);
   const editItem = (item: PlaylistItem, edited: PlaylistItemInput) => {
     const input = mergeItemEdit(
       itemInput(item),
@@ -272,18 +272,20 @@ export function PlaylistEditorPage() {
       itemDrafts.current.get(item.id),
     );
     itemDrafts.current.set(item.id, input);
-    itemQueue.current = itemQueue.current.then(async () => {
-      const latest = itemDrafts.current.get(item.id);
-      if (latest !== input) return;
-      try {
-        await updateItem.mutateAsync({ itemId: item.id, input });
-      } catch {
-        // onError reports it; later edits still run.
-      } finally {
-        if (itemDrafts.current.get(item.id) === input)
-          itemDrafts.current.delete(item.id);
-      }
-    });
+    itemQueue.current = (itemQueue.current ?? Promise.resolve()).then(
+      async () => {
+        const latest = itemDrafts.current.get(item.id);
+        if (latest !== input) return;
+        try {
+          await updateItem.mutateAsync({ itemId: item.id, input });
+        } catch {
+          // onError reports it; later edits still run.
+        } finally {
+          if (itemDrafts.current.get(item.id) === input)
+            itemDrafts.current.delete(item.id);
+        }
+      },
+    );
   };
 
   const updateItem = useMutation({

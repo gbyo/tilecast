@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 
@@ -182,7 +182,12 @@ type CursorPagination = {
 
 export function useActivityCursor(resetKey: string): CursorPagination {
   const [history, setHistory] = useState<string[]>([""]);
-  useEffect(() => setHistory([""]), [resetKey]);
+  // A new filter set starts from the first page; adjusted while rendering.
+  const [historyKey, setHistoryKey] = useState(resetKey);
+  if (resetKey !== historyKey) {
+    setHistoryKey(resetKey);
+    setHistory([""]);
+  }
   return {
     cursor: history[history.length - 1] ?? "",
     canGoBack: history.length > 1,

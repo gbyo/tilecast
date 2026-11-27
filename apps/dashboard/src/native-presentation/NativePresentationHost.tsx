@@ -68,8 +68,9 @@ export function NativePresentationHost({ routes }: { routes: RouteObject[] }) {
 
   useEffect(() => {
     if (!enabled) return;
-    const unsubscribers = [
-      host.subscribe("presentation/show", ({ presentationId, path }) => {
+    const offShow = host.subscribe(
+      "presentation/show",
+      ({ presentationId, path }) => {
         // Only Studio's own presentation routes; a host never picks one.
         if (!matchRoutes(tree, path.split(/[?#]/, 1)[0] ?? "")) return false;
         activeRef.current = presentationId;
@@ -77,21 +78,31 @@ export function NativePresentationHost({ routes }: { routes: RouteObject[] }) {
         setActive(presentationId);
         void navigate(path, { replace: true });
         return true;
-      }),
-      host.subscribe("presentation/action", ({ presentationId, actionId }) => {
+      },
+    );
+    const offAction = host.subscribe(
+      "presentation/action",
+      ({ presentationId, actionId }) => {
         if (presentationId !== activeRef.current) return false;
         for (const handler of actionHandlers.current) handler(actionId);
         return true;
-      }),
-      host.subscribe("presentation/dismissed", ({ presentationId }) => {
+      },
+    );
+    const offDismissed = host.subscribe(
+      "presentation/dismissed",
+      ({ presentationId }) => {
         if (presentationId !== activeRef.current) return false;
         activeRef.current = null;
         setActive(null);
         void navigate(PRESENTATION_ROOT, { replace: true });
         return true;
-      }),
-    ];
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+      },
+    );
+    return () => {
+      offShow();
+      offAction();
+      offDismissed();
+    };
   }, [enabled, host, navigate, tree]);
 
   // After the subscriptions above: the host may send presentation/show as

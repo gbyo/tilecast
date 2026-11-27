@@ -158,7 +158,6 @@ import { useAuth } from "../auth/AuthProvider";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { usePhoneLayout } from "../hooks/use-phone-layout";
 import { hasCapability } from "../auth/capabilities";
 import {
@@ -2645,10 +2644,10 @@ export function useMediaAssetDetails({
   const queryClient = useQueryClient();
   const [name, setName] = useState(asset.name);
   const [description, setDescription] = useState(asset.description);
-  const [availableFrom, setAvailableFrom] = useState(
+  const [availableFrom, setAvailableFrom] = useState(() =>
     rfc3339ToLocalDateTime(asset.availableFrom),
   );
-  const [expiresAt, setExpiresAt] = useState(
+  const [expiresAt, setExpiresAt] = useState(() =>
     rfc3339ToLocalDateTime(asset.expiresAt),
   );
   const mutation = useMutation({

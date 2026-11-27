@@ -7,7 +7,7 @@ import {
   MonitorSpeaker,
   TriangleAlert,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addWeeks, startOfWeek, type Day } from "date-fns";
 import { api, ApiError } from "../../api/client";
@@ -114,11 +114,16 @@ export function PlaybackAgenda() {
     ),
     enabled: Boolean(screen),
   });
-  const weekLabel = new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).formatRange(start, agendaDate(start, 6));
+  const weekFormat = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    [locale],
+  );
+  const weekLabel = weekFormat.formatRange(start, agendaDate(start, 6));
 
   function changeWeek(offset: number) {
     setWeekOffset(offset);

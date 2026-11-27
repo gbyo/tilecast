@@ -283,6 +283,7 @@ function Progress({
 }) {
   const { t } = useTranslation(["auth", "common"]);
   const position = plan.indexOf(current) + 1;
+  const finished = new Set(done);
   return (
     <nav className="grid gap-2" aria-label={t("enrollment.progress.label")}>
       <Eyebrow>
@@ -297,7 +298,7 @@ function Progress({
             key={step}
             aria-current={step === current ? "step" : undefined}
             data-state={
-              done.includes(step)
+              finished.has(step)
                 ? "done"
                 : step === current
                   ? "current"
@@ -305,7 +306,7 @@ function Progress({
             }
             className="flex items-center gap-1.5 rounded-[var(--tc-radius-control)] border border-transparent bg-muted px-2 py-1 text-[0.78rem] text-muted-foreground data-[state=current]:border-[var(--tc-border-strong,var(--border))] data-[state=current]:font-semibold data-[state=current]:text-foreground"
           >
-            {done.includes(step) && <Check size={13} aria-hidden="true" />}
+            {finished.has(step) && <Check size={13} aria-hidden="true" />}
             {t(stepLabelKeys[step])}
           </li>
         ))}

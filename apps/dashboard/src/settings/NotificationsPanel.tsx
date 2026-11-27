@@ -398,6 +398,7 @@ function WebhookSection({
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [categories, setCategories] = useState<NotificationCategory[]>([]);
+  const selectedCategories = new Set(categories);
 
   return (
     <section className="grid gap-3 rounded-xl border border-border p-4">
@@ -606,7 +607,7 @@ function WebhookSection({
               >
                 <Checkbox
                   id={"webhook-category-" + category}
-                  checked={categories.includes(category)}
+                  checked={selectedCategories.has(category)}
                   onCheckedChange={(checked) =>
                     setCategories(
                       checked === true

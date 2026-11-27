@@ -141,9 +141,14 @@ export function LivePreviewPanel({
     screenId,
   ]);
 
-  useEffect(() => {
+  // A new capture gets another chance to load; adjusted while rendering, since
+  // the failure flag belongs to the capture it was recorded for.
+  const captureKey = preview.data?.capturedAt;
+  const [failedCapture, setFailedCapture] = useState(captureKey);
+  if (captureKey !== failedCapture) {
+    setFailedCapture(captureKey);
     setImageLoadFailed(false);
-  }, [preview.data?.capturedAt]);
+  }
 
   const displayState: LivePreviewDisplayState =
     imageLoadFailed && imageUrl && (state === "live" || state === "stale")

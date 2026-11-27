@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useNativeHost } from "./NativeHostProvider";
 import type { NavigationChromePayload } from "./protocol";
@@ -37,7 +37,9 @@ export function useNativeNavigationChrome(
   const json = JSON.stringify(chrome);
   const parentTo = parent?.to;
   const latest = useRef({ parentTo, navigate });
-  latest.current = { parentTo, navigate };
+  useLayoutEffect(() => {
+    latest.current = { parentTo, navigate };
+  });
 
   useEffect(() => {
     if (!active) return;

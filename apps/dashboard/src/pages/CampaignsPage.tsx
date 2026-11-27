@@ -530,6 +530,17 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       ),
     [locale],
   );
+  // Each block's chosen weekdays, as a Set for the checkbox lookups.
+  const weekdaysByBlock = useMemo(
+    () =>
+      new Map(
+        (draft?.blocks ?? []).map((block) => [
+          block.id,
+          new Set(block.daysOfWeek),
+        ]),
+      ),
+    [draft?.blocks],
+  );
   const contentOptions = useMemo(
     () =>
       selectedType === "playlist"
@@ -1063,9 +1074,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                                 className="flex items-center gap-2 text-sm"
                               >
                                 <Checkbox
-                                  checked={(block.daysOfWeek ?? []).includes(
-                                    day,
-                                  )}
+                                  checked={
+                                    weekdaysByBlock.get(block.id)?.has(day) ??
+                                    false
+                                  }
                                   onCheckedChange={(checked) => {
                                     const days = new Set(
                                       block.daysOfWeek ?? [],

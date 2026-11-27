@@ -19,6 +19,7 @@ export function collectSecondaryNavItems(
   corePaths: readonly string[] = [],
 ): ContributedSecondaryNavItem[] {
   const seen = new Map<string, string>();
+  const core = new Set(corePaths);
   const out: ContributedSecondaryNavItem[] = [];
   const ordered = [...plugins].sort((left, right) =>
     left.id.localeCompare(right.id),
@@ -59,7 +60,7 @@ export function collectSecondaryNavItems(
           `plugins/${plugin.id} secondary-navigation item ${JSON.stringify(item.id)} points at ${JSON.stringify(item.to)}, outside its declared studio routes`,
         );
       }
-      if (corePaths.includes(item.to)) {
+      if (core.has(item.to)) {
         throw new Error(
           `plugins/${plugin.id} secondary-navigation item ${JSON.stringify(item.id)} collides with the core Studio route ${JSON.stringify(item.to)}`,
         );

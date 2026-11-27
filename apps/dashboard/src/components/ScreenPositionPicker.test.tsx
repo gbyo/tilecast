@@ -16,6 +16,7 @@ vi.mock("maplibre-gl", () => {
     once = vi.fn();
     getContainer = () => document.createElement("div");
     on = vi.fn();
+    off = vi.fn();
     remove = vi.fn();
     getZoom = vi.fn(() => 1);
     easeTo = maplibre.easeTo;
@@ -27,6 +28,7 @@ vi.mock("maplibre-gl", () => {
     setLngLat = vi.fn(() => this);
     addTo = vi.fn(() => this);
     on = vi.fn();
+    off = vi.fn();
     remove = vi.fn();
   }
   class NavigationControl {}

@@ -270,8 +270,10 @@ export function deploymentPercent(
 // rows so the drawer's meter matches the rows underneath it even when a scoped
 // operator only sees part of the deployment.
 export function screenStateCounts(screens: UpdateDeploymentScreen[]) {
-  const counted = (states: UpdateDeploymentScreenState[]) =>
-    screens.filter((screen) => states.includes(screen.state)).length;
+  const counted = (states: UpdateDeploymentScreenState[]) => {
+    const wanted = new Set(states);
+    return screens.filter((screen) => wanted.has(screen.state)).length;
+  };
   return {
     targetCount: screens.length,
     succeededCount: counted(["succeeded", "already_current"]),
@@ -331,8 +333,19 @@ export function filterDeploymentScreens(
  * miss and return the fallback. The count branch resolves its own suffix with
  * the platform plural rules, then looks up that exact key.
  */
+const pluralRulesByLanguage = new Map<string, Intl.PluralRules>();
+
+function pluralRulesFor(language: string) {
+  let rules = pluralRulesByLanguage.get(language);
+  if (!rules) {
+    rules = new Intl.PluralRules(language);
+    pluralRulesByLanguage.set(language, rules);
+  }
+  return rules;
+}
+
 function pluralHeadline(base: "retry" | "waiting", count: number): string {
-  const suffix = new Intl.PluralRules(
+  const suffix = pluralRulesFor(
     i18n.resolvedLanguage ?? DEFAULT_LANGUAGE,
   ).select(count);
   const key = `settings:updates.headline.${base}_${suffix}`;

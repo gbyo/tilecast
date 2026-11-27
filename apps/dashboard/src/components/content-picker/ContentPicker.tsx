@@ -69,14 +69,22 @@ export type ContentPickerProps = {
   onCreateWidget?: () => void;
 };
 
+// Stable defaults: an inline `= []` is a new array on every render.
+const DEFAULT_ALLOWED_TYPES: Array<"image" | "video" | "widget"> = [
+  "image",
+  "video",
+  "widget",
+];
+const NO_IDS: string[] = [];
+
 export function ContentPicker({
   open,
   mode,
   csrf,
-  allowedTypes = ["image", "video", "widget"],
+  allowedTypes = DEFAULT_ALLOWED_TYPES,
   allowedProviders,
-  disabledItemIds = [],
-  selectedIds = [],
+  disabledItemIds = NO_IDS,
+  selectedIds = NO_IDS,
   confirmLabel,
   title,
   description,
@@ -197,12 +205,11 @@ export function ContentPicker({
     setCreated((current) => new Map(current).set(asset.id, asset));
     if (first) {
       setHighlighted((current) => new Set(current).add(asset.id));
-      setSelected((current) => {
-        const next =
-          mode === "single" ? new Map<string, Asset>() : new Map(current);
-        next.set(asset.id, asset);
-        return next;
-      });
+      setSelected((current) =>
+        mode === "single"
+          ? new Map([[asset.id, asset]])
+          : new Map([...current, [asset.id, asset]]),
+      );
     } else {
       setSelected((current) => {
         if (!current.has(asset.id)) return current;
@@ -249,25 +256,22 @@ export function ContentPicker({
   const close = () => uploads.guard(onClose);
   const toggle = (asset: Asset) => {
     setFailures([]);
-    setSelected((current) => {
-      const selectedNow = current.has(asset.id);
-      if (mode === "single" && !selectedNow) {
-        for (const id of initialIds.current) {
-          if (id !== asset.id) deselected.current.add(id);
-        }
-        for (const id of current.keys()) deselected.current.add(id);
+    // The bookkeeping runs here, not in the state updater, which React may
+    // call more than once.
+    const selectedNow = selected.has(asset.id);
+    if (mode === "single" && !selectedNow) {
+      for (const id of initialIds.current) {
+        if (id !== asset.id) deselected.current.add(id);
       }
-      const next =
-        mode === "single" ? new Map<string, Asset>() : new Map(current);
-      if (selectedNow) {
-        deselected.current.add(asset.id);
-        next.delete(asset.id);
-      } else {
-        deselected.current.delete(asset.id);
-        next.set(asset.id, asset);
-      }
-      return next;
-    });
+      for (const id of selected.keys()) deselected.current.add(id);
+    }
+    if (selectedNow) deselected.current.add(asset.id);
+    else deselected.current.delete(asset.id);
+    const next =
+      mode === "single" ? new Map<string, Asset>() : new Map(selected);
+    if (selectedNow) next.delete(asset.id);
+    else next.set(asset.id, asset);
+    setSelected(next);
   };
   const confirm = async () => {
     setConfirming(true);
