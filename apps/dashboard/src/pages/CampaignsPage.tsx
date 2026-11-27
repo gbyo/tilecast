@@ -534,9 +534,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const weekdaysByBlock = useMemo(
     () =>
       new Map(
-        draft.blocks.map((block) => [block.id, new Set(block.daysOfWeek)]),
+        (draft?.blocks ?? []).map((block) => [
+          block.id,
+          new Set(block.daysOfWeek),
+        ]),
       ),
-    [draft.blocks],
+    [draft?.blocks],
   );
   const contentOptions = useMemo(
     () =>

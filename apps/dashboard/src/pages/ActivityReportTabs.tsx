@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -177,10 +177,13 @@ export function ProofTab({
     };
   }, [screenSummary.data]);
 
-  useEffect(() => {
+  // A new filter set drops the open record; adjusted while rendering.
+  const [recordParamsKey, setRecordParamsKey] = useState(paramsKey);
+  if (paramsKey !== recordParamsKey) {
+    setRecordParamsKey(paramsKey);
     setSelectedRecord(null);
     setDetailsOpen(false);
-  }, [paramsKey]);
+  }
   // The shared drawer owns Escape handling; no local listener needed.
 
   if (query.isLoading) return <Loading />;

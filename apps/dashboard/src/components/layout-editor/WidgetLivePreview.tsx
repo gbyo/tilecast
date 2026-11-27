@@ -74,7 +74,12 @@ export function AssetPlaybackPreview({
   placement: LayoutPlacement;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [asset.id]);
+  // Another asset starts fresh; adjusted while rendering, not in an effect.
+  const [failedAssetId, setFailedAssetId] = useState(asset.id);
+  if (asset.id !== failedAssetId) {
+    setFailedAssetId(asset.id);
+    setFailed(false);
+  }
   if (failed || (asset.type !== "image" && asset.type !== "video"))
     return (
       <div className="layout-placement-placeholder">

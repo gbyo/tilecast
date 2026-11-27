@@ -552,9 +552,12 @@ function CommandPalette({
   );
   const groups = groupCommandResults(t, results);
 
-  useEffect(() => {
+  // Each opening starts with an empty search; adjusted while rendering.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) setQuery("");
-  }, [open]);
+  }
 
   useEffect(() => installCommandPaletteFocus(), []);
 
