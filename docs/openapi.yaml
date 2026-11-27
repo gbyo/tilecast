@@ -13628,7 +13628,11 @@ components:
         eventKey: { type: string }
         category: { $ref: "#/components/schemas/NotificationCategory" }
         severity: { type: string, enum: [info, warning, error, critical] }
-        channel: { type: string, enum: [email, webhook] }
+        channel:
+          type: string
+          description: >-
+            email, webhook, or plugin. A plugin delivery's target is <plugin id>:<channel id>, a notification channel that a Plugin Manifest API 3 plugin declares (docs/plugin-providers.md).
+          x-extensible-enum: [email, webhook, plugin]
         target: { type: string }
         subject: { type: string }
         status: { type: string, enum: [pending, sent, failed, cancelled] }
@@ -13766,6 +13770,92 @@ components:
           type: array
           description: Inbound webhooks a Plugin Manifest API 3 plugin declares. Empty for other plugins.
           items: { $ref: "#/components/schemas/PluginWebhookReview" }
+        providers: { $ref: "#/components/schemas/PluginProviderReview" }
+    PluginProviderReview:
+      type: object
+      description: >-
+        The core provider slots a Plugin Manifest API 3 plugin fills. Empty lists for other plugins. A notification channel delivers notifications Tilecast already decided to send; a Content Health check reads one item of the listed kinds at a time.
+      required: [channels, checks]
+      properties:
+        channels:
+          type: array
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              description: { type: string }
+        checks:
+          type: array
+          items:
+            type: object
+            required: [id, title, kinds]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              description: { type: string }
+              kinds:
+                type: array
+                items:
+                  {
+                    type: string,
+                    x-extensible-enum:
+                      [playlist, layout, widget_instance, media_item],
+                  }
+    PluginProviderStatus:
+      type: object
+      required: [channels, checks]
+      properties:
+        channels:
+          type: array
+          items:
+            type: object
+            required: [id, title, ready, sent, pending, failed]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              ready:
+                {
+                  type: boolean,
+                  description: "False when the channel is intentionally off or not configured; notifications skip it.",
+                }
+              sent: { type: integer, minimum: 0 }
+              pending: { type: integer, minimum: 0 }
+              failed: { type: integer, minimum: 0 }
+              lastSentAt: { type: string, format: date-time }
+              lastFailedAt: { type: string, format: date-time }
+        checks:
+          type: array
+          items:
+            type: object
+            required:
+              [id, title, kinds, checkedItems, failingItems, openConditions]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              kinds: { type: array, items: { type: string } }
+              checkedItems: { type: integer, minimum: 0 }
+              failingItems:
+                {
+                  type: integer,
+                  minimum: 0,
+                  description: "Items whose latest check failed. Their earlier conditions stay open.",
+                }
+              openConditions: { type: integer, minimum: 0 }
+              lastFailure:
+                {
+                  type: string,
+                  x-extensible-enum:
+                    [
+                      check_failed,
+                      check_timeout,
+                      check_panic,
+                      invalid_result,
+                      item_too_large,
+                    ],
+                }
+              lastFailedAt: { type: string, format: date-time }
     PluginWebhookReview:
       type: object
       required:
@@ -14706,8 +14796,10 @@ components:
           subscriptions,
           publishedEvents,
           webhooks,
+          providers,
         ]
       properties:
+        providers: { $ref: "#/components/schemas/PluginProviderStatus" }
         webhooks:
           type: array
           description: The plugin's inbound webhooks, without tokens.

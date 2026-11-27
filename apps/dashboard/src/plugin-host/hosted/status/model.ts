@@ -20,7 +20,8 @@ export function hasStatusPage(manifest: PluginManifestV3): boolean {
     ) ||
     (events?.publishes?.length ?? 0) > 0 ||
     (events?.subscribes?.length ?? 0) > 0 ||
-    (manifest.webhooks?.length ?? 0) > 0
+    (manifest.webhooks?.length ?? 0) > 0 ||
+    manifest.providers !== undefined
   );
 }
 

@@ -1012,6 +1012,43 @@
         "handshake": "{{handshake}}",
         "secret": "Usted introduce el secreto de firma del proveedor en la configuración del plugin. El plugin nunca lo lee."
       }
+    },
+    "providers": {
+      "kinds": {
+        "playlist": "listas de reproducción",
+        "layout": "diseños",
+        "widget_instance": "widgets",
+        "media_item": "medios"
+      },
+      "failures": {
+        "check_failed": "la comprobación devolvió un error",
+        "check_timeout": "la comprobación tardó más de 10 segundos",
+        "check_panic": "la comprobación falló",
+        "invalid_result": "la comprobación devolvió un resultado no válido",
+        "item_too_large": "el elemento es demasiado grande para comprobarlo"
+      },
+      "status": {
+        "title": "Servicios que ofrece este plugin",
+        "description": "Tilecast decide qué enviar y qué se convierte en incidente. Aquí se ve si la parte del plugin funciona.",
+        "ready": "Listo",
+        "off": "Desactivado",
+        "offHelp": "El canal está desactivado o sin configurar, así que las notificaciones lo omiten.",
+        "channelCounts": "{{sent}} enviadas, {{pending}} en espera, {{failed}} fallidas",
+        "lastFailed": "Último fallo {{when}}",
+        "openConditions_one": "{{count}} condición abierta",
+        "openConditions_many": "{{count}} condiciones abiertas",
+        "openConditions_other": "{{count}} condiciones abiertas",
+        "checkCounts": "{{checked}} elementos comprobados: {{kinds}}",
+        "failing_one": "No se pudo comprobar {{count}} elemento: {{reason}}. Sus condiciones anteriores siguen abiertas.",
+        "failing_many": "No se pudieron comprobar {{count}} elementos: {{reason}}. Sus condiciones anteriores siguen abiertas.",
+        "failing_other": "No se pudieron comprobar {{count}} elementos: {{reason}}. Sus condiciones anteriores siguen abiertas."
+      },
+      "review": {
+        "title": "Servicios para Tilecast",
+        "description": "Este plugin participa en funciones de Tilecast. Tilecast sigue decidiendo lo que ocurre; el plugin solo hace su parte.",
+        "channel": "Canal de notificación: entrega las notificaciones que Tilecast ya envía, según su configuración de notificaciones.",
+        "check": "Comprobación de estado del contenido: lee un elemento cada vez que cambia ({{kinds}}) e informa de los problemas como incidentes."
+      }
     }
   },
   "secrets": {

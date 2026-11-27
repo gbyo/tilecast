@@ -8272,8 +8272,8 @@ export interface components {
       category: components["schemas"]["NotificationCategory"];
       /** @enum {string} */
       severity: "info" | "warning" | "error" | "critical";
-      /** @enum {string} */
-      channel: "email" | "webhook";
+      /** @description email, webhook, or plugin. A plugin delivery's target is <plugin id>:<channel id>, a notification channel that a Plugin Manifest API 3 plugin declares (docs/plugin-providers.md). */
+      channel: string;
       target: string;
       subject: string;
       /** @enum {string} */
@@ -8354,6 +8354,48 @@ export interface components {
       events?: components["schemas"]["PluginEventReview"];
       /** @description Inbound webhooks a Plugin Manifest API 3 plugin declares. Empty for other plugins. */
       webhooks?: components["schemas"]["PluginWebhookReview"][];
+      providers?: components["schemas"]["PluginProviderReview"];
+    };
+    /** @description The core provider slots a Plugin Manifest API 3 plugin fills. Empty lists for other plugins. A notification channel delivers notifications Tilecast already decided to send; a Content Health check reads one item of the listed kinds at a time. */
+    PluginProviderReview: {
+      channels: {
+        id: string;
+        title: string;
+        description?: string;
+      }[];
+      checks: {
+        id: string;
+        title: string;
+        description?: string;
+        kinds: string[];
+      }[];
+    };
+    PluginProviderStatus: {
+      channels: {
+        id: string;
+        title: string;
+        /** @description False when the channel is intentionally off or not configured; notifications skip it. */
+        ready: boolean;
+        sent: number;
+        pending: number;
+        failed: number;
+        /** Format: date-time */
+        lastSentAt?: string;
+        /** Format: date-time */
+        lastFailedAt?: string;
+      }[];
+      checks: {
+        id: string;
+        title: string;
+        kinds: string[];
+        checkedItems: number;
+        /** @description Items whose latest check failed. Their earlier conditions stay open. */
+        failingItems: number;
+        openConditions: number;
+        lastFailure?: string;
+        /** Format: date-time */
+        lastFailedAt?: string;
+      }[];
     };
     PluginWebhookReview: {
       id: string;
@@ -8873,6 +8915,7 @@ export interface components {
       error?: string;
     };
     PluginStatus: {
+      providers: components["schemas"]["PluginProviderStatus"];
       /** @description The plugin's inbound webhooks, without tokens. */
       webhooks: components["schemas"]["PluginWebhookState"][];
       pluginId: string;

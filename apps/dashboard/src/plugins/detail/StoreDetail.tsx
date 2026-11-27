@@ -1,6 +1,7 @@
 import { ConnectionReviewSection } from "./ConnectionReviewSection";
 import { EventReviewSection } from "./EventReviewSection";
 import { WebhookReviewSection } from "./WebhookReviewSection";
+import { ProviderReviewSection } from "./ProviderReviewSection";
 import { FeedReviewSection } from "./FeedReviewSection";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -327,6 +328,7 @@ export function StoreDetail({
           <FeedReviewSection view={view} />
           <EventReviewSection view={view} />
           <WebhookReviewSection view={view} />
+          <ProviderReviewSection view={view} />
           <RequirementsSection view={view} />
         </div>
 

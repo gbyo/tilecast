@@ -1308,10 +1308,14 @@ export type PluginSummary = {
   /** Server events a Plugin Manifest API 3 plugin publishes and receives. */
   events?: PluginEventReview;
   webhooks?: PluginWebhookReview[];
+  /** Notification channels and Content Health checks the plugin provides. */
+  providers?: PluginProviderReview;
 };
 
 export type PluginEventReview =
   import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginEventReview"];
+export type PluginProviderReview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginProviderReview"];
 export type PluginWebhookReview =
   import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginWebhookReview"];
 
@@ -2956,7 +2960,11 @@ export type NotificationDelivery = {
   eventKey: string;
   category: NotificationCategory;
   severity: "info" | "warning" | "error" | "critical";
-  channel: "email" | "webhook";
+  /**
+   * email, webhook, or plugin. A plugin delivery's target is
+   * <plugin id>:<channel id>. The contract may add channels.
+   */
+  channel: string;
   target: string;
   subject: string;
   status: "pending" | "sent" | "failed" | "cancelled";

@@ -63,6 +63,13 @@ import {
   serverEventNamePattern,
 } from "./events.ts";
 import {
+  CONTENT_KINDS,
+  MAX_CONTENT_CHECKS,
+  MAX_NOTIFICATION_CHANNELS,
+  providerIdPattern,
+  providerProblems,
+} from "./providers.ts";
+import {
   HANDSHAKE_TYPES,
   MAX_FETCH_BACK_PATTERN_LENGTH,
   MAX_WEBHOOK_HEADERS,
@@ -861,6 +868,45 @@ const webhookDeclaration = z.strictObject({
   forwardHeaders: z.array(webhookHeader).max(MAX_WEBHOOK_HEADERS).optional(),
 });
 
+const providerText = {
+  id: z.string().regex(providerIdPattern),
+  title: z.string().min(1).max(80),
+  description: z.string().max(280).optional(),
+};
+
+const providersDeclaration = z.strictObject({
+  notifications: z
+    .strictObject({
+      channels: z
+        .array(z.strictObject(providerText))
+        .min(1)
+        .max(MAX_NOTIFICATION_CHANNELS),
+    })
+    .optional()
+    .describe(
+      "notifications.channels: deliver a notification that Tilecast already decided to send.",
+    ),
+  contentHealth: z
+    .strictObject({
+      checks: z
+        .array(
+          z.strictObject({
+            ...providerText,
+            kinds: z
+              .array(z.enum(CONTENT_KINDS))
+              .min(1)
+              .max(CONTENT_KINDS.length),
+          }),
+        )
+        .min(1)
+        .max(MAX_CONTENT_CHECKS),
+    })
+    .optional()
+    .describe(
+      "contenthealth.checks: check one content item that Content Health passes in.",
+    ),
+});
+
 const v3Members = {
   apiVersion: z
     .literal(3)
@@ -936,6 +982,11 @@ const v3Members = {
     .optional()
     .describe(
       "Inbound endpoints the host owns at /api/v1/hooks/{pluginId}/{webhookId}. The plugin receives each accepted request in HandleWebhook.",
+    ),
+  providers: providersDeclaration
+    .optional()
+    .describe(
+      "Core provider slots the plugin fills: notification channels and Content Health checks.",
     ),
 };
 
@@ -1114,6 +1165,9 @@ export function manifestV3Problems(
   );
   problems.push(
     ...webhookProblems(manifest as Parameters<typeof webhookProblems>[0]),
+  );
+  problems.push(
+    ...providerProblems(manifest as Parameters<typeof providerProblems>[0]),
   );
   const connections = new Set<string>();
   for (const connection of manifest.connections ?? []) {

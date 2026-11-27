@@ -154,6 +154,9 @@ type PluginStatus struct {
 	// Webhooks are the plugin's inbound endpoints: reachability, signing
 	// secret state, and the latest accepted and refused requests.
 	Webhooks []WebhookState `json:"webhooks"`
+	// Providers are the plugin's notification channels and Content Health
+	// checks with their operational state.
+	Providers ProviderStatus `json:"providers"`
 }
 
 func (s *Service) v3Plugin(pluginID string) (hostedPlugin, error) {
@@ -184,6 +187,9 @@ func (s *Service) Status(ctx context.Context, pluginID string) (PluginStatus, er
 	}
 	status.Deliveries = deliveries
 	if status.Webhooks, err = s.webhookStates(ctx, pluginID, false); err != nil {
+		return PluginStatus{}, err
+	}
+	if status.Providers, err = s.providerStatus(ctx, hosted, status.Installed); err != nil {
 		return PluginStatus{}, err
 	}
 	return status, nil

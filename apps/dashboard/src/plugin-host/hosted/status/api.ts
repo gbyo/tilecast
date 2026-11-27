@@ -6,6 +6,7 @@ export type PluginDeliveryStatus =
   components["schemas"]["PluginDeliveryStatus"];
 export type PluginParkedDelivery =
   components["schemas"]["PluginParkedDelivery"];
+export type PluginProviderStatus = PluginStatus["providers"];
 export type PluginEventSubscription = PluginStatus["subscriptions"][number];
 export type PluginPublishedEventStatus =
   PluginStatus["publishedEvents"][number];

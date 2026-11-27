@@ -170,3 +170,21 @@ func (p *Plugin) HandleWebhook(ctx context.Context, webhook plugin.Webhook) erro
 Tilecast calls it **at least once**, in order for each webhook, with no signed-in person, for at most 30 seconds. `DeliveryID` stays the same across retries; `ExternalID` is the provider's ID; `Body` is the exact raw body; `Headers` holds only the headers you listed in `forwardHeaders`. Treat a webhook as "something changed, go read it" and keep polling as well: a webhook only makes an update arrive sooner, and many Servers have no public HTTPS address at all.
 
 For a provider no declaration fits, use the `verify` scheme and implement `VerifyWebhook`. It gets one second and can't call `http.fetch@1`. See [Plugin webhooks](https://github.com/gbyo/tilecast/blob/main/docs/plugin-webhooks.md) for every rule and limit.
+
+## Provide a notification channel or a Content Health check (Plugin Manifest API 3)
+
+Fill a core provider slot in the manifest's `providers` member. A **notification channel** (`providers.notifications.channels`) implements:
+
+```go
+func (p *Plugin) DeliverNotification(ctx context.Context, n plugin.Notification) error
+```
+
+Tilecast calls it for notifications it already decided to send; you never pick recipients, categories, or timing. Return `plugin.ErrChannelUnavailable` if the channel is off, wrap a permanent refusal with `plugin.PermanentNotificationError`, and return any other error to have the outbox retry. Implement `NotificationChannelReady` too, so a channel that isn't set up gets no deliveries at all.
+
+A **Content Health check** (`providers.contentHealth.checks`, with the item `kinds` it reads) implements:
+
+```go
+func (p *Plugin) CheckContent(ctx context.Context, item plugin.ContentItem) ([]plugin.Condition, error)
+```
+
+Tilecast passes one changed playlist, Layout, Widget, or media item at a time, as a read-only model. Return named conditions with a severity and a short reason; Tilecast opens, deduplicates, and recovers the incidents. An error keeps the item's earlier conditions and tries again later. See [Plugin provider slots](https://github.com/gbyo/tilecast/blob/main/docs/plugin-providers.md).

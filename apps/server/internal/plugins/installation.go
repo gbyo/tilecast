@@ -301,6 +301,11 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 	if err = removeWebhookState(ctx, tx, id); err != nil {
 		return err
 	}
+	// A removed check's open conditions recover now; nothing would ever
+	// check them again.
+	if err = s.removeProviderState(ctx, tx, id); err != nil {
+		return err
+	}
 	if err = auditInstallation(ctx, tx, "plugin.removed", definition, userID); err != nil {
 		return err
 	}
