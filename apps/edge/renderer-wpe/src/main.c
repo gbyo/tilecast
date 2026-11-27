@@ -1,4 +1,5 @@
 #include "host.h"
+#include "motion-setting.h"
 #include "remote-web.h"
 #include "validate.h"
 
@@ -239,14 +240,12 @@ main (int argc, char **argv)
     return 4;
   }
   wpe_display_set_primary (host.display);
-  /* WebKit 2.54 (SystemSettingsManagerProxyWPE.cpp) reports
-   * `prefers-reduced-motion: reduce` when this setting is FALSE, which is its
-   * default: reducedMotion() returns !getBool(...). That froze the Player
-   * Runtime's own artwork (the Cast logo's tap and ripple). A signage display
-   * has no viewer preference to honor, so set it TRUE to get no-preference.
-   * Check this when the pinned WPE version changes (release/build-wpe.sh). */
+  /* No viewer preference: see motion-setting.h for why the value depends on
+   * the WebKit release that is loaded. */
+  gboolean reduced_motion = tc_reduced_motion_for_no_preference (
+    webkit_get_major_version (), webkit_get_minor_version (), webkit_get_micro_version ());
   g_autoptr (GError) settings_error = NULL;
-  if (!wpe_settings_set_boolean (wpe_display_get_settings (host.display), WPE_SETTING_REDUCED_MOTION, TRUE,
+  if (!wpe_settings_set_boolean (wpe_display_get_settings (host.display), WPE_SETTING_REDUCED_MOTION, reduced_motion,
                                  WPE_SETTINGS_SOURCE_APPLICATION, &settings_error))
     g_warning ("cannot set the motion preference: %s", settings_error->message);
   if (!tc_view_create (&host, &error)) {
