@@ -67,7 +67,7 @@ func (s *Service) SetDataSourceProviders(providers ...plugin.DataSourceProvider)
 			continue
 		}
 		id := provider.ProviderID()
-		if !plugin.ProviderIDPattern.MatchString(id) {
+		if !plugin.ProviderIDPattern.MatchString(id) && !plugin.ValidFeedProviderID(id) {
 			return fmt.Errorf("data source provider id %q is malformed", id)
 		}
 		if seen[id] {
@@ -1302,7 +1302,10 @@ func (s *Service) Delivery(ctx context.Context, assetID, variantID uuid.UUID) (D
 	d.AssetID = assetID
 	d.VariantID = variantID
 	var key string
-	err := s.db.QueryRow(ctx, `SELECT v.storage_key,v.mime_type,v.file_size,encode(v.sha256,'hex') FROM asset_variants v JOIN assets a ON a.id=v.asset_id WHERE a.id=$1 AND v.id=$2 AND a.deleted_at IS NULL AND a.processing_status='ready' AND v.deleted_at IS NULL AND v.player_compatible=TRUE`, assetID, variantID).Scan(&key, &d.MIMEType, &d.Size, &d.HashHex)
+	// A private plugin asset is deliverable to a Player only while a current
+	// feed record names it (docs/plugin-feeds.md#remote-images).
+	err := s.db.QueryRow(ctx, `SELECT v.storage_key,v.mime_type,v.file_size,encode(v.sha256,'hex') FROM asset_variants v JOIN assets a ON a.id=v.asset_id WHERE a.id=$1 AND v.id=$2 AND a.deleted_at IS NULL AND a.processing_status='ready' AND v.deleted_at IS NULL AND v.player_compatible=TRUE
+		AND (a.origin<>'form_attachment' OR EXISTS (SELECT 1 FROM plugin_feed_assets f WHERE f.asset_id=a.id))`, assetID, variantID).Scan(&key, &d.MIMEType, &d.Size, &d.HashHex)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Delivery{}, ErrVariantUnavailable
 	}

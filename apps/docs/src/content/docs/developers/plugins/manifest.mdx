@@ -254,3 +254,37 @@ A service that signs people in with OAuth 2.0, such as Google Calendar or Square
 
 See [Use a connection from server code](/developers/plugins/server/#use-a-connection-plugin-manifest-api-3) for the request side, and the [Plugin connections](https://github.com/gbyo/tilecast/blob/main/docs/plugin-connections.md) reference for every rule.
 
+## Feeds (Plugin Manifest API 3)
+
+A feed is a set of records that your plugin publishes for Widgets. Tilecast stores it, lets operators change allowed fields, downloads images, and shows it as the Data Source `<plugin id>.<feed id>`. Don't write a Data Source provider or an editor of your own.
+
+```json
+{
+  "services": ["feeds.publish@1"],
+  "feeds": [
+    {
+      "id": "items",
+      "version": 1,
+      "title": "Menu items",
+      "dataset": "instance",
+      "instanceKind": "menu",
+      "expectedRefreshSeconds": 900,
+      "fields": [
+        { "key": "name", "label": "Name", "control": "text", "maxLength": 120, "override": "local_until_changed" },
+        { "key": "price", "label": "Price", "control": "number", "minimum": 0 },
+        { "key": "photo", "label": "Photo", "control": "url", "image": { "connection": "images" } }
+      ]
+    }
+  ]
+}
+```
+
+- `dataset` is `organization` for one dataset, or `instance` for one dataset per instance of `instanceKind`.
+- Fields use the configuration schema controls `text`, `multiline_text`, `select`, `number`, `integer`, `boolean`, `date`, `datetime`, and `url`, up to 16 fields. Text needs a `maxLength` of at most 4,096.
+- `override` says what operators may change: `upstream` (nothing, the default), `local`, or `local_until_changed`. Keep prices and availability `upstream`.
+- `image` turns a `url` field into an image that Tilecast downloads through the named connection. If the provider's images live on a different host than its API, declare a separate `http` connection for the image host.
+- Mark personal fields with `personal` and a retention, as for settings.
+- Changing the fields means a new `version`.
+
+See the [Plugin feeds](https://github.com/gbyo/tilecast/blob/main/docs/plugin-feeds.md) reference for every rule.
+

@@ -2797,6 +2797,11 @@ func (s *Service) projectComponentDataSourceMedia(ctx context.Context, manifest 
 			}
 			asset, resolveErr := s.resolveImageVariant(ctx, assetID)
 			if resolveErr != nil {
+				// A plugin feed image is a private asset: it is granted only
+				// while a current record of this Data Source names it.
+				asset, resolveErr = s.resolveFeedImageVariant(ctx, assetID, sourceID)
+			}
+			if resolveErr != nil {
 				continue
 			}
 			presentation.Component.Media = append(presentation.Component.Media, ComponentMediaRef{AssetID: asset.AssetID.String(), VariantID: asset.VariantID.String()})
@@ -2973,6 +2978,25 @@ func (s *Service) resolveImageVariant(ctx context.Context, assetID uuid.UUID) (M
 	}
 	if !strings.HasPrefix(asset.MIMEType, "image/") {
 		return ManifestAsset{}, fmt.Errorf("asset is not an image")
+	}
+	asset.DownloadPath = "/api/v1/player/assets/" + asset.AssetID.String() + "/variants/" + asset.VariantID.String()
+	return asset, nil
+}
+
+// resolveFeedImageVariant resolves a private plugin asset that a current
+// record of the feed Data Source names (docs/plugin-feeds.md). The asset is
+// never a Media library item, and the grant ends when no current record of
+// that Data Source names it.
+func (s *Service) resolveFeedImageVariant(ctx context.Context, assetID, dataSourceID uuid.UUID) (ManifestAsset, error) {
+	var asset ManifestAsset
+	err := s.db.QueryRow(ctx, `SELECT v.asset_id,v.id,v.mime_type,encode(v.sha256,'hex'),v.file_size,v.width,v.height,v.duration_seconds,a.available_from,a.expires_at
+		FROM asset_variants v JOIN assets a ON a.id=v.asset_id AND a.deleted_at IS NULL AND a.origin='form_attachment' AND a.processing_status='ready'
+		WHERE v.asset_id=$1 AND v.deleted_at IS NULL AND v.player_compatible=TRUE AND v.mime_type LIKE 'image/%'
+		  AND EXISTS (SELECT 1 FROM plugin_feed_assets f WHERE f.asset_id=a.id AND f.dataset_id=$2)
+		ORDER BY CASE v.kind WHEN 'playback' THEN 0 WHEN 'original' THEN 1 ELSE 2 END,v.id LIMIT 1`, assetID, dataSourceID).
+		Scan(&asset.AssetID, &asset.VariantID, &asset.MIMEType, &asset.SHA256, &asset.FileSize, &asset.Width, &asset.Height, &asset.DurationSeconds, &asset.AvailableFrom, &asset.ExpiresAt)
+	if err != nil {
+		return ManifestAsset{}, err
 	}
 	asset.DownloadPath = "/api/v1/player/assets/" + asset.AssetID.String() + "/variants/" + asset.VariantID.String()
 	return asset, nil

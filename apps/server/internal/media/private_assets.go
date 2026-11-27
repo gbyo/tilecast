@@ -24,13 +24,35 @@ const defaultPrivateAssetMaxBytes = 25 << 20
 // owning projection references it. The bytes must be an image; other types
 // are rejected. Callers reach this through Host.PluginAssets, which binds
 // the plugin identity; the owning plugin authorizes the upload against its
-// own records first.
+// own records first. The audit name stays the Forms one.
 func (s *Service) IngestPrivateAsset(ctx context.Context, pluginID string, userID uuid.UUID, filename, declaredMIME string, data []byte) (Asset, error) {
+	return s.IngestPluginAsset(ctx, PluginAssetInput{PluginID: pluginID, UserID: &userID, Filename: filename, DeclaredMIME: declaredMIME,
+		Data: data, AuditAction: "form.attachment_uploaded"})
+}
+
+// PluginAssetInput is one private plugin asset to store.
+type PluginAssetInput struct {
+	PluginID string
+	// UserID is the uploader, or nil for host work such as a feed image.
+	UserID       *uuid.UUID
+	Filename     string
+	DeclaredMIME string
+	Data         []byte
+	// AuditAction names the audit event of the owner, for example
+	// "form.attachment_uploaded" or "plugin.feed.image_imported".
+	AuditAction string
+}
+
+// IngestPluginAsset is the one private plugin asset ingest: bounded
+// bytes, a sniffed image type, generated storage paths, the private origin,
+// the owning plugin, and the normal inspection job.
+func (s *Service) IngestPluginAsset(ctx context.Context, input PluginAssetInput) (Asset, error) {
+	pluginID, filename, declaredMIME, data := input.PluginID, input.Filename, input.DeclaredMIME, input.Data
 	if s.storage == nil {
 		return Asset{}, errors.New("media storage is not configured")
 	}
-	if strings.TrimSpace(pluginID) == "" {
-		return Asset{}, errors.New("private plugin assets need an owning plugin")
+	if strings.TrimSpace(pluginID) == "" || input.AuditAction == "" {
+		return Asset{}, errors.New("private plugin assets need an owning plugin and an audit action")
 	}
 	if len(data) == 0 {
 		return Asset{}, errors.New("attachment is empty")
@@ -83,7 +105,7 @@ func (s *Service) IngestPrivateAsset(ctx context.Context, pluginID string, userI
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,origin,owning_plugin,created_by,created_at,updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued','form_attachment',$10,$11,$12,$12)`,
-		assetID, organizationID, name, detected.AssetType, filename, declaredMIME, detected.MIMEType, sum[:], int64(len(data)), pluginID, userID, now); err != nil {
+		assetID, organizationID, name, detected.AssetType, filename, declaredMIME, detected.MIMEType, sum[:], int64(len(data)), pluginID, input.UserID, now); err != nil {
 		return cleanup(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO asset_variants (id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256)
@@ -94,7 +116,7 @@ func (s *Service) IngestPrivateAsset(ctx context.Context, pluginID string, userI
 		return cleanup(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id,metadata)
-		VALUES ($1,$2,'form.attachment_uploaded','asset',$3,jsonb_build_object('filename',$4::text))`, uuid.New(), userID, assetID.String(), filename); err != nil {
+		VALUES ($1,$2,$5,'asset',$3,jsonb_build_object('filename',$4::text,'pluginId',$6::text))`, uuid.New(), input.UserID, assetID.String(), filename, input.AuditAction, pluginID); err != nil {
 		return cleanup(err)
 	}
 	if err := tx.Commit(ctx); err != nil {

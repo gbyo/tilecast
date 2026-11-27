@@ -508,6 +508,9 @@ func (s *Service) DeleteInstance(ctx context.Context, pluginID, kindName string,
 				return nil, err
 			}
 		}
+		if err := s.releaseInstanceFeeds(ctx, tx, pluginID, id); err != nil {
+			return nil, err
+		}
 		if _, err := tx.Exec(ctx, `DELETE FROM plugin_instances WHERE id=$1`, id); err != nil {
 			return nil, err
 		}

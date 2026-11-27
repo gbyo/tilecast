@@ -46,6 +46,9 @@ func (s *Service) DataSourceProviders() ([]plugin.DataSourceProvider, error) {
 		seen[id] = hosted.manifest.ID
 		providers = append(providers, provider)
 	}
+	// Every declared feed is a host-owned provider "<plugin>.<feed>". The
+	// dot keeps it apart from plugin contributions and core providers.
+	providers = append(providers, s.feedProviders()...)
 	sort.Slice(providers, func(i, j int) bool { return providers[i].ProviderID() < providers[j].ProviderID() })
 	return providers, nil
 }
@@ -69,6 +72,9 @@ type DataSourceInvalidator interface {
 // and the Plugin API ADR for the compatibility debt).
 type AttachmentBackend interface {
 	IngestPrivateAsset(ctx context.Context, pluginID string, userID uuid.UUID, filename, declaredMIME string, data []byte) (media.Asset, error)
+	// IngestPluginAsset stores a private asset with the owner's audit
+	// action and an optional uploader, for example a feed image.
+	IngestPluginAsset(ctx context.Context, input media.PluginAssetInput) (media.Asset, error)
 	SoftDeletePrivateAsset(ctx context.Context, pluginID string, assetID uuid.UUID) error
 	PrivateAssetDelivery(ctx context.Context, pluginID string, assetID uuid.UUID) (media.Delivery, error)
 }

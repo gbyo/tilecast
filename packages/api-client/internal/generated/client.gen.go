@@ -3924,6 +3924,27 @@ func (e PluginConnectionReviewOauthTokenEndpointAuthMethod) Valid() bool {
 	}
 }
 
+// Defines values for PluginFeedFieldOverride.
+const (
+	Local             PluginFeedFieldOverride = "local"
+	LocalUntilChanged PluginFeedFieldOverride = "local_until_changed"
+	Upstream          PluginFeedFieldOverride = "upstream"
+)
+
+// Valid indicates whether the value is a known member of the PluginFeedFieldOverride enum.
+func (e PluginFeedFieldOverride) Valid() bool {
+	switch e {
+	case Local:
+		return true
+	case LocalUntilChanged:
+		return true
+	case Upstream:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PluginInUseErrorErrorCode.
 const (
 	PluginInUse PluginInUseErrorErrorCode = "plugin_in_use"
@@ -11146,6 +11167,75 @@ type PluginConnectionUpdate struct {
 	Origin           *string `json:"origin,omitempty"`
 }
 
+// PluginFeedDataset defines model for PluginFeedDataset.
+type PluginFeedDataset struct {
+	Feed        string `json:"feed"`
+	FeedVersion int    `json:"feedVersion"`
+
+	// Id The dataset ID, which is also its Data Source ID.
+	Id          openapi_types.UUID  `json:"id"`
+	ImageIssues int                 `json:"imageIssues"`
+	InstanceId  *openapi_types.UUID `json:"instanceId,omitempty"`
+	Name        string              `json:"name"`
+	Overrides   int                 `json:"overrides"`
+
+	// Provider <plugin id>.<feed id>
+	Provider    string     `json:"provider"`
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+	Records     int        `json:"records"`
+	Revision    int        `json:"revision"`
+
+	// Stale No publication for twice the feed's expected refresh interval.
+	Stale        bool       `json:"stale"`
+	Title        string     `json:"title"`
+	ValidUntil   *time.Time `json:"validUntil,omitempty"`
+	WidgetsUsing int        `json:"widgetsUsing"`
+}
+
+// PluginFeedField defines model for PluginFeedField.
+type PluginFeedField struct {
+	Control   string `json:"control"`
+	Image     bool   `json:"image"`
+	Key       string `json:"key"`
+	Label     string `json:"label"`
+	MaxLength *int   `json:"maxLength,omitempty"`
+	Options   *[]struct {
+		Label    string  `json:"label"`
+		LabelKey *string `json:"labelKey,omitempty"`
+		Value    string  `json:"value"`
+	} `json:"options,omitempty"`
+	Override PluginFeedFieldOverride `json:"override"`
+	Personal bool                    `json:"personal"`
+	Required bool                    `json:"required"`
+
+	// Type The Player Data Document type.
+	Type string `json:"type"`
+}
+
+// PluginFeedFieldOverride defines model for PluginFeedField.Override.
+type PluginFeedFieldOverride string
+
+// PluginFeedRecord defines model for PluginFeedRecord.
+type PluginFeedRecord struct {
+	Effective        map[string]string      `json:"effective"`
+	Id               string                 `json:"id"`
+	ImageFailures    map[string]string      `json:"imageFailures"`
+	Overrides        map[string]interface{} `json:"overrides"`
+	RemovedOverrides map[string]struct {
+		Reason    string    `json:"reason"`
+		RemovedAt time.Time `json:"removedAt"`
+	} `json:"removedOverrides"`
+	Upstream map[string]interface{} `json:"upstream"`
+}
+
+// PluginFeedRecords defines model for PluginFeedRecords.
+type PluginFeedRecords struct {
+	Dataset PluginFeedDataset  `json:"dataset"`
+	Fields  []PluginFeedField  `json:"fields"`
+	Items   []PluginFeedRecord `json:"items"`
+	Total   int                `json:"total"`
+}
+
 // PluginInUseError defines model for PluginInUseError.
 type PluginInUseError struct {
 	Error struct {
@@ -14825,6 +14915,27 @@ type StartPluginConnectionOAuthParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// SetPluginFeedOverrideJSONBody defines parameters for SetPluginFeedOverride.
+type SetPluginFeedOverrideJSONBody struct {
+	Field    string `json:"field"`
+	RecordId string `json:"recordId"`
+
+	// Value The override value, or null to remove the override.
+	Value interface{} `json:"value"`
+}
+
+// SetPluginFeedOverrideParams defines parameters for SetPluginFeedOverride.
+type SetPluginFeedOverrideParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ListPluginFeedRecordsParams defines parameters for ListPluginFeedRecords.
+type ListPluginFeedRecordsParams struct {
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // InstallPluginParams defines parameters for InstallPlugin.
 type InstallPluginParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -15712,6 +15823,9 @@ type SetPluginConnectionConsentsJSONRequestBody = PluginConnectionConsentsWrite
 
 // CompletePluginConnectionOAuthJSONRequestBody defines body for CompletePluginConnectionOAuth for application/json ContentType.
 type CompletePluginConnectionOAuthJSONRequestBody = PluginConnectionOAuthCallback
+
+// SetPluginFeedOverrideJSONRequestBody defines body for SetPluginFeedOverride for application/json ContentType.
+type SetPluginFeedOverrideJSONRequestBody SetPluginFeedOverrideJSONBody
 
 // CreatePresentationNetworkJSONRequestBody defines body for CreatePresentationNetwork for application/json ContentType.
 type CreatePresentationNetworkJSONRequestBody = PresentationNetworkCreateInput
@@ -19095,6 +19209,28 @@ type ClientInterface interface {
 	//
 	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
 	StartPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPluginFeeds performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
+	//
+	// Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
+	ListPluginFeeds(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetPluginFeedOverrideWithBody performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+	SetPluginFeedOverrideWithBody(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetPluginFeedOverride performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+	SetPluginFeedOverride(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, body SetPluginFeedOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPluginFeedRecords performs a GET /api/v1/plugins/{pluginId}/feeds/{datasetId}/records (the `ListPluginFeedRecords` operationId) request.
+	//
+	// Requires plugins.use. One page of a dataset's records: for each field the upstream value the plugin published, the operator's override, and the effective value Players show, with the reason the host removed an override and the code of a failed image import.
+	ListPluginFeedRecords(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *ListPluginFeedRecordsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InstallPlugin performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -26589,6 +26725,68 @@ func (c *Client) DisconnectPluginConnectionOAuth(ctx context.Context, pluginId P
 // Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Begins an OAuth 2.0 authorization code attempt with PKCE S256 for an oauth2 connection and returns the provider URL to open. The attempt is bound to this plugin, this connection, and the signed-in operator, expires after ten minutes, and replaces an earlier attempt of the connection. Needs an https TILECAST_PUBLIC_URL, a client ID, and a client secret when the declaration authenticates the client.
 func (c *Client) StartPluginConnectionOAuth(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStartPluginConnectionOAuthRequest(c.Server, pluginId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPluginFeeds performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
+//
+// Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
+func (c *Client) ListPluginFeeds(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPluginFeedsRequest(c.Server, pluginId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetPluginFeedOverrideWithBody performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+func (c *Client) SetPluginFeedOverrideWithBody(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetPluginFeedOverrideRequestWithBody(c.Server, pluginId, datasetId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetPluginFeedOverride performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+func (c *Client) SetPluginFeedOverride(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, body SetPluginFeedOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetPluginFeedOverrideRequest(c.Server, pluginId, datasetId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPluginFeedRecords performs a GET /api/v1/plugins/{pluginId}/feeds/{datasetId}/records (the `ListPluginFeedRecords` operationId) request.
+//
+// Requires plugins.use. One page of a dataset's records: for each field the upstream value the plugin published, the operator's override, and the effective value Players show, with the reason the host removed an override and the code of a failed image import.
+func (c *Client) ListPluginFeedRecords(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *ListPluginFeedRecordsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPluginFeedRecordsRequest(c.Server, pluginId, datasetId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -44652,6 +44850,189 @@ func NewStartPluginConnectionOAuthRequest(server string, pluginId PluginID, conn
 	return req, nil
 }
 
+// NewListPluginFeedsRequest constructs an http.Request for the ListPluginFeeds method
+func NewListPluginFeedsRequest(server string, pluginId PluginID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/feeds", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetPluginFeedOverrideRequest calls the generic SetPluginFeedOverride builder with application/json body
+func NewSetPluginFeedOverrideRequest(server string, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, body SetPluginFeedOverrideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetPluginFeedOverrideRequestWithBody(server, pluginId, datasetId, params, "application/json", bodyReader)
+}
+
+// NewSetPluginFeedOverrideRequestWithBody constructs an http.Request for the SetPluginFeedOverride method, with any body, and a specified content type
+func NewSetPluginFeedOverrideRequestWithBody(server string, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "datasetId", datasetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/feeds/%s/overrides", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListPluginFeedRecordsRequest constructs an http.Request for the ListPluginFeedRecords method
+func NewListPluginFeedRecordsRequest(server string, pluginId PluginID, datasetId openapi_types.UUID, params *ListPluginFeedRecordsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "datasetId", datasetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/feeds/%s/records", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewInstallPluginRequest constructs an http.Request for the InstallPlugin method
 func NewInstallPluginRequest(server string, pluginId PluginID, params *InstallPluginParams) (*http.Request, error) {
 	var err error
@@ -54124,6 +54505,34 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	StartPluginConnectionOAuthWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *StartPluginConnectionOAuthParams, reqEditors ...RequestEditorFn) (*StartPluginConnectionOAuthResponse, error)
+
+	// ListPluginFeedsWithResponse performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
+	//
+	// Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPluginFeedsWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*ListPluginFeedsResponse, error)
+
+	// SetPluginFeedOverrideWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	SetPluginFeedOverrideWithBodyWithResponse(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetPluginFeedOverrideResponse, error)
+
+	// SetPluginFeedOverrideWithResponse performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+	SetPluginFeedOverrideWithResponse(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, body SetPluginFeedOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPluginFeedOverrideResponse, error)
+
+	// ListPluginFeedRecordsWithResponse performs a GET /api/v1/plugins/{pluginId}/feeds/{datasetId}/records (the `ListPluginFeedRecords` operationId) request.
+	//
+	// Requires plugins.use. One page of a dataset's records: for each field the upstream value the plugin published, the operator's override, and the effective value Players show, with the reason the host removed an override and the code of a failed image import.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPluginFeedRecordsWithResponse(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *ListPluginFeedRecordsParams, reqEditors ...RequestEditorFn) (*ListPluginFeedRecordsResponse, error)
 
 	// InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -68335,6 +68744,147 @@ func (r StartPluginConnectionOAuthResponse) ContentType() string {
 	return ""
 }
 
+type ListPluginFeedsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items []PluginFeedDataset `json:"items"`
+			Total int                 `json:"total"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPluginFeedsResponse) GetJSON200() *struct {
+	Data struct {
+		Items []PluginFeedDataset `json:"items"`
+		Total int                 `json:"total"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPluginFeedsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPluginFeedsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPluginFeedsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPluginFeedsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetPluginFeedOverrideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginFeedRecord `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetPluginFeedOverrideResponse) GetJSON200() *struct {
+	Data PluginFeedRecord `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r SetPluginFeedOverrideResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetPluginFeedOverrideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetPluginFeedOverrideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetPluginFeedOverrideResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPluginFeedRecordsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginFeedRecords `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPluginFeedRecordsResponse) GetJSON200() *struct {
+	Data PluginFeedRecords `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPluginFeedRecordsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPluginFeedRecordsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPluginFeedRecordsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPluginFeedRecordsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type InstallPluginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -80108,6 +80658,58 @@ func (c *ClientWithResponses) StartPluginConnectionOAuthWithResponse(ctx context
 	return ParseStartPluginConnectionOAuthResponse(rsp)
 }
 
+// ListPluginFeedsWithResponse performs a GET /api/v1/plugins/{pluginId}/feeds (the `ListPluginFeeds` operationId) request.
+//
+// Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPluginFeedsWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*ListPluginFeedsResponse, error) {
+	rsp, err := c.ListPluginFeeds(ctx, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPluginFeedsResponse(rsp)
+}
+
+// SetPluginFeedOverrideWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) SetPluginFeedOverrideWithBodyWithResponse(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetPluginFeedOverrideResponse, error) {
+	rsp, err := c.SetPluginFeedOverrideWithBody(ctx, pluginId, datasetId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetPluginFeedOverrideResponse(rsp)
+}
+
+// SetPluginFeedOverrideWithResponse performs a PUT /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides (the `SetPluginFeedOverride` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value.
+func (c *ClientWithResponses) SetPluginFeedOverrideWithResponse(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *SetPluginFeedOverrideParams, body SetPluginFeedOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPluginFeedOverrideResponse, error) {
+	rsp, err := c.SetPluginFeedOverride(ctx, pluginId, datasetId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetPluginFeedOverrideResponse(rsp)
+}
+
+// ListPluginFeedRecordsWithResponse performs a GET /api/v1/plugins/{pluginId}/feeds/{datasetId}/records (the `ListPluginFeedRecords` operationId) request.
+//
+// Requires plugins.use. One page of a dataset's records: for each field the upstream value the plugin published, the operator's override, and the effective value Players show, with the reason the host removed an override and the code of a failed image import.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPluginFeedRecordsWithResponse(ctx context.Context, pluginId PluginID, datasetId openapi_types.UUID, params *ListPluginFeedRecordsParams, reqEditors ...RequestEditorFn) (*ListPluginFeedRecordsResponse, error) {
+	rsp, err := c.ListPluginFeedRecords(ctx, pluginId, datasetId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPluginFeedRecordsResponse(rsp)
+}
+
 // InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 //
 // Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
@@ -91454,6 +92056,108 @@ func ParseStartPluginConnectionOAuthResponse(rsp *http.Response) (*StartPluginCo
 		break // No content-type
 
 	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListPluginFeedsResponse parses an HTTP response from a ListPluginFeedsWithResponse call
+func ParseListPluginFeedsResponse(rsp *http.Response) (*ListPluginFeedsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPluginFeedsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items []PluginFeedDataset `json:"items"`
+				Total int                 `json:"total"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseSetPluginFeedOverrideResponse parses an HTTP response from a SetPluginFeedOverrideWithResponse call
+func ParseSetPluginFeedOverrideResponse(rsp *http.Response) (*SetPluginFeedOverrideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetPluginFeedOverrideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginFeedRecord `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListPluginFeedRecordsResponse parses an HTTP response from a ListPluginFeedRecordsWithResponse call
+func ParseListPluginFeedRecordsResponse(rsp *http.Response) (*ListPluginFeedRecordsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPluginFeedRecordsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginFeedRecords `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
 		break // No content-type
 
 	}

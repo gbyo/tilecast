@@ -8,6 +8,10 @@ import "context"
 // ServerServices are the registry capabilities a bundled Plugin Manifest
 // API 3 plugin may declare in "services" and call through Services.
 var ServerServices = []ServerService{
+	{ID: "feeds.publish", Version: 1, Name: "Feed publication", Description: "Publish the complete record set of one of this plugin's feed datasets.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
+		{Name: "feeds.publish@1/publish", Title: "Publish feed", Description: "Replace the records of one dataset. The publication names the revision it replaces; a concurrent publication fails with a conflict.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 655360, MaxOutputBytes: 65536},
+		{Name: "feeds.publish@1/revision", Title: "Read feed revision", Description: "Read the current revision of one dataset, the one the next publication replaces.", Mutating: false, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
+	}},
 	{ID: "http.fetch", Version: 1, Name: "Outbound HTTP", Description: "Send HTTP requests through this plugin's own host connections.", Contexts: []string{"studio", "background", "system"}, Operations: []ServerOperation{
 		{Name: "http.fetch@1/request", Title: "Send request", Description: "Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time.", Mutating: true, Contexts: []string{"studio", "background", "system"}, MaxInputBytes: 1463640, MaxOutputBytes: 22435160},
 	}},
@@ -51,6 +55,16 @@ var ServerServices = []ServerService{
 		{Name: "users.read-basic@1/search", Title: "Search users", Description: "Search active users by name or username.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 		{Name: "users.read-basic@1/list-by-role", Title: "List users by role", Description: "List users holding one role.", Mutating: false, Contexts: []string{"studio", "background"}, MaxInputBytes: 32768, MaxOutputBytes: 65536},
 	}},
+}
+
+// FeedsPublishPublish calls feeds.publish@1/publish: Replace the records of one dataset. The publication names the revision it replaces; a concurrent publication fails with a conflict
+func (s *Services) FeedsPublishPublish(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "feeds.publish@1/publish", input, output)
+}
+
+// FeedsPublishRevision calls feeds.publish@1/revision: Read the current revision of one dataset, the one the next publication replaces
+func (s *Services) FeedsPublishRevision(ctx context.Context, input, output any) error {
+	return s.Call(ctx, "feeds.publish@1/revision", input, output)
 }
 
 // HttpFetchRequest calls http.fetch@1/request: Send one request through a connection of this plugin. The host checks the origin and the addresses, adds secret headers, and bounds the body and the time

@@ -43,6 +43,9 @@ func (s *Service) RunMaintenance(ctx context.Context) {
 			if _, err := s.RunDueTimers(ctx); err != nil && ctx.Err() == nil {
 				s.logger.Warn("plugin timer pass failed", "error", err)
 			}
+			if _, err := s.RunFeedImageImports(ctx); err != nil && ctx.Err() == nil {
+				s.logger.Warn("plugin feed image pass failed", "error", err)
+			}
 		case <-schedule.C:
 			s.maintain(ctx, false)
 		case <-retention.C:
@@ -60,6 +63,9 @@ func (s *Service) maintain(ctx context.Context, retention bool) {
 	}
 	if _, err := s.ExpireOAuthAttempts(ctx); err != nil && ctx.Err() == nil {
 		s.logger.Warn("plugin oauth attempt sweep failed", "error", err)
+	}
+	if _, err := s.CollectFeedAssets(ctx); err != nil && ctx.Err() == nil {
+		s.logger.Warn("plugin feed image collection failed", "error", err)
 	}
 	if retention {
 		if _, err := s.PurgePersonalData(ctx); err != nil && ctx.Err() == nil {
@@ -166,7 +172,8 @@ func (s *Service) PurgePersonalData(ctx context.Context) (int, error) {
 			}
 		}
 	}
-	return removed, nil
+	count, err := s.purgeFeedPersonalData(ctx, now)
+	return removed + count, err
 }
 
 // SQL identifiers and expressions are literals chosen by PurgePersonalData.

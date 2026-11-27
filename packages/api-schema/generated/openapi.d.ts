@@ -3014,6 +3014,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugins/{pluginId}/feeds": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use. Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID. */
+    get: operations["listPluginFeeds"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/feeds/{datasetId}/records": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Requires plugins.use. One page of a dataset's records: for each field the upstream value the plugin published, the operator's override, and the effective value Players show, with the reason the host removed an override and the code of a failed image import. */
+    get: operations["listPluginFeedRecords"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator override of one record field, or removes it with a null value. Only a field with the local or local_until_changed policy takes an override. The value is validated like the field's upstream value. The host never rewrites the upstream value. */
+    put: operations["setPluginFeedOverride"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect": {
     parameters: {
       query?: never;
@@ -8530,6 +8581,78 @@ export interface components {
       code?: string;
       /** @description The provider's error code. Never the provider's description. */
       error?: string;
+    };
+    PluginFeedDataset: {
+      /**
+       * Format: uuid
+       * @description The dataset ID, which is also its Data Source ID.
+       */
+      id: string;
+      feed: string;
+      feedVersion: number;
+      title: string;
+      /** @description <plugin id>.<feed id> */
+      provider: string;
+      name: string;
+      /** Format: uuid */
+      instanceId?: string;
+      revision: number;
+      records: number;
+      /** Format: date-time */
+      publishedAt?: string;
+      /** Format: date-time */
+      validUntil?: string;
+      /** @description No publication for twice the feed's expected refresh interval. */
+      stale: boolean;
+      imageIssues: number;
+      overrides: number;
+      widgetsUsing: number;
+    };
+    PluginFeedField: {
+      key: string;
+      label: string;
+      control: string;
+      /** @description The Player Data Document type. */
+      type: string;
+      /** @enum {string} */
+      override: "upstream" | "local" | "local_until_changed";
+      personal: boolean;
+      image: boolean;
+      required: boolean;
+      maxLength?: number;
+      options?: {
+        value: string;
+        label: string;
+        labelKey?: string;
+      }[];
+    };
+    PluginFeedRecord: {
+      id: string;
+      upstream: {
+        [key: string]: unknown;
+      };
+      overrides: {
+        [key: string]: unknown;
+      };
+      effective: {
+        [key: string]: string;
+      };
+      removedOverrides: {
+        [key: string]: {
+          reason: string;
+          /** Format: date-time */
+          removedAt: string;
+        };
+      };
+      imageFailures: {
+        [key: string]: string;
+      };
+    };
+    PluginFeedRecords: {
+      dataset: components["schemas"]["PluginFeedDataset"];
+      fields: components["schemas"]["PluginFeedField"][];
+      items: components["schemas"]["PluginFeedRecord"][];
+      total: number;
     };
     PluginConnectionReference: {
       /** @enum {string} */
@@ -22087,6 +22210,136 @@ export interface operations {
       };
       /** @description secrets_unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listPluginFeeds: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Feed datasets */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              items: components["schemas"]["PluginFeedDataset"][];
+              total: number;
+            };
+          };
+        };
+      };
+      /** @description plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no feeds */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listPluginFeedRecords: {
+    parameters: {
+      query?: {
+        offset?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        datasetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Records */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginFeedRecords"];
+          };
+        };
+      };
+      /** @description plugin_not_found or plugin_feed_dataset_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  setPluginFeedOverride: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Registry identifier such as countdown_bar. */
+        pluginId: components["parameters"]["PluginID"];
+        datasetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          recordId: string;
+          field: string;
+          /** @description The override value, or null to remove the override. */
+          value: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description The record after the change */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginFeedRecord"];
+          };
+        };
+      };
+      /** @description invalid_plugin_feed — the field takes no override or the value is invalid; invalid_json */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugins.manage and CSRF token required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

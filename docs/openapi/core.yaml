@@ -5505,6 +5505,93 @@ paths:
         "409": { description: plugin_connection_oauth_unavailable }
         "429": { description: rate_limited }
         "503": { description: secrets_unavailable }
+  /api/v1/plugins/{pluginId}/feeds:
+    get:
+      operationId: listPluginFeeds
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Lists the feed datasets of a Plugin Manifest API 3 plugin that declares feeds. Requires plugins.use.
+        Each dataset is an ordinary Data Source with the provider <plugin id>.<feed id> and the same ID.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+      responses:
+        "200":
+          description: Feed datasets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [items, total]
+                    properties:
+                      items: { type: array, items: { $ref: "#/components/schemas/PluginFeedDataset" } }
+                      total: { type: integer, minimum: 0 }
+        "404": { description: "plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no feeds" }
+  /api/v1/plugins/{pluginId}/feeds/{datasetId}/records:
+    get:
+      operationId: listPluginFeedRecords
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires plugins.use. One page of a dataset's records: for each field the upstream value the plugin
+        published, the operator's override, and the effective value Players show, with the reason the host
+        removed an override and the code of a failed image import.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { in: path, name: datasetId, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: offset, required: false, schema: { type: integer, minimum: 0 } }
+        - { in: query, name: limit, required: false, schema: { type: integer, minimum: 1, maximum: 200 } }
+      responses:
+        "200":
+          description: Records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginFeedRecords" }
+        "404": { description: plugin_not_found or plugin_feed_dataset_not_found }
+  /api/v1/plugins/{pluginId}/feeds/{datasetId}/overrides:
+    put:
+      operationId: setPluginFeedOverride
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the operator
+        override of one record field, or removes it with a null value. Only a field with the local or
+        local_until_changed policy takes an override. The value is validated like the field's upstream value.
+        The host never rewrites the upstream value.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { in: path, name: datasetId, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [recordId, field, value]
+              properties:
+                recordId: { type: string, minLength: 1, maxLength: 80 }
+                field: { type: string }
+                value: { description: "The override value, or null to remove the override." }
+      responses:
+        "200":
+          description: The record after the change
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginFeedRecord" }
+        "400": { description: "invalid_plugin_feed — the field takes no override or the value is invalid; invalid_json" }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: "plugin_not_found, plugin_feed_dataset_not_found, or plugin_feed_record_not_found" }
   /api/v1/plugins/{pluginId}/connections/{connectionId}/oauth/disconnect:
     post:
       operationId: disconnectPluginConnectionOAuth
@@ -13544,6 +13631,76 @@ components:
         state: { type: string, maxLength: 256 }
         code: { type: string, maxLength: 4096 }
         error: { type: string, maxLength: 64, description: The provider's error code. Never the provider's description. }
+    PluginFeedDataset:
+      type: object
+      required: [id, feed, feedVersion, title, provider, name, revision, records, stale, imageIssues, overrides, widgetsUsing]
+      properties:
+        id: { type: string, format: uuid, description: "The dataset ID, which is also its Data Source ID." }
+        feed: { type: string }
+        feedVersion: { type: integer, minimum: 1 }
+        title: { type: string }
+        provider: { type: string, description: "<plugin id>.<feed id>" }
+        name: { type: string }
+        instanceId: { type: string, format: uuid }
+        revision: { type: integer, minimum: 0 }
+        records: { type: integer, minimum: 0 }
+        publishedAt: { type: string, format: date-time }
+        validUntil: { type: string, format: date-time }
+        stale: { type: boolean, description: No publication for twice the feed's expected refresh interval. }
+        imageIssues: { type: integer, minimum: 0 }
+        overrides: { type: integer, minimum: 0 }
+        widgetsUsing: { type: integer, minimum: 0 }
+    PluginFeedField:
+      type: object
+      required: [key, label, control, type, override, personal, image, required]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        control: { type: string }
+        type: { type: string, description: The Player Data Document type. }
+        override: { type: string, enum: [upstream, local, local_until_changed] }
+        personal: { type: boolean }
+        image: { type: boolean }
+        required: { type: boolean }
+        maxLength: { type: integer }
+        options:
+          type: array
+          items:
+            type: object
+            required: [value, label]
+            properties:
+              value: { type: string }
+              label: { type: string }
+              labelKey: { type: string }
+    PluginFeedRecord:
+      type: object
+      required: [id, upstream, overrides, effective, removedOverrides, imageFailures]
+      properties:
+        id: { type: string }
+        upstream: { type: object, additionalProperties: true }
+        overrides: { type: object, additionalProperties: true }
+        effective: { type: object, additionalProperties: { type: string } }
+        removedOverrides:
+          type: object
+          additionalProperties:
+            type: object
+            required: [reason, removedAt]
+            properties:
+              reason: { type: string, x-extensible-enum: [upstream_changed, feed_version_changed, retention] }
+              removedAt: { type: string, format: date-time }
+        imageFailures:
+          type: object
+          additionalProperties:
+            type: string
+            x-extensible-enum: [http_refused, auth_required, fetch_failed, invalid_image, image_too_large, processing_failed, quota_exceeded]
+    PluginFeedRecords:
+      type: object
+      required: [dataset, fields, items, total]
+      properties:
+        dataset: { $ref: "#/components/schemas/PluginFeedDataset" }
+        fields: { type: array, items: { $ref: "#/components/schemas/PluginFeedField" } }
+        items: { type: array, items: { $ref: "#/components/schemas/PluginFeedRecord" } }
+        total: { type: integer, minimum: 0 }
     PluginConnectionReference:
       type: object
       required: [ownerType, ownerId, fieldKey, label]

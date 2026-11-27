@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plug, Plus, Settings2, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,6 +30,7 @@ import { PluginPage } from "../PluginPage";
 import { useStudioSession } from "../session";
 import { hostedClient, hostedInstancesKey } from "./api";
 import { kindRoute, summaryOf, type HostedPluginProps } from "./model";
+import { HostedPluginLinks } from "./HostedPluginLinks";
 import { SecretKeyNotice } from "./SecretKeyNotice";
 
 /**
@@ -80,24 +81,7 @@ export function HostedInstancesPage({
         pluginId={pluginId}
         actions={
           <>
-            {(manifest.connections ?? []).length > 0 && (
-              <Link
-                className={buttonVariants({ variant: "outline", size: "lg" })}
-                to={`${manifest.studio!.route}/connections`}
-              >
-                <Plug data-icon="inline-start" aria-hidden="true" />{" "}
-                {t("hosted.connections.open")}
-              </Link>
-            )}
-            {manifest.settings?.organization?.length ? (
-              <Link
-                className={buttonVariants({ variant: "outline", size: "lg" })}
-                to={`${manifest.studio!.route}/settings`}
-              >
-                <Settings2 data-icon="inline-start" aria-hidden="true" />{" "}
-                {t("hosted.settings")}
-              </Link>
-            ) : null}
+            <HostedPluginLinks manifest={manifest} />
             {manageable && (
               <Link
                 className={buttonVariants({ size: "lg" })}
