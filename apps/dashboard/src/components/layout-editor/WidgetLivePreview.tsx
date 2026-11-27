@@ -100,7 +100,10 @@ export function AssetPlaybackPreview({
         loop={placement.playback?.loop ?? true}
         muted={placement.playback?.muted ?? true}
         preload="auto"
-      />
+      >
+        {/* A layout preview plays muted, so it has no audio to caption. */}
+        <track kind="captions" />
+      </video>
     );
   return <img {...common} alt="" draggable={false} />;
 }

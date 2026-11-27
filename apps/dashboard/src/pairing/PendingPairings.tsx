@@ -37,14 +37,9 @@ export function PendingPairings({
         <h2 className="text-base font-semibold">{t("pending.title")}</h2>
         <Badge variant="secondary">{requests.length}</Badge>
       </div>
-      <ItemGroup className="gap-1.5">
+      <ItemGroup render={<ul />} className="gap-1.5">
         {requests.map((request) => (
-          <Item
-            key={request.id}
-            size="xs"
-            variant="outline"
-            render={<div role="listitem" />}
-          >
+          <Item key={request.id} size="xs" variant="outline" render={<li />}>
             <ItemContent className="min-w-0">
               <ItemTitle>
                 {request.metadata.manufacturer} {request.metadata.model}

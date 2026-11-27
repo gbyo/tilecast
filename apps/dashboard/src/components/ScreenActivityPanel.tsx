@@ -123,13 +123,9 @@ export function ScreenActivitySummary({
             {t("screenActivity.lists.eventsEmpty")}
           </p>
         ) : data ? (
-          <ItemGroup className="gap-0 divide-y divide-border">
+          <ItemGroup render={<ul />} className="gap-0 divide-y divide-border">
             {data.currentIssue && (
-              <Item
-                size="xs"
-                render={<div role="listitem" />}
-                className="rounded-none px-0"
-              >
+              <Item size="xs" render={<li />} className="rounded-none px-0">
                 <ItemContent className="min-w-0">
                   <ItemTitle>{humanize(data.currentIssue.kind)}</ItemTitle>
                   <ItemDescription className="line-clamp-2">
@@ -153,7 +149,7 @@ export function ScreenActivitySummary({
               <Item
                 key={item.id}
                 size="xs"
-                render={<div role="listitem" />}
+                render={<li />}
                 className="rounded-none px-0"
               >
                 <ItemContent className="min-w-0">
@@ -335,12 +331,15 @@ function ActivityList({
     <section className="min-w-0 space-y-2" aria-label={title}>
       <h3 className="text-sm font-semibold">{title}</h3>
       {items.length ? (
-        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+        <ItemGroup
+          render={<ul />}
+          className="gap-0 divide-y divide-border border-y border-border"
+        >
           {items.map((item) => (
             <Item
               key={item.id}
               size="xs"
-              render={<div role="listitem" />}
+              render={<li />}
               className="rounded-none px-0"
             >
               <ItemContent className="min-w-0">

@@ -529,7 +529,7 @@ export function StructuredDataSourceEditor({
     }));
   }, [dataSource, regional.ready, regional.timezone]);
   const [preview, setPreview] = useState<StructuredPreview>();
-  const [previewDate, setPreviewDate] = useState(
+  const [previewDate, setPreviewDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
   const diagnostics = useQuery({

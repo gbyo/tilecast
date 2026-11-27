@@ -4598,12 +4598,15 @@ export function ScreenDetailPage() {
                   </CardHeader>
                   <CardContent>
                     {playerHistory.data?.items.length ? (
-                      <ItemGroup className="gap-0 divide-y divide-border">
+                      <ItemGroup
+                        render={<ul />}
+                        className="gap-0 divide-y divide-border"
+                      >
                         {playerHistory.data.items.map((hardware) => (
                           <Item
                             key={hardware.id}
                             size="xs"
-                            render={<div role="listitem" />}
+                            render={<li />}
                             className="rounded-none px-0"
                           >
                             <ItemContent className="min-w-0">

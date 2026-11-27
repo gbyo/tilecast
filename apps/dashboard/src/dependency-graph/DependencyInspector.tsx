@@ -84,7 +84,7 @@ function ResourceRow({
 }) {
   const Icon = typePresentation[node.type].icon;
   return (
-    <div role="listitem">
+    <li>
       <Item size="xs" render={<Link to={href} />} className="hover:bg-muted">
         <ItemMedia variant="icon">
           <Icon aria-hidden="true" className="text-muted-foreground" />
@@ -94,7 +94,7 @@ function ResourceRow({
           <ItemDescription className="truncate">{detail}</ItemDescription>
         </ItemContent>
       </Item>
-    </div>
+    </li>
   );
 }
 
@@ -122,7 +122,7 @@ function RelationshipRows({
       </EmptyNote>
     );
   return (
-    <ItemGroup className="gap-0.5">
+    <ItemGroup render={<ul />} className="gap-0.5">
       {links.map((link) => {
         const key = side === "dependencies" ? link.from : link.to;
         const node = index.nodesByKey.get(key)!;
@@ -272,13 +272,13 @@ function TypeRelations({
       </EmptyNote>
     );
   return (
-    <ItemGroup className="gap-0.5">
+    <ItemGroup render={<ul />} className="gap-0.5">
       {edges.map((edge) => {
         const other = side === "dependencies" ? edge.fromType : edge.toType;
         const presentation = typePresentation[other];
         const Icon = presentation.icon;
         return (
-          <div role="listitem" key={other}>
+          <li key={other}>
             <Item
               size="xs"
               render={<Link to={typeHref(other)} />}
@@ -294,7 +294,7 @@ function TypeRelations({
                 </ItemDescription>
               </ItemContent>
             </Item>
-          </div>
+          </li>
         );
       })}
     </ItemGroup>
@@ -480,12 +480,12 @@ function OverviewInspector({
         {t("graph.inspector.overviewDescription")}
       </p>
       <Section title={t("graph.inspector.resourceTypes")}>
-        <ItemGroup className="gap-0.5">
+        <ItemGroup render={<ul />} className="gap-0.5">
           {typeOrder.map((type) => {
             const presentation = typePresentation[type];
             const Icon = presentation.icon;
             return (
-              <div role="listitem" key={type}>
+              <li key={type}>
                 <Item
                   size="xs"
                   render={<Link to={typeHref(type)} />}
@@ -504,7 +504,7 @@ function OverviewInspector({
                     {counts.get(type) ?? 0}
                   </Badge>
                 </Item>
-              </div>
+              </li>
             );
           })}
         </ItemGroup>

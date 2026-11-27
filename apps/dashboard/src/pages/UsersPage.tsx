@@ -378,7 +378,8 @@ function UserCreateDialog({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>(
-    allowedRoles.find((entry) => entry.key === "viewer")?.key ??
+    () =>
+      allowedRoles.find((entry) => entry.key === "viewer")?.key ??
       allowedRoles[0]?.key ??
       "viewer",
   );

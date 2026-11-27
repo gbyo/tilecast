@@ -2644,10 +2644,10 @@ export function useMediaAssetDetails({
   const queryClient = useQueryClient();
   const [name, setName] = useState(asset.name);
   const [description, setDescription] = useState(asset.description);
-  const [availableFrom, setAvailableFrom] = useState(
+  const [availableFrom, setAvailableFrom] = useState(() =>
     rfc3339ToLocalDateTime(asset.availableFrom),
   );
-  const [expiresAt, setExpiresAt] = useState(
+  const [expiresAt, setExpiresAt] = useState(() =>
     rfc3339ToLocalDateTime(asset.expiresAt),
   );
   const mutation = useMutation({

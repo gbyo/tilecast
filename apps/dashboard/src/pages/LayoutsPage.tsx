@@ -1064,6 +1064,7 @@ export function LayoutsPage() {
                 onKeyDown={(event) => {
                   if (
                     event.key === "Enter" &&
+                    !event.nativeEvent.isComposing &&
                     !rename.isPending &&
                     renaming &&
                     renameName.trim() &&
