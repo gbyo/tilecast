@@ -1,3 +1,4 @@
+import { newUuid } from "../lib/uuid";
 import { useEffect, useMemo, useState } from "react";
 import {
   useInfiniteQuery,
@@ -87,7 +88,7 @@ function makeBlock(
   const start = new Date(Date.now() + 5 * 60 * 1000);
   start.setSeconds(0, 0);
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     name: t("campaigns.editor.defaultBlockName"),
     contentType: type,
     contentId,

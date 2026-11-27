@@ -1,3 +1,4 @@
+import { newUuid } from "../lib/uuid";
 import {
   useInfiniteQuery,
   useMutation,
@@ -117,8 +118,8 @@ class AnnouncementDraftChangedError extends Error {}
 
 function buildAnnouncementTemplate(draft: LayoutDocument) {
   const document = structuredClone(draft);
-  const accentId = crypto.randomUUID();
-  const headlineId = crypto.randomUUID();
+  const accentId = newUuid();
+  const headlineId = newUuid();
   document.placements.push(
     {
       id: accentId,

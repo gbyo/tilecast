@@ -1,3 +1,4 @@
+import { newUuid } from "../../lib/uuid";
 /**
  * Screen domain helpers over the typed transport. Wire shapes come from
  * the generated OpenAPI contract; the handwritten view models in
@@ -376,7 +377,7 @@ export function createScreenCommand(
   payload: Record<string, unknown>,
   csrfToken: string,
   // Reuse this key when retrying the SAME intentional operator action.
-  idempotencyKey: string = crypto.randomUUID(),
+  idempotencyKey: string = newUuid(),
 ): Promise<{ id: string; state: string; expiresAt: string }> {
   return apiPost("/api/v1/screens/{id}/commands", {
     params: { path: { id } },

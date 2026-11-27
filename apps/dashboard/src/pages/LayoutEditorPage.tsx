@@ -1,3 +1,4 @@
+import { newUuid } from "../lib/uuid";
 import { contentQueries } from "../data/content";
 import { isAppleControlClick } from "../lib/pointer";
 import { cn } from "cn";
@@ -340,7 +341,7 @@ export function createContentPlacement(
           a.kind === "playback" ? -1 : b.kind === "playback" ? 1 : 0,
         )[0]?.id;
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     type: isApp ? "widget" : "asset",
     name: asset.name,
     ...placementBox(
@@ -373,7 +374,7 @@ export function createPlaylistZonePlacement(
   position?: { x: number; y: number },
 ): LayoutPlacement {
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     type: "playlistZone",
     name: playlist.name,
     ...placementBox(canvas, position),
@@ -597,7 +598,7 @@ export function createPrimitivePlacement(
   const isLine = kind === "line";
   const isGroup = kind === "group";
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     type: "primitive",
     name: kind === "text" ? "Text" : kind[0]!.toUpperCase() + kind.slice(1),
     x: canvas.width * 0.25,
@@ -1694,9 +1695,7 @@ export function LayoutEditorPage() {
     if (!current) return;
     const source = selectedPlacements(current, selection);
     if (!source.length) return;
-    const mapping = new Map(
-      source.map((item) => [item.id, crypto.randomUUID()]),
-    );
+    const mapping = new Map(source.map((item) => [item.id, newUuid()]));
     const copies = source.map((item) => ({
       ...clone(item),
       id: mapping.get(item.id)!,
@@ -1769,7 +1768,7 @@ export function LayoutEditorPage() {
     if (!current || !clipboard.current.length) return;
     const pasted = clipboard.current.map((item) => ({
       ...clone(item),
-      id: crypto.randomUUID(),
+      id: newUuid(),
       x: Math.max(0, Math.min(item.x + 20, current.canvas.width - item.width)),
       y: Math.max(
         0,

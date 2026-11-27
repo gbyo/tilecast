@@ -1,3 +1,4 @@
+import { newUuid } from "../lib/uuid";
 import { contentKeys, contentQueries } from "../data/content";
 
 import { formatDurationClock } from "../lib/formatDuration";
@@ -409,7 +410,7 @@ export function ContentPage() {
       ) as SavedUpload[];
       return saved.map((item) => ({
         ...item,
-        localId: item.sessionId ?? crypto.randomUUID(),
+        localId: item.sessionId ?? newUuid(),
         state: "failed",
         error: t("media.upload.resumePrompt"),
       }));
@@ -571,7 +572,7 @@ export function ContentPage() {
     );
 
   const uploadFile = async (file: File, resume?: QueueItem) => {
-    const localId = resume?.localId ?? crypto.randomUUID();
+    const localId = resume?.localId ?? newUuid();
     if (
       resume &&
       (file.name !== resume.filename || file.size !== resume.sizeBytes)

@@ -1,3 +1,4 @@
+import { newUuid } from "../../lib/uuid";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -97,7 +98,7 @@ export function ManualDataSourceEditor({
     (dataSource?.configuration as ManualSourceConfig | undefined) ?? {
       // i18n-ignore: default author-owned column, stored in the configuration
       columns: [{ key: "title", label: "Title", type: "text" }],
-      rows: [{ id: crypto.randomUUID(), values: { title: "" } }],
+      rows: [{ id: newUuid(), values: { title: "" } }],
       dateSelection: {
         enabled: false,
         dateFormat: "auto",
@@ -152,7 +153,7 @@ export function ManualDataSourceEditor({
       return {
         ...current,
         rows: items.map((value, index) => ({
-          id: current.rows[index]?.id ?? crypto.randomUUID(),
+          id: current.rows[index]?.id ?? newUuid(),
           values: { [column.key]: value },
         })),
       };
@@ -611,10 +612,7 @@ export function ManualDataSourceEditor({
             onClick={() =>
               setConfiguration((current) => ({
                 ...current,
-                rows: [
-                  ...current.rows,
-                  { id: crypto.randomUUID(), values: {} },
-                ],
+                rows: [...current.rows, { id: newUuid(), values: {} }],
               }))
             }
           >
