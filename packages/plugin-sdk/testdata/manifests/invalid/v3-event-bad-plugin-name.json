@@ -1,0 +1,47 @@
+{
+  "apiVersion": 3,
+  "id": "bell_events",
+  "definitionVersion": 1,
+  "name": "Bell Events",
+  "description": "The smallest manifest the API accepts.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "services": ["events.publish@1"],
+  "events": {
+    "publishes": [
+      {
+        "name": "period_started",
+        "version": 1,
+        "title": "Period started",
+        "fields": [
+          {
+            "key": "scheduleId",
+            "label": "Schedule",
+            "control": "text",
+            "required": true,
+            "maxLength": 80
+          },
+          {
+            "key": "periodKey",
+            "label": "Period",
+            "control": "text",
+            "required": true,
+            "maxLength": 40
+          },
+          {
+            "key": "startsAt",
+            "label": "Starts",
+            "control": "datetime",
+            "required": true
+          }
+        ]
+      }
+    ],
+    "subscribes": ["plugin.Room.started@1"]
+  }
+}

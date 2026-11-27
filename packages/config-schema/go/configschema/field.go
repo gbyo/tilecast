@@ -20,7 +20,21 @@ const (
 	ProfileWidget Profile = "widget"
 	// ProfilePlugin is a Plugin Manifest API 3 settings or instance schema.
 	ProfilePlugin Profile = "plugin"
+	// ProfileEvent is the payload schema of a plugin event
+	// (docs/plugin-events.md). A payload is ordinary bounded JSON that
+	// another plugin receives: it takes the scalar controls only, never a
+	// secret, a connection, a personal field, a media or font reference, a
+	// Data Source binding, or a nested group.
+	ProfileEvent Profile = "event"
 )
+
+// eventControls are the controls of the event profile.
+var eventControls = map[string]bool{
+	"text": true, "multiline_text": true, "number": true, "integer": true,
+	"boolean": true, "select": true, "color": true, "date": true,
+	"datetime": true, "local_datetime": true, "time": true, "timezone": true,
+	"currency_code": true, "url": true, "string_list": true, "weekdays": true,
+}
 
 // Controls every profile accepts.
 var sharedControls = map[string]bool{
@@ -45,6 +59,13 @@ var pluginControls = map[string]bool{ControlSecret: true, ControlConnection: tru
 
 // Controls lists every control a profile accepts.
 func Controls(profile Profile) []string {
+	if profile == ProfileEvent {
+		out := make([]string, 0, len(eventControls))
+		for control := range eventControls {
+			out = append(out, control)
+		}
+		return out
+	}
 	out := make([]string, 0, len(sharedControls)+len(pluginControls))
 	for control := range sharedControls {
 		out = append(out, control)
@@ -59,6 +80,9 @@ func Controls(profile Profile) []string {
 
 // Supported reports whether a profile accepts a control.
 func Supported(profile Profile, control string) bool {
+	if profile == ProfileEvent {
+		return eventControls[control]
+	}
 	return sharedControls[control] || profile == ProfilePlugin && pluginControls[control]
 }
 

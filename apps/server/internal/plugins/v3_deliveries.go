@@ -49,6 +49,9 @@ func (t deliveryTarget) Accepts(kind, source string) bool {
 	case plugindelivery.KindTimer:
 		_, ok := t.hosted.plugin.(plugin.TimerHandler)
 		return ok && declaresService(t.hosted.manifest, "timers.schedule@1")
+	case plugindelivery.KindEvent:
+		_, ok := t.hosted.plugin.(plugin.EventHandler)
+		return ok && t.hosted.manifest.Subscribes(source)
 	}
 	return false
 }
@@ -72,6 +75,16 @@ func (t deliveryTarget) Deliver(ctx context.Context, delivery plugindelivery.Del
 			ID: delivery.ID.String(), Key: delivery.Source, Payload: delivery.Payload,
 			DueAt: delivery.DueAt, Attempt: delivery.Attempt,
 		})
+	case plugindelivery.KindEvent:
+		handler, ok := t.hosted.plugin.(plugin.EventHandler)
+		if !ok {
+			return errNotAccepted
+		}
+		event, err := eventDelivery(delivery)
+		if err != nil {
+			return err
+		}
+		return handler.HandleEvent(ctx, event)
 	}
 	return errNotAccepted
 }
@@ -119,6 +132,11 @@ type PluginStatus struct {
 	PluginID   string                `json:"pluginId"`
 	Installed  bool                  `json:"installed"`
 	Deliveries plugindelivery.Status `json:"deliveries"`
+	// Subscriptions are the events the plugin receives, each active or
+	// inactive with a reason.
+	Subscriptions []SubscriptionStatus `json:"subscriptions"`
+	// PublishedEvents are the events the plugin publishes.
+	PublishedEvents []PublishedEventStatus `json:"publishedEvents"`
 }
 
 func (s *Service) v3Plugin(pluginID string) (hostedPlugin, error) {
@@ -131,11 +149,16 @@ func (s *Service) v3Plugin(pluginID string) (hostedPlugin, error) {
 
 // Status reads the operational state of one plugin.
 func (s *Service) Status(ctx context.Context, pluginID string) (PluginStatus, error) {
-	if _, err := s.v3Plugin(pluginID); err != nil {
+	hosted, err := s.v3Plugin(pluginID)
+	if err != nil {
 		return PluginStatus{}, err
 	}
-	status := PluginStatus{PluginID: pluginID}
-	if err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM plugin_installations WHERE plugin_id=$1)`, pluginID).Scan(&status.Installed); err != nil {
+	installed, err := s.installedPluginIDs(ctx)
+	if err != nil {
+		return PluginStatus{}, err
+	}
+	status := PluginStatus{PluginID: pluginID, Installed: installed[pluginID]}
+	if status.Subscriptions, status.PublishedEvents, err = s.eventStatus(ctx, hosted, installed); err != nil {
 		return PluginStatus{}, err
 	}
 	deliveries, err := plugindelivery.ReadStatus(ctx, s.db, pluginID, s.clock.Now())
@@ -177,4 +200,20 @@ func (s *Service) parkedAction(ctx context.Context, pluginID string, id, userID 
 		})
 	})
 	return item, err
+}
+
+func (s *Service) installedPluginIDs(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.db.Query(ctx, `SELECT plugin_id FROM plugin_installations`)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
 }

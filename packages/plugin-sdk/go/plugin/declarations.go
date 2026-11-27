@@ -287,6 +287,8 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 	_, projectsInstances := p.(InstanceProjector)
 	_, validates := p.(InstanceValidator)
 	_, consumes := p.(ServiceConsumer)
+	_, handlesEvents := p.(EventHandler)
+	subscribes := m.Events != nil && len(m.Events.Subscribes) > 0
 	screens := false
 	for _, kind := range m.Instances {
 		screens = screens || kind.Targeting == TargetingScreens
@@ -310,6 +312,10 @@ func checkV3Declarations(p Plugin, m Manifest) error {
 		return fmt.Errorf("implements ServiceConsumer without declaring services")
 	case !consumes && len(m.Services) > 0:
 		return fmt.Errorf("declares services but does not implement ServiceConsumer to receive its client")
+	case subscribes && !handlesEvents:
+		return fmt.Errorf("subscribes to events but does not implement EventHandler")
+	case handlesEvents && !subscribes:
+		return fmt.Errorf("implements EventHandler without subscribing to an event")
 	}
 	return nil
 }

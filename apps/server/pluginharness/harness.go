@@ -63,6 +63,7 @@ type Harness struct {
 	service   *plugins.Service
 	takeovers *takeovers.Service
 	playlists *playlists.Service
+	clock     plugin.Clock
 }
 
 // Option adjusts how a Harness is built.
@@ -75,6 +76,14 @@ type options struct {
 	backgroundJobs *bool
 	upgradeFrom    int64
 	seed           func(context.Context, *pgxpool.Pool) (orgID, ownerID uuid.UUID)
+	alongside      []plugin.Plugin
+}
+
+// Alongside hosts more plugins beside the plugin under test, for example a
+// test subscriber of the plugin's events. They are not installed until the
+// test installs them with InstallPlugin.
+func Alongside(plugins ...plugin.Plugin) Option {
+	return func(o *options) { o.alongside = append(o.alongside, plugins...) }
 }
 
 // UpgradeFrom builds the harness on a scratch database stopped at an older
@@ -193,7 +202,7 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	if chosen.backgroundJobs != nil {
 		jobsAllowed = *chosen.backgroundJobs
 	}
-	serviceOptions := []plugins.Option{plugins.WithPlugins(p), plugins.WithSecrets(h.Secrets),
+	serviceOptions := []plugins.Option{plugins.WithPlugins(append([]plugin.Plugin{p}, chosen.alongside...)...), plugins.WithSecrets(h.Secrets),
 		plugins.WithTakeovers(h.takeovers),
 		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
 		plugins.WithBackgroundJobsAllowed(func() bool { return jobsAllowed }),
@@ -208,6 +217,13 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	}
 	h.service = plugins.NewService(pool, nil, serviceOptions...)
 	h.Plugins, h.Media = h.service, mediaService
+	// Core producers emit their events to the plugin host, as main wires
+	// them.
+	h.clock = chosen.clock
+	h.takeovers.SetEvents(h.service)
+	if h.clock != nil {
+		h.takeovers.SetClock(h.clock.Now)
+	}
 	providers, err := h.service.DataSourceProviders()
 	if err != nil {
 		t.Fatal(err)

@@ -856,5 +856,11 @@
     "file": "00144_plugin_deliveries.sql",
     "owner": "core",
     "sha256": "fb0d682634a92682a0b899a21fe29ee4186ed803b1d671c719402de3e34e339a"
+  },
+  {
+    "version": 145,
+    "file": "00145_core_events.sql",
+    "owner": "core",
+    "sha256": "7092b1d99e61d57ef78d589de03641845a769bb1bf1266a0ecf8bcdd12f13399"
   }
 ]

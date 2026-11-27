@@ -16,7 +16,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // SettingsReader is the part of the settings service this package needs.
@@ -29,11 +31,42 @@ type Service struct {
 	db          *pgxpool.Pool
 	settings    SettingsReader
 	definitions contentdefs.Catalogs
+	// events receives incident.opened@1, incident.recovered@1, and
+	// feed.stale@1 in the sweep's transaction. Nil drops them.
+	events coreevents.Sink
+	// now dates those events. Tests replace it.
+	now func() time.Time
+}
+
+// SetClock replaces the clock that dates the sweep's core events.
+func (s *Service) SetClock(now func() time.Time) { s.now = now }
+
+func (s *Service) clock() time.Time {
+	if s.now == nil {
+		return time.Now().UTC()
+	}
+	return s.now().UTC()
+}
+
+// SetEvents wires the core event sink.
+func (s *Service) SetEvents(events coreevents.Sink) { s.events = events }
+
+// emitIDs collects the incident IDs a statement returned and emits their
+// core event in the same transaction.
+func (s *Service) emitIDs(ctx context.Context, tx pgx.Tx, rows pgx.Rows, err error, name, reason string) error {
+	if err != nil {
+		return err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	return coreevents.EmitIncidents(ctx, tx, s.events, name, reason, s.clock(), ids...)
 }
 
 // NewService builds the content health service.
 func NewService(db *pgxpool.Pool, reader SettingsReader) *Service {
-	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad()}
+	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad(), now: time.Now}
 }
 
 // SetContentDefinitions shares the release catalog used for playback projection.
@@ -123,7 +156,7 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 	// when it has never succeeded and has had long enough to try. Serving
 	// cached data is not itself a fault -- that is the cache working -- so the
 	// age of the data, not the flag, is the condition.
-	if _, err := tx.Exec(ctx, `
+	rows, err = tx.Query(ctx, `
 		INSERT INTO incidents(
 			id,incident_type,severity,status,title,description,opened_at,last_seen_at,
 			failure_code,probable_cause,related_type,related_id,dedupe_key,metadata)
@@ -146,11 +179,13 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 		  AND COALESCE(r.last_success_at,d.created_at) < now()-$1::interval
 		  AND d.id=ANY($2::uuid[])
 		  AND NOT EXISTS (SELECT 1 FROM plugin_feed_datasets f WHERE f.id=d.id)
-		ON CONFLICT DO NOTHING`, staleAfter, used); err != nil {
+		ON CONFLICT DO NOTHING
+		RETURNING id`, staleAfter, used)
+	if err := s.emitIDs(ctx, tx, rows, err, plugin.CoreIncidentOpened, coreevents.IncidentDetected); err != nil {
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `
+	rows, err = tx.Query(ctx, `
 		UPDATE incidents i SET status='recovered',recovered_at=COALESCE(r.last_success_at,now()),
 			recovery_mode='automatic',
 			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'The Data Source refreshed successfully.'),
@@ -161,9 +196,10 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 		  AND i.dedupe_key='data_source:source:'||d.id::text
 		  AND NOT EXISTS (SELECT 1 FROM plugin_feed_datasets f WHERE f.id=d.id)
 		  AND (d.deleted_at IS NOT NULL
-		       OR (r.last_success_at IS NOT NULL AND r.last_success_at >= now()-$1::interval))`,
+		       OR (r.last_success_at IS NOT NULL AND r.last_success_at >= now()-$1::interval))
+		RETURNING i.id`,
 		staleAfter)
-	if err != nil {
+	if err := s.emitIDs(ctx, tx, rows, err, plugin.CoreIncidentRecovered, coreevents.IncidentAutomatic); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -180,7 +216,8 @@ func (s *Service) sweepFeeds(ctx context.Context) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, `
+	rows, err := tx.Query(ctx, `
+		WITH opened AS (
 		INSERT INTO incidents(
 			id,incident_type,severity,status,title,description,opened_at,last_seen_at,
 			failure_code,probable_cause,related_type,related_id,dedupe_key,metadata)
@@ -198,17 +235,48 @@ func (s *Service) sweepFeeds(ctx context.Context) error {
 		WHERE COALESCE(f.published_at,f.created_at) < now()-make_interval(secs=>2*f.expected_refresh_seconds)
 		  AND EXISTS (SELECT 1 FROM widgets w JOIN assets a ON a.id=w.asset_id AND a.deleted_at IS NULL
 		              WHERE w.configuration->>'dataSourceId'=d.id::text OR w.managed_data_source_id=d.id)
-		ON CONFLICT DO NOTHING`); err != nil {
+		ON CONFLICT DO NOTHING
+		RETURNING id, related_id, opened_at)
+		SELECT o.id, f.id, f.plugin_id, f.feed_id, f.instance_id, f.published_at, f.expected_refresh_seconds, o.opened_at
+		FROM opened o JOIN plugin_feed_datasets f ON f.id::text=o.related_id`)
+	if err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `
+	type staleFeed struct {
+		incident uuid.UUID
+		event    coreevents.FeedStale
+		owner    string
+	}
+	stale, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (staleFeed, error) {
+		var item staleFeed
+		err := row.Scan(&item.incident, &item.event.DatasetID, &item.owner, &item.event.Feed, &item.event.InstanceID,
+			&item.event.PublishedAt, &item.event.ExpectedRefreshSeconds, &item.event.StaleSince)
+		return item, err
+	})
+	if err != nil {
+		return err
+	}
+	now := s.clock()
+	for _, item := range stale {
+		// The dataset crossed into the stale state: its incident opened now.
+		if err := coreevents.EmitIncidents(ctx, tx, s.events, plugin.CoreIncidentOpened, coreevents.IncidentDetected, now, item.incident); err != nil {
+			return err
+		}
+		if err := coreevents.Emit(ctx, tx, s.events, coreevents.Event{Name: plugin.CoreFeedStale, Subject: coreevents.FeedSubject(item.event.DatasetID),
+			OccurredAt: now, Payload: item.event, Owner: item.owner}); err != nil {
+			return err
+		}
+	}
+	rows, err = tx.Query(ctx, `
 		UPDATE incidents i SET status='recovered',recovered_at=COALESCE(f.published_at,now()),recovery_mode='automatic',
 			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'The plugin published the feed again.'),updated_at=now()
 		FROM plugin_feed_datasets f JOIN data_sources d ON d.id=f.id
 		WHERE i.incident_type='data_source' AND i.status IN('open','acknowledged')
 		  AND i.dedupe_key='data_source:source:'||d.id::text
 		  AND (d.deleted_at IS NOT NULL
-		       OR (f.published_at IS NOT NULL AND f.published_at >= now()-make_interval(secs=>2*f.expected_refresh_seconds)))`); err != nil {
+		       OR (f.published_at IS NOT NULL AND f.published_at >= now()-make_interval(secs=>2*f.expected_refresh_seconds)))
+		RETURNING i.id`)
+	if err := s.emitIDs(ctx, tx, rows, err, plugin.CoreIncidentRecovered, coreevents.IncidentAutomatic); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -221,7 +289,12 @@ func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
 	// A tag playlist is evaluated through its tags, because it legitimately
 	// has no playlist_items rows at all; treating it like a static playlist
 	// would report every tag playlist in the installation as broken.
-	if _, err := s.db.Exec(ctx, `
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `
 		WITH assigned AS (
 			SELECT DISTINCT p.id, p.name, p.source_type, p.tag_match
 			FROM playlists p
@@ -273,14 +346,16 @@ func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
 		       'content:playlist:'||v.id::text,
 		       jsonb_build_object('source','content_health','playlistId',v.id::text,'playlistName',v.name)
 		FROM available v WHERE v.playable=0
-		ON CONFLICT DO NOTHING`); err != nil {
+		ON CONFLICT DO NOTHING
+		RETURNING id`)
+	if err := s.emitIDs(ctx, tx, rows, err, plugin.CoreIncidentOpened, coreevents.IncidentDetected); err != nil {
 		return err
 	}
 
 	// Recover when the playlist has content again or is no longer assigned.
 	// Both are genuine ends of the condition: nothing is on a screen with
 	// nothing to play any more.
-	_, err := s.db.Exec(ctx, `
+	rows, err = tx.Query(ctx, `
 		UPDATE incidents i SET status='recovered',recovered_at=now(),
 			recovery_mode='automatic',
 			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'The playlist has content available again.'),
@@ -328,8 +403,12 @@ func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
 		                      AND (s.available_from IS NULL OR s.available_from<=now())
 		                      AND (s.expires_at IS NULL OR s.expires_at>now())))
 		          )
-		          END) = 0)`)
-	return err
+		          END) = 0)
+		RETURNING i.id`)
+	if err := s.emitIDs(ctx, tx, rows, err, plugin.CoreIncidentRecovered, coreevents.IncidentAutomatic); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // StaleSource is one Data Source that is not refreshing.

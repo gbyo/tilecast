@@ -9,6 +9,7 @@
     "./manifest": "./src/manifest.ts",
     "./connections": "./src/connections.ts",
     "./feeds": "./src/feeds.ts",
+    "./events": "./src/events.ts",
     "./automation": "./src/automation.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime/testing": "./src/runtime-testing.ts",

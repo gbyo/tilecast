@@ -11,11 +11,11 @@ An engine claims due items and gives each item to the plugin.
 
 ## Kinds
 
-| Kind      | Producer                      | Source              | Subject                | Hook            |
-| --------- | ----------------------------- | ------------------- | ---------------------- | --------------- |
-| `timer`   | `timers.schedule@1`           | the timer key       | the timer key          | `HandleTimer`   |
-| `event`   | an event (phase 3B)           | the full event name | see the event contract | `HandleEvent`   |
-| `webhook` | an inbound request (phase 3C) | the webhook ID      | the webhook ID         | `HandleWebhook` |
+| Kind      | Producer                      | Source              | Subject                               | Hook            |
+| --------- | ----------------------------- | ------------------- | ------------------------------------- | --------------- |
+| `timer`   | `timers.schedule@1`           | the timer key       | the timer key                         | `HandleTimer`   |
+| `event`   | an event                      | the full event name | see [plugin events](plugin-events.md) | `HandleEvent`   |
+| `webhook` | an inbound request (phase 3C) | the webhook ID      | the webhook ID                        | `HandleWebhook` |
 
 A later kind, for example a Player report, is a new kind value. It is not a
 new queue.
@@ -176,9 +176,10 @@ a cookie session, and the `admin` scope. See
 `plugin.delivery.retried` or `plugin.delivery.discarded` records the plugin,
 the delivery ID, the kind, and the subject. It never records the payload.
 
-Studio generates a **Status** page for a plugin with queued work. An Owner
-sees **Retry** and **Discard**. Other accounts see the parked items without
-the actions.
+Studio generates a **Status** page for a plugin that schedules timers,
+publishes events, or subscribes to events. An Owner sees **Retry** and
+**Discard**. Other accounts see the parked items without the actions. The
+event sections of the page are in [plugin events](plugin-events.md).
 
 ## Storage
 

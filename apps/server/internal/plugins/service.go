@@ -170,6 +170,10 @@ type CatalogPlugin struct {
 	// Feeds are the datasets the plugin publishes as Data Sources, with
 	// the personal fields and their retention.
 	Feeds []FeedReview `json:"feeds"`
+
+	// Events are the Server events the plugin publishes and the events it
+	// receives, with the publisher of each.
+	Events EventReview `json:"events"`
 }
 
 // PluginAttention is a bounded, advisory status note. It never blocks
@@ -309,7 +313,7 @@ func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlug
 		Installed: installed, Installable: d.Installable,
 		Configured: status.configured, Active: status.active, InstanceCount: status.count,
 		Attention: attention, Connections: append([]ConnectionReview{}, d.Connections...),
-		Feeds: append([]FeedReview{}, d.Feeds...),
+		Feeds: append([]FeedReview{}, d.Feeds...), Events: d.Events.clone(),
 	}
 }
 

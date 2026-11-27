@@ -25,6 +25,9 @@ import (
 )
 
 type Service struct {
+	// takeoverExpirer owns the Takeover lifecycle. A manifest build asks it
+	// to expire the due Takeovers of its screen.
+	takeoverExpirer       TakeoverExpirer
 	db                    *pgxpool.Pool
 	notifier              Notifier
 	scheduling            *scheduling.Service
@@ -1631,6 +1634,17 @@ func (s *Service) projectSpanVideo(ctx context.Context, screenID, assetID, sourc
 	return panel.ID, nil
 }
 
+// TakeoverExpirer is the owner of the Takeover lifecycle: the Takeover
+// service. A Takeover ends as a whole there, on every screen it targets,
+// with one takeover.ended@1.
+type TakeoverExpirer interface {
+	ExpireDueOnScreen(ctx context.Context, screenID uuid.UUID, now time.Time) error
+}
+
+// SetTakeoverExpirer wires the Takeover lifecycle owner. The Takeover
+// service calls it when it is constructed.
+func (s *Service) SetTakeoverExpirer(expirer TakeoverExpirer) { s.takeoverExpirer = expirer }
+
 func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manifest, string, error) {
 	if err := s.reconcilePresentationCatalog(ctx); err != nil {
 		return Manifest{}, "", err
@@ -1642,36 +1656,15 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	now := time.Now().UTC()
 	// Expiration is persisted during reconciliation so an unchanged ETag can never
-	// hide the removal of a takeover from a player. The takeover state transition
-	// and manifest version bump share one transaction; a failed bump cannot leave
-	// an expired takeover with an old conditional-response identity.
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return Manifest{}, "", err
-	}
-	defer tx.Rollback(ctx)
-	var expired bool
-	if err = tx.QueryRow(ctx, `WITH changed AS (
-		UPDATE takeovers e SET status='expired',updated_at=now()
-		WHERE e.status='active' AND e.expires_at<=now() AND EXISTS(SELECT 1 FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.screen_id=$1)
-		RETURNING e.id),
-		updated AS (
-		UPDATE takeover_screen_states es SET state='expired',restored_at=now(),last_updated_at=now()
-		WHERE es.screen_id=$1 AND es.takeover_id IN(SELECT id FROM changed) RETURNING true)
-		SELECT EXISTS(SELECT 1 FROM changed) OR EXISTS(SELECT 1 FROM updated)`, screenID).Scan(&expired); err != nil {
-		return Manifest{}, "", err
-	}
-	expirationNotes := []notification{}
-	if expired {
-		expirationNotes, err = bumpScreensInTx(ctx, tx, []uuid.UUID{screenID}, "takeover.expired")
-		if err != nil {
+	// hide the removal of a takeover from a player. The Takeover service ends
+	// each due Takeover of this screen as a whole and bumps the manifest
+	// version of every screen it showed on in the same transaction; this
+	// build then reads the bumped version.
+	if s.takeoverExpirer != nil {
+		if err := s.takeoverExpirer.ExpireDueOnScreen(ctx, screenID, now); err != nil {
 			return Manifest{}, "", err
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return Manifest{}, "", err
-	}
-	s.notify(expirationNotes)
 	assignment, err := s.Assignment(ctx, screenID)
 	if err != nil {
 		return Manifest{}, "", err

@@ -14,10 +14,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/authz"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
 type Service struct {
+	// events receives schedule.changed@1 when archiving a screen removes it
+	// from schedule targets. Nil drops it.
+	events            coreevents.Sink
 	db                *pgxpool.Pool
 	presence          *PresenceHub
 	publicURL         string
@@ -460,3 +464,6 @@ func remoteAddress(value string) netip.Addr {
 	}
 	return netip.Addr{}
 }
+
+// SetEvents wires the core event sink.
+func (s *Service) SetEvents(events coreevents.Sink) { s.events = events }

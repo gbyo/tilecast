@@ -838,6 +838,57 @@
         "handler_panic": "The plugin stopped unexpectedly",
         "lease_expired": "The Server stopped while the plugin ran"
       }
+    },
+    "events": {
+      "publishedBy": "Published by {{publisher}}",
+      "publisher": {
+        "core": "Tilecast",
+        "plugin": "{{name}} ({{id}})",
+        "unknown": "the plugin {{id}}, which this Tilecast release does not include"
+      },
+      "core": {
+        "screenStatusChanged": "A screen goes offline or comes back",
+        "takeoverStarted": "A Takeover starts",
+        "takeoverEnded": "A Takeover ends",
+        "takeoverSuspended": "A stronger Takeover hides a Takeover on all its screens",
+        "incidentOpened": "An incident opens",
+        "incidentRecovered": "An incident closes",
+        "scheduleChanged": "A schedule changes",
+        "feedStale": "One of this plugin's feeds stops updating"
+      },
+      "status": {
+        "subscriptions": {
+          "title": "Events this plugin receives",
+          "description": "Tilecast delivers these events to the plugin. An inactive event is not delivered until its reason is fixed.",
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "reasons": {
+          "publisher_unknown": "The plugin that publishes this event is not part of this Tilecast release.",
+          "publisher_not_installed": "{{publisher}} is not installed. Install it to receive this event.",
+          "event_not_declared": "{{publisher}} does not publish this event version.",
+          "no_own_feeds": "This event reports only this plugin's own feeds, and the plugin has none.",
+          "other": "Tilecast does not deliver this event now."
+        },
+        "published": {
+          "title": "Events this plugin publishes",
+          "noSubscribers": "No installed plugin receives it",
+          "subscribers_one": "{{count}} installed plugin receives it",
+          "subscribers_other": "{{count}} installed plugins receive it",
+          "schemaChangedTitle": "Not published: the payload changed",
+          "schemaChanged": "The payload of this event version is different from the one this installation recorded when the plugin first published it. Tilecast refuses to publish it, so subscribers do not receive data they cannot read. The plugin must publish the change as a new version."
+        }
+      },
+      "review": {
+        "title": "Events",
+        "description": "Events let plugins react to Tilecast and to each other. This list is for your information: installing the plugin does not give it more access.",
+        "publishes": "Publishes",
+        "subscribes": "Receives",
+        "coreEvent": "Tilecast event",
+        "pluginEvent": "Plugin event",
+        "fields_one": "{{count}} field",
+        "fields_other": "{{count}} fields"
+      }
     }
   },
   "secrets": {

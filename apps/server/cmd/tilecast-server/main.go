@@ -20,6 +20,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/config"
+	"github.com/tilecast/tilecast/apps/server/internal/connectivity"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
@@ -406,7 +407,18 @@ func serve() {
 	playlistService.SetApprovalGate(approvalService.GateTx)
 	fleetService.SetApprovalGate(approvalService.Gate)
 	fleetService.SetScopeAuthorizer(authz.New(db))
+	// Core events (docs/plugin-events.md): each domain service emits in the
+	// transaction of its change, and the plugin service queues a delivery
+	// for each subscriber.
+	deviceService.SetEvents(pluginService)
+	takeoverService.SetEvents(pluginService)
+	schedulingService.SetEvents(pluginService)
+	contentHealthService.SetEvents(pluginService)
 	notifyWorker := notify.NewWorker(notifyService, logger)
+	// Sweeps run before the outbox scan, so an outage they record in this
+	// pass is notified in the same pass.
+	notifyWorker.AddSweeper(connectivity.NewSweeper(db, pluginService))
+	notifyWorker.AddSweeper(takeoverService)
 	notifyWorker.AddSweeper(contentHealthService)
 	notifyWorker.SetGate(backupGuard.BackgroundJobsAllowed)
 	notifyWorker.Start(ctx)

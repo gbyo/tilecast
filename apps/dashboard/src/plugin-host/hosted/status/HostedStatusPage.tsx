@@ -6,6 +6,8 @@ import { PluginPage } from "../../PluginPage";
 import { statusClient, statusKey } from "./api";
 import { DeliverySummary } from "./DeliverySummary";
 import { ParkedDeliveries } from "./ParkedDeliveries";
+import { PublishedEventsSection } from "./PublishedEventsSection";
+import { SubscriptionsSection } from "./SubscriptionsSection";
 
 export type HostedStatusProps = {
   pluginId: string;
@@ -45,6 +47,8 @@ export function HostedStatusPage({ pluginId }: HostedStatusProps) {
             items={status.data.deliveries.parked}
             total={status.data.deliveries.parkedCount}
           />
+          <SubscriptionsSection subscriptions={status.data.subscriptions} />
+          <PublishedEventsSection events={status.data.publishedEvents} />
         </div>
       )}
     </PluginPage>

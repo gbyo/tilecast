@@ -357,6 +357,8 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.timerSchedule(ctx, call)
 	case "timers.cancel@1/cancel":
 		return d.timerCancel(ctx, call)
+	case "events.publish@1/publish":
+		return d.eventPublish(ctx, call)
 	case "feeds.publish@1/publish":
 		return d.feedPublish(ctx, call)
 	case "feeds.publish@1/revision":

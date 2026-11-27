@@ -31,7 +31,9 @@ const byteLength = (text: string) => new TextEncoder().encode(text).length;
 function validDate(text: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
   const parsed = new Date(`${text}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(text);
+  return (
+    !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(text)
+  );
 }
 
 function validTimeZone(text: string): boolean {
@@ -102,7 +104,8 @@ function normalizeObject(
       value === undefined ||
       (field.required && value === "")
     ) {
-      if (field.required) throw new ValueProblem(`${field.label} is required`, path);
+      if (field.required)
+        throw new ValueProblem(`${field.label} is required`, path);
       continue;
     }
     output[field.key] = normalizeField(field, value, path);
@@ -110,7 +113,11 @@ function normalizeObject(
   return output;
 }
 
-function normalizeField(field: ConfigField, value: unknown, path: string): unknown {
+function normalizeField(
+  field: ConfigField,
+  value: unknown,
+  path: string,
+): unknown {
   const fail = (message: string): never => {
     throw new ValueProblem(message, path);
   };
@@ -158,7 +165,8 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
           text = text.toLowerCase();
           break;
         case "date":
-          if (text !== "" && !validDate(text)) return fail(`${field.label} must be a date`);
+          if (text !== "" && !validDate(text))
+            return fail(`${field.label} must be a date`);
           break;
         case "datetime":
           if (text !== "") {
@@ -180,10 +188,12 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
           break;
         case "time":
           if (text === "" && !field.required) break;
-          if (!isTimeOfDay(text)) return fail(`${field.label} must be a time written HH:MM`);
+          if (!isTimeOfDay(text))
+            return fail(`${field.label} must be a time written HH:MM`);
           break;
         case "timezone":
-          if (!validTimeZone(text)) return fail(`${field.label} must be an IANA timezone`);
+          if (!validTimeZone(text))
+            return fail(`${field.label} must be an IANA timezone`);
           break;
         case "url": {
           let parsed: URL | null = null;
@@ -202,12 +212,14 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
           break;
         }
         case "data_source":
-          if (!uuidPattern.test(text)) return fail(`${field.label} must identify a Data Source`);
+          if (!uuidPattern.test(text))
+            return fail(`${field.label} must identify a Data Source`);
           text = text.toLowerCase();
           break;
         case "media_asset":
           if (text === "" && !field.required) break;
-          if (!uuidPattern.test(text)) return fail(`${field.label} must identify a media asset`);
+          if (!uuidPattern.test(text))
+            return fail(`${field.label} must identify a media asset`);
           text = text.toLowerCase();
           break;
         case "font":
@@ -245,10 +257,12 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
       return value;
     }
     case "boolean":
-      if (typeof value !== "boolean") return fail(`${field.label} must be true or false`);
+      if (typeof value !== "boolean")
+        return fail(`${field.label} must be true or false`);
       return value;
     case "select":
-      if (typeof value !== "string") return fail(`${field.label} must be selected`);
+      if (typeof value !== "string")
+        return fail(`${field.label} must be selected`);
       if (!(field.options ?? []).some((option) => option.value === value)) {
         return fail(`${field.label} has an invalid selection`);
       }
@@ -260,7 +274,8 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
           `${field.label} must contain unique days from 0 (Sunday) through 6`,
         );
       }
-      if (field.required && days.length === 0) return fail(`${field.label} is required`);
+      if (field.required && days.length === 0)
+        return fail(`${field.label} is required`);
       return days;
     }
     case "string_list": {
@@ -269,7 +284,8 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
       }
       const out: string[] = [];
       for (const item of value) {
-        if (typeof item !== "string") return fail(`${field.label} must contain only text`);
+        if (typeof item !== "string")
+          return fail(`${field.label} must contain only text`);
         const text = item.trim();
         if (text === "") continue;
         const length = byteLength(text);
@@ -277,7 +293,9 @@ function normalizeField(field: ConfigField, value: unknown, path: string): unkno
           ((field.minLength ?? 0) > 0 && length < (field.minLength ?? 0)) ||
           ((field.maxLength ?? 0) > 0 && length > (field.maxLength ?? 0))
         ) {
-          return fail(`${field.label} contains an entry outside the allowed length`);
+          return fail(
+            `${field.label} contains an entry outside the allowed length`,
+          );
         }
         out.push(text);
       }

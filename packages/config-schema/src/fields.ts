@@ -18,7 +18,7 @@
  */
 import { z } from "zod";
 
-export type ConfigProfile = "widget" | "plugin";
+export type ConfigProfile = "widget" | "plugin" | "event";
 
 /** Controls every profile accepts. */
 export const SHARED_CONTROLS = [
@@ -67,17 +67,40 @@ const connectionIdPattern = /^[a-z][a-z0-9_]{0,39}$/;
 export const MIN_PERSONAL_RETENTION_DAYS = 1;
 export const MAX_PERSONAL_RETENTION_DAYS = 3650;
 
+/**
+ * The controls of the `event` profile: the payload schema of a plugin event.
+ * A payload is ordinary bounded JSON, so it takes the scalar controls only,
+ * never a secret, a connection, a personal field, a media or font
+ * reference, a Data Source binding, or a nested group.
+ */
+export const EVENT_CONTROLS = [
+  "text",
+  "multiline_text",
+  "number",
+  "integer",
+  "boolean",
+  "select",
+  "color",
+  "date",
+  "datetime",
+  "local_datetime",
+  "time",
+  "timezone",
+  "currency_code",
+  "url",
+  "string_list",
+  "weekdays",
+] as const satisfies readonly SharedControl[];
+
 export function controlsFor(profile: ConfigProfile): readonly ConfigControl[] {
+  if (profile === "event") return EVENT_CONTROLS;
   return profile === "plugin"
     ? [...SHARED_CONTROLS, ...PLUGIN_ONLY_CONTROLS]
     : SHARED_CONTROLS;
 }
 
 export type ConfigAuthoringSection =
-  | "data"
-  | "content"
-  | "appearance"
-  | "behavior";
+  "data" | "content" | "appearance" | "behavior";
 
 /** Show a control only when another configuration value matches. */
 export interface ConfigVisibleWhen {
@@ -177,7 +200,9 @@ export function configFieldSchema(
       labelKey: z.string().optional(),
       description: z.string().optional(),
       descriptionKey: z.string().optional(),
-      control: z.enum(controlsFor(profile) as [ConfigControl, ...ConfigControl[]]),
+      control: z.enum(
+        controlsFor(profile) as [ConfigControl, ...ConfigControl[]],
+      ),
       required: z.boolean().optional(),
       default: json.optional(),
       minimum: z.number().optional(),
@@ -217,13 +242,11 @@ export function configFieldSchema(
 
 /** The JSON shape of a whole field list for a profile, with semantic rules. */
 export function configFieldsSchema(profile: ConfigProfile) {
-  return z
-    .array(configFieldSchema(profile))
-    .superRefine((fields, context) => {
-      for (const message of configSchemaProblems(fields, profile)) {
-        context.addIssue({ code: "custom", message });
-      }
-    });
+  return z.array(configFieldSchema(profile)).superRefine((fields, context) => {
+    for (const message of configSchemaProblems(fields, profile)) {
+      context.addIssue({ code: "custom", message });
+    }
+  });
 }
 
 /**
@@ -282,7 +305,7 @@ export function configSchemaProblems(
       seen.add(field.key);
       if (!allowed.has(field.control)) {
         problems.push(
-          plugin.has(field.control)
+          plugin.has(field.control) && profile !== "event"
             ? `configuration schema uses the plugin-only control "${field.control}"`
             : `configuration schema uses unsupported form control "${field.control}"`,
         );
@@ -411,7 +434,9 @@ export function configSchemaProblems(
         typeof field.default === "string" &&
         field.default.trim() === ""
       ) {
-        problems.push(`required field "${field.key}" declares an empty default`);
+        problems.push(
+          `required field "${field.key}" declares an empty default`,
+        );
       }
       if (
         field.control === "string_list" &&
@@ -424,7 +449,9 @@ export function configSchemaProblems(
           problems.push(`repeating group "${field.key}" has invalid bounds`);
         }
         if (!field.itemFields || field.itemFields.length === 0) {
-          problems.push(`repeating group "${field.key}" declares no item fields`);
+          problems.push(
+            `repeating group "${field.key}" declares no item fields`,
+          );
         } else {
           level(field.itemFields, depth + 1);
         }
@@ -449,7 +476,8 @@ export function configSchemaProblems(
     fields.some(
       (field) =>
         field.control === "font" ||
-        (field.control === "repeating_group" && hasFont(field.itemFields ?? [])),
+        (field.control === "repeating_group" &&
+          hasFont(field.itemFields ?? [])),
     );
   for (const field of fields) {
     if (field.control === "font") {
@@ -465,7 +493,9 @@ export function configSchemaProblems(
       field.control === "repeating_group" &&
       hasFont(field.itemFields ?? [])
     ) {
-      problems.push(`repeating group "${field.key}" may not contain a font field`);
+      problems.push(
+        `repeating group "${field.key}" may not contain a font field`,
+      );
     }
   }
   if (fonts > MAX_FONT_FIELDS) {

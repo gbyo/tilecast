@@ -6,6 +6,9 @@ export type PluginDeliveryStatus =
   components["schemas"]["PluginDeliveryStatus"];
 export type PluginParkedDelivery =
   components["schemas"]["PluginParkedDelivery"];
+export type PluginEventSubscription = PluginStatus["subscriptions"][number];
+export type PluginPublishedEventStatus =
+  PluginStatus["publishedEvents"][number];
 
 /**
  * The Studio client for a plugin's operational status: core routes below

@@ -13605,6 +13605,42 @@ components:
           type: array
           description: Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins.
           items: { $ref: "#/components/schemas/PluginFeedReview" }
+        events: { $ref: "#/components/schemas/PluginEventReview" }
+    PluginEventReview:
+      type: object
+      description: Server events a Plugin Manifest API 3 plugin publishes and receives. Empty lists for other plugins.
+      required: [publishes, subscribes]
+      properties:
+        publishes:
+          type: array
+          items:
+            type: object
+            required: [event, title, fields]
+            properties:
+              event:
+                {
+                  type: string,
+                  description: "The full name, plugin.<plugin id>.<name>@<version>.",
+                }
+              title: { type: string }
+              fields: { type: integer, minimum: 1 }
+        subscribes:
+          type: array
+          items:
+            type: object
+            required: [event, publisher]
+            properties:
+              event: { type: string }
+              publisher:
+                {
+                  type: string,
+                  description: "core, or the ID of the publishing plugin.",
+                }
+              publisherName:
+                {
+                  type: string,
+                  description: "The publishing plugin's name, when this release includes it.",
+                }
     PluginFeedReview:
       type: object
       required: [id, title, provider, dataset, fields, personal, images]
@@ -14379,11 +14415,57 @@ components:
           }
     PluginStatus:
       type: object
-      required: [pluginId, installed, deliveries]
+      required:
+        [pluginId, installed, deliveries, subscriptions, publishedEvents]
       properties:
         pluginId: { type: string }
         installed: { type: boolean }
         deliveries: { $ref: "#/components/schemas/PluginDeliveryStatus" }
+        subscriptions:
+          type: array
+          description: The events the plugin receives. An inactive subscription receives nothing and says why.
+          items:
+            type: object
+            required: [event, state, publisher]
+            properties:
+              event: { type: string }
+              state: { type: string, x-extensible-enum: [active, inactive] }
+              reason:
+                type: string
+                x-extensible-enum:
+                  [
+                    publisher_unknown,
+                    publisher_not_installed,
+                    event_not_declared,
+                    no_own_feeds,
+                  ]
+              publisher:
+                {
+                  type: string,
+                  description: "core, or the ID of the publishing plugin.",
+                }
+              publisherName:
+                {
+                  type: string,
+                  description: "The publishing plugin's name, when this release includes it.",
+                }
+        publishedEvents:
+          type: array
+          items:
+            type: object
+            required: [event, title, subscribers, schemaChanged]
+            properties:
+              event: { type: string }
+              title: { type: string }
+              subscribers:
+                {
+                  type: integer,
+                  minimum: 0,
+                  description: "Installed plugins that receive it.",
+                }
+              schemaChanged:
+                type: boolean
+                description: The declared payload differs from the one this installation recorded for the same version; the host refuses to publish it.
     PluginDeliveryStatus:
       type: object
       required:

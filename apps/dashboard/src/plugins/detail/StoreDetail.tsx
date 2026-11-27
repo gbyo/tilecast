@@ -1,4 +1,5 @@
 import { ConnectionReviewSection } from "./ConnectionReviewSection";
+import { EventReviewSection } from "./EventReviewSection";
 import { FeedReviewSection } from "./FeedReviewSection";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -323,6 +324,7 @@ export function StoreDetail({
           />
           <ConnectionReviewSection view={view} />
           <FeedReviewSection view={view} />
+          <EventReviewSection view={view} />
           <RequirementsSection view={view} />
         </div>
 

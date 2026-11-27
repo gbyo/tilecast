@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers/precedence"
 )
@@ -302,8 +303,16 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	if _, err := tx.Exec(ctx, `DELETE FROM screen_playlist_assignments WHERE screen_id=$1`, id); err != nil {
 		return fmt.Errorf("remove archived screen content assignment: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM schedule_targets WHERE target_type='screen' AND screen_id=$1`, id); err != nil {
+	rows, err := tx.Query(ctx, `DELETE FROM schedule_targets WHERE target_type='screen' AND screen_id=$1 RETURNING schedule_id`, id)
+	if err != nil {
 		return fmt.Errorf("remove archived screen schedule targets: %w", err)
+	}
+	retargeted, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return fmt.Errorf("remove archived screen schedule targets: %w", err)
+	}
+	if err := coreevents.EmitSchedules(ctx, tx, s.events, coreevents.ScheduleUpdated, true, s.now(), retargeted...); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM takeover_targets WHERE target_type='screen' AND screen_id=$1`, id); err != nil {
 		return fmt.Errorf("remove archived screen takeover targets: %w", err)

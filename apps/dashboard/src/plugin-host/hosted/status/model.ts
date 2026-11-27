@@ -3,16 +3,22 @@ import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
 /** The Owner-reserved capability that retries and discards parked work. */
 export const deliveriesCapability = "plugins.deliveries.manage";
 
-/** Services whose work the host delivers through the delivery queue. */
-const queuedServices = ["timers.schedule@1"];
+/** Services whose work or state the host reports on the Status page. */
+const statusServices = ["timers.schedule@1", "events.publish@1"];
 
 /**
- * Whether the host generates a Status page for a plugin: it has queued
- * work the host runs for it.
+ * Whether the host generates a Status page for a plugin: it has work the
+ * host runs for it (timers, received events) or host-owned state an
+ * operator reads (event subscriptions, published events and their schema).
  */
 export function hasStatusPage(manifest: PluginManifestV3): boolean {
-  return (manifest.services ?? []).some((service) =>
-    queuedServices.includes(service),
+  const events = manifest.events;
+  return (
+    (manifest.services ?? []).some((service) =>
+      statusServices.includes(service),
+    ) ||
+    (events?.publishes?.length ?? 0) > 0 ||
+    (events?.subscribes?.length ?? 0) > 0
   );
 }
 

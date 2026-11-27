@@ -57,6 +57,9 @@ type Definition struct {
 	Connections []ConnectionReview
 	// Feeds are the datasets a Plugin Manifest API 3 plugin publishes.
 	Feeds []FeedReview
+	// Events are the Server events a Plugin Manifest API 3 plugin publishes
+	// and receives.
+	Events EventReview
 }
 
 // Requirement is declarative context shown before installation. It is never
@@ -95,6 +98,7 @@ func mustDefinitions(bundle []plugin.Plugin) []Definition {
 	for _, p := range bundle {
 		definitions = append(definitions, definitionFromManifest(p.Manifest()))
 	}
+	namePublishers(definitions)
 	sort.SliceStable(definitions, func(i, j int) bool {
 		return strings.ToLower(definitions[i].Name) < strings.ToLower(definitions[j].Name)
 	})
@@ -120,6 +124,7 @@ func definitionFromManifest(m plugin.Manifest) Definition {
 		Requirements: requirements, Capabilities: append([]string{}, m.Uses...),
 		Documentation: documentation, Installable: m.IsInstallable(),
 		PlayerFacing: m.PlayerFacing(), Connections: connectionReviews(m), Feeds: feedReviews(m),
+		Events: eventReview(m),
 	}
 }
 

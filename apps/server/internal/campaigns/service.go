@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/coreevents"
 	"github.com/tilecast/tilecast/apps/server/internal/editorial"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
@@ -476,9 +477,18 @@ func (s *Service) PublishSnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUID
 	if err != nil {
 		return editorial.Published{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE schedules SET deleted_at=now(),enabled=FALSE,updated_at=now() WHERE campaign_id=$1 AND deleted_at IS NULL`, id); err != nil {
+	rows, err := tx.Query(ctx, `UPDATE schedules SET deleted_at=now(),enabled=FALSE,updated_at=now() WHERE campaign_id=$1 AND deleted_at IS NULL RETURNING id`, id)
+	if err != nil {
 		return editorial.Published{}, err
 	}
+	replaced, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return editorial.Published{}, err
+	}
+	if err = s.scheduler.EmitChangesInTx(ctx, tx, replaced, coreevents.ScheduleDeleted); err != nil {
+		return editorial.Published{}, err
+	}
+	created := []uuid.UUID{}
 	for _, block := range snapshot.Blocks {
 		if block.ID == uuid.Nil {
 			block.ID = uuid.New()
@@ -499,6 +509,10 @@ func (s *Service) PublishSnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUID
 				return editorial.Published{}, err
 			}
 		}
+		created = append(created, scheduleID)
+	}
+	if err = s.scheduler.EmitChangesInTx(ctx, tx, created, coreevents.ScheduleCreated); err != nil {
+		return editorial.Published{}, err
 	}
 	newScreens, err := campaignDestinationScreens(ctx, tx, snapshot.Destinations)
 	if err != nil {
@@ -661,7 +675,15 @@ func (s *Service) Archive(ctx context.Context, id, userID uuid.UUID) error {
 	if _, err = tx.Exec(ctx, `UPDATE campaigns SET archived_at=now(),updated_by=$2,updated_at=now() WHERE id=$1`, id, userID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE schedules SET enabled=FALSE,deleted_at=now(),updated_at=now() WHERE campaign_id=$1 AND deleted_at IS NULL`, id); err != nil {
+	rows, err := tx.Query(ctx, `UPDATE schedules SET enabled=FALSE,deleted_at=now(),updated_at=now() WHERE campaign_id=$1 AND deleted_at IS NULL RETURNING id`, id)
+	if err != nil {
+		return err
+	}
+	archived, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	if err = s.scheduler.EmitChangesInTx(ctx, tx, archived, coreevents.ScheduleDeleted); err != nil {
 		return err
 	}
 	changes, err := bumpScreens(ctx, tx, oldScreens, "campaign.archived")
