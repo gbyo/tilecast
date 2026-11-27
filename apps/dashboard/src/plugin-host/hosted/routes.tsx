@@ -1,0 +1,94 @@
+import type { RouteObject } from "react-router";
+import type { PluginManifestV3 } from "@tilecast/plugin-sdk/manifest";
+import type { DiscoveredStudioPlugin } from "../discovery";
+import { hostedClient, hostedInstanceKey } from "./api";
+import { HostedInstanceEditor } from "./HostedInstanceEditor";
+import { HostedInstancesPage } from "./HostedInstancesPage";
+import { HostedSettingsPage } from "./HostedSettingsPage";
+
+/**
+ * The edit page's breadcrumb names the instance. It shares the editor's query
+ * key, so the editor and the breadcrumb read one cached instance.
+ */
+const instanceResource = (
+  pluginId: string,
+  manifest: PluginManifestV3,
+  kind: PluginManifestV3["instances"][number],
+) => ({
+  queryKey: (id: string) => hostedInstanceKey(pluginId, kind.kind, id),
+  load: (id: string) =>
+    hostedClient(manifest.api!.basePaths[0]!, kind.path).get(id),
+});
+
+/** A breadcrumb in the shared plugins namespace, not the plugin's own. */
+const crumb = (breadcrumb: string, key: string) => ({
+  breadcrumb,
+  breadcrumbKey: { ns: "plugins", key },
+});
+
+/**
+ * The pages the host generates for a Plugin Manifest API 3 plugin: the list,
+ * the create and edit pages of each instance kind, and the settings page.
+ * The first kind also answers `new` and `:id` directly below the plugin's
+ * route, the addresses its pages had before the host generated them.
+ */
+export function hostedRouteObjects(
+  plugin: DiscoveredStudioPlugin,
+): RouteObject[] {
+  const v3 = plugin.manifest;
+  if (v3.apiVersion !== 3) return [];
+  const props = { pluginId: plugin.id, manifest: v3 };
+  const out: RouteObject[] = [];
+  if (v3.instances.length > 0) {
+    out.push({ index: true, element: <HostedInstancesPage {...props} /> });
+    for (const kind of v3.instances) {
+      const kindProps = { ...props, kindPath: kind.path };
+      out.push(
+        {
+          path: kind.path,
+          element: <HostedInstancesPage {...kindProps} />,
+          handle: crumb(kind.noun.plural, "hosted.breadcrumbs.list"),
+        },
+        {
+          path: `${kind.path}/new`,
+          element: <HostedInstanceEditor {...kindProps} />,
+          handle: crumb(`New ${kind.noun.singular}`, "hosted.breadcrumbs.new"),
+        },
+        {
+          path: `${kind.path}/:id`,
+          element: <HostedInstanceEditor {...kindProps} />,
+          handle: {
+            ...crumb(kind.noun.singular, "hosted.breadcrumbs.edit"),
+            resource: instanceResource(plugin.id, v3, kind),
+          },
+        },
+      );
+    }
+    const first = v3.instances[0]!;
+    out.push(
+      {
+        path: "new",
+        element: <HostedInstanceEditor {...props} />,
+        handle: crumb(`New ${first.noun.singular}`, "hosted.breadcrumbs.new"),
+      },
+      {
+        path: ":id",
+        element: <HostedInstanceEditor {...props} />,
+        handle: {
+          ...crumb(first.noun.singular, "hosted.breadcrumbs.edit"),
+          resource: instanceResource(plugin.id, v3, first),
+        },
+      },
+    );
+  } else if (v3.settings?.organization?.length) {
+    out.push({ index: true, element: <HostedSettingsPage {...props} /> });
+  }
+  if (v3.settings?.organization?.length && v3.instances.length > 0) {
+    out.push({
+      path: "settings",
+      element: <HostedSettingsPage {...props} />,
+      handle: crumb("Settings", "hosted.breadcrumbs.settings"),
+    });
+  }
+  return out;
+}

@@ -20,6 +20,7 @@ import type {
   BackupJob,
   BackupList,
   BackupRestorePlan,
+  PluginSecretStatus,
   BulkOperation,
   BulkOperationRequest,
   BulkPreview,
@@ -579,10 +580,23 @@ export function restoreBackup(
   id: string,
   confirmIdentityMismatch: boolean,
   csrfToken: string,
+  confirmUnreadableSecrets = false,
 ): Promise<BackupJob> {
   return apiPost("/api/v1/system/backups/{id}/restore", {
     params: { path: { id } },
-    body: { confirmIdentityMismatch },
+    body: { confirmIdentityMismatch, confirmUnreadableSecrets },
+    csrfToken,
+  });
+}
+
+export function getPluginSecretStatus(): Promise<PluginSecretStatus> {
+  return apiGet("/api/v1/system/plugin-secrets");
+}
+
+export function confirmPluginSecretExport(
+  csrfToken: string,
+): Promise<PluginSecretStatus> {
+  return apiPost("/api/v1/system/plugin-secrets/export-confirmations", {
     csrfToken,
   });
 }

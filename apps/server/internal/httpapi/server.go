@@ -28,6 +28,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
+	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 
 	"github.com/tilecast/tilecast/apps/server/internal/fonts"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -84,7 +85,10 @@ type Dependencies struct {
 	Operations           OperationsConfig
 	Backups              *backup.Service
 	BackupWorker         *backup.Worker
-	BackupLimits         backup.Limits
+	// PluginSecrets is the plugin secret store, for the key status, the
+	// export confirmation, and the restore check.
+	PluginSecrets *pluginsecrets.Store
+	BackupLimits  backup.Limits
 	// Demo is set only when TILECAST_ENV is demo. It is the single switch for
 	// every Demo Mode behavior in the request layer.
 	Demo *demo.Runtime
@@ -144,6 +148,7 @@ type server struct {
 	releasePublishTokenConfigured bool
 	startedAt                     time.Time
 	backups                       *backup.Service
+	pluginSecrets                 *pluginsecrets.Store
 	backupWorker                  *backup.Worker
 	backupLimits                  backup.Limits
 	publicURL                     string
@@ -217,6 +222,7 @@ func New(deps Dependencies) *API {
 		liveStreams:          livestream.NewService(deps.Devices),
 		startedAt:            time.Now(),
 		backups:              deps.Backups,
+		pluginSecrets:        deps.PluginSecrets,
 		backupWorker:         deps.BackupWorker,
 		backupLimits:         deps.BackupLimits,
 		demo:                 deps.Demo,

@@ -168,6 +168,7 @@ func (s *server) restorePlan(w http.ResponseWriter, r *http.Request) {
 		"components":            plan.Manifest.Components,
 		"identityMismatch":      plan.IdentityMismatch,
 		"currentInstallationId": plan.CurrentInstallationID,
+		"pluginSecrets":         plan.Manifest.CheckSecrets(s.secretKEKIDs()),
 	}})
 }
 
@@ -178,7 +179,8 @@ func (s *server) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		ConfirmIdentityMismatch bool `json:"confirmIdentityMismatch"`
+		ConfirmIdentityMismatch  bool `json:"confirmIdentityMismatch"`
+		ConfirmUnreadableSecrets bool `json:"confirmUnreadableSecrets"`
 	}
 	if r.ContentLength != 0 {
 		if err := decodeJSON(w, r, &body); err != nil {
@@ -187,7 +189,25 @@ func (s *server) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	userID := s.sessionUserID(r)
-	job, err := s.backups.EnqueueRestore(r.Context(), id, userID, body.ConfirmIdentityMismatch)
+	archive, err := s.backups.Get(r.Context(), id)
+	if err != nil {
+		s.writeBackupError(w, r, err)
+		return
+	}
+	archivePlan, err := backup.Plan(r.Context(), s.db, s.backups.ArchivePath(archive), s.backupLimits)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "backup_archive_invalid", "The archive could not be read: "+err.Error())
+		return
+	}
+	if check := archivePlan.Manifest.CheckSecrets(s.secretKEKIDs()); check.NeedsConfirmation() && !body.ConfirmUnreadableSecrets {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
+			"code":    "restore_unreadable_secrets",
+			"message": "Some plugin secrets in this backup need keys this server does not have. Import the exported keys, or confirm that those settings will need new values.",
+			"details": check,
+		}})
+		return
+	}
+	job, err := s.backups.EnqueueRestore(r.Context(), id, userID, body.ConfirmIdentityMismatch, body.ConfirmUnreadableSecrets)
 	if err != nil {
 		s.writeBackupError(w, r, err)
 		return

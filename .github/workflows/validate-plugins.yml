@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - name: Check plugins and generated files
         run: npm run plugins:check
+      - name: Test the configuration schema
+        run: npm test --workspace @tilecast/config-schema
       - name: Test the plugin SDK and pluginctl
         run: npm test --workspace @tilecast/plugin-sdk
       - name: Test the package SDK

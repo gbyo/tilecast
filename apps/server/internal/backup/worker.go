@@ -26,6 +26,8 @@ type WorkerConfig struct {
 	ReservedFreeBytes int64
 	Limits            Limits
 	Build             version.Build
+	// SecretKEKIDs lists the plugin secret KEKs this installation holds.
+	SecretKEKIDs func() []string
 }
 
 // MemoryJobStatus is the in-memory view of the active job. During a restore
@@ -198,14 +200,15 @@ func (w *Worker) claimAndRun(ctx context.Context) {
 	row := w.svc.db.QueryRow(ctx, `UPDATE backup_jobs SET status = 'running', locked_at = now(), locked_by = $1, updated_at = now()
 		WHERE id = (SELECT id FROM backup_jobs WHERE status = 'queued' OR (status = 'running' AND locked_at < now() - interval '15 minutes' AND kind <> 'restore')
 			ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED)
-		RETURNING id, kind, trigger, archive_id, requested_by, confirm_identity_mismatch`, w.id)
+		RETURNING id, kind, trigger, archive_id, requested_by, confirm_identity_mismatch, confirm_unreadable_secrets`, w.id)
 	var (
-		jobID                   uuid.UUID
-		kind, trigger           string
-		archiveID, requestedBy  *uuid.UUID
-		confirmIdentityMismatch bool
+		jobID                    uuid.UUID
+		kind, trigger            string
+		archiveID, requestedBy   *uuid.UUID
+		confirmIdentityMismatch  bool
+		confirmUnreadableSecrets bool
 	)
-	if err := row.Scan(&jobID, &kind, &trigger, &archiveID, &requestedBy, &confirmIdentityMismatch); err != nil {
+	if err := row.Scan(&jobID, &kind, &trigger, &archiveID, &requestedBy, &confirmIdentityMismatch, &confirmUnreadableSecrets); err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			w.logger.Error("claim backup job failed", "error", err)
 		}
@@ -225,7 +228,7 @@ func (w *Worker) claimAndRun(ctx context.Context) {
 	case "verify":
 		w.runVerify(ctx, jobID, archiveID, requestedBy)
 	case "restore":
-		w.runRestore(ctx, jobID, archiveID, requestedBy, confirmIdentityMismatch)
+		w.runRestore(ctx, jobID, archiveID, requestedBy, confirmIdentityMismatch, confirmUnreadableSecrets)
 	default:
 		w.finishJob(ctx, jobID, "failed", "unsupported_job", "Unsupported job kind.")
 	}
@@ -346,7 +349,7 @@ func (w *Worker) runVerify(ctx context.Context, jobID uuid.UUID, archiveID, requ
 	w.audit(ctx, requestedBy, "backup.verified", "success", archive.FileName, nil)
 }
 
-func (w *Worker) runRestore(ctx context.Context, jobID uuid.UUID, archiveID, requestedBy *uuid.UUID, confirmIdentityMismatch bool) {
+func (w *Worker) runRestore(ctx context.Context, jobID uuid.UUID, archiveID, requestedBy *uuid.UUID, confirmIdentityMismatch, confirmUnreadableSecrets bool) {
 	if archiveID == nil {
 		w.finishJob(ctx, jobID, "failed", "archive_missing", "The archive to restore no longer exists.")
 		return
@@ -364,23 +367,28 @@ func (w *Worker) runRestore(ctx context.Context, jobID uuid.UUID, archiveID, req
 	w.audit(ctx, requestedBy, "restore.requested", "success", archive.FileName, map[string]any{"archiveInstallationId": archive.InstallationID})
 
 	result, err := Apply(ctx, ApplyOptions{
-		DB:                      w.svc.db,
-		DatabaseURL:             w.cfg.DatabaseURL,
-		MediaRoot:               w.cfg.MediaRoot,
-		UpdatesRoot:             w.cfg.UpdatesRoot,
-		BackupRoot:              w.svc.root,
-		ArchivePath:             w.svc.ArchivePath(archive),
-		Build:                   w.cfg.Build,
-		ReservedFreeBytes:       w.cfg.ReservedFreeBytes,
-		Limits:                  w.cfg.Limits,
-		ConfirmIdentityMismatch: confirmIdentityMismatch,
-		Progress:                w.progressFunc(ctx, jobID, "restore"),
-		Logger:                  w.logger,
+		DB:                       w.svc.db,
+		DatabaseURL:              w.cfg.DatabaseURL,
+		MediaRoot:                w.cfg.MediaRoot,
+		UpdatesRoot:              w.cfg.UpdatesRoot,
+		BackupRoot:               w.svc.root,
+		ArchivePath:              w.svc.ArchivePath(archive),
+		Build:                    w.cfg.Build,
+		ReservedFreeBytes:        w.cfg.ReservedFreeBytes,
+		Limits:                   w.cfg.Limits,
+		ConfirmIdentityMismatch:  confirmIdentityMismatch,
+		AvailableKEKIDs:          w.secretKEKIDs(),
+		ConfirmUnreadableSecrets: confirmUnreadableSecrets,
+		Progress:                 w.progressFunc(ctx, jobID, "restore"),
+		Logger:                   w.logger,
 	})
 	if err != nil {
 		code := "restore_failed"
 		if errors.Is(err, ErrIdentityMismatch) {
 			code = "restore_identity_mismatch"
+		}
+		if errors.Is(err, ErrUnreadableSecrets) {
+			code = "restore_unreadable_secrets"
 		}
 		w.logger.Error("restore failed", "error", err)
 		// Apply either changed nothing or rolled back; connections may still
@@ -580,4 +588,11 @@ func (w *Worker) applyRetention(ctx context.Context) {
 		}
 		w.audit(ctx, nil, "backup.deleted", "success", archive.FileName, map[string]any{"reason": "retention"})
 	}
+}
+
+func (w *Worker) secretKEKIDs() []string {
+	if w.cfg.SecretKEKIDs == nil {
+		return nil
+	}
+	return w.cfg.SecretKEKIDs()
 }

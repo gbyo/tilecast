@@ -19,7 +19,15 @@ import {
   checkAutomationFile,
   checkAutomationFiles,
 } from "../tools/pluginctl/automation.ts";
-import type { DiscoveredPlugin, Repo } from "../tools/pluginctl/repo.ts";
+import {
+  effectiveAutomation,
+  effectiveFragment,
+} from "../tools/pluginctl/hosted-api.ts";
+import {
+  discover,
+  type DiscoveredPlugin,
+  type Repo,
+} from "../tools/pluginctl/repo.ts";
 import { collectOperations } from "../tools/pluginctl/supported.ts";
 
 const fixtures = join(import.meta.dirname, "..", "testdata", "automation");
@@ -36,13 +44,21 @@ function load(group: "valid" | "invalid") {
     }));
 }
 
-function fragmentOperationIds(pluginDir: string): Set<string> {
-  const text = readFileSync(
-    join(repoRoot, "plugins", pluginDir, "api", "openapi.yaml"),
-    "utf8",
-  );
+// Countdown Bar is a Plugin Manifest API 3 plugin: its operations and its
+// automation mapping are generated from its instance kind, so the tests read
+// the effective documents pluginctl composes.
+function countdown() {
+  const plugin = discover(repoRoot).plugins.find(
+    (item) => item.manifest.id === "countdown_bar",
+  )!;
+  return { plugin, fragment: effectiveFragment(plugin)!, automation: effectiveAutomation(plugin)! };
+}
+
+function fragmentOperationIds(): Set<string> {
   const ids = new Set<string>();
-  for (const entry of collectOperations(YAML.parseDocument(text))) {
+  for (const entry of collectOperations(
+    YAML.parseDocument(countdown().fragment.text),
+  )) {
     const id = entry.operation.get("operationId");
     if (typeof id === "string") ids.add(id);
   }
@@ -100,11 +116,10 @@ describe("automation contract schema", () => {
 });
 
 describe("automation file references", () => {
-  const ownOperationIds = fragmentOperationIds("countdown-bar");
-  const file = "plugins/countdown-bar/automation.yaml";
-  const text = readFileSync(join(repoRoot, file), "utf8");
+  const ownOperationIds = fragmentOperationIds();
+  const { file, text } = countdown().automation;
 
-  it("accepts the countdown-bar mapping against its own fragment", () => {
+  it("accepts the generated countdown-bar mapping against its own operations", () => {
     const result = checkAutomationFile({
       plugin: "countdown_bar",
       file,
@@ -164,10 +179,13 @@ describe("automation file references", () => {
       ),
     ).toBe(true);
 
+    // The generated mapping is block-style YAML: give the get operation the
+    // list operation's CLI path.
     const collision = text.replace(
-      "path: [countdown-bar, instance, get]",
-      "path: [countdown-bar, instance, list]",
+      /(operationId: getCountdownBarInstance[\s\S]*?cli:\s+path:\s+)- countdown-bar\s+- instance\s+- get/,
+      "$1- countdown-bar\n        - instance\n        - list",
     );
+    expect(collision).not.toBe(text);
     const collided = checkAutomationFile({
       plugin: "countdown_bar",
       file,
@@ -411,14 +429,8 @@ describe("automation resolution against OpenAPI", () => {
     join(repoRoot, "docs", "openapi", "core.yaml"),
     "utf8",
   );
-  const fragmentText = readFileSync(
-    join(repoRoot, "plugins", "countdown-bar", "api", "openapi.yaml"),
-    "utf8",
-  );
-  const automationText = readFileSync(
-    join(repoRoot, "plugins", "countdown-bar", "automation.yaml"),
-    "utf8",
-  );
+  const fragmentText = countdown().fragment.text;
+  const automationText = countdown().automation.text;
 
   it("derives mechanical metadata without growing automation.yaml", async () => {
     const { resolveAutomation } =

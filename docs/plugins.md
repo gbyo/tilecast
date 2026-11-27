@@ -61,7 +61,7 @@ The graph uses the same stored dependency records and assignment tables as playb
 
 ## Countdown Bar
 
-Countdown Bar was the first built-in plugin. It is a [Plugin API v2](plugin-api-v2.md) plugin: a Player that reports `plugin.host@2` receives each instance as `plugin_state`, and every other Player receives the same instance as a `countdown_bar@1` entry. One Shared Runtime implementation draws both. It has two visual contributions on the `scheduled` tier: the bar in `strip.bottom` and the confetti in `overlay`. An installation can create multiple instances, each with its own name, message, schedule, lead time, optional completion text and confetti, display mode, height, horizontal padding, text size, an optional organization font, background countdown, urgency stages, enabled state, priority, and targets.
+Countdown Bar was the first built-in plugin. It is a [Plugin Manifest API 3](plugin-api-v3.md) plugin. The host stores its instances and generates its routes and its Studio pages from its manifest. The plugin judges the countdown rules and projects one instance to Player state. It keeps the [Plugin API v2](plugin-api-v2.md) Player contribution: a Player that reports `plugin.host@2` receives each instance as `plugin_state`, and every other Player receives the same instance as a `countdown_bar@1` entry. One Shared Runtime implementation draws both. It has two visual contributions on the `scheduled` tier: the bar in `strip.bottom` and the confetti in `overlay`. An installation can create multiple instances, each with its own name, message, schedule, lead time, optional completion text and confetti, display mode, height, horizontal padding, text size, an optional organization font, background countdown, urgency stages, enabled state, priority, and targets.
 
 Weekly instances use an IANA timezone, a wall-clock target time, and one or more days where Sunday is `0` and Saturday is `6`. One-time instances use an absolute RFC 3339 target. A bar is active from its configured lead time until the target. When completion text is configured, it replaces the countdown message and value for one minute after the target; otherwise the bar hides at zero. Optional confetti falls from the top for several seconds when the selected countdown reaches zero, independently of whether completion text keeps the bar visible. Reduced-motion settings suppress the effect where the platform exposes that preference. If active instances overlap, the Player shows the highest priority instance, then the earliest target, then the stable instance ID.
 
@@ -90,9 +90,15 @@ The fill is a share of the configured lead time, not of a fixed span: a fifteen-
 
 ### Urgency stages
 
-Urgency stages are opt-in per instance. For the default fifteen-minute lead window, they enter **Starting soon** five minutes before the target with an orange bar, enter **Urgent** at 60 seconds with a red bar, and pulse in the final ten seconds. Untouched thresholds follow changes to the lead window at those same proportions; once an operator edits a threshold, that value stays fixed while the other untouched defaults continue to follow the lead window. Studio requires the resulting thresholds to remain ordered. During the pulse stage, the bar height and text grow by 25 percent. At zero the bar returns to its configured height and text size while completion text is visible, or disappears immediately when no completion text is configured. Players suppress the pulse animation when the platform exposes a reduced-motion preference.
+Urgency stages are opt-in per instance. For the default fifteen-minute lead window, they enter **Starting soon** five minutes before the target with an orange bar, enter **Urgent** at 60 seconds with a red bar, and pulse in the final ten seconds. A new instance starts with 5 minutes, 60 seconds, and 10 seconds. The thresholds do not follow changes to the lead window. Studio and the Server require the thresholds to remain ordered: starting soon, urgent, then pulse. During the pulse stage, the bar height and text grow by 25 percent. At zero the bar returns to its configured height and text size while completion text is visible, or disappears immediately when no completion text is configured. Players suppress the pulse animation when the platform exposes a reduced-motion preference.
 
-Changing an instance increments the manifest revision for every screen. The next authenticated manifest contains only enabled instances that apply to that screen.
+Changing an instance increments the manifest revision of the screens that the instance reached before the change and the screens that it reaches after it. The next authenticated manifest contains only enabled instances that apply to that screen. An instance that moves from one target to another revises both sets.
+
+### Revisions and compatibility
+
+An update must send `expectedRevision`, the revision of the instance that the caller read. A stale revision answers `409 plugin_instance_revision_conflict` and changes nothing. A request without it answers `428 expected_revision_required`. Studio shows a conflict message and keeps the person's edits on screen until they reload the latest version.
+
+The instance routes, the field names, and the operation IDs are the same as before. A migration copied each existing bar to the host tables with its ID, so the Player output is the same. See [Plugin Manifest API 3](plugin-api-v3.md#countdown-bar-on-plugin-manifest-api-3).
 
 ## Emergency Alerts
 
@@ -120,7 +126,7 @@ Emergency Alerts takes the strip ahead of Countdown Bar. An alert ticker expires
 
 ## API
 
-Dashboard reads require a valid session. Mutations require Owner or Administrator, CSRF, strict JSON, and normal request-size limits.
+Dashboard reads require a valid session. Mutations require the `plugins.manage` capability, CSRF, strict JSON, and normal request-size limits.
 
 - `GET /api/v1/plugins` — current catalog plus unsupported or retired installations
 - `GET /api/v1/plugin-store` — normalized store entries with provenance
@@ -129,6 +135,6 @@ Dashboard reads require a valid session. Mutations require Owner or Administrato
 - `POST /api/v1/plugins/{pluginId}/install` — install a supported plugin
 - `DELETE /api/v1/plugins/{pluginId}/installation` — remove an installation row
 - `GET /api/v1/plugins/dependency-graph` — Dependency Explorer system tool
-- `GET /api/v1/plugins/countdown-bar/instances` and matching instance create, read, update, and delete routes
+- `GET /api/v1/plugins/countdown-bar/instances` and matching instance create, read, update, and delete routes. The host generates them from the manifest.
 
 All successful JSON responses use the standard `{ "data": ... }` envelope. The retired Brand Bug and Noise Meter configuration and history endpoints are no longer offered.

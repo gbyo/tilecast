@@ -234,6 +234,38 @@ export const widgetManifestSchema = z
   })
   .strict()
   .superRefine((manifest, ctx) => {
+    // A Widget schema uses the widget profile of @tilecast/config-schema. The
+    // secret and connection controls and the personal marker are for plugins
+    // only, and the Server refuses them as well.
+    const pluginOnly = (fields: unknown[], path: (string | number)[]) => {
+      fields.forEach((field, index) => {
+        if (!field || typeof field !== "object") return;
+        const record = field as Record<string, unknown>;
+        const here = [...path, index];
+        if (
+          record["control"] === "secret" ||
+          record["control"] === "connection"
+        )
+          ctx.addIssue({
+            code: "custom",
+            path: [...here, "control"],
+            message: `the ${String(record["control"])} control is for plugins; a Widget schema cannot use it`,
+          });
+        if (record["personal"] !== undefined)
+          ctx.addIssue({
+            code: "custom",
+            path: [...here, "personal"],
+            message:
+              "the personal marker is for plugins; a Widget schema cannot use it",
+          });
+        if (Array.isArray(record["itemFields"]))
+          pluginOnly(record["itemFields"], [...here, "itemFields"]);
+      });
+    };
+    pluginOnly(manifest.configurationSchema.fields, [
+      "configurationSchema",
+      "fields",
+    ]);
     const { fallback } = manifest.compatibility;
     if (fallback === "legacy" && !manifest.legacyEditor) {
       ctx.addIssue({

@@ -1,11 +1,15 @@
 /**
- * The Tilecast plugin manifest (`tilecast.plugin.json`), Plugin API v1 and v2.
+ * The Tilecast plugin manifest (`tilecast.plugin.json`): Plugin API v1 and
+ * v2, and Plugin Manifest API 3.
  *
  * Plugin API v1 is frozen: its `runtime` member describes surface-only Player
  * behavior. Plugin API v2 describes a plugin by independent contributions:
  * Server and Studio exactly as in v1, and an optional `player` contribution
  * whose Shared Runtime and native parts request versioned Player services.
- * A surface is one of those services, not what defines a plugin.
+ * A surface is one of those services, not what defines a plugin. Plugin
+ * Manifest API 3 keeps the v2 Player contribution and adds host-owned
+ * settings and instance kinds described with `@tilecast/config-schema`, and
+ * the Server services the plugin's typed Go client calls.
  *
  * This Zod schema is the source of the portable JSON Schema in
  * `schema/tilecast-plugin.schema.json` (Draft 2020-12). The Go SDK parses the
@@ -17,6 +21,12 @@
  */
 import { z } from "zod";
 import {
+  configFieldSchema,
+  configSchemaProblems,
+  type ConfigField,
+} from "@tilecast/config-schema";
+import serverServices from "../server-services.json" with { type: "json" };
+import {
   parseServiceReference,
   serviceReferencePattern,
   serviceReferenceProblem,
@@ -24,10 +34,51 @@ import {
 } from "./services.ts";
 
 /** The newest Tilecast Plugin API this SDK implements. */
-export const PLUGIN_API_VERSION = 2;
+export const PLUGIN_API_VERSION = 3;
 
 /** Plugin API versions this release can load. */
-export const SUPPORTED_PLUGIN_API_VERSIONS = [1, 2] as const;
+export const SUPPORTED_PLUGIN_API_VERSIONS = [1, 2, 3] as const;
+
+/**
+ * The most instance kinds one plugin may declare. Studio renders each kind
+ * as one tab of the plugin's page; four is the most tabs Studio already
+ * shows in one tab list (the Widget inspector's sections), and it fits a
+ * phone-width page without a scrolling tab list.
+ */
+export const MAX_INSTANCE_KINDS = 4;
+/** The most fields of one settings scope or instance kind. */
+export const MAX_SCHEMA_FIELDS = 64;
+/** The most Server services one plugin declares. */
+export const MAX_SERVICE_DECLARATIONS = 16;
+
+/** Host members of an instance document. A kind's field cannot use one as its key. */
+export const reservedInstanceKeys = [
+  "id",
+  "kind",
+  "plugin",
+  "name",
+  "enabled",
+  "priority",
+  "targetScope",
+  "targetIds",
+  "schedule",
+  "revision",
+  "expectedRevision",
+  "secrets",
+  "clearSecrets",
+  "createdAt",
+  "updatedAt",
+  "createdBy",
+] as const;
+
+const reservedKindPaths = ["settings", "secrets", "status", "install", "kinds"];
+
+/** Server services a bundled API 3 plugin may declare, from the registry. */
+export const bundledServerServices: readonly {
+  id: string;
+  version: number;
+  name: string;
+}[] = serverServices.capabilities;
 
 export const pluginIdPattern = /^[a-z][a-z0-9_]{0,79}$/;
 
@@ -466,6 +517,100 @@ const v2Members = {
   player: playerContribution.optional(),
 };
 
+const pluginFields = z
+  .array(configFieldSchema("plugin"))
+  .max(MAX_SCHEMA_FIELDS)
+  .default([]);
+
+const instanceKind = z.strictObject({
+  kind: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,39}$/)
+    .describe("Identifier stored with every instance. It never changes."),
+  noun: z.strictObject({ singular: text(40), plural: text(40) }),
+  path: z
+    .string()
+    .regex(/^[a-z][a-z0-9-]{0,39}$/)
+    .describe(
+      "URL segment below the plugin's API base path and Studio route, for example instances.",
+    ),
+  operations: z
+    .strictObject({
+      singular: z.string().regex(/^[A-Z][A-Za-z0-9]{0,63}$/),
+      plural: z.string().regex(/^[A-Z][A-Za-z0-9]{0,63}$/),
+    })
+    .describe(
+      "Names of the generated operations: list<Plural>, get<Singular>, create<Singular>, update<Singular>, delete<Singular>.",
+    ),
+  targeting: z
+    .enum(["screens", "none"])
+    .describe(
+      "screens: the host projects the instance to its target screens. none: the instance is never projected.",
+    ),
+  schedule: z
+    .enum(["none", "window", "weekly"])
+    .describe(
+      "When the host projects the instance. A domain calendar stays plugin data.",
+    ),
+  priority: z
+    .strictObject({
+      minimum: z.int().min(-1000000).max(1000000),
+      maximum: z.int().min(-1000000).max(1000000),
+      default: z.int().min(-1000000).max(1000000),
+    })
+    .optional()
+    .describe("Gives each instance a priority. The host projects the strongest first."),
+  fields: pluginFields,
+});
+
+const v3Members = {
+  apiVersion: z
+    .literal(3)
+    .describe("Version of the Tilecast Plugin API the plugin is written for."),
+  capabilities: z
+    .strictObject({ backgroundWorkers: z.boolean().default(false) })
+    .default({ backgroundWorkers: false })
+    .describe(
+      "Server declarations. Outbound access arrives with host connections in a later phase.",
+    ),
+  studio: z
+    .strictObject({
+      route: z
+        .string()
+        .regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/)
+        .describe("The Studio route that manages the plugin and holds its generated pages."),
+      entrypoint: z
+        .literal(conventionalEntrypoints.studio)
+        .optional()
+        .describe(
+          "Optional Studio module. Omit it when the host's generated pages are all the plugin needs.",
+        ),
+      additionalRoutes: z
+        .array(z.string().regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/, "must be /path"))
+        .optional(),
+    })
+    .optional(),
+  player: playerContribution.optional(),
+  services: z
+    .array(z.string().regex(serviceReferencePattern))
+    .max(MAX_SERVICE_DECLARATIONS)
+    .default([])
+    .describe(
+      "Server services (name@version) the plugin's typed Go client calls. The registry decides which a bundled plugin may declare.",
+    ),
+  settings: z
+    .strictObject({ organization: pluginFields, screen: pluginFields })
+    .optional()
+    .describe(
+      "Host-owned settings. The organization scope holds one value for each field; the screen scope holds one for each field and screen.",
+    ),
+  instances: z
+    .array(instanceKind)
+    .max(MAX_INSTANCE_KINDS)
+    .default([])
+    .describe("Host-owned instance kinds."),
+};
+
 export const pluginManifestV1Schema = z
   .strictObject({ ...sharedMembers, ...v1Members })
   .describe("Tilecast plugin manifest (tilecast.plugin.json), Plugin API v1.");
@@ -476,15 +621,27 @@ export const pluginManifestV2Schema = z
     "Tilecast plugin manifest (tilecast.plugin.json), Plugin API v2: independent Server, Studio, and Player contributions.",
   );
 
+export const pluginManifestV3Schema = z
+  .strictObject({ ...sharedMembers, ...v3Members })
+  .describe(
+    "Tilecast plugin manifest (tilecast.plugin.json), Plugin Manifest API 3: host-owned settings and instances beside the v2 contributions.",
+  );
+
 export const pluginManifestSchema = z
   .discriminatedUnion("apiVersion", [
     pluginManifestV1Schema,
     pluginManifestV2Schema,
+    pluginManifestV3Schema,
   ])
   .superRefine((manifest, context) => {
-    if (manifest.apiVersion !== 2) return;
+    if (manifest.apiVersion === 1) return;
     for (const message of playerContributionProblems(manifest.player)) {
       context.addIssue({ code: "custom", path: ["player"], message });
+    }
+    if (manifest.apiVersion === 3) {
+      for (const message of manifestV3Problems(manifest)) {
+        context.addIssue({ code: "custom", message });
+      }
     }
   })
   .describe("Tilecast plugin manifest (tilecast.plugin.json).");
@@ -498,6 +655,131 @@ export function parsePluginManifest(value: unknown): PluginManifest {
 
 export type PluginManifestV1 = Extract<PluginManifest, { apiVersion: 1 }>;
 export type PluginManifestV2 = Extract<PluginManifest, { apiVersion: 2 }>;
+export type PluginManifestV3 = Extract<PluginManifest, { apiVersion: 3 }>;
+export type InstanceKind = PluginManifestV3["instances"][number];
+
+/** Problems of one API 3 field list beyond the shared schema rules. */
+export function pluginFieldProblems(
+  where: string,
+  fields: readonly ConfigField[],
+): string[] {
+  const problems = configSchemaProblems(fields, "plugin").map(
+    (problem) => `${where}: ${problem}`,
+  );
+  const walk = (fields: readonly ConfigField[]) => {
+    for (const field of fields) {
+      if (field.control === "connection")
+        problems.push(
+          `${where} field "${field.key}" is a connection; host connections arrive in a later Plugin Model V3 phase`,
+        );
+      if (field.personal && field.required)
+        problems.push(
+          `${where} field "${field.key}" is personal and required; a personal value must be removable when its retention ends`,
+        );
+      if (field.control === "data_source" || field.control === "data_source_field")
+        problems.push(
+          `${where} field "${field.key}" uses a Data Source control, which plugin settings do not support yet`,
+        );
+      if (field.control === "repeating_group") {
+        if ((field.itemFields ?? []).some((item) => item.personal))
+          problems.push(
+            `${where} field "${field.key}" holds a personal field; personal fields are top-level until per-record retention exists`,
+          );
+        walk(field.itemFields ?? []);
+      }
+    }
+  };
+  walk(fields);
+  return problems;
+}
+
+/**
+ * Cross-field rules of a Plugin Manifest API 3 manifest. The Go SDK applies
+ * the same rules; the v3 fixtures keep them in agreement.
+ */
+export function manifestV3Problems(
+  manifest: z.input<typeof pluginManifestV3Schema>,
+): string[] {
+  const problems: string[] = [];
+  const declared = new Set<string>();
+  for (const value of manifest.services ?? []) {
+    const reference = parseServiceReference(value);
+    if (!reference) continue;
+    if (declared.has(reference.name))
+      problems.push(`service ${reference.name} is declared twice`);
+    declared.add(reference.name);
+    if (
+      !bundledServerServices.some(
+        (service) =>
+          service.id === reference.name && service.version === reference.version,
+      )
+    )
+      problems.push(
+        `service ${value} is not a Server service a bundled plugin can call`,
+      );
+  }
+  problems.push(
+    ...pluginFieldProblems(
+      "settings.organization",
+      (manifest.settings?.organization ?? []) as ConfigField[],
+    ),
+    ...pluginFieldProblems(
+      "settings.screen",
+      (manifest.settings?.screen ?? []) as ConfigField[],
+    ),
+  );
+  const kinds = new Set<string>();
+  const paths = new Set<string>();
+  const operations = new Set<string>();
+  for (const kind of manifest.instances ?? []) {
+    if (kinds.has(kind.kind)) problems.push(`instance kind "${kind.kind}" is declared twice`);
+    kinds.add(kind.kind);
+    if (reservedKindPaths.includes(kind.path))
+      problems.push(`instance kind "${kind.kind}" has a reserved path "${kind.path}"`);
+    if (paths.has(kind.path)) problems.push(`instance path "${kind.path}" is declared twice`);
+    paths.add(kind.path);
+    const { singular, plural } = kind.operations;
+    if (singular === plural || operations.has(singular) || operations.has(plural))
+      problems.push(`instance kind "${kind.kind}" repeats an operation name`);
+    operations.add(singular);
+    operations.add(plural);
+    if ((kind.schedule ?? "none") !== "none" && kind.targeting !== "screens")
+      problems.push(
+        `instance kind "${kind.kind}" has a ${kind.schedule} schedule but no screen targeting; the host schedules only what it projects`,
+      );
+    const priority = kind.priority;
+    if (
+      priority &&
+      (priority.minimum > priority.default || priority.default > priority.maximum)
+    )
+      problems.push(`instance kind "${kind.kind}" has an invalid priority range`);
+    const fields = (kind.fields ?? []) as ConfigField[];
+    problems.push(...pluginFieldProblems(`instances.${kind.kind}`, fields));
+    for (const field of fields)
+      if ((reservedInstanceKeys as readonly string[]).includes(field.key))
+        problems.push(
+          `instance kind "${kind.kind}" field "${field.key}" uses a key the host owns`,
+        );
+  }
+  if ((manifest.instances ?? []).length > 0) {
+    if (!manifest.api)
+      problems.push(
+        "instances need api.basePaths: the host mounts their routes below the first base path",
+      );
+    if (!manifest.studio)
+      problems.push("instances need a studio route: the host mounts their pages there");
+  }
+  if (
+    manifest.studio &&
+    manifest.settings?.organization?.length &&
+    !manifest.api
+  ) {
+    problems.push(
+      "hosted Studio settings need api.basePaths: the host mounts their routes below the first base path",
+    );
+  }
+  return problems;
+}
 export type PlayerContribution = NonNullable<PluginManifestV2["player"]>;
 export type SurfaceContribution = NonNullable<
   PlayerContribution["runtime"]

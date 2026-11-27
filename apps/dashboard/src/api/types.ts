@@ -1142,6 +1142,27 @@ export type BackupRestorePlan = {
   components: BackupComponent[];
   identityMismatch: boolean;
   currentInstallationId: string;
+  /** Plugin secrets the archive holds and whether this server can read them. */
+  pluginSecrets?: {
+    requiredKekIds: string[];
+    missingKekIds: string[];
+    unreadable: {
+      pluginId: string;
+      ownerType: "organization" | "instance" | "screen";
+      settingKey: string;
+      kekId: string;
+      count: number;
+    }[];
+  };
+};
+/** The plugin secret key status: key IDs and counts, never key material. */
+export type PluginSecretStatus = {
+  currentKekId: string;
+  kekIds: string[];
+  exportAcknowledged: boolean;
+  secrets: number;
+  pendingMigration: number;
+  unreadable: number;
 };
 export type ScreenGroup = {
   id: string;
@@ -2106,7 +2127,14 @@ export type ContentDefinitionField = {
     | "media_asset"
     | "repeating_group"
     | "string_list"
-    | "font";
+    | "font"
+    | "time"
+    | "weekdays"
+    // Plugin Manifest API 3 only; a Widget schema never carries them.
+    | "secret"
+    | "connection";
+  /** Plugin Manifest API 3 only: the field holds personal data. */
+  personal?: { retentionDays: number };
   required?: boolean;
   default?: unknown;
   minimum?: number;
@@ -2139,6 +2167,8 @@ export type ContentDefinitionField = {
     semanticRole?: string;
     legacyKeys?: string[];
     typeFallback?: boolean;
+    /** An integer stored in seconds that a person enters in whole minutes. */
+    inputUnit?: "minutes";
   };
   mediaTypes?: string[];
   maximumItems?: number;

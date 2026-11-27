@@ -23,7 +23,11 @@ func CheckDeclarations(p Plugin) error {
 	}
 	_, projectsManifest := p.(ManifestProjector)
 	_, projectsState := p.(PlayerStateProjector)
-	if m.APIVersion >= 2 {
+	if m.APIVersion >= 3 {
+		if err := checkV3Declarations(p, m); err != nil {
+			return fail("%v", err)
+		}
+	} else if m.APIVersion >= 2 {
 		if projectsManifest && (m.Player == nil || len(m.Player.V1ManifestTypes) == 0) {
 			return fail("implements the Plugin API 1 ManifestProjector without declaring player.v1ManifestTypes; a Plugin API 2 plugin projects Player state with PlayerStateProjector")
 		}
@@ -70,8 +74,16 @@ func CheckDeclarations(p Plugin) error {
 		if m.API == nil {
 			return fail("registers routes without declaring api.basePaths")
 		}
-		if _, err := CollectRoutes(m, provider); err != nil {
+		routes, err := CollectRoutes(m, provider)
+		if err != nil {
 			return err
+		}
+		for _, route := range routes {
+			for _, generated := range GeneratedRoutes(m) {
+				if route.Method == generated.Method && RoutePatternsOverlap(route.Pattern, generated.Pattern) {
+					return fail("route %s %s overlaps the host's generated route %s %s", route.Method, route.Pattern, generated.Method, generated.Pattern)
+				}
+			}
 		}
 	}
 	if migrator, ok := p.(Migrator); ok && migrator.Migrations() != nil {
@@ -265,4 +277,75 @@ func checkMigrations(fsys fs.FS) error {
 		}
 	}
 	return nil
+}
+
+// checkV3Declarations holds a Plugin Manifest API 3 plugin to the hooks its
+// declarations need, and its hooks to the declarations they need.
+func checkV3Declarations(p Plugin, m Manifest) error {
+	_, projectsManifest := p.(ManifestProjector)
+	_, projectsState := p.(PlayerStateProjector)
+	_, projectsInstances := p.(InstanceProjector)
+	_, validates := p.(InstanceValidator)
+	_, consumes := p.(ServiceConsumer)
+	screens := false
+	for _, kind := range m.Instances {
+		screens = screens || kind.Targeting == TargetingScreens
+	}
+	switch {
+	case projectsManifest:
+		return fmt.Errorf("implements ManifestProjector; a Plugin Manifest API 3 plugin returns Plugin API 1 entries as InstanceProjection.Legacy")
+	case projectsInstances && m.Player == nil:
+		return fmt.Errorf("implements InstanceProjector without declaring a player contribution")
+	case projectsInstances && !screens:
+		return fmt.Errorf("implements InstanceProjector without an instance kind that targets screens")
+	case m.Player != nil && !projectsInstances && !projectsState:
+		return fmt.Errorf("declares a player contribution but implements neither InstanceProjector nor PlayerStateProjector, so no Player would ever activate it")
+	case m.Player != nil && len(m.Player.V1ManifestTypes) > 0 && !projectsInstances:
+		return fmt.Errorf("declares player.v1ManifestTypes but does not implement InstanceProjector, which returns the Plugin API 1 entries")
+	case len(m.Instances) == 0 && implementsDemoInstances(p):
+		return fmt.Errorf("implements InstanceDemoSeeder without declaring instances")
+	case validates && len(m.Instances) == 0:
+		return fmt.Errorf("implements InstanceValidator without declaring instances")
+	case consumes && len(m.Services) == 0:
+		return fmt.Errorf("implements ServiceConsumer without declaring services")
+	case !consumes && len(m.Services) > 0:
+		return fmt.Errorf("declares services but does not implement ServiceConsumer to receive its client")
+	}
+	return nil
+}
+
+// GeneratedRoute is a dashboard route the host mounts for a Plugin
+// Manifest API 3 plugin, below /api/v1.
+type GeneratedRoute struct {
+	Method  string
+	Pattern string
+}
+
+// GeneratedRoutes lists the routes the host mounts for a Plugin Manifest
+// API 3 plugin's settings and instance kinds, below its first API base path.
+func GeneratedRoutes(m Manifest) []GeneratedRoute {
+	base := m.APIBasePath()
+	if m.APIVersion < 3 || base == "" {
+		return nil
+	}
+	out := []GeneratedRoute{}
+	if m.Settings != nil && len(m.Settings.Organization) > 0 {
+		out = append(out, GeneratedRoute{http.MethodGet, base + "/settings/organization"}, GeneratedRoute{http.MethodPut, base + "/settings/organization"})
+	}
+	if m.Settings != nil && len(m.Settings.Screen) > 0 {
+		out = append(out, GeneratedRoute{http.MethodGet, base + "/settings/screens/{screenId}"}, GeneratedRoute{http.MethodPut, base + "/settings/screens/{screenId}"})
+	}
+	for _, kind := range m.Instances {
+		collection := base + "/" + kind.Path
+		out = append(out,
+			GeneratedRoute{http.MethodGet, collection}, GeneratedRoute{http.MethodPost, collection},
+			GeneratedRoute{http.MethodGet, collection + "/{id}"}, GeneratedRoute{http.MethodPut, collection + "/{id}"},
+			GeneratedRoute{http.MethodDelete, collection + "/{id}"})
+	}
+	return out
+}
+
+func implementsDemoInstances(p Plugin) bool {
+	_, ok := p.(InstanceDemoSeeder)
+	return ok
 }

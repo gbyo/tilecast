@@ -23,6 +23,10 @@ const preRestoreSchema = "tilecast_prerestore"
 // installation and the caller did not explicitly confirm.
 var ErrIdentityMismatch = fmt.Errorf("archive belongs to a different installation")
 
+// ErrUnreadableSecrets is returned when the archive's plugin secrets need a
+// KEK this installation does not hold and the caller did not confirm.
+var ErrUnreadableSecrets = fmt.Errorf("the archive's plugin secrets need key encryption keys this installation does not hold; import the exported keys or confirm that those secrets will need new values")
+
 // RestorePlan summarizes what a restore would do, for operator confirmation.
 type RestorePlan struct {
 	ArchivePath           string
@@ -78,8 +82,13 @@ type ApplyOptions struct {
 	Limits                  Limits
 	SkipPreRestoreBackup    bool
 	ConfirmIdentityMismatch bool
-	Progress                func(phase string, percent int)
-	Logger                  *slog.Logger
+	// AvailableKEKIDs are the plugin secret KEKs this installation holds.
+	AvailableKEKIDs []string
+	// ConfirmUnreadableSecrets allows a restore whose archive needs a KEK
+	// this installation does not hold. Those secrets then need new values.
+	ConfirmUnreadableSecrets bool
+	Progress                 func(phase string, percent int)
+	Logger                   *slog.Logger
 }
 
 // ApplyResult reports a completed restore.
@@ -130,6 +139,9 @@ func Apply(ctx context.Context, opts ApplyOptions) (ApplyResult, error) {
 	}
 	if plan.IdentityMismatch && !opts.ConfirmIdentityMismatch {
 		return ApplyResult{}, ErrIdentityMismatch
+	}
+	if check := manifest.CheckSecrets(opts.AvailableKEKIDs); check.NeedsConfirmation() && !opts.ConfirmUnreadableSecrets {
+		return ApplyResult{}, fmt.Errorf("%w: missing %s", ErrUnreadableSecrets, strings.Join(check.MissingKEKIDs, ", "))
 	}
 
 	result := ApplyResult{Manifest: manifest}
@@ -302,6 +314,19 @@ func loadDatabaseContents(ctx context.Context, opts ApplyOptions, manifest Manif
 	for _, name := range schemaTables {
 		if _, err := conn.Exec(ctx, fmt.Sprintf(`ALTER TABLE %s DISABLE TRIGGER USER`, quoteIdentifier(name))); err != nil {
 			return fmt.Errorf("disable triggers on %s: %w", name, err)
+		}
+	}
+	// Migrations seed a few rows (for example presentation_catalog_state), and
+	// the archive holds the same rows. A restore replaces all data, so the
+	// rebuilt tables start empty or the load stops on a duplicate key. Foreign
+	// keys are already dropped, so the tables can be emptied together.
+	if len(schemaTables) > 0 {
+		quoted := make([]string, len(schemaTables))
+		for index, name := range schemaTables {
+			quoted[index] = quoteIdentifier(name)
+		}
+		if _, err := conn.Exec(ctx, `TRUNCATE `+strings.Join(quoted, ", ")); err != nil {
+			return fmt.Errorf("empty the rebuilt tables before loading: %w", err)
 		}
 	}
 

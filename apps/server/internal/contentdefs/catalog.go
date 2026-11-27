@@ -1,6 +1,7 @@
 package contentdefs
 
 import (
+	"context"
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
@@ -13,25 +14,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 	datasources "github.com/tilecast/tilecast/data-sources"
+	"github.com/tilecast/tilecast/packages/config-schema/go/configschema"
 )
 
 const CompilerVersion = "definition-compiler-v2"
 
-var supportedControls = map[string]bool{
-	"text": true, "multiline_text": true, "number": true, "integer": true,
-	"boolean": true, "select": true, "color": true, "date": true,
-	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
-	"data_source_field": true, "media_asset": true, "repeating_group": true, "string_list": true,
-	"font": true,
-}
-
 // MaxFontFields bounds the organization library families one configuration
-// may choose. It mirrors the Player Runtime bound on the fonts one component
-// presentation declares.
-const MaxFontFields = 4
+// may choose. The configuration schema package owns the bound.
+const MaxFontFields = configschema.MaxFontFields
 
 var supportedNodes = map[string]bool{
 	"surface": true, "box": true, "row": true, "column": true, "stack": true,
@@ -57,12 +49,9 @@ var DerivedConfigurationKeys = map[string]bool{
 
 // DerivedVariantKey maps a media_asset field key to the configuration key manifest
 // projection writes its resolved variant under ("logoAssetId" gives "logoVariantId").
-// Other declared media fields append VariantId. The same alias rule applies in Studio.
+// The configuration schema package owns the rule; Studio applies the same alias.
 func DerivedVariantKey(assetKey string) (string, bool) {
-	if assetKey == "" {
-		return "", false
-	}
-	return strings.TrimSuffix(assetKey, "AssetId") + "VariantId", true
+	return configschema.DerivedVariantKey(assetKey)
 }
 
 // IsLevelDerivedConfigurationKey checks aliases in the current configuration object.
@@ -173,48 +162,15 @@ type Setup struct {
 	EmptyState string   `json:"emptyState,omitempty"`
 }
 
-type ConfigurationSchema struct {
-	Fields []FieldDefinition `json:"fields"`
-}
-
-type FieldDefinition struct {
-	Key   string `json:"key"`
-	Label string `json:"label"`
-	// LabelKey and DescriptionKey name Studio translation keys for Label and
-	// Description (docs/widget-authoring.md, Localized authoring text). The
-	// literal text always stays the English source and the fallback, so a
-	// client that does not know a key still has readable words.
-	LabelKey                string            `json:"labelKey,omitempty"`
-	Description             string            `json:"description,omitempty"`
-	DescriptionKey          string            `json:"descriptionKey,omitempty"`
-	Control                 string            `json:"control"`
-	Required                bool              `json:"required,omitempty"`
-	Default                 any               `json:"default,omitempty"`
-	Minimum                 *float64          `json:"minimum,omitempty"`
-	Maximum                 *float64          `json:"maximum,omitempty"`
-	MinLength               int               `json:"minLength,omitempty"`
-	MaxLength               int               `json:"maxLength,omitempty"`
-	Options                 []SelectOption    `json:"options,omitempty"`
-	AcceptedDataSourceKinds []string          `json:"acceptedDataSourceKinds,omitempty"`
-	RequiredFields          map[string]string `json:"requiredFields,omitempty"`
-	DataSourceFieldTypes    []string          `json:"dataSourceFieldTypes,omitempty"`
-	// DataSourceKey names the data_source control whose selected source
-	// supplies the field list for a data_source_field control. An explicit
-	// key wins; a definition with exactly one data_source control may omit
-	// it. Nested repeating-group controls may point at a root source.
-	DataSourceKey string                 `json:"dataSourceKey,omitempty"`
-	MediaTypes    []string               `json:"mediaTypes,omitempty"`
-	MaximumItems  int                    `json:"maximumItems,omitempty"`
-	ItemFields    []FieldDefinition      `json:"itemFields,omitempty"`
-	UI            map[string]interface{} `json:"ui,omitempty"`
-}
-
-type SelectOption struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
-	// LabelKey names the Studio translation key for Label.
-	LabelKey string `json:"labelKey,omitempty"`
-}
+// ConfigurationSchema, FieldDefinition, and SelectOption are the shared
+// configuration schema vocabulary (packages/config-schema). Widget
+// definitions use its widget profile, which refuses the plugin-only
+// controls and the personal marker.
+type (
+	ConfigurationSchema = configschema.Schema
+	FieldDefinition     = configschema.Field
+	SelectOption        = configschema.SelectOption
+)
 
 type OutputSchema struct {
 	Kind   string        `json:"kind"`
@@ -1025,128 +981,13 @@ func validateIdentity(id string, version int, name, category string) error {
 }
 
 func validateSchema(schema ConfigurationSchema) error {
-	if err := validateSchemaFields(schema.Fields); err != nil {
-		return err
-	}
-	if err := validateFontFields(schema.Fields); err != nil {
-		return err
-	}
-	return validateDataSourceKeys(schema)
-}
-
-// validateFontFields keeps library font choices at the top level of a
-// schema and within the per-component bound, so the families a Widget uses
-// are a short static list the Server records and projects.
-func validateFontFields(fields []FieldDefinition) error {
-	count := 0
-	for _, field := range fields {
-		switch field.Control {
-		case "font":
-			count++
-			if text, ok := field.Default.(string); field.Default != nil && (!ok || text != "") {
-				return fmt.Errorf("font field %q must default to empty", field.Key)
-			}
-		case "repeating_group":
-			if hasFontField(field.ItemFields) {
-				return fmt.Errorf("repeating group %q may not contain a font field", field.Key)
-			}
-		}
-	}
-	if count > MaxFontFields {
-		return fmt.Errorf("configuration schema declares more than %d font fields", MaxFontFields)
-	}
-	return nil
-}
-
-func hasFontField(fields []FieldDefinition) bool {
-	for _, field := range fields {
-		if field.Control == "font" || field.Control == "repeating_group" && hasFontField(field.ItemFields) {
-			return true
-		}
-	}
-	return false
+	return configschema.ValidateFields(schema.Fields, configschema.ProfileWidget)
 }
 
 // FontFieldValues returns the library font IDs a configuration's top-level
 // font fields choose, lowercased, without duplicates, in schema order.
-// Empty and malformed values choose nothing: saving validates them, and a
-// projection never trusts stored text as a family.
 func FontFieldValues(fields []FieldDefinition, configuration map[string]any) []string {
-	ids := []string{}
-	for _, field := range fields {
-		if field.Control != "font" {
-			continue
-		}
-		text, _ := configuration[field.Key].(string)
-		id, err := uuid.Parse(strings.TrimSpace(text))
-		if err != nil || id == uuid.Nil {
-			continue
-		}
-		value := id.String()
-		known := false
-		for _, existing := range ids {
-			known = known || existing == value
-		}
-		if !known {
-			ids = append(ids, value)
-		}
-	}
-	return ids
-}
-
-func validateSchemaFields(fields []FieldDefinition) error {
-	seen := map[string]bool{}
-	for _, field := range fields {
-		if field.Key == "" || seen[field.Key] {
-			return errors.New("configuration schema contains a missing or duplicate field key")
-		}
-		seen[field.Key] = true
-		if !supportedControls[field.Control] {
-			return fmt.Errorf("configuration schema uses unsupported form control %q", field.Control)
-		}
-		if err := validateFieldBounds(field); err != nil {
-			return err
-		}
-		if field.Control == "select" {
-			if len(field.Options) == 0 {
-				return fmt.Errorf("select field %q has no options", field.Key)
-			}
-			if err := validateSelectDefault(field); err != nil {
-				return err
-			}
-		}
-		if field.Required {
-			if text, ok := field.Default.(string); ok && strings.TrimSpace(text) == "" {
-				return fmt.Errorf("required field %q declares an empty default", field.Key)
-			}
-		}
-		if field.Control == "string_list" && (field.MaximumItems < 1 || field.MaximumItems > 100) {
-			return fmt.Errorf("string list %q has invalid bounds", field.Key)
-		}
-		if field.Control == "repeating_group" {
-			if field.MaximumItems < 1 || field.MaximumItems > 100 {
-				return fmt.Errorf("repeating group %q has invalid bounds", field.Key)
-			}
-			if len(field.ItemFields) == 0 {
-				return fmt.Errorf("repeating group %q declares no item fields", field.Key)
-			}
-			if err := validateSchemaFields(field.ItemFields); err != nil {
-				return err
-			}
-		}
-	}
-	derived := map[string]bool{}
-	for _, field := range fields {
-		if field.Control != "media_asset" {
-			continue
-		}
-		key, _ := DerivedVariantKey(field.Key)
-		if seen[key] || derived[key] {
-			return fmt.Errorf("media_asset field %q derives configuration key %q that conflicts with another field", field.Key, key)
-		}
-		derived[key] = true
-	}
-	return nil
+	return configschema.FontValues(fields, configuration)
 }
 
 // DataSourceFieldValues returns configured values of every data_source field in schema
@@ -1177,76 +1018,6 @@ func DataSourceFieldValues(fields []FieldDefinition, configuration map[string]an
 	return values
 }
 
-// validateDataSourceKeys rejects a data_source_field whose explicit
-// dataSourceKey does not name a data_source control in the same
-// definition. A bad manifest must fail at load rather than silently
-// validate a nested selection against the wrong source. Nested
-// repeating-group controls may point at a root source, so keys are
-// collected at every level before any reference is checked.
-func validateDataSourceKeys(schema ConfigurationSchema) error {
-	sources := map[string]bool{}
-	var collect func(fields []FieldDefinition)
-	collect = func(fields []FieldDefinition) {
-		for _, field := range fields {
-			if field.Control == "data_source" {
-				sources[field.Key] = true
-			}
-			if field.Control == "repeating_group" && len(field.ItemFields) > 0 {
-				collect(field.ItemFields)
-			}
-		}
-	}
-	collect(schema.Fields)
-	var walk func(fields []FieldDefinition) error
-	walk = func(fields []FieldDefinition) error {
-		for _, field := range fields {
-			if field.Control == "data_source_field" && field.DataSourceKey != "" {
-				if !sources[field.DataSourceKey] {
-					return fmt.Errorf("field %q refers to unknown Data Source %q", field.Key, field.DataSourceKey)
-				}
-			}
-			if field.Control == "repeating_group" && len(field.ItemFields) > 0 {
-				if err := walk(field.ItemFields); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	return walk(schema.Fields)
-}
-
-// validateFieldBounds rejects contradictory numeric and string bounds.
-func validateFieldBounds(field FieldDefinition) error {
-	if field.Minimum != nil && field.Maximum != nil && *field.Minimum > *field.Maximum {
-		return fmt.Errorf("field %q has a minimum greater than its maximum", field.Key)
-	}
-	if field.MinLength < 0 || field.MaxLength < 0 {
-		return fmt.Errorf("field %q has a negative length bound", field.Key)
-	}
-	if field.MaxLength > 0 && field.MinLength > field.MaxLength {
-		return fmt.Errorf("field %q has a minimum length greater than its maximum length", field.Key)
-	}
-	return nil
-}
-
-// validateSelectDefault rejects a select default that is not one of its options.
-func validateSelectDefault(field FieldDefinition) error {
-	if field.Default == nil {
-		return nil
-	}
-	value, ok := field.Default.(string)
-	if !ok {
-		return fmt.Errorf("select field %q default must be text", field.Key)
-	}
-	for _, option := range field.Options {
-		if option.Value == value {
-			return nil
-		}
-	}
-	return fmt.Errorf("select field %q default is not one of its options", field.Key)
-}
-
 func validateDefaults(schema ConfigurationSchema, defaults map[string]any) error {
 	fields := map[string]FieldDefinition{}
 	for _, field := range schema.Fields {
@@ -1269,6 +1040,10 @@ func validateDefaults(schema ConfigurationSchema, defaults map[string]any) error
 		case "repeating_group":
 			if _, ok := value.([]any); !ok {
 				return fmt.Errorf("default %q must be a list", key)
+			}
+		case "weekdays":
+			if _, err := configschema.Normalize(context.Background(), []FieldDefinition{field}, map[string]any{key: value}, nil); err != nil {
+				return fmt.Errorf("default %q must be a list of days", key)
 			}
 		case "string_list":
 			items, ok := value.([]any)

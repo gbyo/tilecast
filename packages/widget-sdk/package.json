@@ -27,6 +27,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p ../../widgets/tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@tilecast/config-schema": "*",
     "zod": "^4.0.5"
   },
   "devDependencies": {

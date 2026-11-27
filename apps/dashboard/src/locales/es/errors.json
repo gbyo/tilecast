@@ -37,6 +37,11 @@
     "font_unsupported": "El archivo no es una fuente compatible. Suba un archivo TTF u OTF.",
     "font_invalid": "Esa selección no está disponible para esta familia de fuentes.",
     "font_catalog_disabled": "El catálogo de Google Fonts está desactivado en este servidor. Suba archivos de fuente en su lugar.",
-    "font_catalog_unavailable": "Tilecast no pudo conectarse con el catálogo de Google Fonts. Revise el acceso a internet del servidor o suba archivos de fuente."
+    "font_catalog_unavailable": "Tilecast no pudo conectarse con el catálogo de Google Fonts. Revise el acceso a internet del servidor o suba archivos de fuente.",
+    "plugin_instance_revision_conflict": "Alguien guardó una versión más reciente. Recárgala y vuelve a hacer el cambio.",
+    "plugin_settings_revision_conflict": "Alguien guardó ajustes más recientes. Recárgalos y vuelve a hacer el cambio.",
+    "expected_revision_required": "Envía expectedRevision con la revisión que leíste, para no sobrescribir nunca un cambio más reciente.",
+    "secrets_unavailable": "Los secretos de los plugins no están disponibles en este servidor.",
+    "restore_unreadable_secrets": "Algunos secretos de plugins de esta copia necesitan claves que este servidor no tiene."
   }
 }

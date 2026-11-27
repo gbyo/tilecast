@@ -181,8 +181,8 @@ describe("StudioTopbar", () => {
   });
 
   it("names a plugin instance with the plugin's breadcrumb resource", async () => {
-    // The route and its resource loader come from plugins/countdown-bar;
-    // Studio only follows the contribution.
+    // The route and its resource loader are the ones the host generates for
+    // Countdown Bar's manifest; Studio only follows the contribution.
     const realFetch = globalThis.fetch;
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) =>
       (typeof input === "string"
@@ -222,7 +222,7 @@ describe("StudioTopbar", () => {
       renderTopbar("/plugins/countdown-bar/new");
       await waitFor(() =>
         expect(breadcrumbTrail().at(-1)).toEqual({
-          label: "Nueva instancia",
+          label: "Nuevo",
           href: null,
           current: true,
         }),

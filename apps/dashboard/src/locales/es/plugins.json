@@ -4,7 +4,10 @@
     "allowedSurfaces": "Superficies permitidas: {{surfaces}}",
     "priority": "Nivel de prioridad: {{tier}}",
     "surfaces": {
-      "strip": { "top": "Franja superior", "bottom": "Franja inferior" },
+      "strip": {
+        "top": "Franja superior",
+        "bottom": "Franja inferior"
+      },
       "corner": {
         "top-left": "Esquina superior izquierda",
         "top-right": "Esquina superior derecha",
@@ -510,5 +513,71 @@
       "confirmTitle": "¿Restaurar la versión anterior?",
       "confirmBody": "{{name}} vuelve a la versión que estaba activa antes de la última actualización. Si algún contenido aún usa algo que añadió la versión nueva, la restauración espera hasta que elimines ese contenido."
     }
+  },
+  "hosted": {
+    "settings": "Ajustes",
+    "new": "Nuevo: {{noun}}",
+    "manage": "Gestionar",
+    "priorityValue": "prioridad {{priority}}",
+    "loadError": "No se pudo cargar: {{noun}}.",
+    "emptyTitle": "Aún no hay {{noun}}",
+    "emptyDescription": "Crea uno ({{noun}}) para empezar.",
+    "deleteBody": "Se quitará de sus pantallas ({{noun}}).",
+    "removedToast": "Se eliminó: {{noun}}.",
+    "createdToast": "Se creó: {{noun}}.",
+    "updatedToast": "Se guardó: {{noun}}.",
+    "settingsSaved": "Ajustes guardados.",
+    "createTitle": "Nuevo: {{noun}}",
+    "manageTitle": "Gestionar: {{noun}}",
+    "general": "General",
+    "name": "Nombre",
+    "nameRequired": "Escribe un nombre.",
+    "enabled": "Activado",
+    "enabledHint": "Un elemento desactivado se conserva, pero no se muestra en ninguna pantalla.",
+    "priority": "Prioridad",
+    "priorityHint": "Los números más altos ganan cuando se solapan. De {{min}} a {{max}}.",
+    "targets": "Pantallas",
+    "targetRequired": "Elige al menos un destino.",
+    "secretRequired": "{{label}} es obligatorio.",
+    "scheduleHeading": "Cuándo se muestra",
+    "windowHint": "Se muestra desde el inicio hasta el final, en la zona horaria de quien lo ve.",
+    "weeklyHint": "Se muestra los días elegidos entre la hora de inicio y la de fin, en la zona horaria elegida.",
+    "schedule": {
+      "startsAt": "Empieza",
+      "endsAt": "Termina",
+      "timezone": "Zona horaria",
+      "days": "Días de la semana",
+      "startTime": "Desde",
+      "endTime": "Hasta"
+    },
+    "leaveTitle": "¿Salir sin guardar?",
+    "leaveBody": "Tienes cambios sin guardar.",
+    "conflictTitle": "Alguien guardó una versión más reciente",
+    "conflictBody": "Tus cambios no se guardaron, así que no se sobrescribió nada. Recarga la última versión y vuelve a hacer el cambio.",
+    "conflictReload": "Recargar la última versión",
+    "breadcrumbs": {
+      "list": "Lista",
+      "new": "Nuevo",
+      "edit": "Editar",
+      "settings": "Ajustes"
+    }
+  },
+  "secrets": {
+    "state": {
+      "set": "Definido",
+      "not_set": "Sin definir",
+      "needs_value": "Necesita un valor nuevo"
+    },
+    "enterPlaceholder": "Introduce un valor",
+    "replacePlaceholder": "Introduce un valor nuevo para reemplazarlo",
+    "clear": "Borrar",
+    "keep": "Conservar"
+  },
+  "secretKeys": {
+    "exportTitle": "Exporta las claves de secretos de los plugins",
+    "exportBody": "Los secretos de los plugins se cifran con claves guardadas en el servidor, fuera de las copias de seguridad. Expórtalas y guarda el archivo en un lugar seguro, aparte de tus copias; sin él, un servidor restaurado vuelve a pedir cada secreto.",
+    "confirm": "Exporté y guardé las claves",
+    "unreadableTitle": "Algunos secretos de plugins necesitan un valor nuevo",
+    "unreadableBody": "{{count}} secreto(s) guardado(s) no se pueden leer en este servidor, por ejemplo tras restaurar sin las claves originales. Vuelve a introducirlos donde están definidos."
   }
 }

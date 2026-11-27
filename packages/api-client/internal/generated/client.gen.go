@@ -6861,10 +6861,23 @@ type BackupRestorePlan struct {
 	IdentityMismatch      bool              `json:"identityMismatch"`
 	InstallationId        string            `json:"installationId"`
 	OrganizationName      string            `json:"organizationName"`
-	SchemaVersion         int               `json:"schemaVersion"`
-	ServerChannel         *string           `json:"serverChannel,omitempty"`
-	SizeBytes             int               `json:"sizeBytes"`
-	TilecastVersion       string            `json:"tilecastVersion"`
+
+	// PluginSecrets Compares the archive's encrypted plugin secrets with the keys this server holds, so an operator sees which settings would need new values before confirming. It never names a value.
+	PluginSecrets *struct {
+		MissingKekIds  []string `json:"missingKekIds"`
+		RequiredKekIds []string `json:"requiredKekIds"`
+		Unreadable     []struct {
+			Count      int         `json:"count"`
+			KekId      string      `json:"kekId"`
+			OwnerType  interface{} `json:"ownerType"`
+			PluginId   string      `json:"pluginId"`
+			SettingKey string      `json:"settingKey"`
+		} `json:"unreadable"`
+	} `json:"pluginSecrets,omitempty"`
+	SchemaVersion   int     `json:"schemaVersion"`
+	ServerChannel   *string `json:"serverChannel,omitempty"`
+	SizeBytes       int     `json:"sizeBytes"`
+	TilecastVersion string  `json:"tilecastVersion"`
 }
 
 // BackupScheduleState defines model for BackupScheduleState.
@@ -7972,46 +7985,211 @@ type ContentWidgetDefinitionKind string
 // ContentWidgetDefinitionRuntime defines model for ContentWidgetDefinition.Runtime.
 type ContentWidgetDefinitionRuntime string
 
-// CountdownBarInput defines model for CountdownBarInput.
-type CountdownBarInput struct {
-	CompletionText string `json:"completionText"`
+// CountdownBarInstance defines model for CountdownBarInstance.
+type CountdownBarInstance struct {
+	// CompletionText Shown for one minute after the target; leave blank to hide at zero.
+	CompletionText *string `json:"completionText,omitempty"`
 
-	// ContentPadding Share of each side left as a gutter, as a percentage of the bar width. Lowering it gives a long message or a larger type size more room. The default 4 matches the bar's original gutters.
-	ContentPadding *int        `json:"contentPadding,omitempty"`
-	DaysOfWeek     []int       `json:"daysOfWeek"`
-	DisplayMode    interface{} `json:"displayMode"`
-	Enabled        bool        `json:"enabled"`
+	// ContentPadding Lower padding gives the message and countdown more room.
+	ContentPadding *int      `json:"contentPadding,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
 
-	// FontId An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
-	FontId          *openapi_types.UUID `json:"fontId,omitempty"`
-	HeightPx        int                 `json:"heightPx"`
-	LeadTimeSeconds int                 `json:"leadTimeSeconds"`
-	Message         string              `json:"message"`
-	Name            string              `json:"name"`
-	OneTimeAt       *time.Time          `json:"oneTimeAt,omitempty"`
-	Priority        int                 `json:"priority"`
+	// DaysOfWeek Days of the week
+	DaysOfWeek *[]int `json:"daysOfWeek,omitempty"`
 
-	// ProgressFill Background treatment behind the bar text. "drain" starts the bar fully tinted when the lead window opens and retreats the tint leftward as the target approaches, leaving only the bar background at zero. Omitted means "none".
+	// DisplayMode Mode
+	DisplayMode interface{} `json:"displayMode,omitempty"`
+	Enabled     bool        `json:"enabled"`
+
+	// FontId Add fonts in Settings. Screens that cannot load the font keep the default.
+	FontId *openapi_types.UUID `json:"fontId,omitempty"`
+
+	// HeightPx Bottom-bar height (px)
+	HeightPx *int               `json:"heightPx,omitempty"`
+	Id       openapi_types.UUID `json:"id"`
+	Kind     interface{}        `json:"kind"`
+
+	// LeadTimeSeconds Appear this many minutes before
+	LeadTimeSeconds *int `json:"leadTimeSeconds,omitempty"`
+
+	// Message Message
+	Message *string `json:"message,omitempty"`
+	Name    string  `json:"name"`
+
+	// OneTimeAt The Player counts down to this instant.
+	OneTimeAt *time.Time `json:"oneTimeAt,omitempty"`
+	Priority  int        `json:"priority"`
+
+	// ProgressFill Drain empties the bar from right to left as the target approaches.
 	ProgressFill interface{} `json:"progressFill,omitempty"`
 
-	// PulseSeconds Final seconds during which the urgent bar pulses and grows by 25 percent.
-	PulseSeconds int         `json:"pulseSeconds"`
-	ScheduleType interface{} `json:"scheduleType"`
+	// PulseSeconds The bar and text grow by 25% during this final stage.
+	PulseSeconds *int `json:"pulseSeconds,omitempty"`
+	Revision     int  `json:"revision"`
 
-	// ShowConfetti Show a short confetti fall from the top of the Player when the countdown reaches zero. This does not require completion text.
-	ShowConfetti        bool                 `json:"showConfetti"`
-	StartingSoonSeconds int                  `json:"startingSoonSeconds"`
+	// ScheduleType Schedule
+	ScheduleType interface{} `json:"scheduleType,omitempty"`
+
+	// ShowConfetti Show confetti when the countdown reaches zero
+	ShowConfetti *bool `json:"showConfetti,omitempty"`
+
+	// StartingSoonSeconds Starting soon (orange), minutes before
+	StartingSoonSeconds *int                 `json:"startingSoonSeconds,omitempty"`
 	TargetIds           []openapi_types.UUID `json:"targetIds"`
 	TargetScope         interface{}          `json:"targetScope"`
-	TargetTime          *string              `json:"targetTime,omitempty"`
 
-	// TextScale Percentage applied to the height-derived type size, so a bar can carry larger text without changing its height. 100 is the original appearance.
-	TextScale *int   `json:"textScale,omitempty"`
-	Timezone  string `json:"timezone"`
+	// TargetTime Target time
+	TargetTime *string `json:"targetTime,omitempty"`
 
-	// UrgencyEnabled Enable automatic starting-soon, urgent, and final pulse stages.
-	UrgencyEnabled bool `json:"urgencyEnabled"`
-	UrgentSeconds  int  `json:"urgentSeconds"`
+	// TextScale Increase the type size without changing the bar height.
+	TextScale *int `json:"textScale,omitempty"`
+
+	// Timezone Timezone
+	Timezone  string    `json:"timezone"`
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	// UrgencyEnabled Change the bar automatically as the target approaches.
+	UrgencyEnabled *bool `json:"urgencyEnabled,omitempty"`
+
+	// UrgentSeconds Urgent (red), seconds before
+	UrgentSeconds *int `json:"urgentSeconds,omitempty"`
+}
+
+// CountdownBarInstanceInput defines model for CountdownBarInstanceInput.
+type CountdownBarInstanceInput struct {
+	// CompletionText Shown for one minute after the target; leave blank to hide at zero.
+	CompletionText *string `json:"completionText,omitempty"`
+
+	// ContentPadding Lower padding gives the message and countdown more room.
+	ContentPadding *int `json:"contentPadding,omitempty"`
+
+	// DaysOfWeek Days of the week
+	DaysOfWeek *[]int `json:"daysOfWeek,omitempty"`
+
+	// DisplayMode Mode
+	DisplayMode interface{} `json:"displayMode,omitempty"`
+
+	// Enabled Defaults to true on create and keeps its value on update.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// FontId Add fonts in Settings. Screens that cannot load the font keep the default.
+	FontId *openapi_types.UUID `json:"fontId,omitempty"`
+
+	// HeightPx Bottom-bar height (px)
+	HeightPx *int `json:"heightPx,omitempty"`
+
+	// LeadTimeSeconds Appear this many minutes before
+	LeadTimeSeconds *int `json:"leadTimeSeconds,omitempty"`
+
+	// Message Message
+	Message *string `json:"message,omitempty"`
+	Name    string  `json:"name"`
+
+	// OneTimeAt The Player counts down to this instant.
+	OneTimeAt *time.Time `json:"oneTimeAt,omitempty"`
+	Priority  *int       `json:"priority,omitempty"`
+
+	// ProgressFill Drain empties the bar from right to left as the target approaches.
+	ProgressFill interface{} `json:"progressFill,omitempty"`
+
+	// PulseSeconds The bar and text grow by 25% during this final stage.
+	PulseSeconds *int `json:"pulseSeconds,omitempty"`
+
+	// ScheduleType Schedule
+	ScheduleType interface{} `json:"scheduleType,omitempty"`
+
+	// ShowConfetti Show confetti when the countdown reaches zero
+	ShowConfetti *bool `json:"showConfetti,omitempty"`
+
+	// StartingSoonSeconds Starting soon (orange), minutes before
+	StartingSoonSeconds *int                 `json:"startingSoonSeconds,omitempty"`
+	TargetIds           []openapi_types.UUID `json:"targetIds"`
+	TargetScope         interface{}          `json:"targetScope"`
+
+	// TargetTime Target time
+	TargetTime *string `json:"targetTime,omitempty"`
+
+	// TextScale Increase the type size without changing the bar height.
+	TextScale *int `json:"textScale,omitempty"`
+
+	// Timezone Timezone
+	Timezone string `json:"timezone"`
+
+	// UrgencyEnabled Change the bar automatically as the target approaches.
+	UrgencyEnabled *bool `json:"urgencyEnabled,omitempty"`
+
+	// UrgentSeconds Urgent (red), seconds before
+	UrgentSeconds *int `json:"urgentSeconds,omitempty"`
+}
+
+// CountdownBarInstanceUpdate defines model for CountdownBarInstanceUpdate.
+type CountdownBarInstanceUpdate struct {
+	// CompletionText Shown for one minute after the target; leave blank to hide at zero.
+	CompletionText *string `json:"completionText,omitempty"`
+
+	// ContentPadding Lower padding gives the message and countdown more room.
+	ContentPadding *int `json:"contentPadding,omitempty"`
+
+	// DaysOfWeek Days of the week
+	DaysOfWeek *[]int `json:"daysOfWeek,omitempty"`
+
+	// DisplayMode Mode
+	DisplayMode interface{} `json:"displayMode,omitempty"`
+
+	// Enabled Defaults to true on create and keeps its value on update.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// ExpectedRevision The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.
+	ExpectedRevision int `json:"expectedRevision"`
+
+	// FontId Add fonts in Settings. Screens that cannot load the font keep the default.
+	FontId *openapi_types.UUID `json:"fontId,omitempty"`
+
+	// HeightPx Bottom-bar height (px)
+	HeightPx *int `json:"heightPx,omitempty"`
+
+	// LeadTimeSeconds Appear this many minutes before
+	LeadTimeSeconds *int `json:"leadTimeSeconds,omitempty"`
+
+	// Message Message
+	Message *string `json:"message,omitempty"`
+	Name    string  `json:"name"`
+
+	// OneTimeAt The Player counts down to this instant.
+	OneTimeAt *time.Time `json:"oneTimeAt,omitempty"`
+	Priority  *int       `json:"priority,omitempty"`
+
+	// ProgressFill Drain empties the bar from right to left as the target approaches.
+	ProgressFill interface{} `json:"progressFill,omitempty"`
+
+	// PulseSeconds The bar and text grow by 25% during this final stage.
+	PulseSeconds *int `json:"pulseSeconds,omitempty"`
+
+	// ScheduleType Schedule
+	ScheduleType interface{} `json:"scheduleType,omitempty"`
+
+	// ShowConfetti Show confetti when the countdown reaches zero
+	ShowConfetti *bool `json:"showConfetti,omitempty"`
+
+	// StartingSoonSeconds Starting soon (orange), minutes before
+	StartingSoonSeconds *int                 `json:"startingSoonSeconds,omitempty"`
+	TargetIds           []openapi_types.UUID `json:"targetIds"`
+	TargetScope         interface{}          `json:"targetScope"`
+
+	// TargetTime Target time
+	TargetTime *string `json:"targetTime,omitempty"`
+
+	// TextScale Increase the type size without changing the bar height.
+	TextScale *int `json:"textScale,omitempty"`
+
+	// Timezone Timezone
+	Timezone string `json:"timezone"`
+
+	// UrgencyEnabled Change the bar automatically as the target approaches.
+	UrgencyEnabled *bool `json:"urgencyEnabled,omitempty"`
+
+	// UrgentSeconds Urgent (red), seconds before
+	UrgentSeconds *int `json:"urgentSeconds,omitempty"`
 }
 
 // CreateUploadRequest defines model for CreateUploadRequest.
@@ -10658,6 +10836,20 @@ type PluginRequirement struct {
 
 // PluginRequirementKind defines model for PluginRequirement.Kind.
 type PluginRequirementKind string
+
+// PluginSecretStatus defines model for PluginSecretStatus.
+type PluginSecretStatus struct {
+	CurrentKekId       string   `json:"currentKekId"`
+	ExportAcknowledged bool     `json:"exportAcknowledged"`
+	KekIds             []string `json:"kekIds"`
+
+	// PendingMigration Secrets not yet moved to the current data encryption key.
+	PendingMigration int `json:"pendingMigration"`
+	Secrets          int `json:"secrets"`
+
+	// Unreadable Secrets this server holds no key for. They need new values.
+	Unreadable int `json:"unreadable"`
+}
 
 // PluginStore defines model for PluginStore.
 type PluginStore struct {
@@ -14636,6 +14828,9 @@ type DeleteBackup200JSONResponseBodyDataDeleted bool
 // RestoreBackupJSONBody defines parameters for RestoreBackup.
 type RestoreBackupJSONBody struct {
 	ConfirmIdentityMismatch *bool `json:"confirmIdentityMismatch,omitempty"`
+
+	// ConfirmUnreadableSecrets Confirms that plugin secrets protected by a key this server does not hold will show "needs a new value" after the restore. Without it, such a restore answers 409 restore_unreadable_secrets and changes nothing.
+	ConfirmUnreadableSecrets *bool `json:"confirmUnreadableSecrets,omitempty"`
 }
 
 // RestoreBackupParams defines parameters for RestoreBackup.
@@ -14652,6 +14847,12 @@ type VerifyBackupParams struct {
 
 // RunSystemMaintenanceParamsAction defines parameters for RunSystemMaintenance.
 type RunSystemMaintenanceParamsAction string
+
+// ConfirmPluginSecretExportParams defines parameters for ConfirmPluginSecretExport.
+type ConfirmPluginSecretExportParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
 
 // CreateTakeoverJSONBody defines parameters for CreateTakeover.
 type CreateTakeoverJSONBody struct {
@@ -15098,10 +15299,10 @@ type ResolveGitHubRepositoryJSONRequestBody ResolveGitHubRepositoryJSONBody
 type InstallStorePackageJSONRequestBody InstallStorePackageJSONBody
 
 // CreateCountdownBarInstanceJSONRequestBody defines body for CreateCountdownBarInstance for application/json ContentType.
-type CreateCountdownBarInstanceJSONRequestBody = CountdownBarInput
+type CreateCountdownBarInstanceJSONRequestBody = CountdownBarInstanceInput
 
 // UpdateCountdownBarInstanceJSONRequestBody defines body for UpdateCountdownBarInstance for application/json ContentType.
-type UpdateCountdownBarInstanceJSONRequestBody = CountdownBarInput
+type UpdateCountdownBarInstanceJSONRequestBody = CountdownBarInstanceUpdate
 
 // CreatePresentationNetworkJSONRequestBody defines body for CreatePresentationNetwork for application/json ContentType.
 type CreatePresentationNetworkJSONRequestBody = PresentationNetworkCreateInput
@@ -18361,41 +18562,41 @@ type ClientInterface interface {
 
 	// ListCountdownBarInstances performs a GET /api/v1/plugins/countdown-bar/instances (the `ListCountdownBarInstances` operationId) request.
 	//
-	// List configured Countdown Bar instances.
+	// List countdown bars, strongest priority first.
 	ListCountdownBarInstances(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateCountdownBarInstanceWithBody performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Create a Countdown Bar instance. Requires an Owner or Administrator.
+	// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 	CreateCountdownBarInstanceWithBody(ctx context.Context, params *CreateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateCountdownBarInstance performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Create a Countdown Bar instance. Requires an Owner or Administrator.
+	// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 	CreateCountdownBarInstance(ctx context.Context, params *CreateCountdownBarInstanceParams, body CreateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteCountdownBarInstance performs a DELETE /api/v1/plugins/countdown-bar/instances/{id} (the `DeleteCountdownBarInstance` operationId) request.
 	//
-	// Delete a Countdown Bar instance. Requires an Owner or Administrator.
+	// Delete a countdown bar and remove it from its screens.
 	DeleteCountdownBarInstance(ctx context.Context, id ResourceID, params *DeleteCountdownBarInstanceParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCountdownBarInstance performs a GET /api/v1/plugins/countdown-bar/instances/{id} (the `GetCountdownBarInstance` operationId) request.
 	//
-	// Get a Countdown Bar instance.
+	// Get one countdown bar with its current revision, to send back as expectedRevision when updating it.
 	GetCountdownBarInstance(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateCountdownBarInstanceWithBody performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+	// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 	UpdateCountdownBarInstanceWithBody(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateCountdownBarInstance performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+	// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 	UpdateCountdownBarInstance(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, body UpdateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDependencyGraph performs a GET /api/v1/plugins/dependency-graph (the `GetDependencyGraph` operationId) request.
@@ -19303,6 +19504,16 @@ type ClientInterface interface {
 	//
 	// Read media pipeline diagnostics. Requires an Owner or Administrator with the read scope.
 	GetMediaDiagnostics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPluginSecretStatus performs a GET /api/v1/system/plugin-secrets (the `GetPluginSecretStatus` operationId) request.
+	//
+	// Read the plugin secret key status: the current and held key encryption key IDs (never key bytes), whether an Owner confirmed exporting exactly this key set, how many secrets exist, and how many this server cannot read. Studio warns Owners until the export is confirmed. Requires system.backups with the admin scope.
+	GetPluginSecretStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ConfirmPluginSecretExport performs a POST /api/v1/system/plugin-secrets/export-confirmations (the `ConfirmPluginSecretExport` operationId) request.
+	//
+	// Record that the current key set was exported with `tilecast-server secrets export-kek` and stored apart from backups. A key rotation changes the set, so the warning returns. Requires system.backups with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	ConfirmPluginSecretExport(ctx context.Context, params *ConfirmPluginSecretExportParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ExportSettings Export non-secret settings
 	//
@@ -25546,7 +25757,7 @@ func (c *Client) ListPlugins(ctx context.Context, reqEditors ...RequestEditorFn)
 
 // ListCountdownBarInstances performs a GET /api/v1/plugins/countdown-bar/instances (the `ListCountdownBarInstances` operationId) request.
 //
-// List configured Countdown Bar instances.
+// List countdown bars, strongest priority first.
 func (c *Client) ListCountdownBarInstances(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListCountdownBarInstancesRequest(c.Server)
 	if err != nil {
@@ -25562,7 +25773,7 @@ func (c *Client) ListCountdownBarInstances(ctx context.Context, reqEditors ...Re
 // CreateCountdownBarInstanceWithBody performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request,
 // with any type of body and a specified content type.
 //
-// Create a Countdown Bar instance. Requires an Owner or Administrator.
+// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 func (c *Client) CreateCountdownBarInstanceWithBody(ctx context.Context, params *CreateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateCountdownBarInstanceRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -25578,7 +25789,7 @@ func (c *Client) CreateCountdownBarInstanceWithBody(ctx context.Context, params 
 // CreateCountdownBarInstance performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Create a Countdown Bar instance. Requires an Owner or Administrator.
+// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 func (c *Client) CreateCountdownBarInstance(ctx context.Context, params *CreateCountdownBarInstanceParams, body CreateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateCountdownBarInstanceRequest(c.Server, params, body)
 	if err != nil {
@@ -25593,7 +25804,7 @@ func (c *Client) CreateCountdownBarInstance(ctx context.Context, params *CreateC
 
 // DeleteCountdownBarInstance performs a DELETE /api/v1/plugins/countdown-bar/instances/{id} (the `DeleteCountdownBarInstance` operationId) request.
 //
-// Delete a Countdown Bar instance. Requires an Owner or Administrator.
+// Delete a countdown bar and remove it from its screens.
 func (c *Client) DeleteCountdownBarInstance(ctx context.Context, id ResourceID, params *DeleteCountdownBarInstanceParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteCountdownBarInstanceRequest(c.Server, id, params)
 	if err != nil {
@@ -25608,7 +25819,7 @@ func (c *Client) DeleteCountdownBarInstance(ctx context.Context, id ResourceID, 
 
 // GetCountdownBarInstance performs a GET /api/v1/plugins/countdown-bar/instances/{id} (the `GetCountdownBarInstance` operationId) request.
 //
-// Get a Countdown Bar instance.
+// Get one countdown bar with its current revision, to send back as expectedRevision when updating it.
 func (c *Client) GetCountdownBarInstance(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCountdownBarInstanceRequest(c.Server, id)
 	if err != nil {
@@ -25624,7 +25835,7 @@ func (c *Client) GetCountdownBarInstance(ctx context.Context, id ResourceID, req
 // UpdateCountdownBarInstanceWithBody performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request,
 // with any type of body and a specified content type.
 //
-// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 func (c *Client) UpdateCountdownBarInstanceWithBody(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateCountdownBarInstanceRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
@@ -25640,7 +25851,7 @@ func (c *Client) UpdateCountdownBarInstanceWithBody(ctx context.Context, id Reso
 // UpdateCountdownBarInstance performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 func (c *Client) UpdateCountdownBarInstance(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, body UpdateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateCountdownBarInstanceRequest(c.Server, id, params, body)
 	if err != nil {
@@ -28049,6 +28260,36 @@ func (c *Client) RunSystemMaintenance(ctx context.Context, action RunSystemMaint
 // Read media pipeline diagnostics. Requires an Owner or Administrator with the read scope.
 func (c *Client) GetMediaDiagnostics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMediaDiagnosticsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPluginSecretStatus performs a GET /api/v1/system/plugin-secrets (the `GetPluginSecretStatus` operationId) request.
+//
+// Read the plugin secret key status: the current and held key encryption key IDs (never key bytes), whether an Owner confirmed exporting exactly this key set, how many secrets exist, and how many this server cannot read. Studio warns Owners until the export is confirmed. Requires system.backups with the admin scope.
+func (c *Client) GetPluginSecretStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPluginSecretStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ConfirmPluginSecretExport performs a POST /api/v1/system/plugin-secrets/export-confirmations (the `ConfirmPluginSecretExport` operationId) request.
+//
+// Record that the current key set was exported with `tilecast-server secrets export-kek` and stored apart from backups. A key rotation changes the set, so the warning returns. Requires system.backups with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) ConfirmPluginSecretExport(ctx context.Context, params *ConfirmPluginSecretExportParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConfirmPluginSecretExportRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -47971,6 +48212,75 @@ func NewGetMediaDiagnosticsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetPluginSecretStatusRequest constructs an http.Request for the GetPluginSecretStatus method
+func NewGetPluginSecretStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/system/plugin-secrets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewConfirmPluginSecretExportRequest constructs an http.Request for the ConfirmPluginSecretExport method
+func NewConfirmPluginSecretExportRequest(server string, params *ConfirmPluginSecretExportParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/system/plugin-secrets/export-confirmations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewExportSettingsRequest constructs an http.Request for the ExportSettings method
 func NewExportSettingsRequest(server string) (*http.Request, error) {
 	var err error
@@ -52347,7 +52657,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListCountdownBarInstancesWithResponse performs a GET /api/v1/plugins/countdown-bar/instances (the `ListCountdownBarInstances` operationId) request.
 	//
-	// List configured Countdown Bar instances.
+	// List countdown bars, strongest priority first.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListCountdownBarInstancesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCountdownBarInstancesResponse, error)
@@ -52355,7 +52665,7 @@ type ClientWithResponsesInterface interface {
 	// CreateCountdownBarInstanceWithBodyWithResponse performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Create a Countdown Bar instance. Requires an Owner or Administrator.
+	// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateCountdownBarInstanceWithBodyWithResponse(ctx context.Context, params *CreateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCountdownBarInstanceResponse, error)
@@ -52363,19 +52673,19 @@ type ClientWithResponsesInterface interface {
 	// CreateCountdownBarInstanceWithResponse performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Create a Countdown Bar instance. Requires an Owner or Administrator.
+	// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 	CreateCountdownBarInstanceWithResponse(ctx context.Context, params *CreateCountdownBarInstanceParams, body CreateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCountdownBarInstanceResponse, error)
 
 	// DeleteCountdownBarInstanceWithResponse performs a DELETE /api/v1/plugins/countdown-bar/instances/{id} (the `DeleteCountdownBarInstance` operationId) request.
 	//
-	// Delete a Countdown Bar instance. Requires an Owner or Administrator.
+	// Delete a countdown bar and remove it from its screens.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	DeleteCountdownBarInstanceWithResponse(ctx context.Context, id ResourceID, params *DeleteCountdownBarInstanceParams, reqEditors ...RequestEditorFn) (*DeleteCountdownBarInstanceResponse, error)
 
 	// GetCountdownBarInstanceWithResponse performs a GET /api/v1/plugins/countdown-bar/instances/{id} (the `GetCountdownBarInstance` operationId) request.
 	//
-	// Get a Countdown Bar instance.
+	// Get one countdown bar with its current revision, to send back as expectedRevision when updating it.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetCountdownBarInstanceWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetCountdownBarInstanceResponse, error)
@@ -52383,7 +52693,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateCountdownBarInstanceWithBodyWithResponse performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+	// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateCountdownBarInstanceWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCountdownBarInstanceResponse, error)
@@ -52391,7 +52701,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateCountdownBarInstanceWithResponse performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+	// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 	UpdateCountdownBarInstanceWithResponse(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, body UpdateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCountdownBarInstanceResponse, error)
 
 	// GetDependencyGraphWithResponse performs a GET /api/v1/plugins/dependency-graph (the `GetDependencyGraph` operationId) request.
@@ -53499,6 +53809,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetMediaDiagnosticsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMediaDiagnosticsResponse, error)
+
+	// GetPluginSecretStatusWithResponse performs a GET /api/v1/system/plugin-secrets (the `GetPluginSecretStatus` operationId) request.
+	//
+	// Read the plugin secret key status: the current and held key encryption key IDs (never key bytes), whether an Owner confirmed exporting exactly this key set, how many secrets exist, and how many this server cannot read. Studio warns Owners until the export is confirmed. Requires system.backups with the admin scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetPluginSecretStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPluginSecretStatusResponse, error)
+
+	// ConfirmPluginSecretExportWithResponse performs a POST /api/v1/system/plugin-secrets/export-confirmations (the `ConfirmPluginSecretExport` operationId) request.
+	//
+	// Record that the current key set was exported with `tilecast-server secrets export-kek` and stored apart from backups. A key rotation changes the set, so the warning returns. Requires system.backups with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ConfirmPluginSecretExportWithResponse(ctx context.Context, params *ConfirmPluginSecretExportParams, reqEditors ...RequestEditorFn) (*ConfirmPluginSecretExportResponse, error)
 
 	// ExportSettingsWithResponse Export non-secret settings
 	//
@@ -65845,6 +66169,23 @@ func (r ListPluginsResponse) ContentType() string {
 type ListCountdownBarInstancesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items *[]CountdownBarInstance `json:"items,omitempty"`
+			Total *int                    `json:"total,omitempty"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCountdownBarInstancesResponse) GetJSON200() *struct {
+	Data struct {
+		Items *[]CountdownBarInstance `json:"items,omitempty"`
+		Total *int                    `json:"total,omitempty"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -65879,6 +66220,17 @@ func (r ListCountdownBarInstancesResponse) ContentType() string {
 type CreateCountdownBarInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data CountdownBarInstance `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateCountdownBarInstanceResponse) GetJSON201() *struct {
+	Data CountdownBarInstance `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -65947,6 +66299,17 @@ func (r DeleteCountdownBarInstanceResponse) ContentType() string {
 type GetCountdownBarInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data CountdownBarInstance `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCountdownBarInstanceResponse) GetJSON200() *struct {
+	Data CountdownBarInstance `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -65981,6 +66344,17 @@ func (r GetCountdownBarInstanceResponse) ContentType() string {
 type UpdateCountdownBarInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data CountdownBarInstance `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateCountdownBarInstanceResponse) GetJSON200() *struct {
+	Data CountdownBarInstance `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -70819,6 +71193,96 @@ func (r GetMediaDiagnosticsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMediaDiagnosticsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPluginSecretStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginSecretStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPluginSecretStatusResponse) GetJSON200() *struct {
+	Data PluginSecretStatus `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPluginSecretStatusResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPluginSecretStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPluginSecretStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPluginSecretStatusResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ConfirmPluginSecretExportResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginSecretStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ConfirmPluginSecretExportResponse) GetJSON200() *struct {
+	Data PluginSecretStatus `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ConfirmPluginSecretExportResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ConfirmPluginSecretExportResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConfirmPluginSecretExportResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ConfirmPluginSecretExportResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -77488,7 +77952,7 @@ func (c *ClientWithResponses) ListPluginsWithResponse(ctx context.Context, reqEd
 
 // ListCountdownBarInstancesWithResponse performs a GET /api/v1/plugins/countdown-bar/instances (the `ListCountdownBarInstances` operationId) request.
 //
-// List configured Countdown Bar instances.
+// List countdown bars, strongest priority first.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ListCountdownBarInstancesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCountdownBarInstancesResponse, error) {
@@ -77502,7 +77966,7 @@ func (c *ClientWithResponses) ListCountdownBarInstancesWithResponse(ctx context.
 // CreateCountdownBarInstanceWithBodyWithResponse performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request,
 // with any type of body and a specified content type.
 //
-// Create a Countdown Bar instance. Requires an Owner or Administrator.
+// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateCountdownBarInstanceWithBodyWithResponse(ctx context.Context, params *CreateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCountdownBarInstanceResponse, error) {
@@ -77516,7 +77980,7 @@ func (c *ClientWithResponses) CreateCountdownBarInstanceWithBodyWithResponse(ctx
 // CreateCountdownBarInstanceWithResponse performs a POST /api/v1/plugins/countdown-bar/instances (the `CreateCountdownBarInstance` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Create a Countdown Bar instance. Requires an Owner or Administrator.
+// Create a countdown bar. Requires plugins.manage and screen access to its targets.
 func (c *ClientWithResponses) CreateCountdownBarInstanceWithResponse(ctx context.Context, params *CreateCountdownBarInstanceParams, body CreateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCountdownBarInstanceResponse, error) {
 	rsp, err := c.CreateCountdownBarInstance(ctx, params, body, reqEditors...)
 	if err != nil {
@@ -77527,7 +77991,7 @@ func (c *ClientWithResponses) CreateCountdownBarInstanceWithResponse(ctx context
 
 // DeleteCountdownBarInstanceWithResponse performs a DELETE /api/v1/plugins/countdown-bar/instances/{id} (the `DeleteCountdownBarInstance` operationId) request.
 //
-// Delete a Countdown Bar instance. Requires an Owner or Administrator.
+// Delete a countdown bar and remove it from its screens.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) DeleteCountdownBarInstanceWithResponse(ctx context.Context, id ResourceID, params *DeleteCountdownBarInstanceParams, reqEditors ...RequestEditorFn) (*DeleteCountdownBarInstanceResponse, error) {
@@ -77540,7 +78004,7 @@ func (c *ClientWithResponses) DeleteCountdownBarInstanceWithResponse(ctx context
 
 // GetCountdownBarInstanceWithResponse performs a GET /api/v1/plugins/countdown-bar/instances/{id} (the `GetCountdownBarInstance` operationId) request.
 //
-// Get a Countdown Bar instance.
+// Get one countdown bar with its current revision, to send back as expectedRevision when updating it.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetCountdownBarInstanceWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetCountdownBarInstanceResponse, error) {
@@ -77554,7 +78018,7 @@ func (c *ClientWithResponses) GetCountdownBarInstanceWithResponse(ctx context.Co
 // UpdateCountdownBarInstanceWithBodyWithResponse performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request,
 // with any type of body and a specified content type.
 //
-// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateCountdownBarInstanceWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCountdownBarInstanceResponse, error) {
@@ -77568,7 +78032,7 @@ func (c *ClientWithResponses) UpdateCountdownBarInstanceWithBodyWithResponse(ctx
 // UpdateCountdownBarInstanceWithResponse performs a PUT /api/v1/plugins/countdown-bar/instances/{id} (the `UpdateCountdownBarInstance` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Replace a Countdown Bar instance. Requires an Owner or Administrator.
+// Replace a countdown bar when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets.
 func (c *ClientWithResponses) UpdateCountdownBarInstanceWithResponse(ctx context.Context, id ResourceID, params *UpdateCountdownBarInstanceParams, body UpdateCountdownBarInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCountdownBarInstanceResponse, error) {
 	rsp, err := c.UpdateCountdownBarInstance(ctx, id, params, body, reqEditors...)
 	if err != nil {
@@ -79581,6 +80045,32 @@ func (c *ClientWithResponses) GetMediaDiagnosticsWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetMediaDiagnosticsResponse(rsp)
+}
+
+// GetPluginSecretStatusWithResponse performs a GET /api/v1/system/plugin-secrets (the `GetPluginSecretStatus` operationId) request.
+//
+// Read the plugin secret key status: the current and held key encryption key IDs (never key bytes), whether an Owner confirmed exporting exactly this key set, how many secrets exist, and how many this server cannot read. Studio warns Owners until the export is confirmed. Requires system.backups with the admin scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetPluginSecretStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPluginSecretStatusResponse, error) {
+	rsp, err := c.GetPluginSecretStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPluginSecretStatusResponse(rsp)
+}
+
+// ConfirmPluginSecretExportWithResponse performs a POST /api/v1/system/plugin-secrets/export-confirmations (the `ConfirmPluginSecretExport` operationId) request.
+//
+// Record that the current key set was exported with `tilecast-server secrets export-kek` and stored apart from backups. A key rotation changes the set, so the warning returns. Requires system.backups with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ConfirmPluginSecretExportWithResponse(ctx context.Context, params *ConfirmPluginSecretExportParams, reqEditors ...RequestEditorFn) (*ConfirmPluginSecretExportResponse, error) {
+	rsp, err := c.ConfirmPluginSecretExport(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConfirmPluginSecretExportResponse(rsp)
 }
 
 // ExportSettingsWithResponse Export non-secret settings
@@ -88328,6 +88818,21 @@ func ParseListCountdownBarInstancesResponse(rsp *http.Response) (*ListCountdownB
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items *[]CountdownBarInstance `json:"items,omitempty"`
+				Total *int                    `json:"total,omitempty"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -88342,6 +88847,27 @@ func ParseCreateCountdownBarInstanceResponse(rsp *http.Response) (*CreateCountdo
 	response := &CreateCountdownBarInstanceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data CountdownBarInstance `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -88376,6 +88902,21 @@ func ParseGetCountdownBarInstanceResponse(rsp *http.Response) (*GetCountdownBarI
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data CountdownBarInstance `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -88390,6 +88931,33 @@ func ParseUpdateCountdownBarInstanceResponse(rsp *http.Response) (*UpdateCountdo
 	response := &UpdateCountdownBarInstanceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data CountdownBarInstance `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 428:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -91716,6 +92284,9 @@ func ParseRestoreBackupResponse(rsp *http.Response) (*RestoreBackupResponse, err
 	case rsp.StatusCode == 404:
 		break // No content-type
 
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -91878,6 +92449,80 @@ func ParseGetMediaDiagnosticsResponse(rsp *http.Response) (*GetMediaDiagnosticsR
 		break // No content-type
 
 	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPluginSecretStatusResponse parses an HTTP response from a GetPluginSecretStatusWithResponse call
+func ParseGetPluginSecretStatusResponse(rsp *http.Response) (*GetPluginSecretStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPluginSecretStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginSecretStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseConfirmPluginSecretExportResponse parses an HTTP response from a ConfirmPluginSecretExportWithResponse call
+func ParseConfirmPluginSecretExportResponse(rsp *http.Response) (*ConfirmPluginSecretExportResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConfirmPluginSecretExportResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginSecretStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
 		break // No content-type
 
 	}

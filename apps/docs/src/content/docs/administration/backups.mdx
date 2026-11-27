@@ -37,6 +37,18 @@ An archive includes the full database, including each enrolled user's authentica
 
 If you use Presentation Networks, keep `TILECAST_PRESENTATION_NETWORK_KEY` with your deployment secrets. This environment variable is not included in the backup.
 
+### Plugin secrets
+
+Some plugins store a secret, such as an API token. Tilecast encrypts these with a key kept on the server, outside your backups. A backup holds the encrypted secrets and never the key.
+
+After you start Tilecast, export the key and keep the file somewhere safe, apart from your backups:
+
+```sh title="On the Tilecast server"
+tilecast-server secrets export-kek /secure/location/keys.json
+```
+
+Studio shows an Owner a reminder on plugin pages until you confirm the export. The reminder returns after the keys are rotated. Without the key file, a restored server asks for each secret again. See [plugin secrets](https://github.com/gbyo/tilecast/blob/main/docs/plugin-secrets.md) for rotation and recovery.
+
 ## Schedule backups
 
 Under **Automatic backup schedule**, enable scheduled backups and choose daily or weekly runs, a time, and a time zone. Retention settings apply only to scheduled backups. Manually created backups remain until an Owner deletes them.
@@ -48,6 +60,7 @@ Under **Automatic backup schedule**, enable scheduled backups and choose daily o
 1. Select **Verify** for the archive you plan to restore.
 2. Select **Restore** and review the confirmation. Tilecast creates a pre-restore backup, then replaces the current database and media state. Studio is temporarily unavailable during the restore.
 3. If Studio warns that the archive belongs to a different installation, continue only if that is intentional. Players enrolled with the current installation must be reset and paired again after restoring a backup from another installation.
+4. If Studio lists plugin settings that need a new value, this server doesn't have the key for those secrets. If you have the export, import it with `tilecast-server secrets import-kek` and reopen the restore dialog to check again. You can also continue and enter the affected secrets again after the restore.
 
 </Steps>
 

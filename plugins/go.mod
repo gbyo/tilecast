@@ -27,6 +27,7 @@ require (
 // (apps/server/pluginharness). Production plugin code never imports it.
 replace (
 	github.com/tilecast/tilecast/apps/server => ../apps/server
+	github.com/tilecast/tilecast/packages/config-schema/go => ../packages/config-schema/go
 	github.com/tilecast/tilecast/packages/plugin-sdk/go => ../packages/plugin-sdk/go
 	github.com/tilecast/tilecast/widgets => ../widgets
 )

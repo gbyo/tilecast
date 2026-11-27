@@ -35,6 +35,31 @@ placeholder for clarity. The database stores only AES-256-GCM ciphertext, so a
 database restore without the same external key requires every saved Wi-Fi
 credential to be entered again in Studio. See [Presentation Networks](presentation-networks.md).
 
+## Plugin secrets
+
+A plugin can store a secret, such as an API token, in its settings. The Server
+encrypts it with a key in `TILECAST_SECRETS_KEY_FILE`. The default is
+`/data/secrets/kek.json`, in the `tilecast_data` volume. The Server creates the
+file at first start with mode `0600`. Keep the file across container
+recreation. The path must not be inside `TILECAST_MEDIA_ROOT`,
+`TILECAST_UPDATE_ROOT`, `TILECAST_BACKUP_ROOT`, or `TILECAST_PACKAGES_ROOT`. The
+Server refuses to start when it is.
+
+Tilecast backups never contain the key. A file-level copy of the whole
+`tilecast_data` volume does contain it. To prevent that, mount the key file from
+a separate secret or volume and set `TILECAST_SECRETS_KEY_FILE`.
+
+After the first start, export the keys and store the file apart from your
+backups:
+
+```sh
+tilecast-server secrets export-kek /secure/location/keys.json
+```
+
+Studio warns Owners until an Owner confirms the export. A restore without the
+keys starts, and each lost secret shows `needs a new value`. See
+[Plugin secrets](plugin-secrets.md).
+
 ## Marketplace
 
 The marketplace needs no configuration. The Server fetches the official
@@ -95,6 +120,10 @@ A complete backup requires:
 - `/data/media/originals`.
 - `/data/media/variants` and `/data/media/thumbnails` (or time to regenerate them in a future recovery tool).
 - deployment configuration, excluding copied secrets from documentation or source control.
+
+Also preserve the exported plugin secret keys (see
+[Plugin secrets](plugin-secrets.md)) when any plugin stores a secret. A Tilecast
+backup holds the encrypted secrets and never the keys.
 
 Also preserve the external `TILECAST_PRESENTATION_NETWORK_KEY` separately when
 Presentation Networks are in use. It is not stored in Tilecast backups. A

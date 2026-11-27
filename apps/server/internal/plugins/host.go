@@ -136,6 +136,13 @@ func (s *Service) host() {
 				panic(fmt.Errorf("plugin %s: init: %w", hosted.manifest.ID, err))
 			}
 		}
+		// Plugin Manifest API 3 features arrive through the service client,
+		// never through new Host fields.
+		if consumer, ok := hosted.plugin.(plugin.ServiceConsumer); ok && hosted.manifest.APIVersion >= 3 {
+			consumer.UseServices(plugin.NewServices(hosted.manifest, serviceTransport{
+				service: s, pluginID: hosted.manifest.ID, grants: grantsOf(hosted.manifest),
+			}))
+		}
 	}
 }
 
@@ -454,13 +461,22 @@ type Route struct {
 func (s *Service) Routes() ([]Route, error) {
 	out := []Route{}
 	for _, hosted := range s.hosted {
-		provider, ok := hosted.plugin.(plugin.RouteProvider)
-		if !ok {
-			continue
+		routes := []Route{}
+		for _, generated := range s.generatedRoutes(hosted) {
+			routes = append(routes, generated)
 		}
-		routes, err := plugin.CollectRoutes(hosted.manifest, provider)
-		if err != nil {
-			return nil, err
+		if provider, ok := hosted.plugin.(plugin.RouteProvider); ok {
+			own, err := plugin.CollectRoutes(hosted.manifest, provider)
+			if err != nil {
+				return nil, err
+			}
+			for _, route := range own {
+				handler := route.Handler
+				if hosted.manifest.APIVersion >= 3 {
+					handler = s.invokeRoute(hosted.manifest.ID, handler)
+				}
+				routes = append(routes, Route{PluginID: hosted.manifest.ID, Method: route.Method, Pattern: route.Pattern, Access: route.Access, RateLimit: route.RateLimit, Handler: handler})
+			}
 		}
 		for _, route := range routes {
 			// Two plugins must never answer one path: compare route shapes,
@@ -471,7 +487,7 @@ func (s *Service) Routes() ([]Route, error) {
 						hosted.manifest.ID, route.Method, route.Pattern, other.Method, other.Pattern, other.PluginID)
 				}
 			}
-			out = append(out, Route{PluginID: hosted.manifest.ID, Method: route.Method, Pattern: route.Pattern, Access: route.Access, RateLimit: route.RateLimit, Handler: route.Handler})
+			out = append(out, route)
 		}
 	}
 	return out, nil
@@ -492,6 +508,9 @@ func (s *Service) Workers() []Worker {
 	for _, hosted := range s.hosted {
 		if provider, ok := hosted.plugin.(plugin.WorkerProvider); ok {
 			for _, worker := range provider.Workers() {
+				if hosted.manifest.APIVersion >= 3 {
+					worker = s.backgroundWorker(hosted.manifest.ID, worker)
+				}
 				out = append(out, Worker{PluginID: hosted.manifest.ID, Worker: worker})
 			}
 		}
@@ -523,6 +542,11 @@ func (s *Service) RunWorkers(ctx context.Context) {
 // to seed. It is called only while a demo scenario is being built.
 func (s *Service) SeedDemo(ctx context.Context, demo plugin.Demo) error {
 	for _, hosted := range s.hosted {
+		if instanceSeeder, ok := hosted.plugin.(plugin.InstanceDemoSeeder); ok && hosted.manifest.HostOwnsInstances() {
+			if err := s.seedDemoInstances(ctx, hosted, instanceSeeder, demo); err != nil {
+				return err
+			}
+		}
 		seeder, ok := hosted.plugin.(plugin.DemoSeeder)
 		if !ok {
 			continue
@@ -530,7 +554,10 @@ func (s *Service) SeedDemo(ctx context.Context, demo plugin.Demo) error {
 		if _, _, err := s.Install(ctx, hosted.manifest.ID, demo.OwnerID); err != nil {
 			return fmt.Errorf("install plugin %s: %w", hosted.manifest.ID, err)
 		}
-		if err := seeder.SeedDemo(ctx, demo); err != nil {
+		seedCtx, done := s.backgroundInvocation(ctx, hosted.manifest.ID)
+		err := seeder.SeedDemo(seedCtx, demo)
+		done()
+		if err != nil {
 			return fmt.Errorf("plugin %s: seed demo: %w", hosted.manifest.ID, err)
 		}
 	}

@@ -29,6 +29,10 @@ If more than one Countdown Bar is active on a screen, Tilecast uses priority fir
 
 The optional progress fill shows how much of the configured countdown window remains.
 
-Urgency settings can change the appearance as the target gets closer. Motion effects are reduced when the Player exposes a reduced-motion preference.
+Urgency settings can change the appearance as the target gets closer. By default, the three stages start 300, 60, and 10 seconds before the target. Changing the lead time keeps the stage times fixed. Motion effects are reduced when the Player exposes a reduced-motion preference.
 
-Editing an enabled countdown updates the affected screens after their Player configuration refreshes.
+Editing an enabled countdown updates the affected screens after their Player configuration refreshes. A screen that the countdown doesn't reach isn't touched.
+
+## Editing at the same time
+
+If someone else saves a countdown while you're editing it, Tilecast doesn't overwrite their change. You'll see a message and your edits stay on screen. Choose **Reload the latest version**, then make your change again.

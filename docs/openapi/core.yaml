@@ -1476,6 +1476,52 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup job not found }
+  /api/v1/system/plugin-secrets:
+    get:
+      operationId: getPluginSecretStatus
+      description: >-
+        Read the plugin secret key status: the current and held key
+        encryption key IDs (never key bytes), whether an Owner confirmed
+        exporting exactly this key set, how many secrets exist, and how many
+        this server cannot read. Studio warns Owners until the export is
+        confirmed. Requires system.backups with the admin scope.
+      responses:
+        "200":
+          description: Plugin secret key status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginSecretStatus" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "503": { description: Plugin secrets are unavailable on this server }
+  /api/v1/system/plugin-secrets/export-confirmations:
+    post:
+      operationId: confirmPluginSecretExport
+      description: >-
+        Record that the current key set was exported with
+        `tilecast-server secrets export-kek` and stored apart from backups.
+        A key rotation changes the set, so the warning returns. Requires
+        system.backups with the admin scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: Updated plugin secret key status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginSecretStatus" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "503": { description: Plugin secrets are unavailable on this server }
   /api/v1/system/backups/{id}/verify:
     post:
       operationId: verifyBackup
@@ -1542,6 +1588,13 @@ paths:
               type: object
               properties:
                 confirmIdentityMismatch: { type: boolean }
+                confirmUnreadableSecrets:
+                  type: boolean
+                  description: >-
+                    Confirms that plugin secrets protected by a key this
+                    server does not hold will show "needs a new value" after
+                    the restore. Without it, such a restore answers 409
+                    restore_unreadable_secrets and changes nothing.
       responses:
         "202":
           description: Restore job started
@@ -1556,6 +1609,11 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup not found }
+        "409":
+          description: >-
+            The archive's plugin secrets need keys this server does not hold
+            (restore_unreadable_secrets). The details name the missing key
+            IDs and each affected plugin setting, never a value.
   /api/v1/system/backups/{id}/download:
     get:
       operationId: downloadBackup
@@ -11960,6 +12018,23 @@ components:
       properties:
         lastRunAt: { type: string, format: date-time }
         nextRunAt: { type: string, format: date-time }
+    PluginSecretStatus:
+      type: object
+      required:
+        [currentKekId, kekIds, exportAcknowledged, secrets, pendingMigration, unreadable]
+      properties:
+        currentKekId: { type: string }
+        kekIds: { type: array, items: { type: string } }
+        exportAcknowledged: { type: boolean }
+        secrets: { type: integer, minimum: 0 }
+        pendingMigration:
+          type: integer
+          minimum: 0
+          description: Secrets not yet moved to the current data encryption key.
+        unreadable:
+          type: integer
+          minimum: 0
+          description: Secrets this server holds no key for. They need new values.
     BackupList:
       type: object
       additionalProperties: false
@@ -12028,6 +12103,27 @@ components:
           items: { $ref: "#/components/schemas/BackupComponent" }
         identityMismatch: { type: boolean }
         currentInstallationId: { type: string }
+        pluginSecrets:
+          type: object
+          description: >-
+            Compares the archive's encrypted plugin secrets with the keys
+            this server holds, so an operator sees which settings would need
+            new values before confirming. It never names a value.
+          required: [requiredKekIds, missingKekIds, unreadable]
+          properties:
+            requiredKekIds: { type: array, items: { type: string } }
+            missingKekIds: { type: array, items: { type: string } }
+            unreadable:
+              type: array
+              items:
+                type: object
+                required: [pluginId, ownerType, settingKey, kekId, count]
+                properties:
+                  pluginId: { type: string }
+                  ownerType: { enum: [organization, instance, screen] }
+                  settingKey: { type: string }
+                  kekId: { type: string }
+                  count: { type: integer, minimum: 1 }
     SystemHealth:
       type: object
       additionalProperties: false

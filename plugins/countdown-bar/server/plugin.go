@@ -1,14 +1,15 @@
-// Package server is Countdown Bar's server contribution: storage, validation,
-// status, removal blockers, dashboard routes, the Plugin API 2 Player state
-// projection with its Plugin API 1 compatibility entries, and the operator
-// automation mapping.
+// Package server is Countdown Bar's server contribution on Plugin Manifest
+// API 3. The host stores, authorizes, audits, targets, and serves its
+// instances; this package judges what a countdown means and turns one
+// eligible instance into its Player state, with the Plugin API 1 entry for
+// Players that do not host Plugin API 2.
 package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -16,121 +17,72 @@ import (
 // Plugin API 2 Player state type, version 1, with the same configuration.
 const ManifestType = "countdown_bar"
 
+// Kind is the one instance kind.
+const Kind = "instance"
+
 // Plugin is Countdown Bar.
 type Plugin struct {
 	plugin.Bundle
-	host       plugin.Host
 	automation []byte
 }
 
 var (
-	_ plugin.Initializer          = (*Plugin)(nil)
-	_ plugin.StatusReporter       = (*Plugin)(nil)
-	_ plugin.RemovalGuard         = (*Plugin)(nil)
-	_ plugin.RouteProvider        = (*Plugin)(nil)
-	_ plugin.ManifestProjector    = (*Plugin)(nil)
-	_ plugin.PlayerStateProjector = (*Plugin)(nil)
-	_ plugin.AutomationProvider   = (*Plugin)(nil)
+	_ plugin.InstanceValidator  = (*Plugin)(nil)
+	_ plugin.InstanceProjector  = (*Plugin)(nil)
+	_ plugin.InstanceDemoSeeder = (*Plugin)(nil)
+	_ plugin.AutomationProvider = (*Plugin)(nil)
 )
-
-// Automation returns the resolved automation document the plugin package
-// embeds. It is data, not code: the host serves it to operator clients,
-// which dispatch on it without naming this plugin in their own source.
-func (p *Plugin) Automation() []byte { return p.automation }
 
 func New(bundle plugin.Bundle, automation []byte) *Plugin {
 	return &Plugin{Bundle: bundle, automation: automation}
 }
 
-func (p *Plugin) Init(_ context.Context, host plugin.Host) error {
-	p.host = host
-	return nil
-}
+// Automation returns the resolved automation document pluginctl generates
+// from the manifest's instance kind.
+func (p *Plugin) Automation() []byte { return p.automation }
 
-// Status: configured once any instance exists, active while any is enabled.
-func (p *Plugin) Status(ctx context.Context) (plugin.Status, error) {
-	var status plugin.Status
-	err := p.host.DB.QueryRow(ctx, `SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM countdown_bar_instances`).
-		Scan(&status.Active, &status.InstanceCount)
-	status.Configured = status.InstanceCount > 0
-	return status, err
-}
-
-// RemovalBlockers: every instance, enabled or not, blocks removal.
-func (p *Plugin) RemovalBlockers(ctx context.Context, tx pgx.Tx) ([]plugin.Blocker, error) {
-	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM countdown_bar_instances`).Scan(&count); err != nil {
-		return nil, err
+// ValidateInstance applies the rules a field schema cannot state: which
+// schedule fields each schedule type needs, the urgency stage order, and
+// the character bounds of the text.
+func (p *Plugin) ValidateInstance(_ context.Context, instance plugin.HostedInstance) error {
+	var config Config
+	if err := instance.Decode(&config); err != nil {
+		return plugin.Invalidf("the configuration is not valid")
 	}
-	return []plugin.Blocker{{Kind: "countdown_bar_instance", Count: count,
-		Singular: "countdown bar", Plural: "countdown bars", Resolution: plugin.ResolveDelete}}, nil
+	return config.Validate()
 }
 
-// ProjectPlayerState publishes every enabled instance that applies to the
-// screen as Plugin API 2 Player state. Players choose which one shows from
-// the priorities in the state.
-func (p *Plugin) ProjectPlayerState(ctx context.Context, screenID uuid.UUID) ([]plugin.PlayerState, error) {
-	instances, err := p.screenInstances(ctx, screenID)
-	if err != nil {
-		return nil, err
+// ProjectInstance maps one eligible instance to Player state. The host has
+// chosen the instance for the screen and sets the entry ID and fonts.
+func (p *Plugin) ProjectInstance(_ context.Context, instance plugin.HostedInstance, _ plugin.ProjectionTarget) (plugin.InstanceProjection, error) {
+	var config Config
+	if err := instance.Decode(&config); err != nil {
+		return plugin.InstanceProjection{}, fmt.Errorf("decode countdown bar %s: %w", instance.ID, err)
 	}
-	out := make([]plugin.PlayerState, 0, len(instances))
-	for _, instance := range instances {
-		state := plugin.PlayerState{ID: instance.id, Type: ManifestType, Version: 1,
-			State: StateConfig{ManifestConfig: instance.config, FontID: instance.fontID}}
-		if instance.fontID != nil {
-			state.Fonts = []uuid.UUID{*instance.fontID}
+	manifest := config.Manifest(instance.Name, instance.Priority)
+	return plugin.InstanceProjection{
+		State:  &plugin.PlayerState{Type: ManifestType, Version: 1, State: StateConfig{ManifestConfig: manifest, FontID: config.FontID}},
+		Legacy: &plugin.ManifestEntry{Type: ManifestType, Version: 1, Config: manifest},
+	}, nil
+}
+
+// DemoInstances adds a weekday lunch countdown to the demo schools.
+func (p *Plugin) DemoInstances(_ context.Context, demo plugin.Demo) ([]plugin.DemoInstance, error) {
+	targets := []uuid.UUID{}
+	for _, name := range []string{"high_school", "middle_school"} {
+		if id, ok := demo.Locations[name]; ok {
+			targets = append(targets, id)
 		}
-		out = append(out, state)
 	}
-	return out, nil
-}
-
-// ProjectManifest publishes the same instances as Plugin API 1 entries for a
-// Player that does not host Plugin API 2 (player.v1ManifestTypes).
-func (p *Plugin) ProjectManifest(ctx context.Context, screenID uuid.UUID) ([]plugin.ManifestEntry, error) {
-	instances, err := p.screenInstances(ctx, screenID)
-	if err != nil {
-		return nil, err
+	target := plugin.Target{Scope: plugin.TargetLocations, IDs: targets}
+	if len(targets) == 0 {
+		target = plugin.Target{Scope: plugin.TargetAll, IDs: []uuid.UUID{}}
 	}
-	out := make([]plugin.ManifestEntry, 0, len(instances))
-	for _, instance := range instances {
-		out = append(out, plugin.ManifestEntry{ID: instance.id, Type: ManifestType, Version: 1, Config: instance.config})
-	}
-	return out, nil
-}
-
-type screenInstance struct {
-	id     uuid.UUID
-	config ManifestConfig
-	// fontID is Plugin API v2 only: a Player without it keeps its own face.
-	fontID *uuid.UUID
-}
-
-// screenInstances reads every enabled instance that applies to the screen,
-// strongest priority first.
-func (p *Plugin) screenInstances(ctx context.Context, screenID uuid.UUID) ([]screenInstance, error) {
-	rows, err := p.host.DB.Query(ctx, `SELECT DISTINCT i.id,i.name,i.message,i.schedule_type,i.target_time::text,i.days_of_week,
-		i.one_time_at,i.timezone,i.lead_time_seconds,i.completion_text,i.show_confetti,i.display_mode,i.height_px,i.progress_fill,i.content_padding,i.text_scale,
-		i.urgency_enabled,i.starting_soon_seconds,i.urgent_seconds,i.pulse_seconds,i.priority,i.font_id
-		`+plugin.ScreenTargetFilter("countdown_bar_instances", "countdown_bar_targets")+`
-		ORDER BY i.priority DESC,i.id`, screenID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []screenInstance{}
-	for rows.Next() {
-		var instance screenInstance
-		config := &instance.config
-		if err = rows.Scan(&instance.id, &config.Name, &config.Message, &config.ScheduleType, &config.TargetTime,
-			&config.DaysOfWeek, &config.OneTimeAt, &config.Timezone, &config.LeadTimeSeconds,
-			&config.CompletionText, &config.ShowConfetti, &config.DisplayMode, &config.HeightPX, &config.ProgressFill, &config.ContentPadding, &config.TextScale,
-			&config.UrgencyEnabled, &config.StartingSoonSeconds, &config.UrgentSeconds, &config.PulseSeconds, &config.Priority, &instance.fontID); err != nil {
-			return nil, err
-		}
-		config.TargetTime = trimTargetTime(config.TargetTime)
-		out = append(out, instance)
-	}
-	return out, rows.Err()
+	return []plugin.DemoInstance{{
+		Kind: Kind, Name: "Lunch ends", Enabled: true, Target: &target,
+		Configuration: map[string]any{
+			"message": "Lunch ends in", "scheduleType": "weekly", "targetTime": "12:55",
+			"daysOfWeek": []any{1.0, 2.0, 3.0, 4.0, 5.0}, "timezone": demo.Timezone, "leadTimeSeconds": 900.0,
+		},
+	}}, nil
 }

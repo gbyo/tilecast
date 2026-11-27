@@ -5,19 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/packages/config-schema/go/configschema"
 	currencydata "golang.org/x/text/currency"
 )
-
-var definitionColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$`)
 
 type definitionConfigNormalizer struct {
 	service      *Service
@@ -30,8 +26,11 @@ func (normalizer definitionConfigNormalizer) Normalize(ctx context.Context, raw 
 	if err := decodeConfig(raw, &input); err != nil {
 		return nil, err
 	}
-	output, err := normalizer.normalizeObject(ctx, input, normalizer.schema.Fields, "")
+	output, err := configschema.Normalize(ctx, normalizer.schema.Fields, input, definitionReferences{normalizer: normalizer})
 	if err != nil {
+		return nil, err
+	}
+	if err := normalizer.validateDataSourceFieldSelections(ctx, normalizer.schema.Fields, output); err != nil {
 		return nil, err
 	}
 	for _, field := range normalizer.outputSchema.Fields {
@@ -54,42 +53,6 @@ func (normalizer definitionConfigNormalizer) Normalize(ctx context.Context, raw 
 		}
 		if field.CurrencyConfigKey != "" {
 			output[field.CurrencyConfigKey] = currency.String()
-		}
-	}
-	return output, nil
-}
-
-func (normalizer definitionConfigNormalizer) normalizeObject(ctx context.Context, input map[string]any, fields []contentdefs.FieldDefinition, prefix string) (map[string]any, error) {
-	known := make(map[string]contentdefs.FieldDefinition, len(fields))
-	for _, field := range fields {
-		known[field.Key] = field
-	}
-	for key := range input {
-		if _, ok := known[key]; !ok {
-			return nil, fmt.Errorf("configuration contains unknown field %q", prefix+key)
-		}
-	}
-	output := make(map[string]any, len(fields))
-	for _, field := range fields {
-		value, present := input[field.Key]
-		if !present && field.Default != nil {
-			value, present = field.Default, true
-		}
-		if !present || value == nil || (field.Required && value == "") {
-			if field.Required {
-				return nil, fmt.Errorf("%s is required", field.Label)
-			}
-			continue
-		}
-		normalized, err := normalizer.normalizeField(ctx, field, value, prefix+field.Key)
-		if err != nil {
-			return nil, err
-		}
-		output[field.Key] = normalized
-	}
-	if prefix == "" {
-		if err := normalizer.validateDataSourceFieldSelections(ctx, fields, output); err != nil {
-			return nil, err
 		}
 	}
 	return output, nil
@@ -260,187 +223,38 @@ func (validator *dataSourceSelectionValidator) fieldTypes(ctx context.Context, r
 	return types, nil
 }
 
-func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context, field contentdefs.FieldDefinition, value any, path string) (any, error) {
-	switch field.Control {
-	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset", "font":
-		text, ok := value.(string)
-		if !ok {
-			return nil, fmt.Errorf("%s must be text", field.Label)
-		}
-		text = strings.TrimSpace(text)
-		if field.MinLength > 0 && len(text) < field.MinLength || field.MaxLength > 0 && len(text) > field.MaxLength {
-			return nil, fmt.Errorf("%s length is outside the allowed range", field.Label)
-		}
-		switch field.Control {
-		case "currency_code":
-			if text != "" {
-				text = strings.ToUpper(text)
-				currency, err := currencydata.ParseISO(text)
-				if err != nil || currency == currencydata.XXX {
-					return nil, fmt.Errorf("%s must be a recognized ISO 4217 currency code", field.Label)
-				}
-				text = currency.String()
-			}
-		case "color":
-			// An optional color left empty follows the display theme.
-			if text == "" && !field.Required {
-				break
-			}
-			if !definitionColorPattern.MatchString(text) {
-				return nil, fmt.Errorf("%s must be a hexadecimal color", field.Label)
-			}
-			text = strings.ToLower(text)
-		case "date":
-			if text != "" {
-				if _, err := time.Parse("2006-01-02", text); err != nil {
-					return nil, fmt.Errorf("%s must be a date", field.Label)
-				}
-			}
-		case "datetime":
-			if text != "" {
-				parsed, err := time.Parse(time.RFC3339, text)
-				if err != nil {
-					return nil, fmt.Errorf("%s must be an RFC 3339 datetime", field.Label)
-				}
-				text = parsed.UTC().Format(time.RFC3339)
-			}
-		case "local_datetime":
-			// A wall-clock time that a sibling timezone field interprets.
-			// Saved RFC 3339 instants from older releases stay valid.
-			if text != "" {
-				if _, err := time.Parse("2006-01-02T15:04", text); err != nil {
-					if _, err = time.Parse("2006-01-02T15:04:05", text); err != nil {
-						if _, err = time.Parse(time.RFC3339, text); err != nil {
-							return nil, fmt.Errorf("%s must be a local date and time", field.Label)
-						}
-					}
-				}
-			}
-		case "timezone":
-			if _, err := time.LoadLocation(text); err != nil {
-				return nil, fmt.Errorf("%s must be an IANA timezone", field.Label)
-			}
-		case "url":
-			parsed, err := url.Parse(text)
-			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-				return nil, fmt.Errorf("%s must be an HTTP or HTTPS URL", field.Label)
-			}
-		case "data_source":
-			id, err := uuid.Parse(text)
-			if err != nil {
-				return nil, fmt.Errorf("%s must identify a Data Source", field.Label)
-			}
-			if err := normalizer.validateDataSource(ctx, id, field); err != nil {
-				return nil, err
-			}
-			text = id.String()
-		case "media_asset":
-			if text == "" && !field.Required {
-				break
-			}
-			id, err := uuid.Parse(text)
-			if err != nil {
-				return nil, fmt.Errorf("%s must identify a media asset", field.Label)
-			}
-			var assetType string
-			if err := normalizer.service.db.QueryRow(ctx, `SELECT type FROM assets WHERE id=$1 AND deleted_at IS NULL AND processing_status='ready'`, id).Scan(&assetType); err != nil {
-				return nil, fmt.Errorf("%s references an unavailable media asset", field.Label)
-			}
-			if len(field.MediaTypes) > 0 && !containsString(field.MediaTypes, assetType) {
-				return nil, fmt.Errorf("%s references an incompatible media asset", field.Label)
-			}
-			text = id.String()
-		case "font":
-			if text == "" && !field.Required {
-				break
-			}
-			id, err := uuid.Parse(text)
-			if err != nil || id == uuid.Nil {
-				return nil, fmt.Errorf("%s must identify a library font", field.Label)
-			}
-			// The save transaction locks the family FOR SHARE before it
-			// records the reference; this read only refuses early.
-			var exists bool
-			if err := normalizer.service.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM font_families WHERE id=$1 AND deleted_at IS NULL)`, id).Scan(&exists); err != nil {
-				return nil, err
-			}
-			if !exists {
-				return nil, fmt.Errorf("%s references a font that is not in the font library", field.Label)
-			}
-			text = id.String()
-		}
-		return text, nil
-	case "number", "integer":
-		number, ok := value.(float64)
-		if !ok || field.Control == "integer" && math.Trunc(number) != number {
-			return nil, fmt.Errorf("%s must be a %s", field.Label, field.Control)
-		}
-		if field.Minimum != nil && number < *field.Minimum || field.Maximum != nil && number > *field.Maximum {
-			return nil, fmt.Errorf("%s is outside the allowed range", field.Label)
-		}
-		if field.Control == "integer" {
-			return int(number), nil
-		}
-		return number, nil
-	case "boolean":
-		boolean, ok := value.(bool)
-		if !ok {
-			return nil, fmt.Errorf("%s must be true or false", field.Label)
-		}
-		return boolean, nil
-	case "select":
-		text, ok := value.(string)
-		if !ok {
-			return nil, fmt.Errorf("%s must be selected", field.Label)
-		}
-		for _, option := range field.Options {
-			if option.Value == text {
-				return text, nil
-			}
-		}
-		return nil, fmt.Errorf("%s has an invalid selection", field.Label)
-	case "string_list":
-		items, ok := value.([]any)
-		if !ok || len(items) > field.MaximumItems {
-			return nil, fmt.Errorf("%s exceeds its bounded item limit", field.Label)
-		}
-		normalized := make([]string, 0, len(items))
-		for _, item := range items {
-			text, ok := item.(string)
-			if !ok {
-				return nil, fmt.Errorf("%s must contain only text", field.Label)
-			}
-			text = strings.TrimSpace(text)
-			if text == "" {
-				continue
-			}
-			if field.MinLength > 0 && len(text) < field.MinLength || field.MaxLength > 0 && len(text) > field.MaxLength {
-				return nil, fmt.Errorf("%s contains an entry outside the allowed length", field.Label)
-			}
-			normalized = append(normalized, text)
-		}
-		return normalized, nil
-	case "repeating_group":
-		items, ok := value.([]any)
-		if !ok || len(items) > field.MaximumItems {
-			return nil, fmt.Errorf("%s exceeds its bounded item limit", field.Label)
-		}
-		normalized := make([]map[string]any, 0, len(items))
-		for index, item := range items {
-			object, ok := item.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("%s item %d is invalid", field.Label, index+1)
-			}
-			result, err := normalizer.normalizeObject(ctx, object, field.ItemFields, fmt.Sprintf("%s[%d].", path, index))
-			if err != nil {
-				return nil, err
-			}
-			normalized = append(normalized, result)
-		}
-		return normalized, nil
-	default:
-		return nil, errors.New("unsupported release-defined form control")
+// definitionReferences checks resource identifiers in Widget configuration
+// against the Server's tables for the shared configuration normalizer.
+type definitionReferences struct {
+	normalizer definitionConfigNormalizer
+}
+
+func (refs definitionReferences) DataSource(ctx context.Context, field contentdefs.FieldDefinition, id uuid.UUID) error {
+	return refs.normalizer.validateDataSource(ctx, id, field)
+}
+
+func (refs definitionReferences) MediaAsset(ctx context.Context, field contentdefs.FieldDefinition, id uuid.UUID) error {
+	var assetType string
+	if err := refs.normalizer.service.db.QueryRow(ctx, `SELECT type FROM assets WHERE id=$1 AND deleted_at IS NULL AND processing_status='ready'`, id).Scan(&assetType); err != nil {
+		return fmt.Errorf("%s references an unavailable media asset", field.Label)
 	}
+	if len(field.MediaTypes) > 0 && !containsString(field.MediaTypes, assetType) {
+		return fmt.Errorf("%s references an incompatible media asset", field.Label)
+	}
+	return nil
+}
+
+func (refs definitionReferences) Font(ctx context.Context, field contentdefs.FieldDefinition, id uuid.UUID) error {
+	// The save transaction locks the family FOR SHARE before it records the
+	// reference; this read only refuses early.
+	var exists bool
+	if err := refs.normalizer.service.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM font_families WHERE id=$1 AND deleted_at IS NULL)`, id).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("%s references a font that is not in the font library", field.Label)
+	}
+	return nil
 }
 
 func (normalizer definitionConfigNormalizer) validateDataSource(ctx context.Context, id uuid.UUID, field contentdefs.FieldDefinition) error {

@@ -5,13 +5,13 @@ description: Declare a plugin's identity, capabilities, entry points, routes, ru
 
 The manifest is `plugins/<name>/tilecast.plugin.json`. Tilecast validates it at build time and when the server hosts the plugin.
 
-Use the generated JSON Schema in your editor. The exact field rules live in the [Plugin API v2](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#manifest) and [Plugin API v1](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) engineering references.
+Use the generated JSON Schema in your editor. The exact field rules live in the [Plugin Manifest API 3](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v3.md), [Plugin API v2](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#manifest) and [Plugin API v1](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) engineering references.
 
 ## Identity
 
 These fields describe the plugin in the catalog:
 
-- `apiVersion` is `2` for a new plugin. Existing plugins use `1`.
+- `apiVersion` is `3` for a new plugin that stores instances or settings, and `2` for one that does not. Existing plugins use `1`.
 - `id` is the stable snake_case identifier.
 - `definitionVersion` versions the plugin's persisted and Player-facing definition.
 - `name`, `description`, `category`, and `icon` describe it in Studio.
@@ -153,3 +153,40 @@ A plugin can publish pages from its own directory:
 ```
 
 The docs build checks slug collisions and adds declared pages to the public docs collection. The docs sidebar doesn't list plugin pages. Link your page from the plugin catalog page, `apps/docs/src/content/docs/operations/plugins.mdx`, so readers can find it. A docs test fails when a declared page has no link there.
+
+## Settings and instances (Plugin Manifest API 3)
+
+If your plugin declares instances or uses a generated organization settings page in Studio, provide `api.basePaths` for the host's API routes.
+
+A version 3 plugin describes what it stores, and Tilecast stores it. You write no tables, routes, API description, or Studio pages for ordinary instances.
+
+```json
+{
+  "apiVersion": 3,
+  "api": { "basePaths": ["/plugins/room-sign"] },
+  "studio": { "route": "/plugins/room-sign" },
+  "settings": {
+    "organization": [{ "key": "apiToken", "label": "API token", "control": "secret" }]
+  },
+  "instances": [
+    {
+      "kind": "sign",
+      "noun": { "singular": "sign", "plural": "signs" },
+      "path": "signs",
+      "operations": { "singular": "RoomSign", "plural": "RoomSigns" },
+      "targeting": "screens",
+      "schedule": "none",
+      "priority": { "minimum": -10, "maximum": 10, "default": 0 },
+      "fields": [{ "key": "title", "label": "Title", "control": "text", "required": true }]
+    }
+  ]
+}
+```
+
+- A plugin has at most four instance kinds. Studio shows each as a tab.
+- `targeting` is `screens` or `none`. `schedule` is `none`, `window`, or `weekly`.
+- `fields` use the same vocabulary as Widget settings, plus `secret`. A secret is encrypted and never shown again.
+- `personal` marks a field that holds personal data and says how long to keep it.
+- Tilecast saves each change with a revision, so two people editing at once can't overwrite each other.
+
+You then write two small hooks in Go: one that checks an instance makes sense, and one that turns an instance into what a Player shows. See the [Plugin Manifest API 3 reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v3.md) for the details, including the service client and what isn't available yet.

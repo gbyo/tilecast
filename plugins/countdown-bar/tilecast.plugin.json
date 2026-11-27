@@ -1,13 +1,15 @@
 {
   "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "id": "countdown_bar",
   "definitionVersion": 1,
   "name": "Countdown Bar",
   "description": "Show a timed bottom bar without interrupting the content already playing.",
   "category": "Display",
   "icon": "clock",
-  "maintainers": ["@gbyo"],
+  "maintainers": [
+    "@gbyo"
+  ],
   "instanceNoun": {
     "singular": "instance",
     "plural": "instances"
@@ -29,13 +31,361 @@
   },
   "migrations": "./migrations",
   "api": {
-    "basePaths": ["/plugins/countdown-bar"],
-    "openapi": "./api/openapi.yaml"
+    "basePaths": [
+      "/plugins/countdown-bar"
+    ]
   },
   "studio": {
     "route": "/plugins/countdown-bar",
     "entrypoint": "./studio/index.tsx"
   },
+  "instances": [
+    {
+      "kind": "instance",
+      "noun": {
+        "singular": "countdown bar",
+        "plural": "countdown bars"
+      },
+      "path": "instances",
+      "operations": {
+        "singular": "CountdownBarInstance",
+        "plural": "CountdownBarInstances"
+      },
+      "targeting": "screens",
+      "schedule": "none",
+      "priority": {
+        "minimum": -1000,
+        "maximum": 1000,
+        "default": 0
+      },
+      "fields": [
+        {
+          "key": "message",
+          "label": "Message",
+          "labelKey": "fields.message",
+          "control": "text",
+          "required": true,
+          "maxLength": 1120,
+          "default": "Lunch ends in",
+          "ui": {
+            "section": "content",
+            "order": 1
+          }
+        },
+        {
+          "key": "completionText",
+          "label": "Optional completion text",
+          "labelKey": "fields.completionText",
+          "control": "text",
+          "maxLength": 1120,
+          "description": "Shown for one minute after the target; leave blank to hide at zero.",
+          "descriptionKey": "fields.completionTextHint",
+          "ui": {
+            "section": "content",
+            "order": 2
+          }
+        },
+        {
+          "key": "showConfetti",
+          "label": "Show confetti when the countdown reaches zero",
+          "labelKey": "fields.showConfetti",
+          "control": "boolean",
+          "default": false,
+          "ui": {
+            "section": "content",
+            "order": 3
+          }
+        },
+        {
+          "key": "scheduleType",
+          "label": "Schedule",
+          "labelKey": "fields.scheduleType",
+          "control": "select",
+          "required": true,
+          "default": "weekly",
+          "options": [
+            {
+              "value": "weekly",
+              "label": "Days of the week",
+              "labelKey": "fields.scheduleWeekly"
+            },
+            {
+              "value": "one_time",
+              "label": "One-time date",
+              "labelKey": "fields.scheduleOneTime"
+            }
+          ],
+          "ui": {
+            "section": "behavior",
+            "order": 1,
+            "styleCard": true
+          }
+        },
+        {
+          "key": "targetTime",
+          "label": "Target time",
+          "labelKey": "fields.targetTime",
+          "control": "time",
+          "ui": {
+            "section": "behavior",
+            "order": 2,
+            "visibleWhen": {
+              "key": "scheduleType",
+              "equals": "weekly"
+            }
+          }
+        },
+        {
+          "key": "daysOfWeek",
+          "label": "Days of the week",
+          "labelKey": "fields.daysOfWeek",
+          "control": "weekdays",
+          "default": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "ui": {
+            "section": "behavior",
+            "order": 3,
+            "visibleWhen": {
+              "key": "scheduleType",
+              "equals": "weekly"
+            }
+          }
+        },
+        {
+          "key": "oneTimeAt",
+          "label": "Target date and time",
+          "labelKey": "fields.oneTimeAt",
+          "control": "datetime",
+          "description": "The Player counts down to this instant.",
+          "descriptionKey": "fields.oneTimeAtHint",
+          "ui": {
+            "section": "behavior",
+            "order": 4,
+            "visibleWhen": {
+              "key": "scheduleType",
+              "equals": "one_time"
+            }
+          }
+        },
+        {
+          "key": "timezone",
+          "label": "Timezone",
+          "labelKey": "fields.timezone",
+          "control": "timezone",
+          "required": true,
+          "ui": {
+            "section": "behavior",
+            "order": 5
+          }
+        },
+        {
+          "key": "leadTimeSeconds",
+          "label": "Appear this many minutes before",
+          "labelKey": "fields.leadTime",
+          "control": "integer",
+          "required": true,
+          "default": 900,
+          "minimum": 60,
+          "maximum": 2592000,
+          "ui": {
+            "section": "behavior",
+            "order": 6,
+            "inputUnit": "minutes"
+          }
+        },
+        {
+          "key": "displayMode",
+          "label": "Mode",
+          "labelKey": "fields.displayMode",
+          "control": "select",
+          "required": true,
+          "default": "overlay",
+          "options": [
+            {
+              "value": "overlay",
+              "label": "Overlay current content",
+              "labelKey": "fields.displayOverlay"
+            },
+            {
+              "value": "push",
+              "label": "Push and shrink current content",
+              "labelKey": "fields.displayPush"
+            }
+          ],
+          "ui": {
+            "section": "appearance",
+            "order": 1,
+            "styleCard": true
+          }
+        },
+        {
+          "key": "heightPx",
+          "label": "Bottom-bar height (px)",
+          "labelKey": "fields.height",
+          "control": "integer",
+          "required": true,
+          "default": 72,
+          "minimum": 40,
+          "maximum": 320,
+          "ui": {
+            "section": "appearance",
+            "order": 2,
+            "slider": true
+          }
+        },
+        {
+          "key": "progressFill",
+          "label": "Background countdown",
+          "labelKey": "fields.progressFill",
+          "control": "select",
+          "required": true,
+          "default": "none",
+          "description": "Drain empties the bar from right to left as the target approaches.",
+          "descriptionKey": "fields.progressFillHint",
+          "options": [
+            {
+              "value": "none",
+              "label": "Plain background",
+              "labelKey": "fields.progressNone"
+            },
+            {
+              "value": "drain",
+              "label": "Drain right to left",
+              "labelKey": "fields.progressDrain"
+            }
+          ],
+          "ui": {
+            "section": "appearance",
+            "order": 3
+          }
+        },
+        {
+          "key": "contentPadding",
+          "label": "Horizontal padding (%)",
+          "labelKey": "fields.padding",
+          "control": "integer",
+          "required": true,
+          "default": 4,
+          "minimum": 0,
+          "maximum": 40,
+          "description": "Lower padding gives the message and countdown more room.",
+          "descriptionKey": "fields.paddingHint",
+          "ui": {
+            "section": "appearance",
+            "order": 4,
+            "slider": true
+          }
+        },
+        {
+          "key": "textScale",
+          "label": "Text size (%)",
+          "labelKey": "fields.textScale",
+          "control": "integer",
+          "required": true,
+          "default": 100,
+          "minimum": 25,
+          "maximum": 500,
+          "description": "Increase the type size without changing the bar height.",
+          "descriptionKey": "fields.textScaleHint",
+          "ui": {
+            "section": "appearance",
+            "order": 5,
+            "slider": true
+          }
+        },
+        {
+          "key": "fontId",
+          "label": "Font",
+          "labelKey": "fields.font",
+          "control": "font",
+          "description": "Add fonts in Settings. Screens that cannot load the font keep the default.",
+          "descriptionKey": "fields.fontHint",
+          "ui": {
+            "section": "appearance",
+            "order": 6
+          }
+        },
+        {
+          "key": "urgencyEnabled",
+          "label": "Enable countdown urgency stages",
+          "labelKey": "fields.urgencyEnabled",
+          "control": "boolean",
+          "default": false,
+          "description": "Change the bar automatically as the target approaches.",
+          "descriptionKey": "fields.urgencyHint",
+          "ui": {
+            "section": "appearance",
+            "order": 7
+          }
+        },
+        {
+          "key": "startingSoonSeconds",
+          "label": "Starting soon (orange), minutes before",
+          "labelKey": "fields.startingSoon",
+          "control": "integer",
+          "required": true,
+          "default": 300,
+          "minimum": 2,
+          "maximum": 86400,
+          "ui": {
+            "section": "appearance",
+            "order": 8,
+            "inputUnit": "minutes",
+            "visibleWhen": {
+              "key": "urgencyEnabled",
+              "equals": true
+            },
+            "advanced": true
+          }
+        },
+        {
+          "key": "urgentSeconds",
+          "label": "Urgent (red), seconds before",
+          "labelKey": "fields.urgent",
+          "control": "integer",
+          "required": true,
+          "default": 60,
+          "minimum": 2,
+          "maximum": 3600,
+          "ui": {
+            "section": "appearance",
+            "order": 9,
+            "visibleWhen": {
+              "key": "urgencyEnabled",
+              "equals": true
+            },
+            "advanced": true
+          }
+        },
+        {
+          "key": "pulseSeconds",
+          "label": "Pulse and enlarge, final seconds",
+          "labelKey": "fields.pulse",
+          "control": "integer",
+          "required": true,
+          "default": 10,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "The bar and text grow by 25% during this final stage.",
+          "descriptionKey": "fields.pulseHint",
+          "ui": {
+            "section": "appearance",
+            "order": 10,
+            "visibleWhen": {
+              "key": "urgencyEnabled",
+              "equals": true
+            },
+            "advanced": true
+          }
+        }
+      ]
+    }
+  ],
   "player": {
     "state": [
       {
@@ -43,22 +393,33 @@
         "version": 1
       }
     ],
-    "v1ManifestTypes": ["countdown_bar"],
+    "v1ManifestTypes": [
+      "countdown_bar"
+    ],
     "runtime": {
       "entrypoint": "./runtime/index.ts",
       "services": {
-        "required": ["player.clock@1", "player.surface@1"],
-        "optional": ["player.fonts@1"]
+        "required": [
+          "player.clock@1",
+          "player.surface@1"
+        ],
+        "optional": [
+          "player.fonts@1"
+        ]
       },
       "surfaces": [
         {
           "id": "bar",
-          "slots": ["strip.bottom"],
+          "slots": [
+            "strip.bottom"
+          ],
           "tier": "scheduled"
         },
         {
           "id": "confetti",
-          "slots": ["overlay"],
+          "slots": [
+            "overlay"
+          ],
           "tier": "scheduled"
         }
       ]

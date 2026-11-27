@@ -12,6 +12,8 @@
  *       --optional a@1        its optional services
  *       --surface id:slots:tier  a visual contribution (adds player.surface@1)
  *       --plugin-api 1        the frozen Plugin API v1 shape
+ *       --plugin-api 3        Plugin Manifest API 3: host-owned instances; the
+ *                             host generates routes, OpenAPI, and Studio pages
  *   npm run plugins:migration -- <id|core> <name>
  *                                             reserve the next global migration version
  */
@@ -45,7 +47,7 @@ async function main(argv: string[]): Promise<number> {
             (plugin) => plugin.manifest.apiVersion === version,
           ).length;
         console.log(
-          `✓ ${repo.plugins.length} plugins conform (Plugin API v1: ${count(1)}, v2: ${count(2)})`,
+          `✓ ${repo.plugins.length} plugins conform (Plugin API v1: ${count(1)}, v2: ${count(2)}, Plugin Manifest API 3: ${count(3)})`,
         );
       }
       return report(problems);
@@ -98,7 +100,12 @@ async function main(argv: string[]): Promise<number> {
         category: values.category!,
         maintainer: values.maintainer!,
         api: values.api!,
-        pluginApi: values["plugin-api"] === "1" ? 1 : 2,
+        pluginApi:
+          values["plugin-api"] === "1"
+            ? 1
+            : values["plugin-api"] === "3"
+              ? 3
+              : 2,
         studio: !values["no-studio"],
         ...(values.player || surfaces.length > 0
           ? { player: { required, optional: csv(values.optional), surfaces } }

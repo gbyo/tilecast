@@ -4,7 +4,10 @@
     "allowedSurfaces": "Allowed surfaces: {{surfaces}}",
     "priority": "Priority tier: {{tier}}",
     "surfaces": {
-      "strip": { "top": "Top strip", "bottom": "Bottom strip" },
+      "strip": {
+        "top": "Top strip",
+        "bottom": "Bottom strip"
+      },
       "corner": {
         "top-left": "Top left corner",
         "top-right": "Top right corner",
@@ -506,5 +509,71 @@
       "confirmTitle": "Restore the previous version?",
       "confirmBody": "{{name}} goes back to the version that was active before the last update. If content still uses something the newer version added, the restore waits until you delete that content."
     }
+  },
+  "hosted": {
+    "settings": "Settings",
+    "new": "New {{noun}}",
+    "manage": "Manage",
+    "priorityValue": "priority {{priority}}",
+    "loadError": "The {{noun}} could not be loaded.",
+    "emptyTitle": "No {{noun}} yet",
+    "emptyDescription": "Create a {{noun}} to get started.",
+    "deleteBody": "This {{noun}} will be removed from its screens.",
+    "removedToast": "The {{noun}} was removed.",
+    "createdToast": "The {{noun}} was created.",
+    "updatedToast": "The {{noun}} was saved.",
+    "settingsSaved": "Settings saved.",
+    "createTitle": "New {{noun}}",
+    "manageTitle": "Manage {{noun}}",
+    "general": "General",
+    "name": "Name",
+    "nameRequired": "Enter a name.",
+    "enabled": "Enabled",
+    "enabledHint": "A disabled item is kept but not shown on any screen.",
+    "priority": "Priority",
+    "priorityHint": "Higher numbers win when items overlap. From {{min}} to {{max}}.",
+    "targets": "Screens",
+    "targetRequired": "Choose at least one target.",
+    "secretRequired": "{{label}} is required.",
+    "scheduleHeading": "When it shows",
+    "windowHint": "Shown from the start to the end, in the viewer's own time zone.",
+    "weeklyHint": "Shown on the chosen days between the start and end times, in the chosen time zone.",
+    "schedule": {
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "timezone": "Timezone",
+      "days": "Days of the week",
+      "startTime": "From",
+      "endTime": "Until"
+    },
+    "leaveTitle": "Leave without saving?",
+    "leaveBody": "You have unsaved changes.",
+    "conflictTitle": "Someone else saved a newer version",
+    "conflictBody": "Your changes were not saved, so nothing was overwritten. Reload the latest version, then make your change again.",
+    "conflictReload": "Reload the latest version",
+    "breadcrumbs": {
+      "list": "List",
+      "new": "New",
+      "edit": "Edit",
+      "settings": "Settings"
+    }
+  },
+  "secrets": {
+    "state": {
+      "set": "Set",
+      "not_set": "Not set",
+      "needs_value": "Needs a new value"
+    },
+    "enterPlaceholder": "Enter a value",
+    "replacePlaceholder": "Enter a new value to replace it",
+    "clear": "Clear",
+    "keep": "Keep"
+  },
+  "secretKeys": {
+    "exportTitle": "Export your plugin secret keys",
+    "exportBody": "Plugin secrets are encrypted with keys stored on the server, outside backups. Export them and keep the file somewhere safe, apart from your backups; without it a restored server asks for every secret again.",
+    "confirm": "I exported and stored the keys",
+    "unreadableTitle": "Some plugin secrets need a new value",
+    "unreadableBody": "{{count}} stored secret(s) cannot be read on this server, for example after a restore without the original keys. Enter them again where they are set."
   }
 }

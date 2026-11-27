@@ -1,142 +1,57 @@
 package server
 
 import (
-	"errors"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
-func intPointer(value int) *int {
-	return &value
-}
-
-func validInput() Input {
+func weeklyConfig() Config {
 	target := "12:00"
-	return Input{
-		Name: "Lunch", Message: "Lunch ends in", ScheduleType: "weekly",
-		TargetTime: &target, DaysOfWeek: []int{1, 2, 3, 4, 5},
-		Timezone: "America/New_York", LeadTimeSeconds: 900,
-		DisplayMode: "overlay", HeightPX: 72, ProgressFill: "none",
-		ContentPadding: intPointer(4), TextScale: 100, Enabled: true,
-		StartingSoonSeconds: 300, UrgentSeconds: 60, PulseSeconds: 10,
-		TargetScope: "all", TargetIDs: []uuid.UUID{},
+	return Config{Message: "Lunch ends in", ScheduleType: "weekly", TargetTime: &target, DaysOfWeek: []int{1, 2, 3},
+		Timezone: "UTC", LeadTimeSeconds: 900, DisplayMode: "overlay", HeightPX: 72, ProgressFill: "none",
+		ContentPadding: 4, TextScale: 100, StartingSoonSeconds: 300, UrgentSeconds: 60, PulseSeconds: 10}
+}
+
+func TestValidateHoldsTheRulesTheSchemaCannotState(t *testing.T) {
+	if err := weeklyConfig().Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*Config){
+		"weekly without time":   func(c *Config) { c.TargetTime = nil },
+		"weekly without days":   func(c *Config) { c.DaysOfWeek = nil },
+		"one-time without time": func(c *Config) { c.ScheduleType = "one_time" },
+		"stages out of order":   func(c *Config) { c.UrgentSeconds = 400 },
+		"pulse after urgent":    func(c *Config) { c.PulseSeconds = 60 },
+		"long message":          func(c *Config) { c.Message = strings.Repeat("é", 281) },
+		"unknown schedule":      func(c *Config) { c.ScheduleType = "monthly" },
+	} {
+		config := weeklyConfig()
+		mutate(&config)
+		if err := config.Validate(); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	// 280 characters are allowed even when they take more than 280 bytes.
+	config := weeklyConfig()
+	config.Message = strings.Repeat("é", 280)
+	if err := config.Validate(); err != nil {
+		t.Fatalf("280 characters: %v", err)
 	}
 }
 
-func TestValidateCountdownBar(t *testing.T) {
-	if err := Validate(validInput()); err != nil {
-		t.Fatalf("valid weekly input rejected: %v", err)
+func TestManifestKeepsOnlyTheFieldsOfItsScheduleType(t *testing.T) {
+	config := weeklyConfig()
+	at := time.Date(2026, 12, 1, 15, 0, 0, 0, time.UTC)
+	config.OneTimeAt = &at
+	weekly, _ := json.Marshal(config.Manifest("Lunch", 5))
+	if strings.Contains(string(weekly), "oneTimeAt") || !strings.Contains(string(weekly), `"daysOfWeek":[1,2,3]`) || !strings.Contains(string(weekly), `"priority":5`) {
+		t.Fatalf("weekly projection = %s", weekly)
 	}
-	drain := validInput()
-	drain.ProgressFill = "drain"
-	if err := Validate(drain); err != nil {
-		t.Fatalf("draining fill rejected: %v", err)
-	}
-	omitted := validInput()
-	omitted.ProgressFill = ""
-	if err := Validate(Normalize(omitted)); err != nil {
-		t.Fatalf("omitted progressFill should default to none, got %v", err)
-	}
-	if got := Normalize(omitted).ProgressFill; got != "none" {
-		t.Fatalf("expected omitted progressFill to normalize to none, got %q", got)
-	}
-	urgencyDefaults := Normalize(Input{})
-	if urgencyDefaults.StartingSoonSeconds != 300 || urgencyDefaults.UrgentSeconds != 60 || urgencyDefaults.PulseSeconds != 10 {
-		t.Fatalf("unexpected urgency defaults: %#v", urgencyDefaults)
-	}
-	omitted.ContentPadding = nil
-	defaulted := Normalize(omitted)
-	if defaulted.ContentPadding == nil || *defaulted.ContentPadding != 4 {
-		t.Fatalf("expected omitted contentPadding to default to 4, got %#v", defaulted.ContentPadding)
-	}
-	// Zero padding is a real choice; a zero scale is an omission.
-	metrics := validInput()
-	metrics.ContentPadding = intPointer(0)
-	metrics.TextScale = 0
-	normalized := Normalize(metrics)
-	if normalized.ContentPadding == nil || *normalized.ContentPadding != 0 || normalized.TextScale != 100 {
-		t.Fatalf("expected padding 0 to survive and scale 0 to default, got %d and %d",
-			*normalized.ContentPadding, normalized.TextScale)
-	}
-	if err := Validate(normalized); err != nil {
-		t.Fatalf("zero padding with a defaulted scale rejected: %v", err)
-	}
-	oneTime := validInput()
-	oneTime.ScheduleType = "one_time"
-	oneTime.TargetTime = nil
-	oneTime.DaysOfWeek = nil
-	at := time.Date(2026, 8, 1, 16, 0, 0, 0, time.UTC)
-	oneTime.OneTimeAt = &at
-	if err := Validate(oneTime); err != nil {
-		t.Fatalf("valid one-time input rejected: %v", err)
-	}
-}
-
-func TestValidateCountdownBarRejectsInvalidScheduleAndTargets(t *testing.T) {
-	input := validInput()
-	input.DaysOfWeek = []int{1, 1}
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected duplicate days to be invalid, got %v", err)
-	}
-	input = validInput()
-	input.TargetScope = "screens"
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected empty screen targets to be invalid, got %v", err)
-	}
-	input = validInput()
-	input.TargetScope = "screens"
-	duplicate := uuid.New()
-	input.TargetIDs = []uuid.UUID{duplicate, duplicate}
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected duplicate targets to be invalid, got %v", err)
-	}
-	input = validInput()
-	input.ContentPadding = intPointer(41)
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected an out-of-range contentPadding to be rejected, got %v", err)
-	}
-	input = validInput()
-	input.TextScale = 501
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected an out-of-range textScale to be rejected, got %v", err)
-	}
-	input = validInput()
-	input.ProgressFill = "sideways"
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected an unknown progressFill to be rejected, got %v", err)
-	}
-	input = validInput()
-	input.UrgencyEnabled = true
-	input.UrgentSeconds = input.StartingSoonSeconds
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected unordered urgency thresholds to be rejected, got %v", err)
-	}
-	input = validInput()
-	input.Timezone = "not/a-zone"
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected invalid timezone to be rejected, got %v", err)
-	}
-}
-
-func TestValidateCountdownBarCountsCharactersNotBytes(t *testing.T) {
-	input := validInput()
-	input.Name = strings.Repeat("é", 180)
-	input.Message = strings.Repeat("漢", 280)
-	if err := Validate(input); err != nil {
-		t.Fatalf("expected 180- and 280-character multibyte values to pass, got %v", err)
-	}
-	input = validInput()
-	input.Name = strings.Repeat("é", 181)
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected a 181-character name to be rejected, got %v", err)
-	}
-	input = validInput()
-	input.CompletionText = strings.Repeat("é", 281)
-	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
-		t.Fatalf("expected a 281-character completion text to be rejected, got %v", err)
+	config.ScheduleType = "one_time"
+	oneTime, _ := json.Marshal(config.Manifest("Lunch", 0))
+	if strings.Contains(string(oneTime), "targetTime") || strings.Contains(string(oneTime), "daysOfWeek") || !strings.Contains(string(oneTime), "2026-12-01T15:00:00Z") {
+		t.Fatalf("one-time projection = %s", oneTime)
 	}
 }

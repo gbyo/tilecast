@@ -7,6 +7,7 @@ package plugintest
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
@@ -44,6 +45,11 @@ func Conformance(t *testing.T, p plugin.Plugin) {
 			t.Fatalf("Init must only keep its services; it failed: %v", err)
 		}
 	}
+	if consumer, ok := p.(plugin.ServiceConsumer); ok {
+		consumer.UseServices(Services(p.Manifest(), func(operation string, _ []byte) (any, error) {
+			return nil, &plugin.ServiceError{Code: plugin.ServiceUnavailable, Message: "no service in conformance"}
+		}))
+	}
 	if automated, ok := p.(plugin.AutomationProvider); ok {
 		document, err := plugin.ParseAutomation(automated.Automation())
 		if err != nil {
@@ -69,3 +75,26 @@ func Host() plugin.Host {
 type FixedClock time.Time
 
 func (c FixedClock) Now() time.Time { return time.Time(c) }
+
+// ServiceHandler answers one operation for a test service client. It returns
+// the data of a successful call, or an error: a *plugin.ServiceError for a
+// domain failure.
+type ServiceHandler func(operation string, input []byte) (any, error)
+
+type handlerTransport struct{ handle ServiceHandler }
+
+func (t handlerTransport) CallService(_ context.Context, operation string, input []byte) (json.RawMessage, error) {
+	data, err := t.handle(operation, input)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(data)
+}
+
+// Services builds the typed service client of a Plugin Manifest API 3
+// plugin's manifest over a handler, so the plugin's own tests exercise its
+// service calls without a Server. Like the host's client, it refuses a call
+// to a service the manifest does not declare.
+func Services(manifest plugin.Manifest, handle ServiceHandler) *plugin.Services {
+	return plugin.NewServices(manifest, handlerTransport{handle: handle})
+}

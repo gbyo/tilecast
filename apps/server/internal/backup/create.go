@@ -148,6 +148,7 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 		Components:       components,
 		Database:         DatabaseManifest{Tables: snapshot.Tables, Sequences: snapshot.Sequences},
 		Packages:         packages,
+		PluginSecrets:    snapshot.PluginSecrets,
 	}
 
 	opts.Progress("finalizing_archive", 85)
