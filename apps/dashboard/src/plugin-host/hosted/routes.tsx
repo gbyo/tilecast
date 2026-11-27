@@ -5,6 +5,9 @@ import { hostedClient, hostedInstanceKey } from "./api";
 import { HostedInstanceEditor } from "./HostedInstanceEditor";
 import { HostedInstancesPage } from "./HostedInstancesPage";
 import { HostedSettingsPage } from "./HostedSettingsPage";
+import { HostedConnectionEditor } from "./connections/HostedConnectionEditor";
+import { HostedConnectionsPage } from "./connections/HostedConnectionsPage";
+import { connectionsClient, connectionKey } from "./connections/api";
 
 /**
  * The edit page's breadcrumb names the instance. It shares the editor's query
@@ -28,7 +31,8 @@ const crumb = (breadcrumb: string, key: string) => ({
 
 /**
  * The pages the host generates for a Plugin Manifest API 3 plugin: the list,
- * the create and edit pages of each instance kind, and the settings page.
+ * the create and edit pages of each instance kind, the settings page, and
+ * the connection pages.
  * The first kind also answers `new` and `:id` directly below the plugin's
  * route, the addresses its pages had before the host generated them.
  */
@@ -82,6 +86,33 @@ export function hostedRouteObjects(
     );
   } else if (v3.settings?.organization?.length) {
     out.push({ index: true, element: <HostedSettingsPage {...props} /> });
+  } else if ((v3.connections ?? []).length > 0) {
+    out.push({ index: true, element: <HostedConnectionsPage {...props} /> });
+  }
+  if ((v3.connections ?? []).length > 0) {
+    out.push(
+      {
+        path: "connections",
+        element: <HostedConnectionsPage {...props} />,
+        handle: crumb("Connections", "hosted.breadcrumbs.connections"),
+      },
+      {
+        path: "connections/new",
+        element: <HostedConnectionEditor {...props} />,
+        handle: crumb("New connection", "hosted.breadcrumbs.newConnection"),
+      },
+      {
+        path: "connections/:connectionId",
+        element: <HostedConnectionEditor {...props} />,
+        handle: {
+          ...crumb("Connection", "hosted.breadcrumbs.connection"),
+          resource: {
+            queryKey: (id: string) => connectionKey(plugin.id, id),
+            load: (id: string) => connectionsClient(plugin.id).get(id),
+          },
+        },
+      },
+    );
   }
   if (v3.settings?.organization?.length && v3.instances.length > 0) {
     out.push({

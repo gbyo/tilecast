@@ -3,9 +3,12 @@ package configschema
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var connectionIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,39}$`)
 
 // ValidateFields checks a schema for one profile. It is the authoritative
 // shape check for Widget definitions (apps/server/internal/contentdefs) and
@@ -81,6 +84,25 @@ func validateLevel(fields []Field, profile Profile, depth int) error {
 			if field.Control == ControlSecret && field.MaxLength > MaxSecretBytes {
 				return fmt.Errorf("secret field %q allows more than %d bytes", field.Key, MaxSecretBytes)
 			}
+		}
+		if field.Control == ControlConnection {
+			if field.Personal != nil {
+				// A connection value is a record ID, not personal data, and
+				// a removed value would leave its reference behind.
+				return fmt.Errorf("connection field %q cannot be personal", field.Key)
+			}
+			if len(field.Connections) < 1 || len(field.Connections) > MaxFieldConnections {
+				return fmt.Errorf("connection field %q must accept 1 to %d connection declarations", field.Key, MaxFieldConnections)
+			}
+			seenConnections := map[string]bool{}
+			for _, id := range field.Connections {
+				if !connectionIDPattern.MatchString(id) || seenConnections[id] {
+					return fmt.Errorf("connection field %q names an invalid or repeated connection %q", field.Key, id)
+				}
+				seenConnections[id] = true
+			}
+		} else if len(field.Connections) > 0 {
+			return fmt.Errorf("field %q lists connections but is not a connection field", field.Key)
 		}
 		if field.Required {
 			if text, ok := field.Default.(string); ok && strings.TrimSpace(text) == "" {

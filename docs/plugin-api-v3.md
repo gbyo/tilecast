@@ -1,7 +1,7 @@
 # Tilecast Plugin Manifest API 3
 
-Status: accepted for phase 1 of [ADR: Plugin Model V3](adr/plugin-model-v3.md).
-Countdown Bar uses Plugin Manifest API 3. Emergency Alerts and Forms stay on
+Status: accepted for phase 1 of [ADR: Plugin Model V3](adr/plugin-model-v3.md),
+with the host connections of phase 2. Countdown Bar uses Plugin Manifest API 3. Emergency Alerts and Forms stay on
 [Plugin API v1](plugin-api.md). Later phases of the ADR add more members to
 this contract. This document does not describe a member that no phase has
 implemented.
@@ -52,7 +52,8 @@ Server through the typed service client (see [Service client](#service-client)).
 
 `npm run plugins:check` refuses a Plugin Manifest API 3 plugin that opens its
 own network connection. It refuses `http.Client`, `http.Get`, `net.Dial`, and
-the related calls in non-test Go files. This check finds mistakes. It is not a
+the related calls in non-test Go files. A plugin sends requests through host
+connections and `http.fetch@1` instead. This check finds mistakes. It is not a
 security control.
 
 ## Manifest members
@@ -64,6 +65,7 @@ A version 3 manifest adds these members to the shared ones.
 | `services`           | Server services (`name@version`) that the typed client may call.     |
 | `settings`           | Host-owned settings: `organization` and `screen` field lists.        |
 | `instances`          | Instance kinds, at most four.                                        |
+| `connections`        | Host-owned outbound connections, at most eight. See [Plugin connections](plugin-connections.md). |
 | `studio.entrypoint`  | Optional. Omit it when the generated pages are enough.               |
 
 A version 3 manifest does not accept `capabilities.playerManifest`,
@@ -98,8 +100,8 @@ The names `id`, `kind`, `plugin`, `name`, `enabled`, `priority`, `targetScope`,
 `clearSecrets`, `createdAt`, `updatedAt`, and `createdBy` belong to the host. A
 field key must not use them.
 
-The reserved paths `settings`, `secrets`, `status`, `install`, and `kinds` are
-not valid kind paths.
+The reserved paths `settings`, `secrets`, `status`, `install`, `kinds`, and
+`connections` are not valid kind paths.
 
 #### Limit of four kinds
 
@@ -233,7 +235,8 @@ A capability has callers: `package`, `bundled`, or both. A capability without a
 caller list is for packages only, as before. Phase 1 gives bundled plugins:
 `organization.read@1`, `instance.read@1`, `screens.read@1`, `targets.resolve@1`,
 `targets.resolve@2`, `users.read-basic@1`, and the new `settings.read@1` and
-`secrets.read@1`. The two new services are for bundled plugins only.
+`secrets.read@1`. Phase 2 adds `http.fetch@1`. The three new services are for
+bundled plugins only.
 
 The call uses the same dispatcher, so it gets the same operation, context,
 validation, authorization decision, and audit as a package call. A test holds
@@ -274,6 +277,21 @@ in a `studio`, `background`, or `system` context. See
 A secret never enters a Player manifest, Player state, a log, an audit event, a
 URL, or an error message. The audit event of a write names the secret keys that
 changed.
+
+## Connections
+
+A plugin declares its outbound connections in `connections`. An Owner or
+Administrator creates connection records on the generated Connections page and
+gives the network consents there. A `connection` field holds a record ID. The
+plugin calls `http.fetch@1` with that ID. See
+[Plugin connections](plugin-connections.md) for the declaration, the address
+and redirect rules, the consents, secret headers, and the failure codes.
+
+Studio adds a **Connections** page below the plugin's route when the manifest
+declares connections. The install review on the plugin's catalog page shows
+each declaration: its origins, whether an operator enters the origin, private
+network, plain HTTP, plaintext secrets, and a response or time limit above the
+default.
 
 ## Personal data
 
@@ -367,11 +385,12 @@ this kind and is not in the table.
 
 ## Not in this phase
 
-Phase 1 does not add outbound connections, `http.fetch@1`, OAuth, feeds,
-`storage.kv@1`, timers, webhooks, events, a delivery engine, notification
+Phase 1 does not add OAuth, feeds, `storage.kv@1`, timers, webhooks, events,
+a delivery engine, notification
 channels, content health providers, plugin capabilities, staff pages, kiosks,
 participant sessions, moderation, public links, Player reports, audio cues,
 serial or GPIO or printer services, stream connections, TCP, installed-package
 parity for `plugin-runtime.state@1`, content services for plugins, or editor
-action slots. A `connection` field and a `data_source` field are not valid in a
-plugin manifest until their runtime exists.
+action slots. A `data_source` field is not valid in a plugin manifest. Phase 2
+adds host connections and `http.fetch@1`; the other phase 2 members follow in
+later changes.

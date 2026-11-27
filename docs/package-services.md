@@ -32,8 +32,9 @@ The service registry (`internal/extensions/services`) owns the supported
 service identities and versions. It is the one Server service vocabulary. A
 bundled [Plugin Manifest API 3](plugin-api-v3.md#service-client) plugin calls the
 same operations through a generated, typed Go client in the plugin SDK. Each
-capability lists its callers: `package`, `bundled`, or both. `settings.read@1` and
-`secrets.read@1` are for bundled plugins only. A package grant for a
+capability lists its callers: `package`, `bundled`, or both. `settings.read@1`,
+`secrets.read@1`, and `http.fetch@1` are for bundled plugins only. The old
+package `http_fetch` import keeps its own contract. A package grant for a
 bundled-only service fails closed, like an unknown one. The `system` context
 now has a producer: a bundled plugin's Player projection. A grant for an unknown version fails
 closed. The install review resolves every grant against
@@ -89,8 +90,19 @@ namespace with bounded metadata, attributed to the package.
 `tilecast.call_v1(op_ptr, op_len, in_ptr, in_len, out_ptr, out_cap)`
 carries one operation token, one JSON input, and one JSON answer. An
 operation token joins service and method: `capability@version/method`,
-for example `screens.read@1/list`. Tokens cap at 128 bytes. Inputs cap
-at 32 KiB; answers cap at 64 KiB.
+for example `screens.read@1/list`. Tokens cap at 128 bytes.
+
+Each operation has its own transport bounds in the registry
+(`Operation.Limits`). The default is 32 KiB of input and 64 KiB of answer.
+Every operation that a package can call uses the default, so the package call
+window does not change. A bundled-only operation asks for more only when its
+domain needs it. `http.fetch@1/request` holds a 1 MiB body and a 16 MiB body in
+base64; see [Plugin connections](plugin-connections.md#transport-limits). No
+operation asks for more than 24 MiB. The dispatcher resolves the operation,
+decides the caller, the grant, the context, and the actor, and then applies
+the operation's input bound. A call that is not granted is denied before its
+size matters. The generated plugin SDK catalog and client carry each
+operation's bounds.
 
 An executed call answers an envelope: `{ok: true, data}` or `{ok:
 false, error}` with a typed domain failure: `invalid_input`,

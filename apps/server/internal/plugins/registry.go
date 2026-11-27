@@ -51,6 +51,10 @@ type Definition struct {
 	// PlayerFacing plugins contribute manifest entries, so installing or
 	// removing one changes what a screen should receive.
 	PlayerFacing bool
+
+	// Connections are the outbound connections a Plugin Manifest API 3
+	// plugin declares, for the install review.
+	Connections []ConnectionReview
 }
 
 // Requirement is declarative context shown before installation. It is never
@@ -113,7 +117,7 @@ func definitionFromManifest(m plugin.Manifest) Definition {
 		InstanceNounSingular: m.InstanceNoun.Singular, InstanceNounPlural: m.InstanceNoun.Plural,
 		Requirements: requirements, Capabilities: append([]string{}, m.Uses...),
 		Documentation: documentation, Installable: m.IsInstallable(),
-		PlayerFacing: m.PlayerFacing(),
+		PlayerFacing: m.PlayerFacing(), Connections: connectionReviews(m),
 	}
 }
 

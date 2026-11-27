@@ -42,6 +42,11 @@
     "plugin_settings_revision_conflict": "Someone else saved newer settings. Reload them, then make your change again.",
     "expected_revision_required": "Send expectedRevision with the revision you read, so a newer change is never overwritten.",
     "secrets_unavailable": "Plugin secrets are unavailable on this server.",
-    "restore_unreadable_secrets": "Some plugin secrets in this backup need keys this server does not have."
+    "restore_unreadable_secrets": "Some plugin secrets in this backup need keys this server does not have.",
+    "plugin_connection_not_found": "The connection was not found.",
+    "plugin_connection_in_use": "Settings or items use this connection. Choose another connection there first.",
+    "plugin_connection_revision_conflict": "Someone else changed this connection. Reload it, then make your change again.",
+    "invalid_plugin_connection": "The connection is not valid.",
+    "plugin_connection_limit": "This plugin has the most connections it can have. Delete one you no longer use."
   }
 }

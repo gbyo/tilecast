@@ -1,0 +1,155 @@
+{
+  "apiVersion": 3,
+  "id": "local_gateway",
+  "definitionVersion": 1,
+  "name": "Local Gateway",
+  "description": "Read a meter gateway and a public API.",
+  "category": "Workflow",
+  "icon": "plug",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "meter",
+    "plural": "meters"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/local-gateway"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/local-gateway"
+  },
+  "services": [
+    "http.fetch@1",
+    "secrets.read@1"
+  ],
+  "connections": [
+    {
+      "id": "c0",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c1",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c2",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c3",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c4",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c5",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c6",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c7",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    },
+    {
+      "id": "c8",
+      "title": "C",
+      "type": "http",
+      "origins": [
+        "https://example.com"
+      ]
+    }
+  ],
+  "settings": {
+    "organization": [
+      {
+        "key": "cloud",
+        "label": "Cloud",
+        "control": "connection",
+        "connections": [
+          "c0"
+        ]
+      },
+      {
+        "key": "cloudToken",
+        "label": "Cloud token",
+        "control": "secret",
+        "maxLength": 512
+      }
+    ]
+  },
+  "instances": [
+    {
+      "kind": "meter",
+      "noun": {
+        "singular": "meter",
+        "plural": "meters"
+      },
+      "path": "meters",
+      "operations": {
+        "singular": "Meter",
+        "plural": "Meters"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "gateway",
+          "label": "Gateway",
+          "control": "connection",
+          "connections": [
+            "c1"
+          ],
+          "required": true
+        },
+        {
+          "key": "gatewayKey",
+          "label": "Gateway key",
+          "control": "secret"
+        }
+      ]
+    }
+  ]
+}

@@ -5262,6 +5262,153 @@ paths:
             description: plugin_not_found — the release does not define this plugin — or plugin_automation_not_found — it maps no operations into automation,
           }
         "409": { description: plugin_not_installed }
+  /api/v1/plugins/{pluginId}/connections:
+    get:
+      operationId: listPluginConnections
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Lists the connection records of a Plugin Manifest API 3 plugin that declares connections. Requires plugins.use. A record never holds a credential. Each record states whether it can be used now and why not.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+      responses:
+        "200":
+          description: Connection records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [items, total]
+                    properties:
+                      items: { type: array, items: { $ref: "#/components/schemas/PluginConnection" } }
+                      total: { type: integer, minimum: 0 }
+        "401": { description: Dashboard authentication required }
+        "404": { description: "plugin_not_found — the plugin is unknown, is not on Plugin Manifest API 3, or declares no connections" }
+    post:
+      operationId: createPluginConnection
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PluginConnectionCreate" }
+      responses:
+        "201":
+          description: Record created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginConnection" }
+        "400": { description: "invalid_plugin_connection — unknown declaration, or an origin the declaration does not accept" }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found }
+        "409": { description: "plugin_not_installed, or plugin_connection_limit — a plugin has at most 50 records" }
+  /api/v1/plugins/{pluginId}/connections/{connectionId}:
+    get:
+      operationId: getPluginConnection
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Reads one connection record. Requires plugins.use.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+      responses:
+        "200":
+          description: Connection record
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginConnection" }
+        "404": { description: plugin_not_found or plugin_connection_not_found }
+    put:
+      operationId: updatePluginConnection
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PluginConnectionUpdate" }
+      responses:
+        "200":
+          description: Record updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginConnection" }
+        "400": { description: invalid_plugin_connection }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found or plugin_connection_not_found }
+        "409": { description: "plugin_connection_revision_conflict, with error.details.currentRevision" }
+        "428": { description: expected_revision_required }
+    delete:
+      operationId: deletePluginConnection
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "204": { description: Record deleted }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found or plugin_connection_not_found }
+        "409":
+          description: plugin_connection_in_use — error.details.references lists the settings and instances that use it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PluginConnectionInUseError" }
+  /api/v1/plugins/{pluginId}/connections/{connectionId}/consents:
+    put:
+      operationId: setPluginConnectionConsents
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three
+        separate consents to the states in the request. A consent the declaration does not make possible
+        is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP.
+        A consent applies only to the declaration and the origin it was given for.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+        - { $ref: "#/components/parameters/PluginConnectionID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PluginConnectionConsentsWrite" }
+      responses:
+        "200":
+          description: Consents written
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginConnection" }
+        "400": { description: invalid_plugin_connection }
+        "403": { description: plugins.manage and CSRF token required }
+        "404": { description: plugin_not_found or plugin_connection_not_found }
+        "409": { description: plugin_connection_revision_conflict }
+        "428": { description: expected_revision_required }
   /api/v1/plugins/dependency-graph:
     get:
       operationId: getDependencyGraph
@@ -10197,6 +10344,12 @@ components:
       required: true
       schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
       description: Registry identifier such as countdown_bar.
+    PluginConnectionID:
+      in: path
+      name: connectionId
+      required: true
+      schema: { type: string, format: uuid }
+      description: A connection record of the plugin.
     PackageID:
       in: path
       name: packageId
@@ -12586,6 +12739,7 @@ components:
           active,
           instanceCount,
           attention,
+          connections,
         ]
       properties:
         id: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
@@ -12628,6 +12782,25 @@ components:
             type: array,
             items: { $ref: "#/components/schemas/PluginAttention" },
           }
+        connections:
+          type: array
+          description: Outbound connections a Plugin Manifest API 3 plugin declares. Empty for other plugins.
+          items: { $ref: "#/components/schemas/PluginConnectionReview" }
+    PluginConnectionReview:
+      type: object
+      required: [id, title, type, operatorOrigin, origins, privateNetwork, plainHttp, plaintextSecret, maxResponseBytes, timeoutSeconds]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        type: { type: string, enum: [http] }
+        operatorOrigin: { type: boolean, description: An Owner or Administrator enters the one origin. }
+        origins: { type: array, items: { type: string }, description: The fixed https origins. Empty for an operator connection. }
+        privateNetwork: { type: boolean, description: "Private addresses are possible after a separate consent." }
+        plainHttp: { type: boolean, description: "Plain HTTP on the local network is possible after its own consent." }
+        plaintextSecret: { type: boolean, description: "A secret header over plain HTTP is possible after a third consent." }
+        maxResponseBytes: { type: integer, minimum: 1024, maximum: 16777216 }
+        timeoutSeconds: { type: integer, minimum: 1, maximum: 60 }
     PluginAutomationOperation:
       type: object
       required: [operationId, method, path, risk, cliPath, mcpAction]
@@ -13141,6 +13314,101 @@ components:
                     title: { type: string }
                     description: { type: string }
                     mutating: { type: boolean }
+    PluginConnectionConsent:
+      type: object
+      required: [available, given]
+      properties:
+        available: { type: boolean, description: The declaration makes this consent possible. }
+        given: { type: boolean, description: The consent applies now. }
+        givenAt: { type: string, format: date-time }
+        givenBy: { type: string, format: uuid }
+    PluginConnection:
+      type: object
+      required: [id, plugin, definition, name, origins, consents, status, reasons, notices, references, revision, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        plugin: { type: string }
+        definition: { type: string, description: The connection declaration of the plugin manifest. }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        origin: { type: string, description: The configured origin of an operator connection. }
+        origins: { type: array, items: { type: string }, description: The approved origins now. }
+        consents:
+          type: object
+          required: [privateNetwork, plainHttp, plaintextSecret]
+          properties:
+            privateNetwork: { $ref: "#/components/schemas/PluginConnectionConsent" }
+            plainHttp: { $ref: "#/components/schemas/PluginConnectionConsent" }
+            plaintextSecret: { $ref: "#/components/schemas/PluginConnectionConsent" }
+        status:
+          type: string
+          description: ready, or the first reason the connection cannot be used.
+        reasons:
+          type: array
+          items:
+            type: string
+            enum: [origin_required, private_network_consent_required, plain_http_consent_required, declaration_removed]
+        notices:
+          type: array
+          items:
+            type: string
+            enum: [consents_need_confirmation, private_addresses_need_consent]
+        references:
+          type: array
+          items: { $ref: "#/components/schemas/PluginConnectionReference" }
+        revision: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PluginConnectionReference:
+      type: object
+      required: [ownerType, ownerId, fieldKey, label]
+      properties:
+        ownerType: { type: string, enum: [settings, instance] }
+        ownerId: { type: string, format: uuid }
+        fieldKey: { type: string }
+        label: { type: string }
+    PluginConnectionCreate:
+      type: object
+      additionalProperties: false
+      required: [definition, name]
+      properties:
+        definition: { type: string }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        origin: { type: string, maxLength: 300, description: Required for an operator connection; refused otherwise. }
+    PluginConnectionUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, expectedRevision]
+      properties:
+        definition: { type: string, description: Optional. A record's declaration never changes. }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        origin: { type: string, maxLength: 300 }
+        expectedRevision: { type: integer, minimum: 1 }
+    PluginConnectionConsentsWrite:
+      type: object
+      additionalProperties: false
+      required: [privateNetwork, plainHttp, plaintextSecret, expectedRevision]
+      properties:
+        privateNetwork: { type: boolean }
+        plainHttp: { type: boolean }
+        plaintextSecret: { type: boolean }
+        expectedRevision: { type: integer, minimum: 1 }
+    PluginConnectionInUseError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code: { type: string, const: plugin_connection_in_use }
+            message: { type: string }
+            details:
+              type: object
+              required: [references]
+              properties:
+                references:
+                  type: array
+                  items: { $ref: "#/components/schemas/PluginConnectionReference" }
     PluginInUseError:
       type: object
       required: [error]

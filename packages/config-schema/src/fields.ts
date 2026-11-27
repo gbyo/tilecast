@@ -47,9 +47,9 @@ export const SHARED_CONTROLS = [
 
 /**
  * Plugin-only controls. A secret value is stored only through the secret
- * store and is never part of a configuration document. A connection names a
- * host-held outbound connection; the plugin manifest validator refuses it
- * until the connection runtime exists.
+ * store and is never part of a configuration document. A connection value
+ * is the ID of a host-owned connection record of the same plugin;
+ * `connections` names the declarations the field accepts.
  */
 export const PLUGIN_ONLY_CONTROLS = ["secret", "connection"] as const;
 
@@ -61,6 +61,9 @@ export type ConfigControl = SharedControl | PluginOnlyControl;
 export const MAX_FONT_FIELDS = 4;
 /** The largest secret value, in bytes. */
 export const MAX_SECRET_BYTES = 4096;
+/** The most connection declarations one connection field accepts. */
+export const MAX_FIELD_CONNECTIONS = 8;
+const connectionIdPattern = /^[a-z][a-z0-9_]{0,39}$/;
 export const MIN_PERSONAL_RETENTION_DAYS = 1;
 export const MAX_PERSONAL_RETENTION_DAYS = 3650;
 
@@ -148,6 +151,8 @@ export interface ConfigField {
   ui?: ConfigFieldUi;
   /** Plugin profile only: the field holds personal data. */
   personal?: ConfigPersonal;
+  /** Plugin profile, connection control: the declarations it accepts. */
+  connections?: string[];
 }
 
 const json: z.ZodType<unknown> = z.lazy(() =>
@@ -204,6 +209,7 @@ export function configFieldSchema(
             .max(MAX_PERSONAL_RETENTION_DAYS),
         })
         .optional(),
+      connections: z.array(z.string()).optional(),
     }),
   ) as z.ZodType<ConfigField>;
   return field;
@@ -376,6 +382,29 @@ export function configSchemaProblems(
             );
           }
           break;
+      }
+      if (field.control === "connection") {
+        if (field.personal)
+          problems.push(`connection field "${field.key}" cannot be personal`);
+        const accepted = field.connections ?? [];
+        if (accepted.length < 1 || accepted.length > MAX_FIELD_CONNECTIONS) {
+          problems.push(
+            `connection field "${field.key}" must accept 1 to ${MAX_FIELD_CONNECTIONS} connection declarations`,
+          );
+        }
+        const seenConnections = new Set<string>();
+        for (const id of accepted) {
+          if (!connectionIdPattern.test(id) || seenConnections.has(id)) {
+            problems.push(
+              `connection field "${field.key}" names an invalid or repeated connection "${id}"`,
+            );
+          }
+          seenConnections.add(id);
+        }
+      } else if ((field.connections ?? []).length > 0) {
+        problems.push(
+          `field "${field.key}" lists connections but is not a connection field`,
+        );
       }
       if (
         field.required &&

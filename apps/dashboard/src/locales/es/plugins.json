@@ -559,7 +559,96 @@
       "list": "Lista",
       "new": "Nuevo",
       "edit": "Editar",
-      "settings": "Ajustes"
+      "settings": "Ajustes",
+      "connections": "Conexiones",
+      "newConnection": "Nueva conexión",
+      "connection": "Conexión"
+    },
+    "connections": {
+      "title": "Conexiones",
+      "description": "Adónde puede enviar solicitudes este complemento. Usted elige el origen de una conexión local y concede cada permiso de red por separado.",
+      "open": "Conexiones",
+      "new": "Nueva conexión",
+      "createTitle": "Nueva conexión",
+      "manageTitle": "Administrar conexión",
+      "emptyTitle": "Aún no hay conexiones",
+      "emptyDescription": "Cree una conexión y luego elíjala en la configuración del complemento.",
+      "loadError": "No se pudieron cargar las conexiones.",
+      "definition": "Tipo",
+      "definitionHint": "Para qué usa el complemento esta conexión. No se puede cambiar después.",
+      "name": "Nombre",
+      "nameRequired": "Escriba un nombre.",
+      "origin": "Origen",
+      "originHint": "Esquema, host y puerto opcional, por ejemplo https://calendar.example.org. Sin ruta.",
+      "originRequired": "Escriba un origen.",
+      "originInvalid": "Escriba un origen como https://example.org, sin ruta, consulta ni nombre de usuario.",
+      "originHttps": "Esta conexión solo usa HTTPS.",
+      "approvedOrigins": "Orígenes aprobados",
+      "save": "Guardar",
+      "create": "Crear conexión",
+      "createdToast": "Se creó la conexión.",
+      "savedToast": "Se guardó la conexión.",
+      "deletedToast": "Se eliminó la conexión.",
+      "consentsSavedToast": "Se guardaron los permisos.",
+      "deleteTitle": "¿Eliminar {{name}}?",
+      "deleteBody": "El código del complemento ya no podrá usar esta conexión.",
+      "delete": "Eliminar conexión",
+      "referencesTitle": "Usada por",
+      "noReferences": "Ninguna configuración ni elemento usa esta conexión.",
+      "referenceSettings": "Configuración del complemento",
+      "inUseHint": "Elija otra conexión donde se usa antes de eliminarla.",
+      "status": {
+        "ready": "Lista",
+        "origin_required": "Necesita un origen",
+        "private_network_consent_required": "Necesita permiso de red privada",
+        "plain_http_consent_required": "Necesita permiso de HTTP sin cifrar",
+        "declaration_removed": "El complemento ya no la declara"
+      },
+      "notices": {
+        "consents_need_confirmation": "El complemento cambió lo que puede hacer esta conexión desde que se concedieron los permisos. Concédalos de nuevo para usarlos.",
+        "private_addresses_need_consent": "Las direcciones de la red privada se rechazan hasta que las permita."
+      },
+      "consents": {
+        "title": "Permisos de red",
+        "description": "Cada permiso es independiente. Guardar el nombre o el origen nunca los cambia, y un origen nuevo los borra.",
+        "privateNetwork": {
+          "label": "Permitir direcciones de la red privada",
+          "description": "Permite que esta conexión llegue a direcciones de su red local: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 y fc00::/7. Las direcciones de bucle local, de enlace local y de metadatos en la nube siempre se rechazan."
+        },
+        "plainHttp": {
+          "label": "Permitir HTTP sin cifrar",
+          "description": "Permite que esta conexión envíe solicitudes sin cifrar a su origen en la red local. Cualquiera en esa red puede leer y cambiar el tráfico."
+        },
+        "plaintextSecret": {
+          "label": "Permitir secretos por HTTP sin cifrar",
+          "description": "Permite que esta conexión envíe un secreto guardado, como una clave de API, en una solicitud sin cifrar. Cualquiera en la red local puede leer el secreto."
+        },
+        "requiresPrivateNetwork": "Primero permita las direcciones de la red privada.",
+        "requiresPlainHttp": "Primero permita HTTP sin cifrar.",
+        "givenAt": "Concedido el {{date}}",
+        "save": "Guardar permisos",
+        "confirmTitle": "¿Conceder estos permisos?",
+        "confirmBody": "Está permitiendo: {{list}}. Puede quitar un permiso en cualquier momento.",
+        "confirm": "Conceder permisos",
+        "none": "Esta conexión no necesita ningún permiso de red."
+      },
+      "field": {
+        "none": "Sin conexión",
+        "manage": "Administrar conexiones",
+        "empty": "Primero cree una conexión para este campo.",
+        "missing": "La conexión elegida ya no existe."
+      },
+      "review": {
+        "title": "Conexiones de red",
+        "security": "Adónde pueden ir los datos",
+        "operatorOrigin": "Envía solicitudes a un origen que usted elige",
+        "fixedOrigins": "Envía solicitudes a {{origins}}",
+        "privateNetwork": "Puede llegar a su red privada después de que lo permita",
+        "plainHttp": "Puede usar HTTP sin cifrar en su red local después de que lo permita",
+        "plaintextSecret": "Puede enviar un secreto por HTTP sin cifrar después de que lo permita",
+        "response": "Acepta respuestas de hasta {{size}}",
+        "timeout": "Espera hasta {{seconds}} segundos una respuesta"
+      }
     }
   },
   "secrets": {

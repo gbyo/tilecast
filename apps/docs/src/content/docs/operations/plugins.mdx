@@ -79,6 +79,37 @@ Package capabilities are requests, not blanket host access. A server runtime tha
 
 A capability in the package manifest is a request, not a self-granted permission. Server network access is limited to the HTTPS hostnames the package declares and Tilecast exposes to that package. The package does not receive the Tilecast Server's general network access or Player credentials. Storage, background jobs, and Studio interfaces are separate requested capabilities and are shown in the same review.
 
+## Connect a plugin to another service
+
+Some built-in plugins read from another system: a calendar, a point-of-sale catalog, or a device on your network. These plugins can't reach the network on their own. They use **connections** that you create, and Tilecast checks every request they send.
+
+Before you install such a plugin, its page has a **Network connections** section. For each connection it shows where the plugin sends requests, whether you choose that address, and what extra permission the connection could ask for. A connection that waits longer than 10 seconds or accepts responses larger than 1 MiB says so there too.
+
+To set up a connection after you install the plugin:
+
+<Steps>
+
+1. Open the plugin's page from the installed list and select **Connections**.
+2. Select **New connection**, give it a name, and, when Studio asks, enter its origin: the scheme, host, and port of the service, such as `https://calendar.example.org`. Don't include a path.
+3. Select **Create connection**.
+4. Choose the connection in the plugin's settings or in one of its items.
+
+</Steps>
+
+Only an Owner or Administrator can create, change, or delete a connection. Everyone who can see plugins can read a connection, but a connection never shows a password, a token, or another secret.
+
+### Network permissions
+
+A connection to something on your own network, such as a solar inverter or a library catalog server, can need extra permission. Each permission is a separate checkbox on the connection's page, with its own explanation, and saving the connection's name or origin never changes them.
+
+- **Allow private network addresses** lets the connection reach addresses on your local network. Tilecast never reaches the Tilecast server itself, link-local addresses, or cloud metadata addresses, even with this permission.
+- **Allow plain HTTP** lets the connection send unencrypted requests to its origin, and only to private addresses. Anyone on that network can read the traffic.
+- **Allow secrets over plain HTTP** lets the connection send a stored secret, such as an API key, without encryption. It appears only when the plugin says it may need it.
+
+Studio asks you to confirm before it gives a permission. Changing a connection's origin removes all of its permissions, so a permission you gave for one device never carries over to another. If a newer Tilecast release changes what a connection may do, Studio asks you to give the permissions again.
+
+A connection that a setting or item still uses can't be deleted. Its page lists what uses it. See [Plugin connections](https://github.com/gbyo/tilecast/blob/main/docs/plugin-connections.md) for the exact address and redirect rules.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:

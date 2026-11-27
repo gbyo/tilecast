@@ -826,5 +826,11 @@
     "file": "00139_countdown_bar_generic_instances.sql",
     "owner": "countdown_bar",
     "sha256": "3264e92e99ee5e40e145bef26de8ab07984cbc3d8885f6ea071f6749d73dabca"
+  },
+  {
+    "version": 140,
+    "file": "00140_plugin_connections.sql",
+    "owner": "core",
+    "sha256": "cd71efc051d67286ed77851461447f8fdc16b4884786cb297c48af00365e7b76"
   }
 ]

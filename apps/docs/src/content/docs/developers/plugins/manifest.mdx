@@ -190,3 +190,39 @@ A version 3 plugin describes what it stores, and Tilecast stores it. You write n
 - Tilecast saves each change with a revision, so two people editing at once can't overwrite each other.
 
 You then write two small hooks in Go: one that checks an instance makes sense, and one that turns an instance into what a Player shows. See the [Plugin Manifest API 3 reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v3.md) for the details, including the service client and what isn't available yet.
+
+## Connections (Plugin Manifest API 3)
+
+A version 3 plugin never opens its own network connection. It declares each service it talks to, and an Owner or Administrator creates the connection in Studio.
+
+```json
+{
+  "services": ["http.fetch@1", "secrets.read@1"],
+  "connections": [
+    { "id": "calendar", "title": "Calendar API", "type": "http", "origins": ["https://api.example.com"] },
+    {
+      "id": "gateway",
+      "title": "Meter gateway",
+      "type": "http",
+      "origins": "operator",
+      "privateNetwork": "allowed",
+      "plainHttp": "allowed"
+    }
+  ],
+  "settings": {
+    "organization": [
+      { "key": "calendar", "label": "Calendar", "control": "connection", "connections": ["calendar"] },
+      { "key": "apiToken", "label": "API token", "control": "secret" }
+    ]
+  }
+}
+```
+
+- `origins` is a list of `https` origins, or `operator` when the operator enters one. An origin is a scheme, host, and port, with no path.
+- `privateNetwork` and `plainHttp` say what a connection *could* do. Each still needs its own permission from the operator. Plain HTTP works only with an operator origin on a private address.
+- `allowPlaintextSecret` lets a secret travel over plain HTTP after a third permission.
+- `maxResponseBytes` (up to 16 MiB) and `timeoutSeconds` (up to 60) raise the defaults of 1 MiB and 10 seconds. The install review shows a raised limit.
+- A `connection` field stores the ID of a connection record. List the declarations it accepts in `connections`.
+
+See [Use a connection from server code](/developers/plugins/server/#use-a-connection-plugin-manifest-api-3) for the request side, and the [Plugin connections](https://github.com/gbyo/tilecast/blob/main/docs/plugin-connections.md) reference for every rule.
+

@@ -20,10 +20,12 @@ const (
 // BundledCatalogSource renders the bundled capabilities as JSON.
 func BundledCatalogSource() ([]byte, error) {
 	type operation struct {
-		Name     string   `json:"name"`
-		Title    string   `json:"title"`
-		Mutating bool     `json:"mutating"`
-		Contexts []string `json:"contexts"`
+		Name           string   `json:"name"`
+		Title          string   `json:"title"`
+		Mutating       bool     `json:"mutating"`
+		Contexts       []string `json:"contexts"`
+		MaxInputBytes  int      `json:"maxInputBytes"`
+		MaxOutputBytes int      `json:"maxOutputBytes"`
 	}
 	type capability struct {
 		ID          string      `json:"id"`
@@ -40,7 +42,9 @@ func BundledCatalogSource() ([]byte, error) {
 		}
 		item := capability{ID: entry.ID, Version: entry.Version, Name: entry.Name, Description: entry.Description, Contexts: entry.Contexts}
 		for _, op := range entry.Operations {
-			item.Operations = append(item.Operations, operation{Name: op.Name, Title: op.Title, Mutating: op.Mutating, Contexts: op.Contexts})
+			limits := LimitsOf(op)
+			item.Operations = append(item.Operations, operation{Name: op.Name, Title: op.Title, Mutating: op.Mutating, Contexts: op.Contexts,
+				MaxInputBytes: limits.MaxInputBytes, MaxOutputBytes: limits.MaxOutputBytes})
 		}
 		out = append(out, item)
 	}
@@ -82,8 +86,9 @@ var ServerServices = []ServerService{
 		fmt.Fprintf(&out, "\t{ID: %q, Version: %d, Name: %q, Description: %q, Contexts: %#v, Operations: []ServerOperation{\n",
 			capability.ID, capability.Version, capability.Name, capability.Description, capability.Contexts)
 		for _, operation := range capability.Operations {
-			fmt.Fprintf(&out, "\t\t{Name: %q, Title: %q, Description: %q, Mutating: %t, Contexts: %#v},\n",
-				operation.Name, operation.Title, operation.Description, operation.Mutating, operation.Contexts)
+			limits := LimitsOf(operation)
+			fmt.Fprintf(&out, "\t\t{Name: %q, Title: %q, Description: %q, Mutating: %t, Contexts: %#v, MaxInputBytes: %d, MaxOutputBytes: %d},\n",
+				operation.Name, operation.Title, operation.Description, operation.Mutating, operation.Contexts, limits.MaxInputBytes, limits.MaxOutputBytes)
 		}
 		out.WriteString("\t}},\n")
 	}

@@ -169,7 +169,7 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, sc
 			values[key] = value
 		}
 	}
-	normalized, err := configschema.Normalize(ctx, fields, values, s.configReferences())
+	normalized, err := configschema.Normalize(ctx, fields, values, s.pluginConfigReferences(pluginID))
 	if err != nil {
 		return SettingsDocument{}, fmt.Errorf("%w: %v", plugin.ErrInvalid, err)
 	}
@@ -272,6 +272,9 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID, scope string, sc
 		}
 		label := hosted.definition.Name + " settings"
 		if err := storeConfigReferences(ctx, tx, pluginID, rowID, label, fields, normalized); err != nil {
+			return nil, err
+		}
+		if err := useConnections(ctx, tx, pluginID, "settings", rowID, label, fields, normalized); err != nil {
 			return nil, err
 		}
 		secretKeys := []string{}

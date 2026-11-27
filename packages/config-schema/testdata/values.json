@@ -149,5 +149,30 @@
     ],
     "input": { "rows": [{ "name": "A" }, { "name": "B" }] },
     "valid": false
+  },
+  {
+    "name": "connection value is a canonical ID",
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["calendar"] }],
+    "input": { "service": "  0F6C1C8E-5B0A-4A47-9B7C-2E1F7B3A9D10 " },
+    "valid": true,
+    "output": { "service": "0f6c1c8e-5b0a-4a47-9b7c-2e1f7b3a9d10" }
+  },
+  {
+    "name": "connection value that is not an ID",
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["calendar"] }],
+    "input": { "service": "https://example.com" },
+    "valid": false
+  },
+  {
+    "name": "connection value that is an object",
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["calendar"] }],
+    "input": { "service": { "origin": "https://example.com", "token": "x" } },
+    "valid": false
+  },
+  {
+    "name": "required connection missing",
+    "fields": [{ "key": "service", "label": "Service", "control": "connection", "connections": ["calendar"], "required": true }],
+    "input": {},
+    "valid": false
   }
 ]

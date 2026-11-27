@@ -555,7 +555,96 @@
       "list": "List",
       "new": "New",
       "edit": "Edit",
-      "settings": "Settings"
+      "settings": "Settings",
+      "connections": "Connections",
+      "newConnection": "New connection",
+      "connection": "Connection"
+    },
+    "connections": {
+      "title": "Connections",
+      "description": "Where this plugin may send requests. You choose the origin of a local connection and give each network permission separately.",
+      "open": "Connections",
+      "new": "New connection",
+      "createTitle": "New connection",
+      "manageTitle": "Manage connection",
+      "emptyTitle": "No connections yet",
+      "emptyDescription": "Create a connection, then choose it in the plugin's settings.",
+      "loadError": "The connections could not be loaded.",
+      "definition": "Kind",
+      "definitionHint": "What the plugin uses this connection for. It cannot change later.",
+      "name": "Name",
+      "nameRequired": "Enter a name.",
+      "origin": "Origin",
+      "originHint": "Scheme, host, and optional port, for example https://calendar.example.org. No path.",
+      "originRequired": "Enter an origin.",
+      "originInvalid": "Enter an origin such as https://example.org, without a path, query, or user name.",
+      "originHttps": "This connection uses HTTPS only.",
+      "approvedOrigins": "Approved origins",
+      "save": "Save",
+      "create": "Create connection",
+      "createdToast": "The connection was created.",
+      "savedToast": "The connection was saved.",
+      "deletedToast": "The connection was deleted.",
+      "consentsSavedToast": "The permissions were saved.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteBody": "Plugin code can no longer use this connection.",
+      "delete": "Delete connection",
+      "referencesTitle": "Used by",
+      "noReferences": "No setting or item uses this connection.",
+      "referenceSettings": "Plugin settings",
+      "inUseHint": "Choose another connection where it is used before you delete it.",
+      "status": {
+        "ready": "Ready",
+        "origin_required": "Needs an origin",
+        "private_network_consent_required": "Needs private network permission",
+        "plain_http_consent_required": "Needs plain HTTP permission",
+        "declaration_removed": "No longer declared by the plugin"
+      },
+      "notices": {
+        "consents_need_confirmation": "The plugin changed what this connection may do since the permissions were given. Give them again to use them.",
+        "private_addresses_need_consent": "Private network addresses are refused until you allow them."
+      },
+      "consents": {
+        "title": "Network permissions",
+        "description": "Each permission is separate. Saving the name or origin never changes them, and a new origin clears them.",
+        "privateNetwork": {
+          "label": "Allow private network addresses",
+          "description": "Lets this connection reach addresses on your local network: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, and fc00::/7. Loopback, link-local, and cloud metadata addresses are always refused."
+        },
+        "plainHttp": {
+          "label": "Allow plain HTTP",
+          "description": "Lets this connection send unencrypted requests to its origin on the local network. Anyone on that network can read and change the traffic."
+        },
+        "plaintextSecret": {
+          "label": "Allow secrets over plain HTTP",
+          "description": "Lets this connection send a stored secret, such as an API key, in an unencrypted request. Anyone on the local network can read the secret."
+        },
+        "requiresPrivateNetwork": "Allow private network addresses first.",
+        "requiresPlainHttp": "Allow plain HTTP first.",
+        "givenAt": "Given {{date}}",
+        "save": "Save permissions",
+        "confirmTitle": "Give these permissions?",
+        "confirmBody": "You are allowing: {{list}}. You can remove a permission at any time.",
+        "confirm": "Give permissions",
+        "none": "This connection needs no network permission."
+      },
+      "field": {
+        "none": "No connection",
+        "manage": "Manage connections",
+        "empty": "Create a connection for this field first.",
+        "missing": "The chosen connection no longer exists."
+      },
+      "review": {
+        "title": "Network connections",
+        "security": "Where data can go",
+        "operatorOrigin": "Sends requests to an origin you choose",
+        "fixedOrigins": "Sends requests to {{origins}}",
+        "privateNetwork": "Can reach your private network after you allow it",
+        "plainHttp": "Can use unencrypted HTTP on your local network after you allow it",
+        "plaintextSecret": "Can send a secret over unencrypted HTTP after you allow it",
+        "response": "Accepts responses up to {{size}}",
+        "timeout": "Waits up to {{seconds}} seconds for a response"
+      }
     }
   },
   "secrets": {

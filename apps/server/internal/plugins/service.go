@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/outbound"
 	"github.com/tilecast/tilecast/apps/server/internal/pluginsecrets"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
@@ -65,6 +67,10 @@ type Service struct {
 	secrets       *pluginsecrets.Store
 	serviceCaller BundledServiceCaller
 	invocations   invocationSet
+	// outbound sends connection requests; it is built on first use unless
+	// WithOutbound supplied one.
+	outbound     *outbound.Engine
+	outboundOnce sync.Once
 }
 
 // WithSecrets wires the plugin secret store.
@@ -150,6 +156,11 @@ type CatalogPlugin struct {
 	InstanceCount int  `json:"instanceCount"`
 
 	Attention []PluginAttention `json:"attention"`
+
+	// Connections are the outbound connections the plugin declares. The
+	// install review shows each one, separating what changes where data can
+	// go from display text.
+	Connections []ConnectionReview `json:"connections"`
 }
 
 // PluginAttention is a bounded, advisory status note. It never blocks
@@ -288,7 +299,7 @@ func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlug
 		Requirements: requirements, Capabilities: capabilities, Documentation: d.Documentation,
 		Installed: installed, Installable: d.Installable,
 		Configured: status.configured, Active: status.active, InstanceCount: status.count,
-		Attention: attention,
+		Attention: attention, Connections: append([]ConnectionReview{}, d.Connections...),
 	}
 }
 

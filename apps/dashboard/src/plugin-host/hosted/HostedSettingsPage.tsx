@@ -25,6 +25,8 @@ import {
   type HostedSettings,
 } from "./api";
 import { HostedSecretField } from "./HostedSecretField";
+import { HostedConnectionField } from "./connections/HostedConnectionField";
+import { withValue } from "./connections/model";
 import { localizePluginFields } from "./localize";
 import { configDefaults, type HostedPluginProps } from "./model";
 import { SecretKeyNotice } from "./SecretKeyNotice";
@@ -186,13 +188,13 @@ function HostedSettingsForm({
               type="button"
               size="sm"
               className="mt-3"
-                onClick={() => {
-                  void reload().then((next) => {
-                    if (next) {
-                      reset(next);
-                      save.reset();
-                    }
-                  });
+              onClick={() => {
+                void reload().then((next) => {
+                  if (next) {
+                    reset(next);
+                    save.reset();
+                  }
+                });
               }}
             >
               {t("hosted.conflictReload")}
@@ -231,6 +233,21 @@ function HostedSettingsForm({
                         ? [...cleared, field.key]
                         : cleared.filter((key) => key !== field.key),
                     )
+                  }
+                />
+              ) : field.control === "connection" ? (
+                <HostedConnectionField
+                  key={field.key}
+                  pluginId={pluginId}
+                  manifest={manifest}
+                  field={field}
+                  label={field.label}
+                  description={field.description}
+                  value={values[field.key]}
+                  readOnly={readOnly}
+                  error={errorFor(field.key)}
+                  onChange={(next) =>
+                    setValues(withValue(values, field.key, next))
                   }
                 />
               ) : (

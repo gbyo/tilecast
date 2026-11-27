@@ -3783,6 +3783,96 @@ func (e PluginAutomationOperationRisk) Valid() bool {
 	}
 }
 
+// Defines values for PluginConnectionNotices.
+const (
+	ConsentsNeedConfirmation    PluginConnectionNotices = "consents_need_confirmation"
+	PrivateAddressesNeedConsent PluginConnectionNotices = "private_addresses_need_consent"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionNotices enum.
+func (e PluginConnectionNotices) Valid() bool {
+	switch e {
+	case ConsentsNeedConfirmation:
+		return true
+	case PrivateAddressesNeedConsent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionReasons.
+const (
+	DeclarationRemoved            PluginConnectionReasons = "declaration_removed"
+	OriginRequired                PluginConnectionReasons = "origin_required"
+	PlainHttpConsentRequired      PluginConnectionReasons = "plain_http_consent_required"
+	PrivateNetworkConsentRequired PluginConnectionReasons = "private_network_consent_required"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionReasons enum.
+func (e PluginConnectionReasons) Valid() bool {
+	switch e {
+	case DeclarationRemoved:
+		return true
+	case OriginRequired:
+		return true
+	case PlainHttpConsentRequired:
+		return true
+	case PrivateNetworkConsentRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionInUseErrorErrorCode.
+const (
+	PluginConnectionInUse PluginConnectionInUseErrorErrorCode = "plugin_connection_in_use"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionInUseErrorErrorCode enum.
+func (e PluginConnectionInUseErrorErrorCode) Valid() bool {
+	switch e {
+	case PluginConnectionInUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionReferenceOwnerType.
+const (
+	Instance PluginConnectionReferenceOwnerType = "instance"
+	Settings PluginConnectionReferenceOwnerType = "settings"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionReferenceOwnerType enum.
+func (e PluginConnectionReferenceOwnerType) Valid() bool {
+	switch e {
+	case Instance:
+		return true
+	case Settings:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginConnectionReviewType.
+const (
+	Http PluginConnectionReviewType = "http"
+)
+
+// Valid indicates whether the value is a known member of the PluginConnectionReviewType enum.
+func (e PluginConnectionReviewType) Valid() bool {
+	switch e {
+	case Http:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PluginInUseErrorErrorCode.
 const (
 	PluginInUse PluginInUseErrorErrorCode = "plugin_in_use"
@@ -7291,13 +7381,16 @@ type CapabilityDefinitionGroup string
 
 // CatalogPlugin defines model for CatalogPlugin.
 type CatalogPlugin struct {
-	Active        bool                  `json:"active"`
-	Attention     []PluginAttention     `json:"attention"`
-	Capabilities  []string              `json:"capabilities"`
-	Category      CatalogPluginCategory `json:"category"`
-	Configured    bool                  `json:"configured"`
-	Description   string                `json:"description"`
-	Documentation *string               `json:"documentation,omitempty"`
+	Active       bool                  `json:"active"`
+	Attention    []PluginAttention     `json:"attention"`
+	Capabilities []string              `json:"capabilities"`
+	Category     CatalogPluginCategory `json:"category"`
+	Configured   bool                  `json:"configured"`
+
+	// Connections Outbound connections a Plugin Manifest API 3 plugin declares. Empty for other plugins.
+	Connections   []PluginConnectionReview `json:"connections"`
+	Description   string                   `json:"description"`
+	Documentation *string                  `json:"documentation,omitempty"`
 
 	// Icon Bounded icon identifier; unknown values render a generic icon
 	Icon                 string `json:"icon"`
@@ -10801,6 +10894,132 @@ type PluginCatalog struct {
 	} `json:"unsupportedInstallations"`
 }
 
+// PluginConnection defines model for PluginConnection.
+type PluginConnection struct {
+	Consents struct {
+		PlainHttp       PluginConnectionConsent `json:"plainHttp"`
+		PlaintextSecret PluginConnectionConsent `json:"plaintextSecret"`
+		PrivateNetwork  PluginConnectionConsent `json:"privateNetwork"`
+	} `json:"consents"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Definition The connection declaration of the plugin manifest.
+	Definition string                    `json:"definition"`
+	Id         openapi_types.UUID        `json:"id"`
+	Name       string                    `json:"name"`
+	Notices    []PluginConnectionNotices `json:"notices"`
+
+	// Origin The configured origin of an operator connection.
+	Origin *string `json:"origin,omitempty"`
+
+	// Origins The approved origins now.
+	Origins    []string                    `json:"origins"`
+	Plugin     string                      `json:"plugin"`
+	Reasons    []PluginConnectionReasons   `json:"reasons"`
+	References []PluginConnectionReference `json:"references"`
+	Revision   int                         `json:"revision"`
+
+	// Status ready, or the first reason the connection cannot be used.
+	Status    string    `json:"status"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// PluginConnectionNotices defines model for PluginConnection.Notices.
+type PluginConnectionNotices string
+
+// PluginConnectionReasons defines model for PluginConnection.Reasons.
+type PluginConnectionReasons string
+
+// PluginConnectionConsent defines model for PluginConnectionConsent.
+type PluginConnectionConsent struct {
+	// Available The declaration makes this consent possible.
+	Available bool `json:"available"`
+
+	// Given The consent applies now.
+	Given   bool                `json:"given"`
+	GivenAt *time.Time          `json:"givenAt,omitempty"`
+	GivenBy *openapi_types.UUID `json:"givenBy,omitempty"`
+}
+
+// PluginConnectionConsentsWrite defines model for PluginConnectionConsentsWrite.
+type PluginConnectionConsentsWrite struct {
+	ExpectedRevision int  `json:"expectedRevision"`
+	PlainHttp        bool `json:"plainHttp"`
+	PlaintextSecret  bool `json:"plaintextSecret"`
+	PrivateNetwork   bool `json:"privateNetwork"`
+}
+
+// PluginConnectionCreate defines model for PluginConnectionCreate.
+type PluginConnectionCreate struct {
+	Definition string `json:"definition"`
+	Name       string `json:"name"`
+
+	// Origin Required for an operator connection; refused otherwise.
+	Origin *string `json:"origin,omitempty"`
+}
+
+// PluginConnectionInUseError defines model for PluginConnectionInUseError.
+type PluginConnectionInUseError struct {
+	Error struct {
+		Code    PluginConnectionInUseErrorErrorCode `json:"code"`
+		Details struct {
+			References []PluginConnectionReference `json:"references"`
+		} `json:"details"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// PluginConnectionInUseErrorErrorCode defines model for PluginConnectionInUseError.Error.Code.
+type PluginConnectionInUseErrorErrorCode string
+
+// PluginConnectionReference defines model for PluginConnectionReference.
+type PluginConnectionReference struct {
+	FieldKey  string                             `json:"fieldKey"`
+	Label     string                             `json:"label"`
+	OwnerId   openapi_types.UUID                 `json:"ownerId"`
+	OwnerType PluginConnectionReferenceOwnerType `json:"ownerType"`
+}
+
+// PluginConnectionReferenceOwnerType defines model for PluginConnectionReference.OwnerType.
+type PluginConnectionReferenceOwnerType string
+
+// PluginConnectionReview defines model for PluginConnectionReview.
+type PluginConnectionReview struct {
+	Description      *string `json:"description,omitempty"`
+	Id               string  `json:"id"`
+	MaxResponseBytes int     `json:"maxResponseBytes"`
+
+	// OperatorOrigin An Owner or Administrator enters the one origin.
+	OperatorOrigin bool `json:"operatorOrigin"`
+
+	// Origins The fixed https origins. Empty for an operator connection.
+	Origins []string `json:"origins"`
+
+	// PlainHttp Plain HTTP on the local network is possible after its own consent.
+	PlainHttp bool `json:"plainHttp"`
+
+	// PlaintextSecret A secret header over plain HTTP is possible after a third consent.
+	PlaintextSecret bool `json:"plaintextSecret"`
+
+	// PrivateNetwork Private addresses are possible after a separate consent.
+	PrivateNetwork bool                       `json:"privateNetwork"`
+	TimeoutSeconds int                        `json:"timeoutSeconds"`
+	Title          string                     `json:"title"`
+	Type           PluginConnectionReviewType `json:"type"`
+}
+
+// PluginConnectionReviewType defines model for PluginConnectionReview.Type.
+type PluginConnectionReviewType string
+
+// PluginConnectionUpdate defines model for PluginConnectionUpdate.
+type PluginConnectionUpdate struct {
+	// Definition Optional. A record's declaration never changes.
+	Definition       *string `json:"definition,omitempty"`
+	ExpectedRevision int     `json:"expectedRevision"`
+	Name             string  `json:"name"`
+	Origin           *string `json:"origin,omitempty"`
+}
+
 // PluginInUseError defines model for PluginInUseError.
 type PluginInUseError struct {
 	Error struct {
@@ -13144,6 +13363,9 @@ type MaintenanceAction string
 // PackageID defines model for PackageID.
 type PackageID = string
 
+// PluginConnectionID defines model for PluginConnectionID.
+type PluginConnectionID = openapi_types.UUID
+
 // PluginID defines model for PluginID.
 type PluginID = string
 
@@ -14428,6 +14650,30 @@ type UpdateCountdownBarInstanceParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// CreatePluginConnectionParams defines parameters for CreatePluginConnection.
+type CreatePluginConnectionParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeletePluginConnectionParams defines parameters for DeletePluginConnection.
+type DeletePluginConnectionParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// UpdatePluginConnectionParams defines parameters for UpdatePluginConnection.
+type UpdatePluginConnectionParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// SetPluginConnectionConsentsParams defines parameters for SetPluginConnectionConsents.
+type SetPluginConnectionConsentsParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // InstallPluginParams defines parameters for InstallPlugin.
 type InstallPluginParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -15303,6 +15549,15 @@ type CreateCountdownBarInstanceJSONRequestBody = CountdownBarInstanceInput
 
 // UpdateCountdownBarInstanceJSONRequestBody defines body for UpdateCountdownBarInstance for application/json ContentType.
 type UpdateCountdownBarInstanceJSONRequestBody = CountdownBarInstanceUpdate
+
+// CreatePluginConnectionJSONRequestBody defines body for CreatePluginConnection for application/json ContentType.
+type CreatePluginConnectionJSONRequestBody = PluginConnectionCreate
+
+// UpdatePluginConnectionJSONRequestBody defines body for UpdatePluginConnection for application/json ContentType.
+type UpdatePluginConnectionJSONRequestBody = PluginConnectionUpdate
+
+// SetPluginConnectionConsentsJSONRequestBody defines body for SetPluginConnectionConsents for application/json ContentType.
+type SetPluginConnectionConsentsJSONRequestBody = PluginConnectionConsentsWrite
 
 // CreatePresentationNetworkJSONRequestBody defines body for CreatePresentationNetwork for application/json ContentType.
 type CreatePresentationNetworkJSONRequestBody = PresentationNetworkCreateInput
@@ -18608,6 +18863,57 @@ type ClientInterface interface {
 	//
 	// A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
 	GetPluginAutomation(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPluginConnections performs a GET /api/v1/plugins/{pluginId}/connections (the `ListPluginConnections` operationId) request.
+	//
+	// Lists the connection records of a Plugin Manifest API 3 plugin that declares connections. Requires plugins.use. A record never holds a credential. Each record states whether it can be used now and why not.
+	ListPluginConnections(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePluginConnectionWithBody performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+	CreatePluginConnectionWithBody(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePluginConnection performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+	CreatePluginConnection(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, body CreatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePluginConnection performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+	DeletePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPluginConnection performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId} (the `GetPluginConnection` operationId) request.
+	//
+	// Reads one connection record. Requires plugins.use.
+	GetPluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePluginConnectionWithBody performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+	UpdatePluginConnectionWithBody(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePluginConnection performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+	UpdatePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetPluginConnectionConsentsWithBody performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+	SetPluginConnectionConsentsWithBody(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetPluginConnectionConsents performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+	SetPluginConnectionConsents(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InstallPlugin performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -25884,6 +26190,147 @@ func (c *Client) GetDependencyGraph(ctx context.Context, reqEditors ...RequestEd
 // A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
 func (c *Client) GetPluginAutomation(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPluginAutomationRequest(c.Server, pluginId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPluginConnections performs a GET /api/v1/plugins/{pluginId}/connections (the `ListPluginConnections` operationId) request.
+//
+// Lists the connection records of a Plugin Manifest API 3 plugin that declares connections. Requires plugins.use. A record never holds a credential. Each record states whether it can be used now and why not.
+func (c *Client) ListPluginConnections(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPluginConnectionsRequest(c.Server, pluginId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePluginConnectionWithBody performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+func (c *Client) CreatePluginConnectionWithBody(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePluginConnectionRequestWithBody(c.Server, pluginId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePluginConnection performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+func (c *Client) CreatePluginConnection(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, body CreatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePluginConnectionRequest(c.Server, pluginId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeletePluginConnection performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+func (c *Client) DeletePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePluginConnectionRequest(c.Server, pluginId, connectionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPluginConnection performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId} (the `GetPluginConnection` operationId) request.
+//
+// Reads one connection record. Requires plugins.use.
+func (c *Client) GetPluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPluginConnectionRequest(c.Server, pluginId, connectionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePluginConnectionWithBody performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+func (c *Client) UpdatePluginConnectionWithBody(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePluginConnectionRequestWithBody(c.Server, pluginId, connectionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePluginConnection performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+func (c *Client) UpdatePluginConnection(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePluginConnectionRequest(c.Server, pluginId, connectionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetPluginConnectionConsentsWithBody performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+func (c *Client) SetPluginConnectionConsentsWithBody(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetPluginConnectionConsentsRequestWithBody(c.Server, pluginId, connectionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetPluginConnectionConsents performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+func (c *Client) SetPluginConnectionConsents(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetPluginConnectionConsentsRequest(c.Server, pluginId, connectionId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -43343,6 +43790,337 @@ func NewGetPluginAutomationRequest(server string, pluginId PluginID) (*http.Requ
 	return req, nil
 }
 
+// NewListPluginConnectionsRequest constructs an http.Request for the ListPluginConnections method
+func NewListPluginConnectionsRequest(server string, pluginId PluginID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePluginConnectionRequest calls the generic CreatePluginConnection builder with application/json body
+func NewCreatePluginConnectionRequest(server string, pluginId PluginID, params *CreatePluginConnectionParams, body CreatePluginConnectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePluginConnectionRequestWithBody(server, pluginId, params, "application/json", bodyReader)
+}
+
+// NewCreatePluginConnectionRequestWithBody constructs an http.Request for the CreatePluginConnection method, with any body, and a specified content type
+func NewCreatePluginConnectionRequestWithBody(server string, pluginId PluginID, params *CreatePluginConnectionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeletePluginConnectionRequest constructs an http.Request for the DeletePluginConnection method
+func NewDeletePluginConnectionRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetPluginConnectionRequest constructs an http.Request for the GetPluginConnection method
+func NewGetPluginConnectionRequest(server string, pluginId PluginID, connectionId PluginConnectionID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdatePluginConnectionRequest calls the generic UpdatePluginConnection builder with application/json body
+func NewUpdatePluginConnectionRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdatePluginConnectionRequestWithBody(server, pluginId, connectionId, params, "application/json", bodyReader)
+}
+
+// NewUpdatePluginConnectionRequestWithBody constructs an http.Request for the UpdatePluginConnection method, with any body, and a specified content type
+func NewUpdatePluginConnectionRequestWithBody(server string, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewSetPluginConnectionConsentsRequest calls the generic SetPluginConnectionConsents builder with application/json body
+func NewSetPluginConnectionConsentsRequest(server string, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetPluginConnectionConsentsRequestWithBody(server, pluginId, connectionId, params, "application/json", bodyReader)
+}
+
+// NewSetPluginConnectionConsentsRequestWithBody constructs an http.Request for the SetPluginConnectionConsents method, with any body, and a specified content type
+func NewSetPluginConnectionConsentsRequestWithBody(server string, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/connections/%s/consents", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewInstallPluginRequest constructs an http.Request for the InstallPlugin method
 func NewInstallPluginRequest(server string, pluginId PluginID, params *InstallPluginParams) (*http.Request, error) {
 	var err error
@@ -52717,6 +53495,69 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPluginAutomationWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*GetPluginAutomationResponse, error)
+
+	// ListPluginConnectionsWithResponse performs a GET /api/v1/plugins/{pluginId}/connections (the `ListPluginConnections` operationId) request.
+	//
+	// Lists the connection records of a Plugin Manifest API 3 plugin that declares connections. Requires plugins.use. A record never holds a credential. Each record states whether it can be used now and why not.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPluginConnectionsWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*ListPluginConnectionsResponse, error)
+
+	// CreatePluginConnectionWithBodyWithResponse performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreatePluginConnectionWithBodyWithResponse(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePluginConnectionResponse, error)
+
+	// CreatePluginConnectionWithResponse performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+	CreatePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, body CreatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePluginConnectionResponse, error)
+
+	// DeletePluginConnectionWithResponse performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeletePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*DeletePluginConnectionResponse, error)
+
+	// GetPluginConnectionWithResponse performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId} (the `GetPluginConnection` operationId) request.
+	//
+	// Reads one connection record. Requires plugins.use.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetPluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, reqEditors ...RequestEditorFn) (*GetPluginConnectionResponse, error)
+
+	// UpdatePluginConnectionWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UpdatePluginConnectionWithBodyWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePluginConnectionResponse, error)
+
+	// UpdatePluginConnectionWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+	UpdatePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePluginConnectionResponse, error)
+
+	// SetPluginConnectionConsentsWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	SetPluginConnectionConsentsWithBodyWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetPluginConnectionConsentsResponse, error)
+
+	// SetPluginConnectionConsentsWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+	SetPluginConnectionConsentsWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPluginConnectionConsentsResponse, error)
 
 	// InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -66476,6 +67317,278 @@ func (r GetPluginAutomationResponse) ContentType() string {
 	return ""
 }
 
+type ListPluginConnectionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items []PluginConnection `json:"items"`
+			Total int                `json:"total"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPluginConnectionsResponse) GetJSON200() *struct {
+	Data struct {
+		Items []PluginConnection `json:"items"`
+		Total int                `json:"total"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPluginConnectionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPluginConnectionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPluginConnectionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPluginConnectionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreatePluginConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data PluginConnection `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePluginConnectionResponse) GetJSON201() *struct {
+	Data PluginConnection `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r CreatePluginConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePluginConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePluginConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreatePluginConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeletePluginConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PluginConnectionInUseError
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r DeletePluginConnectionResponse) GetJSON409() *PluginConnectionInUseError {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r DeletePluginConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePluginConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePluginConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeletePluginConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPluginConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginConnection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPluginConnectionResponse) GetJSON200() *struct {
+	Data PluginConnection `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPluginConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPluginConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPluginConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPluginConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdatePluginConnectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginConnection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePluginConnectionResponse) GetJSON200() *struct {
+	Data PluginConnection `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdatePluginConnectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePluginConnectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePluginConnectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdatePluginConnectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetPluginConnectionConsentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginConnection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetPluginConnectionConsentsResponse) GetJSON200() *struct {
+	Data PluginConnection `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r SetPluginConnectionConsentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetPluginConnectionConsentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetPluginConnectionConsentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetPluginConnectionConsentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type InstallPluginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -78067,6 +79180,123 @@ func (c *ClientWithResponses) GetPluginAutomationWithResponse(ctx context.Contex
 	return ParseGetPluginAutomationResponse(rsp)
 }
 
+// ListPluginConnectionsWithResponse performs a GET /api/v1/plugins/{pluginId}/connections (the `ListPluginConnections` operationId) request.
+//
+// Lists the connection records of a Plugin Manifest API 3 plugin that declares connections. Requires plugins.use. A record never holds a credential. Each record states whether it can be used now and why not.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPluginConnectionsWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*ListPluginConnectionsResponse, error) {
+	rsp, err := c.ListPluginConnections(ctx, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPluginConnectionsResponse(rsp)
+}
+
+// CreatePluginConnectionWithBodyWithResponse performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreatePluginConnectionWithBodyWithResponse(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePluginConnectionResponse, error) {
+	rsp, err := c.CreatePluginConnectionWithBody(ctx, pluginId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePluginConnectionResponse(rsp)
+}
+
+// CreatePluginConnectionWithResponse performs a POST /api/v1/plugins/{pluginId}/connections (the `CreatePluginConnection` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Creates a record for one declared connection. An operator connection needs its origin; a connection with fixed origins takes none. A new record has no consent.
+func (c *ClientWithResponses) CreatePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, params *CreatePluginConnectionParams, body CreatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePluginConnectionResponse, error) {
+	rsp, err := c.CreatePluginConnection(ctx, pluginId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePluginConnectionResponse(rsp)
+}
+
+// DeletePluginConnectionWithResponse performs a DELETE /api/v1/plugins/{pluginId}/connections/{connectionId} (the `DeletePluginConnection` operationId) request.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Deletes a record that no setting or instance references.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeletePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *DeletePluginConnectionParams, reqEditors ...RequestEditorFn) (*DeletePluginConnectionResponse, error) {
+	rsp, err := c.DeletePluginConnection(ctx, pluginId, connectionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePluginConnectionResponse(rsp)
+}
+
+// GetPluginConnectionWithResponse performs a GET /api/v1/plugins/{pluginId}/connections/{connectionId} (the `GetPluginConnection` operationId) request.
+//
+// Reads one connection record. Requires plugins.use.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetPluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, reqEditors ...RequestEditorFn) (*GetPluginConnectionResponse, error) {
+	rsp, err := c.GetPluginConnection(ctx, pluginId, connectionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPluginConnectionResponse(rsp)
+}
+
+// UpdatePluginConnectionWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UpdatePluginConnectionWithBodyWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePluginConnectionResponse, error) {
+	rsp, err := c.UpdatePluginConnectionWithBody(ctx, pluginId, connectionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePluginConnectionResponse(rsp)
+}
+
+// UpdatePluginConnectionWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId} (the `UpdatePluginConnection` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Changes the name or the origin. expectedRevision is required. A changed origin clears every consent, because a consent never carries to another destination. Consents change only through the consents operation.
+func (c *ClientWithResponses) UpdatePluginConnectionWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *UpdatePluginConnectionParams, body UpdatePluginConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePluginConnectionResponse, error) {
+	rsp, err := c.UpdatePluginConnection(ctx, pluginId, connectionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePluginConnectionResponse(rsp)
+}
+
+// SetPluginConnectionConsentsWithBodyWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) SetPluginConnectionConsentsWithBodyWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetPluginConnectionConsentsResponse, error) {
+	rsp, err := c.SetPluginConnectionConsentsWithBody(ctx, pluginId, connectionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetPluginConnectionConsentsResponse(rsp)
+}
+
+// SetPluginConnectionConsentsWithResponse performs a PUT /api/v1/plugins/{pluginId}/connections/{connectionId}/consents (the `SetPluginConnectionConsents` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires plugins.manage and the admin scope. Cookie requests also require CSRF. Sets the three separate consents to the states in the request. A consent the declaration does not make possible is refused. Plain HTTP needs the private network consent, and a plaintext secret needs plain HTTP. A consent applies only to the declaration and the origin it was given for.
+func (c *ClientWithResponses) SetPluginConnectionConsentsWithResponse(ctx context.Context, pluginId PluginID, connectionId PluginConnectionID, params *SetPluginConnectionConsentsParams, body SetPluginConnectionConsentsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPluginConnectionConsentsResponse, error) {
+	rsp, err := c.SetPluginConnectionConsents(ctx, pluginId, connectionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetPluginConnectionConsentsResponse(rsp)
+}
+
 // InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 //
 // Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
@@ -89021,6 +90251,235 @@ func ParseGetPluginAutomationResponse(rsp *http.Response) (*GetPluginAutomationR
 		break // No content-type
 
 	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListPluginConnectionsResponse parses an HTTP response from a ListPluginConnectionsWithResponse call
+func ParseListPluginConnectionsResponse(rsp *http.Response) (*ListPluginConnectionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPluginConnectionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items []PluginConnection `json:"items"`
+				Total int                `json:"total"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePluginConnectionResponse parses an HTTP response from a CreatePluginConnectionWithResponse call
+func ParseCreatePluginConnectionResponse(rsp *http.Response) (*CreatePluginConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePluginConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data PluginConnection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseDeletePluginConnectionResponse parses an HTTP response from a DeletePluginConnectionWithResponse call
+func ParseDeletePluginConnectionResponse(rsp *http.Response) (*DeletePluginConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePluginConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PluginConnectionInUseError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPluginConnectionResponse parses an HTTP response from a GetPluginConnectionWithResponse call
+func ParseGetPluginConnectionResponse(rsp *http.Response) (*GetPluginConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPluginConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginConnection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePluginConnectionResponse parses an HTTP response from a UpdatePluginConnectionWithResponse call
+func ParseUpdatePluginConnectionResponse(rsp *http.Response) (*UpdatePluginConnectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePluginConnectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginConnection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 428:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseSetPluginConnectionConsentsResponse parses an HTTP response from a SetPluginConnectionConsentsWithResponse call
+func ParseSetPluginConnectionConsentsResponse(rsp *http.Response) (*SetPluginConnectionConsentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetPluginConnectionConsentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginConnection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 428:
 		break // No content-type
 
 	}

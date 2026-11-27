@@ -1,0 +1,115 @@
+{
+  "apiVersion": 3,
+  "id": "local_gateway",
+  "definitionVersion": 1,
+  "name": "Local Gateway",
+  "description": "Read a meter gateway and a public API.",
+  "category": "Workflow",
+  "icon": "plug",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "meter",
+    "plural": "meters"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/local-gateway"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/local-gateway"
+  },
+  "services": [
+    "http.fetch@1",
+    "secrets.read@1"
+  ],
+  "connections": [
+    {
+      "id": "cloud",
+      "title": "Cloud API",
+      "description": "The vendor's public API.",
+      "type": "http",
+      "origins": [
+        "https://api.example.com",
+        "https://uploads.example.com:8443"
+      ],
+      "maxResponseBytes": 16777216,
+      "timeoutSeconds": 60,
+      "headers": {
+        "X": "y"
+      }
+    },
+    {
+      "id": "gateway",
+      "title": "Meter gateway",
+      "type": "http",
+      "origins": "operator",
+      "privateNetwork": "allowed",
+      "plainHttp": "allowed",
+      "allowPlaintextSecret": true
+    },
+    {
+      "id": "nas",
+      "title": "Archive",
+      "type": "http",
+      "origins": "operator",
+      "privateNetwork": "allowed"
+    }
+  ],
+  "settings": {
+    "organization": [
+      {
+        "key": "cloud",
+        "label": "Cloud",
+        "control": "connection",
+        "connections": [
+          "cloud"
+        ]
+      },
+      {
+        "key": "cloudToken",
+        "label": "Cloud token",
+        "control": "secret",
+        "maxLength": 512
+      }
+    ]
+  },
+  "instances": [
+    {
+      "kind": "meter",
+      "noun": {
+        "singular": "meter",
+        "plural": "meters"
+      },
+      "path": "meters",
+      "operations": {
+        "singular": "Meter",
+        "plural": "Meters"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "gateway",
+          "label": "Gateway",
+          "control": "connection",
+          "connections": [
+            "gateway",
+            "nas"
+          ],
+          "required": true
+        },
+        {
+          "key": "gatewayKey",
+          "label": "Gateway key",
+          "control": "secret"
+        }
+      ]
+    }
+  ]
+}

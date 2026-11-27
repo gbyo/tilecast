@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Settings2, Trash2 } from "lucide-react";
+import { Plug, Plus, Settings2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -80,6 +80,15 @@ export function HostedInstancesPage({
         pluginId={pluginId}
         actions={
           <>
+            {(manifest.connections ?? []).length > 0 && (
+              <Link
+                className={buttonVariants({ variant: "outline", size: "lg" })}
+                to={`${manifest.studio!.route}/connections`}
+              >
+                <Plug data-icon="inline-start" aria-hidden="true" />{" "}
+                {t("hosted.connections.open")}
+              </Link>
+            )}
             {manifest.settings?.organization?.length ? (
               <Link
                 className={buttonVariants({ variant: "outline", size: "lg" })}

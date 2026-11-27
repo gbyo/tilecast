@@ -447,7 +447,8 @@ func (h *Host) serviceCall(ctx context.Context, mod api.Module, opPtr, opLen, in
 	if !ok {
 		return ErrTooLarge
 	}
-	if uint64(inLen) > uint64(services.MaxInputBytes) {
+	limits := services.OperationLimits(operation)
+	if uint64(inLen) > uint64(limits.MaxInputBytes) {
 		return ErrTooLarge
 	}
 	input, ok := mod.Memory().Read(inPtr, inLen)
@@ -480,7 +481,7 @@ func (h *Host) serviceCall(ctx context.Context, mod api.Module, opPtr, opLen, in
 	if err != nil {
 		return ErrHostFailure
 	}
-	if len(envelope) > services.MaxOutputBytes || uint64(len(envelope)) > uint64(outCap) {
+	if len(envelope) > limits.MaxOutputBytes || uint64(len(envelope)) > uint64(outCap) {
 		return ErrTooLarge
 	}
 	if !mod.Memory().Write(outPtr, envelope) {

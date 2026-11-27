@@ -60,3 +60,31 @@ Emergency Alerts is the current example of a networked background worker.
 Implement `DemoSeeder` when the plugin should add useful sample data to Demo Mode. Countdown Bar uses it to add a lunch countdown.
 
 Keep demo seeding thin. It should use the same plugin behavior that normal product code uses.
+
+## Use a connection (Plugin Manifest API 3)
+
+A version 3 plugin sends HTTP requests through `http.fetch@1`. It names a connection record, usually the value of a `connection` field, and Tilecast checks the origin and every address, follows only approved redirects, and limits the body and the time.
+
+```go
+response, err := p.services.Fetch(ctx, plugin.HTTPRequest{
+    Connection: uuid.MustParse(settings["calendar"].(string)),
+    Method:     http.MethodGet,
+    URL:        "/v1/events?limit=50",
+    Headers: []plugin.HTTPHeader{
+        {Name: "Accept", Value: "application/json"},
+        {Name: "Authorization", Secret: &plugin.SecretHeader{
+            Scope: plugin.ScopeOrganization, Key: "apiToken", Prefix: "Bearer "}},
+    },
+})
+if plugin.IsServiceError(err, plugin.FetchPlaintextSecretRefused) {
+    // The operator has not allowed a secret over plain HTTP.
+}
+```
+
+- A path such as `/v1/events` works when the connection has one origin. Otherwise send the full URL.
+- A `Secret` header names one of your own secret fields. Tilecast adds the value; your code never sees it.
+- Failures are stable codes such as `origin_not_allowed`, `private_network_refused`, `redirect_refused`, `timeout`, and `response_too_large`. They never include resolver or TLS details.
+- `npm run plugins:check` refuses `http.Client`, `net.Dial`, and similar calls in a version 3 plugin. Use `http.fetch@1` for provider traffic.
+
+Test against `plugintest.Services` with a handler that answers `http.fetch@1/request`, so your tests never reach the internet.
+

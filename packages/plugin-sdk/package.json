@@ -7,6 +7,7 @@
   "type": "module",
   "exports": {
     "./manifest": "./src/manifest.ts",
+    "./connections": "./src/connections.ts",
     "./automation": "./src/automation.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime/testing": "./src/runtime-testing.ts",

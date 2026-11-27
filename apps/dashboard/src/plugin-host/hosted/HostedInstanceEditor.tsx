@@ -79,6 +79,7 @@ export function HostedInstanceEditor({
         <HostedInstanceForm
           key={JSON.stringify([pluginId, kind.kind, id])}
           pluginId={pluginId}
+          manifest={manifest}
           kind={kind}
           initial={saved.data}
           timezone={regional.timezone}
@@ -98,6 +99,7 @@ export function HostedInstanceEditor({
 
 function HostedInstanceForm({
   pluginId,
+  manifest,
   kind,
   initial,
   timezone,
@@ -106,6 +108,7 @@ function HostedInstanceForm({
   reload,
 }: {
   pluginId: string;
+  manifest: HostedPluginProps["manifest"];
   kind: HostedKind;
   initial?: HostedDocument;
   timezone: string;
@@ -228,13 +231,13 @@ function HostedInstanceForm({
                 type="button"
                 size="sm"
                 className="mt-3"
-                  onClick={() => {
-                    void reload().then((next) => {
-                      if (next) {
-                        resetDraft(next);
-                        save.reset();
-                      }
-                    });
+                onClick={() => {
+                  void reload().then((next) => {
+                    if (next) {
+                      resetDraft(next);
+                      save.reset();
+                    }
+                  });
                 }}
               >
                 {t("hosted.conflictReload")}
@@ -255,6 +258,8 @@ function HostedInstanceForm({
             nameError={problemFor("name")}
           />
           <HostedInstanceConfig
+            pluginId={pluginId}
+            manifest={manifest}
             fields={fields}
             form={form}
             state={state}
