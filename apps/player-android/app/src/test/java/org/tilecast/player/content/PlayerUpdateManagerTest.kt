@@ -5,9 +5,17 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.tilecast.player.network.ApiException
 import org.tilecast.player.network.PlayerUpdateMetadata
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.io.File
 import java.time.Instant
 import java.nio.file.Files
@@ -29,6 +37,29 @@ class PlayerUpdateManagerTest {
         assertEquals(requested.canonicalFile,selectExactStagedArtifact(directory,"release-new","android-tv")?.canonicalFile)
         assertEquals(null,selectExactStagedArtifact(directory,"missing","android-tv"))
         directory.deleteRecursively()
+    }
+    @Test fun blockingFileWorkLeavesTheCallersThreadFree()=runBlocking{
+        val executor=Executors.newSingleThreadExecutor()
+        val main=executor.asCoroutineDispatcher()
+        try{
+            val release=CountDownLatch(1)
+            val work=async(main){blockingIo{release.await(5,TimeUnit.SECONDS)}}
+            // A coroutine on the same single thread can still run while the file work waits.
+            assertEquals("free",withTimeout(2_000){withContext(main){"free"}})
+            release.countDown()
+            assertTrue(work.await())
+        }finally{executor.shutdownNow()}
+    }
+    @Test fun aSecondInstallHandoffIsRefusedWhileOneIsRunning()=runBlocking{
+        val gate=InstallHandoffGate()
+        val started=CompletableDeferred<Unit>()
+        val finish=CompletableDeferred<Unit>()
+        val first=async{gate.runExclusive{started.complete(Unit);finish.await();"first"}}
+        started.await()
+        assertEquals(null,gate.runExclusive{"second"})
+        finish.complete(Unit)
+        assertEquals("first",first.await())
+        assertEquals("third",gate.runExclusive{"third"})
     }
     private val interrupted=UpdateUiState("deployment","0.8.0","0.9.0","installing",100,100,"Installing verified player update",releaseId="release",artifactId="artifact",expectedSha256="a".repeat(64),expectedVersionCode=9,exactPath="/updates/release-artifact.apk")
     @Test fun interruptedStagingOffersARetryWhenTheStagedFileIsStillThere(){
@@ -55,6 +86,7 @@ class PlayerUpdateManagerTest {
         assertFalse(delayed.permissionRequired)
         assertEquals(waiting.exactPath,delayed.exactPath)
         assertEquals(waiting.expectedSha256,delayed.expectedSha256)
+
     }
     @Test fun scheduledInstallProceedsWhenTheServerAcceptsTheReport()=runBlocking{
         assertEquals(ScheduledInstallGate.Proceed,gateScheduledInstall{})
