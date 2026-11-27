@@ -1303,7 +1303,12 @@ export type PluginSummary = {
   attention: PluginAttention[];
   /** Outbound connections a Plugin Manifest API 3 plugin declares. */
   connections?: PluginConnectionReview[];
+  /** Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. */
+  feeds?: PluginFeedReview[];
 };
+
+export type PluginFeedReview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginFeedReview"];
 
 export type PluginConnectionReview =
   import("@tilecast/api-schema/generated/openapi").components["schemas"]["PluginConnectionReview"];

@@ -1,0 +1,166 @@
+{
+  "apiVersion": 1,
+  "plugin": "room_sign",
+  "operations": [
+    {
+      "operationId": "listRoomSigns",
+      "method": "get",
+      "path": "/api/v1/plugins/room-sign/rooms",
+      "risk": "read",
+      "cliPath": ["room-sign", "room", "list"],
+      "mcpAction": "list_rooms",
+      "pathParams": [],
+      "queryParams": [],
+      "description": "List the rooms."
+    },
+    {
+      "operationId": "getRoomSign",
+      "method": "get",
+      "path": "/api/v1/plugins/room-sign/rooms/{id}",
+      "risk": "read",
+      "cliPath": ["room-sign", "room", "get"],
+      "mcpAction": "get_room",
+      "pathParams": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "format": "uuid"
+        }
+      ],
+      "queryParams": [],
+      "description": "Show one room."
+    },
+    {
+      "operationId": "createRoomSign",
+      "method": "post",
+      "path": "/api/v1/plugins/room-sign/rooms",
+      "risk": "routine",
+      "cliPath": ["room-sign", "room", "create"],
+      "mcpAction": "create_room",
+      "pathParams": [],
+      "queryParams": [],
+      "input": "document",
+      "description": "Create a room from a JSON document.",
+      "requestBody": {
+        "required": true,
+        "schema": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Defaults to true on create and keeps its value on update."
+            },
+            "calendarId": {
+              "type": "string",
+              "description": "The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.",
+              "maxLength": 254
+            },
+            "lookAheadDays": {
+              "type": "integer",
+              "description": "How many days of meetings to publish.",
+              "minimum": 1,
+              "maximum": 14
+            },
+            "showTitles": {
+              "type": "boolean",
+              "description": "Off shows every meeting as Busy, for rooms where titles are private."
+            },
+            "sample": {
+              "type": "boolean",
+              "description": "Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar."
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "operationId": "updateRoomSign",
+      "method": "put",
+      "path": "/api/v1/plugins/room-sign/rooms/{id}",
+      "risk": "routine",
+      "cliPath": ["room-sign", "room", "update"],
+      "mcpAction": "update_room",
+      "pathParams": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "format": "uuid"
+        }
+      ],
+      "queryParams": [],
+      "input": "document",
+      "description": "Replace a room from a JSON document that names the expectedRevision it read.",
+      "requestBody": {
+        "required": true,
+        "schema": {
+          "type": "object",
+          "required": ["name", "expectedRevision"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Defaults to true on create and keeps its value on update."
+            },
+            "calendarId": {
+              "type": "string",
+              "description": "The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.",
+              "maxLength": 254
+            },
+            "lookAheadDays": {
+              "type": "integer",
+              "description": "How many days of meetings to publish.",
+              "minimum": 1,
+              "maximum": 14
+            },
+            "showTitles": {
+              "type": "boolean",
+              "description": "Off shows every meeting as Busy, for rooms where titles are private."
+            },
+            "sample": {
+              "type": "boolean",
+              "description": "Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar."
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "description": "The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "operationId": "deleteRoomSign",
+      "method": "delete",
+      "path": "/api/v1/plugins/room-sign/rooms/{id}",
+      "risk": "sensitive",
+      "cliPath": ["room-sign", "room", "delete"],
+      "mcpAction": "delete_room",
+      "pathParams": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "format": "uuid"
+        }
+      ],
+      "queryParams": [],
+      "description": "Delete a room from its target screens."
+    }
+  ],
+  "exclusions": []
+}

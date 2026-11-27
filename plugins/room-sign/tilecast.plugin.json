@@ -1,0 +1,193 @@
+{
+  "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
+  "apiVersion": 3,
+  "id": "room_sign",
+  "definitionVersion": 1,
+  "name": "Room Sign",
+  "description": "Show a meeting room's current and next meeting from Google Calendar.",
+  "category": "Display",
+  "icon": "calendar-clock",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "room",
+    "plural": "rooms"
+  },
+  "requirements": [
+    {
+      "kind": "network",
+      "label": "Google Calendar access",
+      "description": "The Tilecast server reaches Google over HTTPS, and TILECAST_PUBLIC_URL is an https address for the Google sign-in."
+    }
+  ],
+  "uses": [
+    "Google Calendar (read only)",
+    "Feeds",
+    "Durable timers"
+  ],
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/room-sign"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/room-sign",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "services": [
+    "http.fetch@1",
+    "storage.kv@1",
+    "timers.schedule@1",
+    "timers.cancel@1",
+    "feeds.publish@1",
+    "instances.read@1"
+  ],
+  "connections": [
+    {
+      "id": "google",
+      "title": "Google Calendar",
+      "description": "Reads events of the calendars you choose. Tilecast never changes a calendar.",
+      "type": "oauth2",
+      "origins": [
+        "https://www.googleapis.com"
+      ],
+      "oauth": {
+        "authorizationEndpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenEndpoint": "https://oauth2.googleapis.com/token",
+        "revocationEndpoint": "https://oauth2.googleapis.com/revoke",
+        "scopes": [
+          "https://www.googleapis.com/auth/calendar.events.readonly"
+        ],
+        "tokenEndpointAuthMethod": "client_secret_post",
+        "authorizationParameters": {
+          "access_type": "offline",
+          "prompt": "consent"
+        }
+      }
+    }
+  ],
+  "instances": [
+    {
+      "kind": "room",
+      "noun": {
+        "singular": "room",
+        "plural": "rooms"
+      },
+      "path": "rooms",
+      "operations": {
+        "singular": "RoomSign",
+        "plural": "RoomSigns"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "connection",
+          "label": "Google connection",
+          "description": "The Google account that can read this room's calendar.",
+          "control": "connection",
+          "connections": [
+            "google"
+          ]
+        },
+        {
+          "key": "calendarId",
+          "label": "Calendar ID",
+          "description": "The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar.",
+          "control": "text",
+          "maxLength": 254
+        },
+        {
+          "key": "lookAheadDays",
+          "label": "Look ahead",
+          "description": "How many days of meetings to publish.",
+          "control": "integer",
+          "minimum": 1,
+          "maximum": 14,
+          "default": 2
+        },
+        {
+          "key": "showTitles",
+          "label": "Show meeting titles",
+          "description": "Off shows every meeting as Busy, for rooms where titles are private.",
+          "control": "boolean",
+          "default": true
+        },
+        {
+          "key": "sample",
+          "label": "Show sample meetings",
+          "description": "Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.",
+          "control": "boolean",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "feeds": [
+    {
+      "id": "events",
+      "version": 1,
+      "title": "Room meetings",
+      "description": "The room's meetings from now until the look-ahead ends.",
+      "dataset": "instance",
+      "instanceKind": "room",
+      "expectedRefreshSeconds": 300,
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "control": "text",
+          "maxLength": 200,
+          "personal": {
+            "retentionDays": 7
+          }
+        },
+        {
+          "key": "start",
+          "label": "Start",
+          "control": "datetime",
+          "required": true
+        },
+        {
+          "key": "end",
+          "label": "End",
+          "control": "datetime",
+          "required": true
+        },
+        {
+          "key": "allDay",
+          "label": "All day",
+          "control": "boolean"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "control": "select",
+          "options": [
+            {
+              "value": "confirmed",
+              "label": "Confirmed"
+            },
+            {
+              "value": "tentative",
+              "label": "Tentative"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "docs": {
+    "reference": "docs/plugins.md#room-sign",
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/plugins/room-sign"
+      }
+    ]
+  }
+}

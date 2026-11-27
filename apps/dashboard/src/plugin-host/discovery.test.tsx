@@ -119,6 +119,8 @@ describe("Studio plugin discovery", () => {
       "countdown_bar",
       "emergency_alerts",
       "forms",
+      "menu_board",
+      "room_sign",
     ]);
     expect(hasStudioRoute("/plugins/countdown-bar")).toBe(true);
     expect(hasStudioRoute("/plugins/some-future-plugin")).toBe(false);

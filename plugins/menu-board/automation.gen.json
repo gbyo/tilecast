@@ -1,0 +1,146 @@
+{
+  "apiVersion": 1,
+  "plugin": "menu_board",
+  "operations": [
+    {
+      "operationId": "listMenuBoards",
+      "method": "get",
+      "path": "/api/v1/plugins/menu-board/menus",
+      "risk": "read",
+      "cliPath": ["menu-board", "menu", "list"],
+      "mcpAction": "list_menus",
+      "pathParams": [],
+      "queryParams": [],
+      "description": "List the menus."
+    },
+    {
+      "operationId": "getMenuBoard",
+      "method": "get",
+      "path": "/api/v1/plugins/menu-board/menus/{id}",
+      "risk": "read",
+      "cliPath": ["menu-board", "menu", "get"],
+      "mcpAction": "get_menu",
+      "pathParams": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "format": "uuid"
+        }
+      ],
+      "queryParams": [],
+      "description": "Show one menu."
+    },
+    {
+      "operationId": "createMenuBoard",
+      "method": "post",
+      "path": "/api/v1/plugins/menu-board/menus",
+      "risk": "routine",
+      "cliPath": ["menu-board", "menu", "create"],
+      "mcpAction": "create_menu",
+      "pathParams": [],
+      "queryParams": [],
+      "input": "document",
+      "description": "Create a menu from a JSON document.",
+      "requestBody": {
+        "required": true,
+        "schema": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Defaults to true on create and keeps its value on update."
+            },
+            "locationId": {
+              "type": "string",
+              "description": "Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.",
+              "maxLength": 64
+            },
+            "sample": {
+              "type": "boolean",
+              "description": "Publish a fixed sample menu instead of reading Square."
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "operationId": "updateMenuBoard",
+      "method": "put",
+      "path": "/api/v1/plugins/menu-board/menus/{id}",
+      "risk": "routine",
+      "cliPath": ["menu-board", "menu", "update"],
+      "mcpAction": "update_menu",
+      "pathParams": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "format": "uuid"
+        }
+      ],
+      "queryParams": [],
+      "input": "document",
+      "description": "Replace a menu from a JSON document that names the expectedRevision it read.",
+      "requestBody": {
+        "required": true,
+        "schema": {
+          "type": "object",
+          "required": ["name", "expectedRevision"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Defaults to true on create and keeps its value on update."
+            },
+            "locationId": {
+              "type": "string",
+              "description": "Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.",
+              "maxLength": 64
+            },
+            "sample": {
+              "type": "boolean",
+              "description": "Publish a fixed sample menu instead of reading Square."
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "description": "The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428.",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "operationId": "deleteMenuBoard",
+      "method": "delete",
+      "path": "/api/v1/plugins/menu-board/menus/{id}",
+      "risk": "sensitive",
+      "cliPath": ["menu-board", "menu", "delete"],
+      "mcpAction": "delete_menu",
+      "pathParams": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "format": "uuid"
+        }
+      ],
+      "queryParams": [],
+      "description": "Delete a menu from its target screens."
+    }
+  ],
+  "exclusions": []
+}

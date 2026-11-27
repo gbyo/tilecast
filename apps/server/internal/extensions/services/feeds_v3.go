@@ -80,3 +80,63 @@ func (d *Dispatcher) feedRevision(ctx context.Context, call Call) (any, *Denial,
 	}
 	return nil, nil, unavailable(err)
 }
+
+type instanceReadInput struct {
+	Kind string    `json:"kind"`
+	ID   uuid.UUID `json:"id"`
+}
+
+// instanceRead answers one instance of the calling plugin. Secrets stay in
+// the secret store; the answer holds only their absence.
+func (d *Dispatcher) instanceRead(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	var input instanceReadInput
+	if failure := decode(call.Input, &input); failure != nil {
+		return nil, nil, failure
+	}
+	if failure := d.pluginReady(call); failure != nil {
+		return nil, nil, failure
+	}
+	if input.Kind == "" || input.ID == uuid.Nil {
+		return nil, nil, invalidInput("a read names an instance kind and an ID")
+	}
+	document, err := d.deps.Plugins.GetInstance(ctx, call.PluginID, input.Kind, input.ID)
+	switch {
+	case err == nil:
+		return map[string]any{"id": document.ID, "kind": document.Kind, "name": document.Name, "enabled": document.Enabled,
+			"revision": document.Revision, "configuration": document.Configuration}, nil, nil
+	case errors.Is(err, plugins.ErrNotFound), errors.Is(err, plugins.ErrPluginNotFound):
+		return nil, nil, notFound("the plugin has no such instance")
+	}
+	return nil, nil, unavailable(err)
+}
+
+// maxInstanceList bounds instances.read@1/list: the IDs, names, and state
+// of at most this many instances fit the answer.
+const maxInstanceList = 500
+
+func (d *Dispatcher) instanceList(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	var input struct {
+		Kind string `json:"kind"`
+	}
+	if failure := decode(call.Input, &input); failure != nil {
+		return nil, nil, failure
+	}
+	if failure := d.pluginReady(call); failure != nil {
+		return nil, nil, failure
+	}
+	documents, err := d.deps.Plugins.ListInstances(ctx, call.PluginID, input.Kind)
+	if errors.Is(err, plugins.ErrNotFound) || errors.Is(err, plugins.ErrPluginNotFound) {
+		return nil, nil, notFound("the plugin has no such instance kind")
+	}
+	if err != nil {
+		return nil, nil, unavailable(err)
+	}
+	items := make([]map[string]any, 0, len(documents))
+	for _, document := range documents {
+		if len(items) == maxInstanceList {
+			break
+		}
+		items = append(items, map[string]any{"id": document.ID, "name": document.Name, "enabled": document.Enabled, "revision": document.Revision})
+	}
+	return map[string]any{"items": items, "truncated": len(documents) > maxInstanceList}, nil, nil
+}

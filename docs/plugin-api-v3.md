@@ -236,8 +236,11 @@ caller list is for packages only, as before. Phase 1 gives bundled plugins:
 `organization.read@1`, `instance.read@1`, `screens.read@1`, `targets.resolve@1`,
 `targets.resolve@2`, `users.read-basic@1`, and the new `settings.read@1` and
 `secrets.read@1`. Phase 2 adds `http.fetch@1`, `storage.kv@1`,
-`timers.schedule@1`, `timers.cancel@1`, and `feeds.publish@1`. The new
-services are for bundled plugins only.
+`timers.schedule@1`, `timers.cancel@1`, `feeds.publish@1`, and
+`instances.read@1`. The new services are for bundled plugins only.
+`instances.read@1` reads the plugin's own instances (`get` one, `list` up to
+500, never a secret); a timer callback uses it, because a timer carries only
+its key and payload.
 
 The call uses the same dispatcher, so it gets the same operation, context,
 validation, authorization decision, and audit as a package call. A test holds
@@ -418,4 +421,7 @@ serial or GPIO or printer services, stream connections, TCP, installed-package
 parity for `plugin-runtime.state@1`, content services for plugins, or editor
 action slots. A `data_source` field is not valid in a plugin manifest. Phase 2
 adds host connections, `http.fetch@1`, OAuth 2.0 connections, `storage.kv@1`,
-durable timers, and feeds.
+durable timers, feeds, and `instances.read@1`. Phase 2 does not add webhooks,
+events, the delivery queue, `blob.fetch@1`, `storage.blob@1`, stream or socket
+connections, the Player purge list, moderation, or installed-plugin parity
+for these services; later phases add them.

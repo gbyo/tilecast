@@ -6511,6 +6511,80 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugins/menu-board/menus": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description List menus, strongest priority first. */
+    get: operations["listMenuBoards"];
+    put?: never;
+    /** @description Create a menu. Requires plugins.manage and screen access to its targets. */
+    post: operations["createMenuBoard"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/menu-board/menus/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Get one menu with its current revision, to send back as expectedRevision when updating it. */
+    get: operations["getMenuBoard"];
+    /** @description Replace a menu when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets. */
+    put: operations["updateMenuBoard"];
+    post?: never;
+    /** @description Delete a menu and remove it from its screens. */
+    delete: operations["deleteMenuBoard"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/room-sign/rooms": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description List rooms, strongest priority first. */
+    get: operations["listRoomSigns"];
+    put?: never;
+    /** @description Create a room. Requires plugins.manage and screen access to its targets. */
+    post: operations["createRoomSign"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/room-sign/rooms/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Get one room with its current revision, to send back as expectedRevision when updating it. */
+    get: operations["getRoomSign"];
+    /** @description Replace a room when expectedRevision is current. Requires plugins.manage and screen access to its current and new targets. */
+    put: operations["updateRoomSign"];
+    post?: never;
+    /** @description Delete a room and remove it from its screens. */
+    delete: operations["deleteRoomSign"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8156,6 +8230,24 @@ export interface components {
       attention: components["schemas"]["PluginAttention"][];
       /** @description Outbound connections a Plugin Manifest API 3 plugin declares. Empty for other plugins. */
       connections: components["schemas"]["PluginConnectionReview"][];
+      /** @description Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins. */
+      feeds?: components["schemas"]["PluginFeedReview"][];
+    };
+    PluginFeedReview: {
+      id: string;
+      title: string;
+      /** @description The Data Source provider, <plugin id>.<feed id>. */
+      provider: string;
+      dataset: string;
+      fields: number;
+      /** @description The feed downloads remote images through a connection. */
+      images: boolean;
+      /** @description Fields that hold personal data, deleted after their retention. */
+      personal: {
+        key: string;
+        label: string;
+        retentionDays: number;
+      }[];
     };
     PluginConnectionReview: {
       id: string;
@@ -13211,6 +13303,128 @@ export interface components {
       id: string;
       /** @constant */
       kind: "instance";
+      revision: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    MenuBoardInput: {
+      name: string;
+      /** @description Defaults to true on create and keeps its value on update. */
+      enabled?: boolean;
+      /** @description Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable. */
+      locationId?: string;
+      /**
+       * @description Publish a fixed sample menu instead of reading Square.
+       * @default false
+       */
+      sample: boolean;
+    };
+    MenuBoardUpdate: {
+      name: string;
+      /** @description Defaults to true on create and keeps its value on update. */
+      enabled?: boolean;
+      /** @description Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable. */
+      locationId?: string;
+      /**
+       * @description Publish a fixed sample menu instead of reading Square.
+       * @default false
+       */
+      sample: boolean;
+      /** @description The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428. */
+      expectedRevision: number;
+    };
+    MenuBoard: {
+      name: string;
+      enabled: boolean;
+      /** @description Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable. */
+      locationId?: string;
+      /**
+       * @description Publish a fixed sample menu instead of reading Square.
+       * @default false
+       */
+      sample: boolean;
+      /** Format: uuid */
+      id: string;
+      /** @constant */
+      kind: "menu";
+      revision: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    RoomSignInput: {
+      name: string;
+      /** @description Defaults to true on create and keeps its value on update. */
+      enabled?: boolean;
+      /** @description The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar. */
+      calendarId?: string;
+      /**
+       * @description How many days of meetings to publish.
+       * @default 2
+       */
+      lookAheadDays: number;
+      /**
+       * @description Off shows every meeting as Busy, for rooms where titles are private.
+       * @default true
+       */
+      showTitles: boolean;
+      /**
+       * @description Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+       * @default false
+       */
+      sample: boolean;
+    };
+    RoomSignUpdate: {
+      name: string;
+      /** @description Defaults to true on create and keeps its value on update. */
+      enabled?: boolean;
+      /** @description The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar. */
+      calendarId?: string;
+      /**
+       * @description How many days of meetings to publish.
+       * @default 2
+       */
+      lookAheadDays: number;
+      /**
+       * @description Off shows every meeting as Busy, for rooms where titles are private.
+       * @default true
+       */
+      showTitles: boolean;
+      /**
+       * @description Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+       * @default false
+       */
+      sample: boolean;
+      /** @description The revision this change is based on, from the last read. A stale revision answers 409 and changes nothing; a missing one answers 428. */
+      expectedRevision: number;
+    };
+    RoomSign: {
+      name: string;
+      enabled: boolean;
+      /** @description The room's calendar address, for example the room resource email. Use primary for the connected account's own calendar. */
+      calendarId?: string;
+      /**
+       * @description How many days of meetings to publish.
+       * @default 2
+       */
+      lookAheadDays: number;
+      /**
+       * @description Off shows every meeting as Busy, for rooms where titles are private.
+       * @default true
+       */
+      showTitles: boolean;
+      /**
+       * @description Publish a fixed set of sample meetings instead of reading Google. Use it to try a sign before you connect a calendar.
+       * @default false
+       */
+      sample: boolean;
+      /** Format: uuid */
+      id: string;
+      /** @constant */
+      kind: "room";
       revision: number;
       /** Format: date-time */
       createdAt: string;
@@ -31418,6 +31632,424 @@ export interface operations {
       };
       /** @description Manage capability required */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listMenuBoards: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description menus */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              items?: components["schemas"]["MenuBoard"][];
+              total?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  createMenuBoard: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MenuBoardInput"];
+      };
+    };
+    responses: {
+      /** @description menu created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["MenuBoard"];
+          };
+        };
+      };
+      /** @description Configuration or targets are invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Capability or screen access missing */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The plugin is not installed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMenuBoard: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description menu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["MenuBoard"];
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  updateMenuBoard: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MenuBoardUpdate"];
+      };
+    };
+    responses: {
+      /** @description menu replaced */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["MenuBoard"];
+          };
+        };
+      };
+      /** @description Configuration or targets are invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Capability or screen access missing */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Stale revision; nothing changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description expectedRevision is missing */
+      428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deleteMenuBoard: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description menu deleted */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Capability or screen access missing */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listRoomSigns: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description rooms */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              items?: components["schemas"]["RoomSign"][];
+              total?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  createRoomSign: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoomSignInput"];
+      };
+    };
+    responses: {
+      /** @description room created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["RoomSign"];
+          };
+        };
+      };
+      /** @description Configuration or targets are invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Capability or screen access missing */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The plugin is not installed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getRoomSign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description room */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["RoomSign"];
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  updateRoomSign: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoomSignUpdate"];
+      };
+    };
+    responses: {
+      /** @description room replaced */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["RoomSign"];
+          };
+        };
+      };
+      /** @description Configuration or targets are invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Capability or screen access missing */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Stale revision; nothing changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description expectedRevision is missing */
+      428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deleteRoomSign: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description room deleted */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Capability or screen access missing */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

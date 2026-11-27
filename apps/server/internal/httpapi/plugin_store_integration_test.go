@@ -75,8 +75,8 @@ func TestPluginStoreAPI(t *testing.T) {
 		}
 		data := body["data"].(map[string]any)
 		items := data["items"].([]any)
-		if len(items) != 3 {
-			t.Fatalf("store items = %d, want 3", len(items))
+		if len(items) != 5 {
+			t.Fatalf("store items = %d, want 5", len(items))
 		}
 		for _, raw := range items {
 			entry := raw.(map[string]any)

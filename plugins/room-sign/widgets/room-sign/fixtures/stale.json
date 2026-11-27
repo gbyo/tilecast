@@ -1,0 +1,111 @@
+{
+  "name": "Stale",
+  "description": "A schedule past its validity shows a quiet notice.",
+  "configuration": {
+    "dataSourceId": "22222222-2222-4222-8222-222222222222",
+    "titleField": "title",
+    "startField": "start",
+    "endField": "end",
+    "roomName": "Board Room",
+    "freeLabel": "Available",
+    "busyLabel": "In use",
+    "accentColor": ""
+  },
+  "documents": {
+    "22222222-2222-4222-8222-222222222222": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "events",
+          "kind": "records",
+          "fields": [
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "start",
+              "label": "Start",
+              "type": "datetime"
+            },
+            {
+              "key": "end",
+              "label": "End",
+              "type": "datetime"
+            },
+            {
+              "key": "allDay",
+              "label": "All day",
+              "type": "boolean"
+            },
+            {
+              "key": "status",
+              "label": "Status",
+              "type": "text"
+            }
+          ],
+          "records": [
+            {
+              "id": "m1",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Budget review"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T14:00:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T15:00:00Z"
+                }
+              }
+            },
+            {
+              "id": "m2",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Hiring sync"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T16:00:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T16:30:00Z"
+                }
+              }
+            },
+            {
+              "id": "m3",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "All hands"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-29T15:00:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-29T16:00:00Z"
+                }
+              }
+            }
+          ],
+          "cache": {
+            "usingCachedData": false,
+            "unavailable": false,
+            "staleAt": "2020-01-01T00:00:00Z"
+          }
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

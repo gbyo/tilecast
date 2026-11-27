@@ -8,8 +8,11 @@ Implementation: phase 1 is implemented. See
 [configuration schema](../config-schema.md), and
 [plugin secrets](../plugin-secrets.md). Phase 2 is in progress: host
 connections, local `http` origins, `http.fetch@1`, and OAuth 2.0 connections
-are implemented, and so are `storage.kv@1`, durable timers, and feeds with
-overrides and remote images. See [plugin connections](../plugin-connections.md),
+are implemented, and so are `storage.kv@1`, durable timers, feeds with
+overrides and remote images, and the proof plugins Room Sign (Google
+Calendar) and Square Menu Board (Square Catalog). Phase 2 adds one service
+this record does not name: `instances.read@1`, which reads a plugin's own
+instances, because a timer callback carries only its key and payload. See [plugin connections](../plugin-connections.md),
 [plugin storage and timers](../plugin-storage.md), and
 [plugin feeds](../plugin-feeds.md). The
 OAuth callback hands the provider's answer to Studio, which completes the

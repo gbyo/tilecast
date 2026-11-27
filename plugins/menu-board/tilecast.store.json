@@ -1,0 +1,16 @@
+{
+  "publisher": {
+    "name": "Tilecast",
+    "url": "https://tilecast.org"
+  },
+  "longDescription": "Square Menu Board turns your Square item library into a menu on your screens: categories, names, prices, and pictures, kept current every few minutes. When an item sells out at your location, the menu says so.\n\nPrices and availability always come from Square, so a screen never shows a price your register does not charge. You can still shorten a name for the sign, change the order, or hide an item, and those choices stay when Square sends its next update. Tilecast reads your library with read-only access and never changes it.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      {
+        "src": "./store/01-menu.webp",
+        "alt": "A menu screen with Coffee, Tea, and Bakery sections, a picture beside Latte, prices on the right, and Matcha struck through and marked Sold out."
+      }
+    ]
+  }
+}

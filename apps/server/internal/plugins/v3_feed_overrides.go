@@ -362,3 +362,41 @@ func (s *Service) feedAttention(ctx context.Context, pluginID string) ([]PluginA
 	}
 	return []PluginAttention{{Code: "feed_image_import_failed", Message: "Some feed images could not be imported. Their records show no image; the feed page says why."}}, nil
 }
+
+// FeedReview is one declared feed as the install review shows it: what the
+// plugin publishes for Widgets, and which fields hold personal data for how
+// long.
+type FeedReview struct {
+	ID       string           `json:"id"`
+	Title    string           `json:"title"`
+	Provider string           `json:"provider"`
+	Dataset  string           `json:"dataset"`
+	Fields   int              `json:"fields"`
+	Personal []PersonalReview `json:"personal"`
+	Images   bool             `json:"images"`
+}
+
+// PersonalReview is one personal feed field and its retention.
+type PersonalReview struct {
+	Key           string `json:"key"`
+	Label         string `json:"label"`
+	RetentionDays int    `json:"retentionDays"`
+}
+
+func feedReviews(m plugin.Manifest) []FeedReview {
+	out := []FeedReview{}
+	for _, feed := range m.Feeds {
+		review := FeedReview{ID: feed.ID, Title: feed.Title, Provider: feed.ProviderID(m.ID), Dataset: feed.Dataset,
+			Fields: len(feed.Fields), Personal: []PersonalReview{}}
+		for _, field := range feed.Fields {
+			if field.Personal != nil {
+				review.Personal = append(review.Personal, PersonalReview{Key: field.Key, Label: field.Label, RetentionDays: field.Personal.RetentionDays})
+			}
+			if field.Image != nil {
+				review.Images = true
+			}
+		}
+		out = append(out, review)
+	}
+	return out
+}

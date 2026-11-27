@@ -11,6 +11,8 @@ package org.tilecast.player.runtime
 object WidgetComponentCapabilities {
     const val COMPONENT_PRESENTATION_SCHEMA_VERSION = 2
     val WIDGET_COMPONENT_CAPABILITIES: Map<String, Int> = mapOf(
+        "widget.menuboard.menu" to 1,
+        "widget.roomsign.room-sign" to 1,
         "widget.tilecast.agenda" to 1,
         "widget.tilecast.alert-banner" to 1,
         "widget.tilecast.cards" to 1,

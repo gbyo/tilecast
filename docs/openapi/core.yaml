@@ -12997,6 +12997,30 @@ components:
           type: array
           description: Outbound connections a Plugin Manifest API 3 plugin declares. Empty for other plugins.
           items: { $ref: "#/components/schemas/PluginConnectionReview" }
+        feeds:
+          type: array
+          description: Feeds a Plugin Manifest API 3 plugin publishes as Data Sources. Empty for other plugins.
+          items: { $ref: "#/components/schemas/PluginFeedReview" }
+    PluginFeedReview:
+      type: object
+      required: [id, title, provider, dataset, fields, personal, images]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        provider: { type: string, description: "The Data Source provider, <plugin id>.<feed id>." }
+        dataset: { type: string, x-extensible-enum: [organization, instance] }
+        fields: { type: integer, minimum: 1, maximum: 16 }
+        images: { type: boolean, description: The feed downloads remote images through a connection. }
+        personal:
+          type: array
+          description: Fields that hold personal data, deleted after their retention.
+          items:
+            type: object
+            required: [key, label, retentionDays]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              retentionDays: { type: integer, minimum: 1 }
     PluginConnectionReview:
       type: object
       required: [id, title, type, operatorOrigin, origins, privateNetwork, plainHttp, plaintextSecret, maxResponseBytes, timeoutSeconds]

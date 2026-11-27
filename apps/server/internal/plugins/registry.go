@@ -55,6 +55,8 @@ type Definition struct {
 	// Connections are the outbound connections a Plugin Manifest API 3
 	// plugin declares, for the install review.
 	Connections []ConnectionReview
+	// Feeds are the datasets a Plugin Manifest API 3 plugin publishes.
+	Feeds []FeedReview
 }
 
 // Requirement is declarative context shown before installation. It is never
@@ -117,7 +119,7 @@ func definitionFromManifest(m plugin.Manifest) Definition {
 		InstanceNounSingular: m.InstanceNoun.Singular, InstanceNounPlural: m.InstanceNoun.Plural,
 		Requirements: requirements, Capabilities: append([]string{}, m.Uses...),
 		Documentation: documentation, Installable: m.IsInstallable(),
-		PlayerFacing: m.PlayerFacing(), Connections: connectionReviews(m),
+		PlayerFacing: m.PlayerFacing(), Connections: connectionReviews(m), Feeds: feedReviews(m),
 	}
 }
 

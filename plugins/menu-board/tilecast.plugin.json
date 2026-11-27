@@ -1,0 +1,226 @@
+{
+  "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
+  "apiVersion": 3,
+  "id": "menu_board",
+  "definitionVersion": 1,
+  "name": "Square Menu Board",
+  "description": "Show a menu with prices and pictures from your Square item library.",
+  "category": "Display",
+  "icon": "utensils",
+  "maintainers": [
+    "@gbyo"
+  ],
+  "instanceNoun": {
+    "singular": "menu",
+    "plural": "menus"
+  },
+  "requirements": [
+    {
+      "kind": "network",
+      "label": "Square access",
+      "description": "The Tilecast server reaches Square over HTTPS, and TILECAST_PUBLIC_URL is an https address for the Square sign-in."
+    }
+  ],
+  "uses": [
+    "Square item library (read only)",
+    "Feeds",
+    "Durable timers"
+  ],
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": [
+      "/plugins/menu-board"
+    ]
+  },
+  "studio": {
+    "route": "/plugins/menu-board",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "services": [
+    "http.fetch@1",
+    "storage.kv@1",
+    "timers.schedule@1",
+    "timers.cancel@1",
+    "feeds.publish@1",
+    "instances.read@1"
+  ],
+  "connections": [
+    {
+      "id": "square",
+      "title": "Square",
+      "description": "Reads your item library. Tilecast never changes an item or a price.",
+      "type": "oauth2",
+      "origins": [
+        "https://connect.squareup.com"
+      ],
+      "oauth": {
+        "authorizationEndpoint": "https://connect.squareup.com/oauth2/authorize",
+        "tokenEndpoint": "https://connect.squareup.com/oauth2/token",
+        "scopes": [
+          "ITEMS_READ"
+        ],
+        "tokenEndpointAuthMethod": "client_secret_post",
+        "tokenRequestFormat": "json",
+        "authorizationParameters": {
+          "session": "false"
+        }
+      }
+    },
+    {
+      "id": "square_images",
+      "title": "Square item images",
+      "description": "Downloads item pictures from Square's image storage. It sends no Square credential.",
+      "type": "http",
+      "origins": [
+        "https://items-images-production.s3.us-west-2.amazonaws.com"
+      ]
+    }
+  ],
+  "instances": [
+    {
+      "kind": "menu",
+      "noun": {
+        "singular": "menu",
+        "plural": "menus"
+      },
+      "path": "menus",
+      "operations": {
+        "singular": "MenuBoard",
+        "plural": "MenuBoards"
+      },
+      "targeting": "none",
+      "schedule": "none",
+      "fields": [
+        {
+          "key": "connection",
+          "label": "Square connection",
+          "control": "connection",
+          "connections": [
+            "square"
+          ]
+        },
+        {
+          "key": "imagesConnection",
+          "label": "Square images connection",
+          "description": "Optional. Without it the menu shows no pictures.",
+          "control": "connection",
+          "connections": [
+            "square_images"
+          ]
+        },
+        {
+          "key": "locationId",
+          "label": "Square location ID",
+          "description": "Optional. With a location, items that location does not sell are left out and sold-out items show as unavailable.",
+          "control": "text",
+          "maxLength": 64
+        },
+        {
+          "key": "sample",
+          "label": "Show a sample menu",
+          "description": "Publish a fixed sample menu instead of reading Square.",
+          "control": "boolean",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "feeds": [
+    {
+      "id": "items",
+      "version": 1,
+      "title": "Menu items",
+      "description": "One record for each item variation in the Square item library.",
+      "dataset": "instance",
+      "instanceKind": "menu",
+      "expectedRefreshSeconds": 900,
+      "fields": [
+        {
+          "key": "providerId",
+          "label": "Square ID",
+          "control": "text",
+          "maxLength": 80,
+          "required": true
+        },
+        {
+          "key": "name",
+          "label": "Name",
+          "control": "text",
+          "maxLength": 160,
+          "required": true,
+          "override": "local_until_changed"
+        },
+        {
+          "key": "shortLabel",
+          "label": "Sign label",
+          "control": "text",
+          "maxLength": 60,
+          "override": "local"
+        },
+        {
+          "key": "description",
+          "label": "Description",
+          "control": "multiline_text",
+          "maxLength": 500,
+          "override": "local_until_changed"
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "control": "text",
+          "maxLength": 80
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "control": "number",
+          "minimum": 0
+        },
+        {
+          "key": "currency",
+          "label": "Currency",
+          "control": "text",
+          "maxLength": 3
+        },
+        {
+          "key": "available",
+          "label": "Available",
+          "control": "boolean"
+        },
+        {
+          "key": "order",
+          "label": "Sign order",
+          "control": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "override": "local"
+        },
+        {
+          "key": "visible",
+          "label": "Show on signs",
+          "control": "boolean",
+          "override": "local"
+        },
+        {
+          "key": "photo",
+          "label": "Photo",
+          "control": "url",
+          "image": {
+            "connection": "square_images"
+          }
+        }
+      ]
+    }
+  ],
+  "docs": {
+    "reference": "docs/plugins.md#square-menu-board",
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/plugins/menu-board"
+      }
+    ]
+  }
+}

@@ -87,6 +87,43 @@
       ]
     },
     {
+      "id": "instances.read",
+      "version": 1,
+      "name": "Own instances",
+      "description": "Read one of this plugin's own instances: name, enabled state, revision, and configuration, never a secret.",
+      "contexts": [
+        "studio",
+        "background",
+        "system"
+      ],
+      "operations": [
+        {
+          "name": "instances.read@1/get",
+          "title": "Read instance",
+          "mutating": false,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 32768,
+          "maxOutputBytes": 163840
+        },
+        {
+          "name": "instances.read@1/list",
+          "title": "List instances",
+          "mutating": false,
+          "contexts": [
+            "studio",
+            "background",
+            "system"
+          ],
+          "maxInputBytes": 32768,
+          "maxOutputBytes": 163840
+        }
+      ]
+    },
+    {
       "id": "organization.read",
       "version": 1,
       "name": "Organization details",

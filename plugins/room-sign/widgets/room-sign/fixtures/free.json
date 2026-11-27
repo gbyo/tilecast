@@ -1,0 +1,58 @@
+{
+  "name": "Free all day",
+  "description": "A room with no meetings is free, not empty.",
+  "configuration": {
+    "dataSourceId": "22222222-2222-4222-8222-222222222222",
+    "titleField": "title",
+    "startField": "start",
+    "endField": "end",
+    "roomName": "Board Room",
+    "freeLabel": "Available",
+    "busyLabel": "In use",
+    "accentColor": ""
+  },
+  "documents": {
+    "22222222-2222-4222-8222-222222222222": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "events",
+          "kind": "records",
+          "fields": [
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "start",
+              "label": "Start",
+              "type": "datetime"
+            },
+            {
+              "key": "end",
+              "label": "End",
+              "type": "datetime"
+            },
+            {
+              "key": "allDay",
+              "label": "All day",
+              "type": "boolean"
+            },
+            {
+              "key": "status",
+              "label": "Status",
+              "type": "text"
+            }
+          ],
+          "records": [],
+          "cache": {
+            "usingCachedData": false,
+            "unavailable": false
+          }
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

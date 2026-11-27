@@ -83,7 +83,7 @@ A capability in the package manifest is a request, not a self-granted permission
 
 Some built-in plugins read from another system: a calendar, a point-of-sale catalog, or a device on your network. These plugins can't reach the network on their own. They use **connections** that you create, and Tilecast checks every request they send.
 
-Before you install such a plugin, its page has a **Network connections** section. For each connection it shows where the plugin sends requests, whether you choose that address, and what extra permission the connection could ask for. A connection that waits longer than 10 seconds or accepts responses larger than 1 MiB says so there too.
+Before you install such a plugin, its page has a **Network connections** section, and a plugin that publishes data for screens has a **Data for screens** section listing the Data Sources it creates, whether it downloads pictures, and which fields hold personal data and for how long. In **Network connections**, for each connection it shows where the plugin sends requests, whether you choose that address, and what extra permission the connection could ask for. A connection that waits longer than 10 seconds or accepts responses larger than 1 MiB says so there too.
 
 To set up a connection after you install the plugin:
 
@@ -195,5 +195,7 @@ for the exact refresh conditions.
 - [Countdown Bar](./countdown-bar/) for timed overlays, targeting, priority, and urgency.
 - [Emergency Alerts](../emergency-alerts/) for NWS monitoring and response rules.
 - [Forms](../../studio/forms/) for data collection and approval workflows.
+- [Room Sign](./room-sign/) for a meeting room's current and next meeting from Google Calendar.
+- [Square Menu Board](./menu-board/) for a menu with prices and pictures from Square.
 
 Two earlier plugins are retired. [Brand Bug / Watermark](./brand-bug/) and [Noise Meter](./noise-meter/) explain what happens to an installation that still has them.

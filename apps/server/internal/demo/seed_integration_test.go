@@ -203,7 +203,7 @@ func TestSeedScenariosAreDeterministicAndRerunnable(t *testing.T) {
 		t.Fatalf("open intervals on simulated screens = %d, want 0 (err %v)", openOnSimulated, err)
 	}
 	assertCount(t, pool, `SELECT count(*) FROM screen_state_intervals WHERE started_at>now()`, 0)
-	want := map[string]int{"users": 4, "locations": 4, "screens": 13, "screen_groups": 4, "screen_group_memberships": 10, "playlists": 5, "layouts": 2, "schedules": 3, "campaigns": 1, "content_tags": 4, "assets": 10, "plugin_installations": 1}
+	want := map[string]int{"users": 4, "locations": 4, "screens": 13, "screen_groups": 4, "screen_group_memberships": 10, "playlists": 5, "layouts": 2, "schedules": 3, "campaigns": 1, "content_tags": 4, "assets": 10, "plugin_installations": 3}
 	for table, count := range want {
 		if before[table] != count {
 			t.Errorf("%s = %d, want %d", table, before[table], count)

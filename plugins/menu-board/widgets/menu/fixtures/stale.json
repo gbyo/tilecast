@@ -1,0 +1,295 @@
+{
+  "name": "Stale",
+  "description": "A menu past its validity says that prices may be out of date.",
+  "configuration": {
+    "dataSourceId": "33333333-3333-4333-8333-333333333333",
+    "nameField": "name",
+    "labelField": "shortLabel",
+    "descriptionField": "description",
+    "categoryField": "category",
+    "priceField": "price",
+    "currencyField": "currency",
+    "availableField": "available",
+    "visibleField": "visible",
+    "orderField": "order",
+    "imageField": "photo",
+    "heading": "Menu",
+    "unavailableLabel": "Sold out",
+    "showDescriptions": false,
+    "showImages": true,
+    "maximumItems": 60,
+    "accentColor": ""
+  },
+  "documents": {
+    "33333333-3333-4333-8333-333333333333": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "items",
+          "kind": "records",
+          "fields": [
+            {
+              "key": "name",
+              "label": "name",
+              "type": "text"
+            },
+            {
+              "key": "shortLabel",
+              "label": "shortLabel",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "label": "description",
+              "type": "text"
+            },
+            {
+              "key": "category",
+              "label": "category",
+              "type": "text"
+            },
+            {
+              "key": "price",
+              "label": "price",
+              "type": "number"
+            },
+            {
+              "key": "currency",
+              "label": "currency",
+              "type": "text"
+            },
+            {
+              "key": "available",
+              "label": "available",
+              "type": "boolean"
+            },
+            {
+              "key": "order",
+              "label": "order",
+              "type": "integer"
+            },
+            {
+              "key": "visible",
+              "label": "visible",
+              "type": "boolean"
+            },
+            {
+              "key": "photo",
+              "label": "photo",
+              "type": "asset"
+            }
+          ],
+          "records": [
+            {
+              "id": "v1",
+              "values": {
+                "name": {
+                  "kind": "text",
+                  "text": "Latte"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Coffee"
+                },
+                "price": {
+                  "kind": "number",
+                  "number": 4.5
+                },
+                "currency": {
+                  "kind": "text",
+                  "text": "USD"
+                },
+                "available": {
+                  "kind": "boolean",
+                  "boolean": true
+                },
+                "order": {
+                  "kind": "integer",
+                  "integer": 0
+                },
+                "photo": {
+                  "kind": "asset",
+                  "assetId": "aaaaaaaa-0000-4000-8000-000000000001"
+                }
+              }
+            },
+            {
+              "id": "v2",
+              "values": {
+                "name": {
+                  "kind": "text",
+                  "text": "Americano"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Coffee"
+                },
+                "price": {
+                  "kind": "number",
+                  "number": 3.25
+                },
+                "currency": {
+                  "kind": "text",
+                  "text": "USD"
+                },
+                "available": {
+                  "kind": "boolean",
+                  "boolean": true
+                },
+                "order": {
+                  "kind": "integer",
+                  "integer": 1
+                },
+                "photo": {
+                  "kind": "null"
+                }
+              }
+            },
+            {
+              "id": "v3",
+              "values": {
+                "name": {
+                  "kind": "text",
+                  "text": "Chai latte"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Tea"
+                },
+                "price": {
+                  "kind": "number",
+                  "number": 4.75
+                },
+                "currency": {
+                  "kind": "text",
+                  "text": "USD"
+                },
+                "available": {
+                  "kind": "boolean",
+                  "boolean": true
+                },
+                "order": {
+                  "kind": "integer",
+                  "integer": 2
+                },
+                "shortLabel": {
+                  "kind": "text",
+                  "text": "Chai"
+                },
+                "photo": {
+                  "kind": "null"
+                }
+              }
+            },
+            {
+              "id": "v4",
+              "values": {
+                "name": {
+                  "kind": "text",
+                  "text": "Matcha"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Tea"
+                },
+                "price": {
+                  "kind": "number",
+                  "number": 5
+                },
+                "currency": {
+                  "kind": "text",
+                  "text": "USD"
+                },
+                "available": {
+                  "kind": "boolean",
+                  "boolean": false
+                },
+                "order": {
+                  "kind": "integer",
+                  "integer": 3
+                },
+                "photo": {
+                  "kind": "null"
+                }
+              }
+            },
+            {
+              "id": "v5",
+              "values": {
+                "name": {
+                  "kind": "text",
+                  "text": "Croissant"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Bakery"
+                },
+                "price": {
+                  "kind": "number",
+                  "number": 3.5
+                },
+                "currency": {
+                  "kind": "text",
+                  "text": "USD"
+                },
+                "available": {
+                  "kind": "boolean",
+                  "boolean": true
+                },
+                "order": {
+                  "kind": "integer",
+                  "integer": 4
+                },
+                "photo": {
+                  "kind": "null"
+                }
+              }
+            },
+            {
+              "id": "v6",
+              "values": {
+                "name": {
+                  "kind": "text",
+                  "text": "Staff special"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Bakery"
+                },
+                "price": {
+                  "kind": "number",
+                  "number": 1
+                },
+                "currency": {
+                  "kind": "text",
+                  "text": "USD"
+                },
+                "available": {
+                  "kind": "boolean",
+                  "boolean": true
+                },
+                "order": {
+                  "kind": "integer",
+                  "integer": 5
+                },
+                "visible": {
+                  "kind": "boolean",
+                  "boolean": false
+                },
+                "photo": {
+                  "kind": "null"
+                }
+              }
+            }
+          ],
+          "cache": {
+            "usingCachedData": false,
+            "unavailable": false,
+            "staleAt": "2020-01-01T00:00:00Z"
+          }
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

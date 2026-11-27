@@ -1,0 +1,315 @@
+{
+  "$schema": "../../../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "menu_board_menu",
+  "version": 1,
+  "name": "Square Menu",
+  "description": "Show menu items by category with prices, pictures, and sold-out items.",
+  "category": "Data display",
+  "icon": "utensils",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Menu",
+        "description": "The Square Menu Board feed of one menu.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 1
+        }
+      },
+      {
+        "key": "nameField",
+        "label": "Name field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "name",
+        "ui": {
+          "section": "data",
+          "order": 2,
+          "semanticRole": "title"
+        }
+      },
+      {
+        "key": "labelField",
+        "label": "Sign label field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "shortLabel",
+        "ui": {
+          "section": "data",
+          "order": 3
+        }
+      },
+      {
+        "key": "descriptionField",
+        "label": "Description field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "description",
+        "ui": {
+          "section": "data",
+          "order": 4,
+          "semanticRole": "description"
+        }
+      },
+      {
+        "key": "categoryField",
+        "label": "Category field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "category",
+        "ui": {
+          "section": "data",
+          "order": 5,
+          "semanticRole": "category"
+        }
+      },
+      {
+        "key": "priceField",
+        "label": "Price field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["number", "currency"],
+        "default": "price",
+        "ui": {
+          "section": "data",
+          "order": 6
+        }
+      },
+      {
+        "key": "currencyField",
+        "label": "Currency field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "currency",
+        "ui": {
+          "section": "data",
+          "order": 7
+        }
+      },
+      {
+        "key": "availableField",
+        "label": "Available field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["boolean"],
+        "default": "available",
+        "ui": {
+          "section": "data",
+          "order": 8
+        }
+      },
+      {
+        "key": "visibleField",
+        "label": "Visible field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["boolean"],
+        "default": "visible",
+        "ui": {
+          "section": "data",
+          "order": 9
+        }
+      },
+      {
+        "key": "orderField",
+        "label": "Order field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["integer", "number"],
+        "default": "order",
+        "ui": {
+          "section": "data",
+          "order": 10
+        }
+      },
+      {
+        "key": "imageField",
+        "label": "Picture field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["asset"],
+        "default": "photo",
+        "ui": {
+          "section": "data",
+          "order": 11
+        }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 80,
+        "default": "",
+        "ui": {
+          "section": "content",
+          "order": 1
+        }
+      },
+      {
+        "key": "unavailableLabel",
+        "label": "Unavailable label",
+        "control": "text",
+        "maxLength": 40,
+        "default": "Sold out",
+        "ui": {
+          "section": "content",
+          "order": 2
+        }
+      },
+      {
+        "key": "showDescriptions",
+        "label": "Show descriptions",
+        "control": "boolean",
+        "default": false,
+        "ui": {
+          "section": "content",
+          "order": 3
+        }
+      },
+      {
+        "key": "showImages",
+        "label": "Show pictures",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 4
+        }
+      },
+      {
+        "key": "maximumItems",
+        "label": "Most items",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 60,
+        "ui": {
+          "section": "content",
+          "order": 5
+        }
+      },
+      {
+        "key": "accentColor",
+        "label": "Accent",
+        "control": "color",
+        "default": "",
+        "ui": {
+          "section": "appearance",
+          "order": 1
+        }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "nameField": "name",
+    "labelField": "shortLabel",
+    "descriptionField": "description",
+    "categoryField": "category",
+    "priceField": "price",
+    "currencyField": "currency",
+    "availableField": "available",
+    "visibleField": "visible",
+    "orderField": "order",
+    "imageField": "photo",
+    "heading": "",
+    "unavailableLabel": "Sold out",
+    "showDescriptions": false,
+    "showImages": true,
+    "maximumItems": 60,
+    "accentColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "collection.repeat": 2,
+    "collection.grouped_sections": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "deprecation": {},
+  "component": {
+    "type": "menuboard.menu",
+    "version": 1,
+    "tagName": "tc-widget-menuboard-menu",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": {
+        "$config": "dataSourceId",
+        "default": ""
+      },
+      "nameField": {
+        "$config": "nameField",
+        "default": "name"
+      },
+      "labelField": {
+        "$config": "labelField",
+        "default": "shortLabel"
+      },
+      "descriptionField": {
+        "$config": "descriptionField",
+        "default": "description"
+      },
+      "categoryField": {
+        "$config": "categoryField",
+        "default": "category"
+      },
+      "priceField": {
+        "$config": "priceField",
+        "default": "price"
+      },
+      "currencyField": {
+        "$config": "currencyField",
+        "default": "currency"
+      },
+      "availableField": {
+        "$config": "availableField",
+        "default": "available"
+      },
+      "visibleField": {
+        "$config": "visibleField",
+        "default": "visible"
+      },
+      "orderField": {
+        "$config": "orderField",
+        "default": "order"
+      },
+      "imageField": {
+        "$config": "imageField",
+        "default": "photo"
+      },
+      "heading": {
+        "$config": "heading",
+        "default": ""
+      },
+      "unavailableLabel": {
+        "$config": "unavailableLabel",
+        "default": "Sold out"
+      },
+      "showDescriptions": {
+        "$config": "showDescriptions",
+        "default": false
+      },
+      "showImages": {
+        "$config": "showImages",
+        "default": true
+      },
+      "maximumItems": {
+        "$config": "maximumItems",
+        "default": 60
+      },
+      "accent": {
+        "$config": "accentColor",
+        "default": ""
+      }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "render"
+  },
+  "compatibility": {
+    "fallback": "none"
+  }
+}

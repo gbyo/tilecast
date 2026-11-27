@@ -81,8 +81,8 @@ func TestPluginInstallationAPI(t *testing.T) {
 			t.Fatalf("viewer catalog status = %d", status)
 		}
 		items := body["data"].(map[string]any)["items"].([]any)
-		if len(items) != 3 {
-			t.Fatalf("catalog items = %d, want 3", len(items))
+		if len(items) != 5 {
+			t.Fatalf("catalog items = %d, want 5", len(items))
 		}
 
 		for _, role := range []string{"viewer", "editor"} {

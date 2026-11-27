@@ -1,6 +1,6 @@
 # Installable built-in plugins
 
-Tilecast plugins are release-owned optional capabilities. Installing one activates code that ships with the Tilecast release; it does not download executable code. This release offers Countdown Bar, Emergency Alerts, and Forms.
+Tilecast plugins are release-owned optional capabilities. Installing one activates code that ships with the Tilecast release; it does not download executable code. This release offers Countdown Bar, Emergency Alerts, Forms, Room Sign, and Square Menu Board.
 
 ## Catalog, installation, and removal
 
@@ -117,6 +117,36 @@ A rule answers a matching alert in one of two ways, chosen per rule as `response
 Both responses use the same matching, the same `maximumDurationMinutes` ceiling, and the same targets. Changing a rule's response mode clears its live activations so the next poll answers the same alert in the new form.
 
 Its configuration endpoints predate the plugin catalog and are unchanged, under `/api/v1/alerts/nws/`. See [takeover-and-operations.md](takeover-and-operations.md) for the monitor, rule matching, and poll health.
+
+## Room Sign
+
+Room Sign (`room_sign`) is a Plugin Manifest API 3 plugin. A room is an
+instance with a Google Calendar `oauth2` connection and a calendar ID, or with
+sample meetings. A `tick` timer schedules a sync timer for each enabled room
+every five minutes. A sync reads Google Calendar `events.list` through
+`http.fetch@1`: a full read without `timeMin` or `timeMax`, then incremental
+reads with the sync token, and a bounded full read after a 410. The room's
+state (calendar, sync token, coverage, and at most 250 events) is one
+`storage.kv@1` value. The room publishes the feed `events@1` (title, start,
+end, all day, status) with `validUntil` 30 minutes ahead. The title is
+personal data with a retention of 7 days. The Room Sign Widget
+(`room_sign_room-sign`) reads the feed and the corrected Player clock. The
+connection asks only for `calendar.events.readonly`.
+
+## Square Menu Board
+
+Square Menu Board (`menu_board`) is a Plugin Manifest API 3 plugin. A menu is
+an instance with a Square `oauth2` connection (`ITEMS_READ`, JSON token
+requests), an optional `square_images` `http` connection for item pictures,
+and an optional location ID. A sync reads `GET /v2/catalog/list` with
+`Square-Version: 2026-11-18`, at most 30 pages, and publishes the feed
+`items@1` with one record for each sellable item variation. Prices,
+currency, availability, and the Square ID are `upstream`; the name and
+description are `local_until_changed`; the sign label, sign order, and
+visibility are `local`. Pictures are remote feed images through the
+`square_images` connection, so the Square bearer token never goes to the
+image host. `storage.kv@1` holds only the metadata of the last read. The Menu
+Widget (`menu_board_menu`) reads the feed.
 
 ## Player behavior
 

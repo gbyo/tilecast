@@ -176,8 +176,8 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 			t.Fatalf("viewer store status = %d", status)
 		}
 		items := marketplaceStoreItems(t, body)
-		if len(items) != 5 {
-			t.Fatalf("store items = %d, want 3 included + 2 marketplace", len(items))
+		if len(items) != 7 {
+			t.Fatalf("store items = %d, want 5 included + 2 marketplace", len(items))
 		}
 
 		fresh := findStoreItem(t, items, "acme.countdown-pro")
@@ -262,8 +262,8 @@ func TestPluginStoreMarketplaceError(t *testing.T) {
 		if status != http.StatusOK {
 			t.Fatalf("viewer store status = %d", status)
 		}
-		if items := marketplaceStoreItems(t, body); len(items) != 3 {
-			t.Fatalf("store items = %d, want 3 included", len(items))
+		if items := marketplaceStoreItems(t, body); len(items) != 5 {
+			t.Fatalf("store items = %d, want 5 included", len(items))
 		}
 		marketplace := body["data"].(map[string]any)["marketplace"].(map[string]any)
 		if marketplace["stale"] != true {
@@ -356,8 +356,8 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 			t.Fatalf("viewer store status = %d", status)
 		}
 		items := marketplaceStoreItems(t, body)
-		if len(items) != 4 {
-			t.Fatalf("store items = %d, want 3 included + 1 marketplace", len(items))
+		if len(items) != 6 {
+			t.Fatalf("store items = %d, want 5 included + 1 marketplace", len(items))
 		}
 		entry := findStoreItem(t, items, "acme.weather")
 		if entry["marketplace"].(map[string]any)["version"] != "1.0.0" {
@@ -376,7 +376,7 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 			t.Fatalf("viewer store status after failed refresh = %d", status)
 		}
 		items = marketplaceStoreItems(t, body)
-		if len(items) != 4 {
+		if len(items) != 6 {
 			t.Fatalf("store items after failed refresh = %d, want the cached listing kept", len(items))
 		}
 		cached := body["data"].(map[string]any)["marketplace"].(map[string]any)

@@ -1,4 +1,5 @@
 import { ConnectionReviewSection } from "./ConnectionReviewSection";
+import { FeedReviewSection } from "./FeedReviewSection";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
@@ -321,6 +322,7 @@ export function StoreDetail({
             loading={loadingPackage}
           />
           <ConnectionReviewSection view={view} />
+          <FeedReviewSection view={view} />
           <RequirementsSection view={view} />
         </div>
 

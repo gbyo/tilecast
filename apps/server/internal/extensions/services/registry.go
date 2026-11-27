@@ -415,6 +415,23 @@ var capabilities = []Capability{
 			{Name: "feeds.publish@1/revision", CapabilityID: "feeds.publish", CapabilityVersion: 1, Title: "Read feed revision", Description: "Read the current revision of one dataset, the one the next publication replaces.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem}},
 		},
 	},
+	{
+		// Bundled only. A timer callback or another hook without an
+		// instance in hand reads one of the plugin's own instances.
+		ID:          "instances.read",
+		Version:     1,
+		Name:        "Own instances",
+		Description: "Read one of this plugin's own instances: name, enabled state, revision, and configuration, never a secret.",
+		Category:    CategoryRead,
+		Contexts:    []string{ContextStudio, ContextBackground, ContextSystem},
+		Callers:     []string{CallerBundled},
+		Operations: []Operation{
+			{Name: "instances.read@1/get", CapabilityID: "instances.read", CapabilityVersion: 1, Title: "Read instance", Description: "Read one instance of this plugin by kind and ID. A missing instance answers not_found.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxOutputBytes: 160 << 10}},
+			{Name: "instances.read@1/list", CapabilityID: "instances.read", CapabilityVersion: 1, Title: "List instances", Description: "List the IDs, names, and enabled state of this plugin's instances of one kind.", Contexts: []string{ContextStudio, ContextBackground, ContextSystem},
+				Limits: TransportLimits{MaxOutputBytes: 160 << 10}},
+		},
+	},
 }
 
 // feeds.publish@1 transport bound: a publication is at most 512 KiB of

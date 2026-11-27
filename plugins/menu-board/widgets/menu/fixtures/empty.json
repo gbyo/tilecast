@@ -1,0 +1,92 @@
+{
+  "name": "Empty",
+  "description": "A menu with no items shows the empty state.",
+  "configuration": {
+    "dataSourceId": "33333333-3333-4333-8333-333333333333",
+    "nameField": "name",
+    "labelField": "shortLabel",
+    "descriptionField": "description",
+    "categoryField": "category",
+    "priceField": "price",
+    "currencyField": "currency",
+    "availableField": "available",
+    "visibleField": "visible",
+    "orderField": "order",
+    "imageField": "photo",
+    "heading": "Menu",
+    "unavailableLabel": "Sold out",
+    "showDescriptions": false,
+    "showImages": true,
+    "maximumItems": 60,
+    "accentColor": ""
+  },
+  "documents": {
+    "33333333-3333-4333-8333-333333333333": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "items",
+          "kind": "records",
+          "fields": [
+            {
+              "key": "name",
+              "label": "name",
+              "type": "text"
+            },
+            {
+              "key": "shortLabel",
+              "label": "shortLabel",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "label": "description",
+              "type": "text"
+            },
+            {
+              "key": "category",
+              "label": "category",
+              "type": "text"
+            },
+            {
+              "key": "price",
+              "label": "price",
+              "type": "number"
+            },
+            {
+              "key": "currency",
+              "label": "currency",
+              "type": "text"
+            },
+            {
+              "key": "available",
+              "label": "available",
+              "type": "boolean"
+            },
+            {
+              "key": "order",
+              "label": "order",
+              "type": "integer"
+            },
+            {
+              "key": "visible",
+              "label": "visible",
+              "type": "boolean"
+            },
+            {
+              "key": "photo",
+              "label": "photo",
+              "type": "asset"
+            }
+          ],
+          "records": [],
+          "cache": {
+            "usingCachedData": false,
+            "unavailable": false
+          }
+        }
+      ]
+    }
+  },
+  "expect": "empty"
+}

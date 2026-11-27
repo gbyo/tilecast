@@ -1,0 +1,15 @@
+{
+  "name": "No source",
+  "description": "A sign without a room feed shows its resting state.",
+  "configuration": {
+    "dataSourceId": "",
+    "titleField": "title",
+    "startField": "start",
+    "endField": "end",
+    "roomName": "Board Room",
+    "freeLabel": "Available",
+    "busyLabel": "In use",
+    "accentColor": ""
+  },
+  "expect": "empty"
+}
