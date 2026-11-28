@@ -25,6 +25,7 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+player-cas = { workspace = true, features = ["test-util"] }
 player-types = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

@@ -414,8 +414,6 @@ version = "0.1.0"
 dependencies = [
  "edge-platform",
  "player-cas",
- "rustix",
- "tempfile",
 ]
 
 [[package]]
@@ -1489,8 +1487,10 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
+ "player-cas",
  "player-state",
  "player-types",
+ "rustix",
  "tempfile",
  "thiserror",
  "tokio",

@@ -52,6 +52,8 @@ pub mod space;
 pub mod store;
 
 pub use fetch::{FetchError, FetchObserver, FetchRequest, Fetcher};
+#[cfg(unix)]
+pub use open::UnixSecureOpener;
 pub use open::{RegularOpen, SecureOpener};
 pub use player_types::Sha256Digest;
 pub use policy::{EvictionPolicy, LruByDomain};

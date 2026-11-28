@@ -940,7 +940,7 @@ mod tests {
             state.clone(),
             clock.clone(),
             Arc::new(crate::host::StatvfsProbe),
-            Arc::new(crate::host::AndroidSecureOpener),
+            Arc::new(player_cas::UnixSecureOpener),
             StorePolicy { limit_bytes: 64 * 1024 * 1024, reserved_free_bytes: 0 },
             Arc::new(LruByDomain),
         )
