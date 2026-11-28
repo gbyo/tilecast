@@ -85,7 +85,7 @@ Players evaluate timing with a server-corrected clock from the last schedule man
 
 Playback during an outage still depends on the needed content being available on the Player; content set to stream or not yet downloaded needs a network connection.
 
-For weekly schedules with nonzero seconds, update the Player to keep evaluating every occurrence offline. Older Players receive the current or next occurrence and need a connection to pick up later ones.
+For weekly schedules with nonzero seconds, update the Player to keep evaluating every occurrence offline. Older Players receive the current occurrence or the next one within the configured prefetch horizon. They need a connection to receive occurrences beyond that horizon or after the projected occurrence.
 
 To remove a schedule, open **More actions** in the header and choose **Delete schedule**. Its screens then use another applicable schedule, or their assigned fallback content.
 
