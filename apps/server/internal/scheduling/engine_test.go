@@ -186,3 +186,23 @@ func TestCanActivateRejectsOneTimeWindowsOutsideTheirDateBounds(t *testing.T) {
 		t.Fatal("weekly schedules are always eligible")
 	}
 }
+
+func TestCurrentOrNextIntervalPrefersLatestActiveOccurrence(t *testing.T) {
+	s := Schedule{
+		Type: Weekly, Timezone: "America/New_York", Enabled: true,
+		DailyStart: p("01:30:10"), DailyEnd: p("01:30:05"),
+		DaysOfWeek: []int{0, 1, 2, 3, 4, 5, 6},
+	}
+	at := time.Date(2026, 11, 1, 6, 0, 0, 0, time.UTC)
+	want := time.Date(2026, 11, 1, 5, 30, 10, 0, time.UTC)
+	window, ok := CurrentOrNextInterval(s, at)
+	active, activeOK := ActiveAt(s, at)
+	if !ok || !activeOK || !window.Start.Equal(want) || !window.Start.Equal(active.Start) || !window.End.Equal(active.End) {
+		t.Fatalf("projected window = %+v, active = %+v", window, active)
+	}
+	s.DaysOfWeek = []int{1}
+	window, ok = CurrentOrNextInterval(s, at)
+	if !ok || !window.Start.After(at) {
+		t.Fatalf("expected next future occurrence, got %+v", window)
+	}
+}
