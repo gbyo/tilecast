@@ -1809,7 +1809,7 @@ func (s *Service) BuildPlayerManifest(ctx context.Context, screenID uuid.UUID, w
 			}
 			if !weeklySeconds && record.Type == scheduling.Weekly &&
 				(len(*record.DailyStart) > len("15:04") || len(*record.DailyEnd) > len("15:04")) {
-				window, ok := scheduling.NextInterval(record.Schedule, now)
+				window, ok := scheduling.CurrentOrNextInterval(record.Schedule, now)
 				if !ok {
 					continue
 				}
