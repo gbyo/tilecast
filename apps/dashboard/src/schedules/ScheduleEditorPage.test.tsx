@@ -340,9 +340,7 @@ describe("Creating a schedule", () => {
     );
     expect(screen.getByText("Organization default")).toBeInTheDocument();
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
-    expect(
-      saveButton(),
-    ).toBeEnabled();
+    expect(saveButton()).toBeEnabled();
     // Applying the default was not an edit: leaving asks nothing.
     await userEvent.click(screen.getByRole("link", { name: "away" }));
     expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
