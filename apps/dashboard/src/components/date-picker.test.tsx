@@ -15,7 +15,14 @@ afterEach(async () => {
 describe("DateInput", () => {
   it("shows calendar labels in the selected language", async () => {
     await i18n.changeLanguage("zh");
-    render(<DateInput id="date" value="2026-09-10" onChange={vi.fn()} aria-label="Date" />);
+    render(
+      <DateInput
+        id="date"
+        value="2026-09-10"
+        onChange={vi.fn()}
+        aria-label="Date"
+      />,
+    );
     await userEvent.click(screen.getByRole("button", { name: "Date" }));
     expect(screen.getByRole("option", { name: "9月" })).toBeInTheDocument();
   });
