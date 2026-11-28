@@ -139,6 +139,7 @@ function server(
   let current = selectedPlaylist;
   let nextEvaluationAt: string | undefined;
   let failing: string | undefined;
+  let configDelayMs = 0;
   const transport = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), "https://signage.example.org");
     const path = url.pathname;
@@ -146,7 +147,8 @@ function server(
       new Response(JSON.stringify({ data }), { status: 200 });
     if (path === "/api/v1/player/manifest")
       return ok(manifestOverride ?? manifest(1, windows));
-    if (path === "/api/v1/player/config")
+    if (path === "/api/v1/player/config") {
+      clock.ms += configDelayMs;
       return ok({
         configRevision: 1,
         branding: {},
@@ -154,6 +156,7 @@ function server(
         website: {},
         cache: {},
       });
+    }
     if (path === "/api/v1/player/browser/selection")
       return ok({
         at: new Date(clock.ms).toISOString(),
@@ -180,6 +183,7 @@ function server(
   return {
     api: new PlayerAPI(transport),
     downloads,
+    delayConfig: (ms: number) => (configDelayMs = ms),
     select: (value: string | null) => (current = value),
     setNextEvaluation: (value: string) => (nextEvaluationAt = value),
     fail: (value: string | undefined) => (failing = value),
@@ -231,6 +235,14 @@ beforeEach(() => {
 });
 
 describe("exact-closure reconciliation", () => {
+  it("excludes later API latency from the manifest clock offset", async () => {
+    const h = await setup(PLAYLIST_A);
+    h.remote.delayConfig(2000);
+    const result = await h.reconcile();
+    expect(result.plan.input.clockOffsetMs).toBe(0);
+    expect(h.memoryState.clockOffsetMs).toBe(0);
+  });
+
   it("downloads only the resources the selected content needs", async () => {
     const h = await setup(PLAYLIST_A);
     const result = await h.reconcile();
