@@ -618,8 +618,7 @@ export class BrowserPlayer {
     await this.heartbeat();
     // Commands and Activity follow the heartbeat, so an operator sees the
     // Player's current state before its answer.
-    this.commandPlan = null;
-    await this.commands?.poll();
+    const nextPlan = await this.pollCommands(plan);
     await this.activity?.flush(
       this.api,
       () =>
@@ -628,6 +627,14 @@ export class BrowserPlayer {
     );
     await this.display.maintain();
     await this.finishUpdate();
+    return nextPlan;
+  }
+
+  private async pollCommands(
+    plan: PresentationPlan | null,
+  ): Promise<PresentationPlan | null> {
+    this.commandPlan = null;
+    await this.commands?.poll();
     return this.commandPlan ?? plan;
   }
 
