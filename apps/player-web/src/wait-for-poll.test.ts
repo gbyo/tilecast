@@ -31,9 +31,8 @@ it("uses the latest reconciliation boundary after a sync command", async () => {
   });
   const selected = await player.pollCommands(previous);
   expect(selected).toBe(fresh);
-  expect(nextPollDelay(10_000, 1700, selected?.validUntil?.getTime() ?? null)).toBe(
-    300,
-  );
+  const deadline = selected?.validUntil?.getTime() ?? null;
+  expect(nextPollDelay(10_000, 1700, deadline)).toBe(300);
   sync = false;
   expect(await player.pollCommands(previous)).toBe(previous);
 });
