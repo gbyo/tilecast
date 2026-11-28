@@ -144,6 +144,17 @@ func ActiveAt(s Schedule, at time.Time) (Active, bool) {
 // occurrence, so a date range that opens far ahead is still found.
 const nextIntervalHorizonDays = 400
 
+// CurrentOrNextInterval prefers the latest active occurrence, as Resolve does.
+// This matters when overnight weekly intervals overlap at a DST fall-back.
+func CurrentOrNextInterval(s Schedule, from time.Time) (Active, bool) {
+	if s.Type == Weekly {
+		if active, ok := ActiveAt(s, from); ok {
+			return active, true
+		}
+	}
+	return NextInterval(s, from)
+}
+
 // NextInterval returns the first interval of s that has not ended by from,
 // using the same wall-clock and daylight-saving rules as Resolve. It does not
 // consider Enabled. It reports false for a one-time schedule already over and
