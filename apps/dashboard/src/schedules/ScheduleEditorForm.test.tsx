@@ -37,6 +37,9 @@ async function open(schedule: Partial<Schedule> = {}) {
   return { api, user: userEvent.setup(), ...view };
 }
 
+const submitButton = () =>
+  screen.getByRole("button", { name: /^(Save changes|Create schedule|Save)$/ });
+
 const saveInput = (api: ReturnType<typeof mockEditorApi>) =>
   api.updateSchedule.mock.calls.at(-1)![1];
 
@@ -46,7 +49,7 @@ async function save(
   saved: Partial<Schedule> = {},
 ) {
   api.updateSchedule.mockResolvedValue({ ...morning, ...saved });
-  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await user.click(submitButton());
   await waitFor(() => expect(api.updateSchedule).toHaveBeenCalled());
 }
 
@@ -218,7 +221,7 @@ describe("Presentation", () => {
     renderEditor("/schedules/new?group=g1");
     const user = userEvent.setup();
     await user.type(await screen.findByLabelText("Name"), "Power on");
-    await user.click(screen.getByRole("button", { name: "Create schedule" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText("Choose content or a Display Control action."),
     ).toBeInTheDocument();
@@ -238,7 +241,7 @@ describe("Presentation", () => {
     });
     // A saved schedule with an empty input is clean until someone edits it.
     await user.type(screen.getByLabelText("Name"), "!");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText(
         "Enter an input identifier for the Display Control action.",
@@ -322,7 +325,7 @@ describe("Timing", () => {
   it("reports no weekday as a problem on the group", async () => {
     const { api, user } = await open({ daysOfWeek: [1] });
     await user.click(screen.getByRole("button", { name: "Monday" }));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText("Select at least one weekday."),
     ).toBeInTheDocument();
@@ -474,7 +477,7 @@ describe("Targets", () => {
         screen.getByRole("combobox", { name: "Add targets" }),
       ).toHaveFocus(),
     );
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText("Select at least one screen or group."),
     ).toBeInTheDocument();
@@ -586,7 +589,7 @@ describe("Priority", () => {
     const field = screen.getByLabelText("Priority value");
     await user.clear(field);
     await user.type(field, "1000");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText(
         "Priority must be a whole number between -999 and 999.",
