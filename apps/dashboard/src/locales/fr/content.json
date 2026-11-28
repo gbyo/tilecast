@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "Supprimer définitivement"
+      "deletePermanently": "Supprimer définitivement",
+      "editDetails": "Modifier les détails",
+      "organize": "Organiser…"
     },
     "archiveDialog": {
       "description": "Les éléments archivés restent disponibles jusqu'à ce que vous les restauriez ou les supprimiez définitivement.",
@@ -949,7 +951,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "Supprimer {{label}} {{index}}",
         "addEntry": "Ajouter une entrée",
-        "noEntries": "Aucun"
+        "noEntries": "Aucun",
+        "tilecastFont": "Police Tilecast"
       },
       "data": {
         "none": "Aucune donnée connectée",
@@ -1302,7 +1305,16 @@
       "selection": "Sélection",
       "titleCreate": "Créer une source de données de table manuelle",
       "titleEdit": "Modifier la source de données du tableau manuel",
-      "typeForColumn": "Type pour {{label}}"
+      "typeForColumn": "Type pour {{label}}",
+      "entryMode": "Mode de saisie",
+      "simpleList": "Liste simple",
+      "simpleListUnavailable": "La liste simple est disponible pour un tableau comportant une seule colonne de texte et aucune cellule multiligne.",
+      "tableMode": "Tableau",
+      "textListCount": "Entrées : {{count}}/200",
+      "textListHint": "Saisissez ou collez une entrée par ligne. Le système ignore les lignes vides et conserve l’ordre.",
+      "textListLabel": "Entrées de texte",
+      "textListTooLong": "Chaque entrée peut contenir jusqu’à 500 caractères.",
+      "textListTooMany": "Une liste peut contenir jusqu’à 200 lignes non vides."
     },
     "options": {
       "agenda": "Ordre du jour",

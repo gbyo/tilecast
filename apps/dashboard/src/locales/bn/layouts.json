@@ -285,7 +285,12 @@
     "snapOff": "স্ন্যাপ: বন্ধ",
     "safeAreaOn": "নিরাপদ এলাকা: চালু",
     "safeAreaOff": "নিরাপদ এলাকা: বন্ধ",
-    "zoomPresets": "জুম প্রিসেট"
+    "zoomPresets": "জুম প্রিসেট",
+    "toastPublishFailed": "লেআউট প্রকাশ করা যায়নি।",
+    "toastSubmitFailed": "লেআউট পর্যালোচনার জন্য পাঠানো যায়নি।",
+    "toastRenameFailed": "লেআউটের নাম পরিবর্তন করা যায়নি।",
+    "toastRestoreFailed": "লেআউটের সংস্করণ পুনরুদ্ধার করা যায়নি।",
+    "menuDistribute": "বিতরণ করুন"
   },
   "spanWall": {
     "canvasWidth": "ক্যানভাসের প্রস্থ",

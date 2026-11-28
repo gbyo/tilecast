@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "Excluir permanentemente"
+      "deletePermanently": "Excluir permanentemente",
+      "editDetails": "Editar detalhes",
+      "organize": "Organizar…"
     },
     "archiveDialog": {
       "description": "Os itens arquivados permanecem disponíveis até que você os restaure ou exclua permanentemente.",
@@ -949,7 +951,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "Remover {{label}} {{index}}",
         "addEntry": "Adicionar entrada",
-        "noEntries": "Nenhum"
+        "noEntries": "Nenhum",
+        "tilecastFont": "Fonte do Tilecast"
       },
       "data": {
         "none": "Nenhum dado conectado",
@@ -1302,7 +1305,16 @@
       "selection": "Seleção",
       "titleCreate": "Criar fonte de dados de tabela manual",
       "titleEdit": "Editar fonte de dados de tabela manual",
-      "typeForColumn": "Digite para {{label}}"
+      "typeForColumn": "Digite para {{label}}",
+      "entryMode": "Modo de preenchimento",
+      "simpleList": "Lista simples",
+      "simpleListUnavailable": "A lista simples funciona em tabelas com uma única coluna de texto e sem células com várias linhas.",
+      "tableMode": "Tabela",
+      "textListCount": "Entradas: {{count}}/200",
+      "textListHint": "Digite ou cole uma entrada por linha. As linhas vazias são ignoradas e a ordem é preservada.",
+      "textListLabel": "Entradas de texto",
+      "textListTooLong": "Cada entrada da lista pode ter até 500 caracteres.",
+      "textListTooMany": "A lista pode conter até 200 linhas não vazias."
     },
     "options": {
       "agenda": "Agenda",

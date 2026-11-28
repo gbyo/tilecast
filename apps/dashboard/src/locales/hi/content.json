@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "स्थायी रूप से हटाएँ"
+      "deletePermanently": "स्थायी रूप से हटाएँ",
+      "editDetails": "विवरण संपादित करें",
+      "organize": "व्यवस्थित करें…"
     },
     "archiveDialog": {
       "description": "संग्रहीत आइटम तब तक उपलब्ध रहते हैं जब तक आप उन्हें पुनर्स्थापित नहीं करते या स्थायी रूप से हटा नहीं देते।",
@@ -918,7 +920,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "{{label}} {{index}} हटाएं",
         "addEntry": "प्रविष्टि जोड़ें",
-        "noEntries": "कोई नहीं"
+        "noEntries": "कोई नहीं",
+        "tilecastFont": "Tilecast फ़ॉन्ट"
       },
       "data": {
         "none": "कोई डेटा कनेक्ट नहीं है",
@@ -1264,7 +1267,16 @@
       "selection": "चयन",
       "titleCreate": "मैनुअल टेबल डेटा स्रोत बनाएं",
       "titleEdit": "मैनुअल टेबल डेटा स्रोत संपादित करें",
-      "typeForColumn": "{{label}} के लिए टाइप करें"
+      "typeForColumn": "{{label}} के लिए टाइप करें",
+      "entryMode": "प्रविष्टि का तरीका",
+      "simpleList": "साधारण सूची",
+      "simpleListUnavailable": "साधारण सूची उस तालिका में उपलब्ध है जिसमें केवल एक टेक्स्ट कॉलम हो और किसी सेल में कई पंक्तियाँ न हों।",
+      "tableMode": "तालिका",
+      "textListCount": "प्रविष्टियाँ: {{count}}/200",
+      "textListHint": "हर पंक्ति में एक प्रविष्टि लिखें या चिपकाएँ। खाली पंक्तियाँ छोड़ दी जाती हैं और क्रम बना रहता है।",
+      "textListLabel": "टेक्स्ट प्रविष्टियाँ",
+      "textListTooLong": "सूची की हर प्रविष्टि में अधिकतम 500 अक्षर हो सकते हैं।",
+      "textListTooMany": "सूची में अधिकतम 200 भरी हुई पंक्तियाँ हो सकती हैं।"
     },
     "options": {
       "agenda": "एजेंडा",

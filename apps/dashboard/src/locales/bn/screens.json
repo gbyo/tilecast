@@ -1056,7 +1056,16 @@
     "mapPositionPlaceCenter": "মানচিত্রের কেন্দ্রে রাখুন",
     "mapPositionAriaLabel": "মানচিত্রে স্ক্রিনের অবস্থান বেছে নিন",
     "mapPositionHint": "সঠিক স্ক্রিন অবস্থান সেট করতে মানচিত্রে ক্লিক করুন বা মার্কার টানুন।",
-    "sectionPlayback": "প্লেব্যাক"
+    "sectionPlayback": "প্লেব্যাক",
+    "airplayBetaTitle": "AirPlay",
+    "betaBadge": "বেটা",
+    "airplayBetaBody": "এই Tilecast Edge স্ক্রিনে iPhone, iPad ও Mac থেকে AirPlay গ্রহণ করুন।",
+    "airplayBetaHint": "কিছু ডিভাইসে বেটা সমর্থন কম নির্ভরযোগ্য হতে পারে। AirPlay একবারে একটি স্ক্রিনে কাজ করে। ডিসপ্লে গ্রুপ এখনো উপলব্ধ নয়।",
+    "airplayBetaToggle": "AirPlay বেটা চালু করুন",
+    "airplayBetaEnabled": "AirPlay বেটা চালু হয়েছে।",
+    "airplayBetaDisabled": "AirPlay বেটা বন্ধ হয়েছে।",
+    "airplayBetaSaveError": "AirPlay বেটার সেটিং সংরক্ষণ করা যায়নি।",
+    "airplayBetaUnsavedPolicy": "AirPlay পরিবর্তনের আগে প্লেয়ারের অন্য সেটিংগুলোর পরিবর্তন সংরক্ষণ করুন বা বাতিল করুন।"
   },
   "diagnostics": {
     "playbackTitle": "প্লেব্যাক",
@@ -1100,7 +1109,9 @@
       "failed_one": "{{count}}টি ব্যর্থ",
       "failed_other": "{{count}}টি ব্যর্থ",
       "targeted_one": "{{count}}টি লক্ষ্য",
-      "targeted_other": "{{count}}টি লক্ষ্য"
+      "targeted_other": "{{count}}টি লক্ষ্য",
+      "suspended_one": "{{count}}টি অপেক্ষায়",
+      "suspended_other": "{{count}}টি অপেক্ষায়"
     },
     "end": "দখল শেষ করুন",
     "endTitle": "{{name}}-এর দখল শেষ করবেন?",
@@ -1148,7 +1159,25 @@
     "passwordTitle": "পাসওয়ার্ড নিশ্চিত করুন",
     "passwordBody": "দখল শুরুর আগে এই ইনস্টলেশনে আপনার বর্তমান পাসওয়ার্ড প্রয়োজন।",
     "currentPassword": "বর্তমান পাসওয়ার্ড",
-    "confirmAction": "দখল নিশ্চিত করুন"
+    "confirmAction": "দখল নিশ্চিত করুন",
+    "class": {
+      "life_safety": "জীবন সুরক্ষা",
+      "emergency": "জরুরি",
+      "operator": "সাধারণ",
+      "automation": "স্বয়ংক্রিয়"
+    },
+    "classLabel": "অগ্রাধিকার",
+    "classOperatorHint": "ঘোষণা ও ইভেন্টের জন্য। কোনো জরুরি দখল সক্রিয় থাকলে এটি অপেক্ষা করে।",
+    "classEmergencyHint": "জরুরি নিরাপত্তা সতর্কতার জন্য। এটি সাধারণ দখলের আগে দেখানো হয়। আগেই শেষ করতে কারণ দিতে হবে।",
+    "strongerActiveTitle_one": "{{count}}টি বেশি অগ্রাধিকারের দখল সক্রিয়",
+    "strongerActiveTitle_other": "{{count}}টি বেশি অগ্রাধিকারের দখল সক্রিয়",
+    "strongerActiveBody": "সংশ্লিষ্ট স্ক্রিনগুলোতে এটি অপেক্ষা করে এবং বেশি অগ্রাধিকারের দখল শেষ হলে শুরু হয়।",
+    "startedSuspended_one": "দখল শুরু হয়েছে। {{count}}টি স্ক্রিনে বেশি অগ্রাধিকারের দখল শেষ হওয়া পর্যন্ত এটি অপেক্ষা করছে।",
+    "startedSuspended_other": "দখল শুরু হয়েছে। {{count}}টি স্ক্রিনে বেশি অগ্রাধিকারের দখল শেষ হওয়া পর্যন্ত এটি অপেক্ষা করছে।",
+    "confirmBodyEmergency": "নির্বাচিত স্ক্রিন ও গ্রুপে এই জরুরি দখল সাধারণ দখলের আগে দেখানো হবে। মেয়াদ ফুরানোর আগে বন্ধ করতে এটি শেষ করুন এবং কারণ জানান।",
+    "endBodyEmergency": "এটি একটি জরুরি দখল। নির্ধারিত বা বিকল্প প্লেব্যাক আবার শুরু হবে। বাতিলের রেকর্ডের জন্য কারণ প্রয়োজন।",
+    "reasonLabelRequired": "বাতিলের কারণ (আবশ্যক)",
+    "endError": "দখল শেষ করা যায়নি"
   },
   "network": {
     "title": "প্রেজেন্টেশন নেটওয়ার্ক",

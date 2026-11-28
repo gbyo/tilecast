@@ -46,7 +46,12 @@
       "edit": "Editar programação",
       "open": "Agenda aberta",
       "delete": "Excluir programação",
-      "actionsFor": "Ações para {{name}}"
+      "actionsFor": "Ações para {{name}}",
+      "enable": "Ativar programação",
+      "disable": "Desativar programação",
+      "enabled": "Programação ativada.",
+      "disabled": "Programação desativada.",
+      "toggleFailed": "Não foi possível alterar o status da programação."
     },
     "count_many": "{{count}} horários"
   },

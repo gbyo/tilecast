@@ -912,7 +912,10 @@
       "playing_many": "Lecture de {{count}}",
       "preparing_many": "{{count}} préparation",
       "failed_many": "Échec de {{count}}",
-      "targeted_many": "{{count}} ciblé"
+      "targeted_many": "{{count}} ciblé",
+      "suspended_one": "{{count}} en attente",
+      "suspended_other": "{{count}} en attente",
+      "suspended_many": "{{count}} en attente"
     },
     "end": "Mettre fin au rachat",
     "endTitle": "Mettre fin au rachat de {{name}} ?",
@@ -966,7 +969,27 @@
     "groupMemberCount_many": "Écrans {{count}}",
     "summarySelected_many": "Écrans {{count}} sélectionnés",
     "summaryGroups_many": "et groupes d'affichage {{count}} sélectionnés",
-    "summaryOffline_many": "· Les écrans sélectionnés {{count}} ne sont pas en ligne"
+    "summaryOffline_many": "· Les écrans sélectionnés {{count}} ne sont pas en ligne",
+    "class": {
+      "life_safety": "Sécurité des personnes",
+      "emergency": "Urgence",
+      "operator": "Courante",
+      "automation": "Automatique"
+    },
+    "classLabel": "Priorité",
+    "classOperatorHint": "Pour les annonces et les événements. La reprise attend la fin de toute reprise d’urgence active.",
+    "classEmergencyHint": "Pour les alertes de sécurité urgentes. Cette reprise est prioritaire sur les reprises courantes. Pour y mettre fin plus tôt, indiquez un motif.",
+    "strongerActiveTitle_one": "{{count}} reprise prioritaire est active",
+    "strongerActiveTitle_other": "{{count}} reprises prioritaires sont actives",
+    "strongerActiveBody": "Sur les écrans concernés, cette reprise attend et démarre à la fin de la reprise prioritaire.",
+    "startedSuspended_one": "Reprise lancée. Elle attend sur {{count}} écran la fin d’une reprise prioritaire.",
+    "startedSuspended_other": "Reprise lancée. Elle attend sur {{count}} écrans la fin d’une reprise prioritaire.",
+    "confirmBodyEmergency": "Cette reprise d’urgence est prioritaire sur les reprises courantes des écrans et groupes sélectionnés. Pour y mettre fin avant son expiration, arrêtez-la et indiquez un motif.",
+    "endBodyEmergency": "Cette reprise est une urgence. La diffusion programmée ou de secours reprendra. Le registre des annulations exige un motif.",
+    "reasonLabelRequired": "Motif d’annulation (obligatoire)",
+    "endError": "Impossible de mettre fin à la reprise",
+    "strongerActiveTitle_many": "{{count}} reprises prioritaires sont actives",
+    "startedSuspended_many": "Reprise lancée. Elle attend sur {{count}} écrans la fin d’une reprise prioritaire."
   },
   "detail": {
     "loading": "Écran de chargement…",
@@ -1284,7 +1307,16 @@
     "mapPositionPlaceCenter": "Placer au centre de la carte",
     "mapPositionAriaLabel": "Choisir la position de l'écran sur la carte",
     "mapPositionHint": "Cliquez sur la carte ou faites glisser le marqueur pour définir une position exacte à l'écran.",
-    "sectionPlayback": "Lecture"
+    "sectionPlayback": "Lecture",
+    "airplayBetaTitle": "AirPlay",
+    "betaBadge": "Bêta",
+    "airplayBetaBody": "Recevez AirPlay depuis un iPhone, un iPad ou un Mac sur cet écran Tilecast Edge.",
+    "airplayBetaHint": "La version bêta peut être moins fiable sur certains appareils. AirPlay est disponible sur un seul écran à la fois. Les groupes d’affichage restent indisponibles.",
+    "airplayBetaToggle": "Activer AirPlay en bêta",
+    "airplayBetaEnabled": "AirPlay en bêta est activé.",
+    "airplayBetaDisabled": "AirPlay en bêta est désactivé.",
+    "airplayBetaSaveError": "Impossible d’enregistrer le réglage AirPlay bêta.",
+    "airplayBetaUnsavedPolicy": "Enregistrez ou annulez les autres modifications des réglages du lecteur avant de modifier AirPlay."
   },
   "preview": {
     "snapshotsTitle": "Historique des instantanés",

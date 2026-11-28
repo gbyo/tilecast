@@ -292,7 +292,12 @@
     "zoomPresets": "Predefinições de zoom",
     "menuDeleteCount_many": "Excluir camadas {{count}}",
     "previewUnavailable_many": "Os itens referenciados em {{count}} não estão disponíveis.",
-    "zoneBadge_many": "Itens {{count}} · loop independente"
+    "zoneBadge_many": "Itens {{count}} · loop independente",
+    "toastPublishFailed": "Não foi possível publicar o layout.",
+    "toastSubmitFailed": "Não foi possível enviar o layout para revisão.",
+    "toastRenameFailed": "Não foi possível renomear o layout.",
+    "toastRestoreFailed": "Não foi possível restaurar a revisão do layout.",
+    "menuDistribute": "Distribuir"
   },
   "spanWall": {
     "canvasWidth": "Largura da tela",

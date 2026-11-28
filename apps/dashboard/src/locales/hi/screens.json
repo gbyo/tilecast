@@ -893,7 +893,9 @@
       "failed_one": "{{count}} विफल रहा",
       "failed_other": "{{count}} विफल रहा",
       "targeted_one": "{{count}} लक्षित",
-      "targeted_other": "{{count}} लक्षित"
+      "targeted_other": "{{count}} लक्षित",
+      "suspended_one": "{{count}} प्रतीक्षा में",
+      "suspended_other": "{{count}} प्रतीक्षा में"
     },
     "end": "अधिग्रहण समाप्त करें",
     "endTitle": "{{name}} के लिए अधिग्रहण समाप्त करें?",
@@ -941,7 +943,25 @@
     "passwordTitle": "अपने पासवर्ड की पुष्टि करें",
     "passwordBody": "अधिग्रहण शुरू होने से पहले इस इंस्टॉलेशन के लिए आपके वर्तमान पासवर्ड की आवश्यकता होती है।",
     "currentPassword": "वर्तमान पासवर्ड",
-    "confirmAction": "अधिग्रहण की पुष्टि करें"
+    "confirmAction": "अधिग्रहण की पुष्टि करें",
+    "class": {
+      "life_safety": "जीवन सुरक्षा",
+      "emergency": "आपातकाल",
+      "operator": "सामान्य",
+      "automation": "स्वचालित"
+    },
+    "classLabel": "प्राथमिकता",
+    "classOperatorHint": "घोषणाओं और कार्यक्रमों के लिए। आपातकालीन अधिग्रहण जारी होने पर यह इंतज़ार करता है।",
+    "classEmergencyHint": "तत्काल सुरक्षा चेतावनियों के लिए। इसे सामान्य अधिग्रहण से पहले दिखाया जाता है। इसे जल्दी समाप्त करने के लिए कारण देना होगा।",
+    "strongerActiveTitle_one": "{{count}} उच्च प्राथमिकता वाला अधिग्रहण सक्रिय है",
+    "strongerActiveTitle_other": "{{count}} उच्च प्राथमिकता वाले अधिग्रहण सक्रिय हैं",
+    "strongerActiveBody": "प्रभावित स्क्रीन पर यह अधिग्रहण इंतज़ार करता है और उच्च प्राथमिकता वाला अधिग्रहण समाप्त होने पर शुरू होता है।",
+    "startedSuspended_one": "अधिग्रहण शुरू हुआ। यह {{count}} स्क्रीन पर उच्च प्राथमिकता वाला अधिग्रहण समाप्त होने तक इंतज़ार करता है।",
+    "startedSuspended_other": "अधिग्रहण शुरू हुआ। यह {{count}} स्क्रीन पर उच्च प्राथमिकता वाला अधिग्रहण समाप्त होने तक इंतज़ार करता है।",
+    "confirmBodyEmergency": "चुनी गई स्क्रीन और समूहों पर इस आपातकालीन अधिग्रहण को सामान्य अधिग्रहण से पहले दिखाया जाता है। समय से पहले समाप्त करने के लिए इसे रोकें और कारण दर्ज करें।",
+    "endBodyEmergency": "यह आपातकालीन अधिग्रहण है। शेड्यूल किया गया या फ़ॉलबैक प्लेबैक फिर से शुरू होगा। रद्द करने के रिकॉर्ड के लिए कारण ज़रूरी है।",
+    "reasonLabelRequired": "रद्द करने का कारण (ज़रूरी)",
+    "endError": "अधिग्रहण समाप्त नहीं हो सका"
   },
   "detail": {
     "loading": "स्क्रीन लोड हो रही है...",
@@ -1259,7 +1279,16 @@
     "mapPositionPlaceCenter": "मानचित्र केंद्र पर रखें",
     "mapPositionAriaLabel": "मानचित्र पर स्क्रीन स्थिति चुनें",
     "mapPositionHint": "सटीक स्क्रीन स्थिति सेट करने के लिए मानचित्र पर क्लिक करें या मार्कर को खींचें।",
-    "sectionPlayback": "प्लेबैक"
+    "sectionPlayback": "प्लेबैक",
+    "airplayBetaTitle": "AirPlay",
+    "betaBadge": "बीटा",
+    "airplayBetaBody": "इस Tilecast Edge स्क्रीन पर iPhone, iPad और Mac से AirPlay प्राप्त करें।",
+    "airplayBetaHint": "कुछ डिवाइस पर बीटा समर्थन कम विश्वसनीय हो सकता है। AirPlay एक बार में एक स्क्रीन पर काम करता है। डिस्प्ले समूह अभी उपलब्ध नहीं हैं।",
+    "airplayBetaToggle": "AirPlay बीटा चालू करें",
+    "airplayBetaEnabled": "AirPlay बीटा चालू है।",
+    "airplayBetaDisabled": "AirPlay बीटा बंद है।",
+    "airplayBetaSaveError": "AirPlay बीटा सेटिंग सेव नहीं हो सकी।",
+    "airplayBetaUnsavedPolicy": "AirPlay बदलने से पहले प्लेयर की बाकी सेटिंग में किए गए बदलाव सेव करें या हटाएँ।"
   },
   "preview": {
     "snapshotsTitle": "स्नैपशॉट इतिहास",

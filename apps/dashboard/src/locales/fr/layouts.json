@@ -292,7 +292,12 @@
     "zoomPresets": "Préréglages de zoom",
     "menuDeleteCount_many": "Supprimer les calques {{count}}",
     "previewUnavailable_many": "Les articles référencés {{count}} ne sont pas disponibles.",
-    "zoneBadge_many": "Éléments {{count}} · boucle indépendante"
+    "zoneBadge_many": "Éléments {{count}} · boucle indépendante",
+    "toastPublishFailed": "La mise en page n’a pas été publiée.",
+    "toastSubmitFailed": "La mise en page n’a pas été envoyée pour révision.",
+    "toastRenameFailed": "La mise en page n’a pas été renommée.",
+    "toastRestoreFailed": "La version de la mise en page n’a pas été restaurée.",
+    "menuDistribute": "Distribuer"
   },
   "spanWall": {
     "canvasWidth": "Largeur de la toile",

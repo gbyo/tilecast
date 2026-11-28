@@ -259,6 +259,10 @@
     "liveBadge": "লাইভ",
     "targetLine": "লক্ষ্য <strong>{{target}}</strong>। প্রকৃত রিফ্রেশ Player ও নেটওয়ার্কের ওপর নির্ভর করে।",
     "privacyNote": "এই উইন্ডো খোলা থাকলেই স্ট্রিম রিলে হয়। ফ্রেম কখনও স্ন্যাপশট, লাইভ প্রিভিউ, Activity বা ব্যাকআপে সংরক্ষণ করা হয় না।",
-    "stopWatching": "দেখা বন্ধ করুন"
+    "stopWatching": "দেখা বন্ধ করুন",
+    "negotiating": "এই প্লেয়ার এবং ব্রাউজারের জন্য সবচেয়ে উপযুক্ত স্ট্রিম ফরম্যাট বেছে নেওয়া হচ্ছে।",
+    "targetNegotiating": "উভয় পাশে সমর্থিত সবচেয়ে উপযুক্ত ফরম্যাট",
+    "targetValueH264": "{{fps}} FPS · {{width}}×{{height}} · H.264 (প্রায় {{megabits}} Mbit/s)",
+    "targetValueMjpeg": "{{fps}} FPS · {{width}}×{{height}} · MJPEG"
   }
 }

@@ -268,6 +268,10 @@
     "liveBadge": "En direct",
     "targetLine": "Ciblage de <strong>{{target}}</strong>. L'actualisation réelle dépend du lecteur et du réseau.",
     "privacyNote": "Ce flux est relayé uniquement lorsque cette fenêtre est ouverte. Les images ne sont jamais enregistrées dans des instantanés, un aperçu en direct, une activité ou des sauvegardes.",
-    "stopWatching": "Arrêtez de regarder"
+    "stopWatching": "Arrêtez de regarder",
+    "negotiating": "Choix du meilleur format de diffusion pour ce lecteur et ce navigateur.",
+    "targetNegotiating": "le meilleur format pris en charge des deux côtés",
+    "targetValueH264": "{{fps}} i/s · {{width}}×{{height}} · H.264 (environ {{megabits}} Mbit/s)",
+    "targetValueMjpeg": "{{fps}} i/s · {{width}}×{{height}} · MJPEG"
   }
 }

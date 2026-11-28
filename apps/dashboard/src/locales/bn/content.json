@@ -470,7 +470,16 @@
       "selection": "নির্বাচন",
       "titleCreate": "ম্যানুয়াল টেবিল ডেটা সোর্স তৈরি করুন",
       "titleEdit": "ম্যানুয়াল টেবিল ডেটা সোর্স সম্পাদনা করুন",
-      "typeForColumn": "{{label}}-এর ধরন"
+      "typeForColumn": "{{label}}-এর ধরন",
+      "entryMode": "ইনপুটের ধরন",
+      "simpleList": "সাধারণ তালিকা",
+      "simpleListUnavailable": "সাধারণ তালিকা পেতে টেবিলে ঠিক একটি টেক্সট কলাম থাকতে হবে এবং কোনো ঘরে একাধিক লাইন থাকা চলবে না।",
+      "tableMode": "টেবিল",
+      "textListCount": "এন্ট্রি: {{count}}/200",
+      "textListHint": "প্রতি লাইনে একটি করে এন্ট্রি লিখুন বা পেস্ট করুন। ফাঁকা লাইন বাদ যাবে এবং ক্রম বজায় থাকবে।",
+      "textListLabel": "টেক্সট এন্ট্রি",
+      "textListTooLong": "তালিকার প্রতিটি এন্ট্রিতে সর্বোচ্চ 500টি অক্ষর থাকতে পারে।",
+      "textListTooMany": "একটি তালিকায় সর্বোচ্চ 200টি পূর্ণ লাইন থাকতে পারে।"
     },
     "options": {
       "agenda": "এজেন্ডা",
@@ -807,7 +816,8 @@
         "listEntry": "{{label}} {{index}}",
         "removeEntry": "{{label}} {{index}} সরান",
         "addEntry": "এন্ট্রি যোগ করুন",
-        "noEntries": "কোনোটিই নয়"
+        "noEntries": "কোনোটিই নয়",
+        "tilecastFont": "Tilecast ফন্ট"
       },
       "data": {
         "none": "কোনো ডেটা সংযুক্ত নয়",
@@ -1310,7 +1320,9 @@
   },
   "media": {
     "action": {
-      "deletePermanently": "স্থায়ীভাবে মুছুন"
+      "deletePermanently": "স্থায়ীভাবে মুছুন",
+      "editDetails": "বিবরণ সম্পাদনা করুন",
+      "organize": "সাজান…"
     },
     "archiveDialog": {
       "description": "আর্কাইভ করা আইটেম পুনরুদ্ধার বা স্থায়ীভাবে মুছে না ফেলা পর্যন্ত উপলব্ধ থাকে।",

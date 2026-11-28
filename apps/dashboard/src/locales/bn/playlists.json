@@ -56,7 +56,13 @@
       "daysAgo_one": "{{count}} দিন আগে আপডেট হয়েছে",
       "daysAgo_other": "{{count}} দিন আগে আপডেট হয়েছে",
       "onDate": "আপডেট {{date}}"
-    }
+    },
+    "actions": {
+      "edit": "প্লেলিস্ট সম্পাদনা করুন",
+      "open": "প্লেলিস্ট খুলুন",
+      "duplicate": "অনুলিপি তৈরি করুন"
+    },
+    "actionsFor": "{{name}}-এর জন্য অ্যাকশন"
   },
   "preview": {
     "preparingWidget": "Widget প্রস্তুত হচ্ছে…",
@@ -368,7 +374,8 @@
     "emptyPlaylistTitle": "প্লেলিস্টটি ফাঁকা",
     "actions": {
       "inspect": "পরীক্ষা করুন",
-      "remove": "প্লেলিস্ট থেকে সরান"
+      "remove": "প্লেলিস্ট থেকে সরান",
+      "move": "সরান"
     }
   },
   "history": {
