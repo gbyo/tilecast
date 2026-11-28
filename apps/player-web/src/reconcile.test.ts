@@ -137,6 +137,7 @@ function server(
 ) {
   const downloads: string[] = [];
   let current = selectedPlaylist;
+  let nextEvaluationAt: string | undefined;
   let failing: string | undefined;
   const transport = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), "https://signage.example.org");
@@ -156,15 +157,16 @@ function server(
     if (path === "/api/v1/player/browser/selection")
       return ok({
         at: new Date(clock.ms).toISOString(),
-        current: current
-          ? {
-              selected: {
+        current: {
+          nextEvaluationAt,
+          selected: current
+            ? {
                 source: "assignment",
                 contentType: "playlist",
                 contentId: current,
-              },
-            }
-          : {},
+              }
+            : undefined,
+        },
       });
     downloads.push(path);
     if (failing && path.includes(failing))
@@ -179,6 +181,7 @@ function server(
     api: new PlayerAPI(transport),
     downloads,
     select: (value: string | null) => (current = value),
+    setNextEvaluation: (value: string) => (nextEvaluationAt = value),
     fail: (value: string | undefined) => (failing = value),
   };
 }
@@ -317,6 +320,17 @@ describe("exact-closure reconciliation", () => {
 });
 
 describe("activation stability", () => {
+  it("reports a fresh evaluation boundary without replacing the activation", async () => {
+    const h = await setup(PLAYLIST_A);
+    expect((await h.reconcile()).plan.validUntil).toBeNull();
+    const boundary = new Date(clock.ms + 1_000);
+    h.remote.setNextEvaluation(boundary.toISOString());
+    const result = await h.reconcile();
+    expect(result.changed).toBe(false);
+    expect(result.plan.validUntil).toEqual(boundary);
+    expect(h.memoryState.generation).toBe(1);
+  });
+
   it("keeps the same activation when unrelated content becomes available", async () => {
     const opens = new Date(Date.now() + 60_000).toISOString();
     // Playlist A shows image 1 and 2. Playlist B, which is not selected, uses

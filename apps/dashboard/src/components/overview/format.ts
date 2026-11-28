@@ -80,6 +80,7 @@ export function formatScheduleTime(at: Date, timeZone: string, locale: string) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    second: at.getUTCSeconds() ? "2-digit" : undefined,
     timeZone,
     ...(timeZone !== viewerZone ? { timeZoneName: "short" as const } : {}),
   }).format(at);

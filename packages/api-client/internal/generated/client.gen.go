@@ -6255,6 +6255,21 @@ func (e GetPlayerLiveStreamSessionParamsCaptureProfile) Valid() bool {
 	}
 }
 
+// Defines values for GetPlayerManifestParamsXTilecastSchedulePrecision.
+const (
+	Seconds GetPlayerManifestParamsXTilecastSchedulePrecision = "seconds"
+)
+
+// Valid indicates whether the value is a known member of the GetPlayerManifestParamsXTilecastSchedulePrecision enum.
+func (e GetPlayerManifestParamsXTilecastSchedulePrecision) Valid() bool {
+	switch e {
+	case Seconds:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IngestPlayerTelemetry202JSONResponseBodyDataAccepted.
 const (
 	IngestPlayerTelemetry202JSONResponseBodyDataAcceptedTrue IngestPlayerTelemetry202JSONResponseBodyDataAccepted = true
@@ -9302,7 +9317,10 @@ type ManifestResponse struct {
 
 // ManifestSchedule defines model for ManifestSchedule.
 type ManifestSchedule struct {
-	DailyEnd      *string               `json:"dailyEnd,omitempty"`
+	// DailyEnd Weekly end in HH:MM or HH:MM:SS.
+	DailyEnd *string `json:"dailyEnd,omitempty"`
+
+	// DailyStart Weekly start in HH:MM or HH:MM:SS.
 	DailyStart    *string               `json:"dailyStart,omitempty"`
 	DaysOfWeek    *[]int                `json:"daysOfWeek,omitempty"`
 	DisplayAction *DisplayControlAction `json:"displayAction,omitempty"`
@@ -11317,7 +11335,10 @@ type ScheduleType string
 
 // ScheduleInput defines model for ScheduleInput.
 type ScheduleInput struct {
-	DailyEnd    *string `json:"dailyEnd,omitempty"`
+	// DailyEnd Weekly end in HH:MM or HH:MM:SS.
+	DailyEnd *string `json:"dailyEnd,omitempty"`
+
+	// DailyStart Weekly start in HH:MM or HH:MM:SS.
 	DailyStart  *string `json:"dailyStart,omitempty"`
 	DaysOfWeek  *[]int  `json:"daysOfWeek,omitempty"`
 	Description *string `json:"description,omitempty"`
@@ -14017,7 +14038,13 @@ type PlayerLivenessJSONBody = map[string]interface{}
 // GetPlayerManifestParams defines parameters for GetPlayerManifest.
 type GetPlayerManifestParams struct {
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+
+	// XTilecastSchedulePrecision Accept recurring wall-clock times in HH:MM:SS as well as HH:MM.
+	XTilecastSchedulePrecision *GetPlayerManifestParamsXTilecastSchedulePrecision `json:"X-Tilecast-Schedule-Precision,omitempty"`
 }
+
+// GetPlayerManifestParamsXTilecastSchedulePrecision defines parameters for GetPlayerManifest.
+type GetPlayerManifestParamsXTilecastSchedulePrecision string
 
 // DownloadPackagePluginFrameParams defines parameters for DownloadPackagePluginFrame.
 type DownloadPackagePluginFrameParams struct {
@@ -40720,6 +40747,17 @@ func NewGetPlayerManifestRequest(server string, params *GetPlayerManifestParams)
 			}
 
 			req.Header.Set("If-None-Match", headerParam0)
+		}
+
+		if params.XTilecastSchedulePrecision != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Tilecast-Schedule-Precision", *params.XTilecastSchedulePrecision, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Tilecast-Schedule-Precision", headerParam1)
 		}
 
 	}

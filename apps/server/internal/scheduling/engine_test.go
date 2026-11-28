@@ -53,12 +53,13 @@ func TestSharedParityFixtures(t *testing.T) {
 		t.Fatal(err)
 	}
 	var fixtures []struct {
-		Name               string     `json:"name"`
-		Now                time.Time  `json:"now"`
-		Schedules          []Schedule `json:"schedules"`
-		ExpectedScheduleID string     `json:"expectedScheduleId"`
-		ExpectedPlaylistID string     `json:"expectedPlaylistId"`
-		ExpectedSource     string     `json:"expectedSource"`
+		Name                     string     `json:"name"`
+		Now                      time.Time  `json:"now"`
+		Schedules                []Schedule `json:"schedules"`
+		ExpectedScheduleID       string     `json:"expectedScheduleId"`
+		ExpectedPlaylistID       string     `json:"expectedPlaylistId"`
+		ExpectedSource           string     `json:"expectedSource"`
+		ExpectedNextTransitionAt *time.Time `json:"expectedNextTransitionAt"`
 	}
 	if err = json.Unmarshal(raw, &fixtures); err != nil {
 		t.Fatal(err)
@@ -66,6 +67,9 @@ func TestSharedParityFixtures(t *testing.T) {
 	for _, f := range fixtures {
 		t.Run(f.Name, func(t *testing.T) {
 			r := Resolve(f.Now, f.Schedules)
+			if want := f.ExpectedNextTransitionAt; want != nil && (r.NextTransition == nil || !r.NextTransition.Equal(*want)) {
+				t.Fatalf("next transition %v, want %v", r.NextTransition, want)
+			}
 			explanation := Explain(f.Now, f.Schedules)
 			if !reflect.DeepEqual(explanation.Resolution, r) {
 				t.Fatal("explanation changed the schedule fixture resolution")
@@ -102,7 +106,7 @@ func TestOvernightAndDST(t *testing.T) {
 	}
 	spring := s
 	spring.DaysOfWeek = []int{0}
-	spring.DailyStart = p("02:30")
+	spring.DailyStart = p("02:30:15")
 	spring.DailyEnd = p("04:00")
 	r := Resolve(time.Date(2026, 3, 8, 7, 15, 0, 0, time.UTC), []Schedule{spring})
 	if r.Winner == nil || r.Winner.Start != time.Date(2026, 3, 8, 7, 0, 0, 0, time.UTC) {
@@ -110,11 +114,29 @@ func TestOvernightAndDST(t *testing.T) {
 	}
 	fall := s
 	fall.DaysOfWeek = []int{0}
-	fall.DailyStart = p("01:30")
-	fall.DailyEnd = p("01:45")
+	fall.DailyStart = p("01:30:10")
+	fall.DailyEnd = p("01:45:25")
 	r = Resolve(time.Date(2026, 11, 1, 6, 35, 0, 0, time.UTC), []Schedule{fall})
-	if r.Winner == nil || r.Winner.Start != time.Date(2026, 11, 1, 5, 30, 0, 0, time.UTC) || r.Winner.End != time.Date(2026, 11, 1, 6, 45, 0, 0, time.UTC) {
+	if r.Winner == nil || r.Winner.Start != time.Date(2026, 11, 1, 5, 30, 10, 0, time.UTC) || r.Winner.End != time.Date(2026, 11, 1, 6, 45, 25, 0, time.UTC) {
 		t.Fatalf("ambiguous time policy: %#v", r.Winner)
+	}
+}
+
+func TestMixedWeeklyClockFormats(t *testing.T) {
+	start := time.Date(2026, 7, 17, 9, 0, 0, 0, time.UTC)
+	s := Schedule{Type: Weekly, Timezone: "UTC", Enabled: true, DailyStart: p("09:00:00"), DailyEnd: p("09:00"), DaysOfWeek: []int{5}}
+	if err := Validate(s); err != nil {
+		t.Fatal(err)
+	}
+	window, ok := NextInterval(s, start.Add(-time.Second))
+	if !ok || !window.Start.Equal(start) || !window.End.Equal(start.Add(24*time.Hour)) {
+		t.Fatalf("mixed formats for equal times must yield a full-day window: %+v", window)
+	}
+	for _, value := range []string{"09:00:60", "09:00:1", "09:00:01.5", "24:00:00"} {
+		s.DailyStart = &value
+		if err := Validate(s); err == nil {
+			t.Errorf("accepted invalid time %q", value)
+		}
 	}
 }
 

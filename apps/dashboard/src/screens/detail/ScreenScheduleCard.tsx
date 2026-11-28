@@ -46,12 +46,15 @@ function windowLabel(
   locale: string,
 ): string | null {
   if (!window?.start || !window?.end) return null;
+  const from = new Date(window.start);
+  const to = new Date(window.end);
   const options: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     minute: "2-digit",
+    second: from.getSeconds() || to.getSeconds() ? "2-digit" : undefined,
   };
-  const start = new Date(window.start).toLocaleTimeString(locale, options);
-  const end = new Date(window.end).toLocaleTimeString(locale, options);
+  const start = from.toLocaleTimeString(locale, options);
+  const end = to.toLocaleTimeString(locale, options);
   return `${start}–${end}`;
 }
 

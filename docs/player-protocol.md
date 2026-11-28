@@ -206,7 +206,13 @@ Manifest schema 20 carries executable external Plugin surfaces for Players repor
 Server schedule previews check every day in the next seven days for a
 weekly transition.
 Calendar arithmetic uses local noon to avoid daylight-saving gaps.
-The schedule's start and end times keep their existing daylight-saving rules.
+Weekly schedule start and end times accept `HH:MM` and `HH:MM:SS`.
+The server uses `HH:MM` for times with zero seconds.
+Players that can read both forms send `X-Tilecast-Schedule-Precision: seconds` with the manifest request.
+For players without that header, the server sends the current or next occurrence of each weekly schedule that needs seconds as an absolute one-time window within the prefetch horizon.
+Each later occurrence needs a manifest refresh on those players.
+A daylight-saving gap snaps to the first valid instant after the gap.
+For a repeated wall time, a start uses the earlier instant and an end uses the later instant.
 
 Manifest schema v2 is activated atomically only after all Download-policy content for the direct fallback and included schedules is verified. Selection uses `[start, end)` intervals. The player evaluates with one server-corrected clock shared by schedules, availability windows, takeovers, Presentation Overrides, transitions, plugins, and cached playback. The measured offset is persisted/reconstructed before cached selection after restart. Weekly schedules continue offline indefinitely while their definitions and assets remain cached. A future one-time schedule that was not received before disconnection cannot activate. Stream-policy media still requires connectivity and is not guaranteed offline.
 

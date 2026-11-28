@@ -4,8 +4,10 @@ import type {
   ScheduleTarget,
 } from "../../api/types";
 import {
+  dailyTimeSeconds,
   displayActionLabel,
   formatClock,
+  formatClockRange,
   scheduleWeekdayLabels,
   type SchedulesT,
 } from "../../schedules/scheduleBuilderModel";
@@ -114,26 +116,6 @@ function knownTimeZone(timeZone: string) {
   }
 }
 
-function clockInstant(value: string | undefined) {
-  const [hour = 0, minute = 0] = (value ?? "").split(":").map(Number);
-  return new Date(Date.UTC(2020, 0, 1, hour, minute));
-}
-
-function clockRange(start: string, end: string, locale: string) {
-  const format = new Intl.DateTimeFormat(locale, {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
-  const from = clockInstant(start);
-  const to = clockInstant(end);
-  // An overnight window ends earlier on the clock than it starts, which a
-  // range formatter would reject or reorder.
-  return to > from
-    ? format.formatRange(from, to)
-    : `${format.format(from)} ${dash} ${format.format(to)}`;
-}
-
 function dateOnly(value: string) {
   return new Date(`${value}T00:00:00Z`);
 }
@@ -222,6 +204,8 @@ export function scheduleWhen(
     const startDay = calendarDay(start, zone);
     const showYear = startDay.year !== now.getFullYear();
     const yearField = showYear ? { year: "numeric" as const } : {};
+    const second =
+      start.getUTCSeconds() || end.getUTCSeconds() ? "2-digit" : undefined;
     if (startDay.key === calendarDay(end, zone).key) {
       const day = new Intl.DateTimeFormat(locale, {
         month: "short",
@@ -232,6 +216,7 @@ export function scheduleWhen(
       const hours = new Intl.DateTimeFormat(locale, {
         hour: "numeric",
         minute: "2-digit",
+        second,
         timeZone: zone,
       }).formatRange(start, end);
       return { summary: `${day} · ${hours}`, detail: schedule.timezone };
@@ -243,6 +228,7 @@ export function scheduleWhen(
         ...yearField,
         hour: "numeric",
         minute: "2-digit",
+        second,
         timeZone: zone,
       }).formatRange(start, end),
       detail: schedule.timezone,
@@ -250,10 +236,10 @@ export function scheduleWhen(
   }
   const start = schedule.dailyStart ?? "";
   const end = schedule.dailyEnd ?? "";
-  const overnight = Boolean(start && end) && end <= start;
+  const overnight = dailyTimeSeconds(end) <= dailyTimeSeconds(start);
   const hours =
     start && end
-      ? clockRange(start, end, locale)
+      ? formatClockRange(start, end, t, locale)
       : formatClock(start || undefined, t, locale);
   const range = dateRange(schedule.startDate, schedule.endDate, now, locale, t);
   return {

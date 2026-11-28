@@ -25,6 +25,15 @@ describe("upcomingChanges", () => {
     ]);
   });
 
+  it("reports the end of a weekly window within the same minute", () => {
+    const changes = upcomingChanges(
+      [schedule({ dailyStart: "11:00:10", dailyEnd: "11:00:25" })],
+      new Date("2026-09-29T11:00:12Z"),
+    );
+    expect(changes[0]?.kind).toBe("ends");
+    expect(changes[0]?.at.toISOString()).toBe("2026-09-29T11:00:25.000Z");
+  });
+
   it("reads clock times in the schedule's own zone", () => {
     const changes = upcomingChanges(
       [

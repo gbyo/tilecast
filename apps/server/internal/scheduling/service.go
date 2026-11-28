@@ -984,7 +984,8 @@ func (s *Service) SetEnabled(ctx context.Context, id, user uuid.UUID, enabled bo
 	return s.Get(ctx, id)
 }
 
-const recordSelect = `SELECT s.id,s.name,s.description,COALESCE(s.playlist_id,'00000000-0000-0000-0000-000000000000'::uuid),COALESCE(p.name,l.name,''),s.layout_id,l.name,` + presentationTypeExpr + `,s.display_action,s.type,s.timezone,s.priority,s.enabled,to_char(s.start_date,'YYYY-MM-DD'),to_char(s.end_date,'YYYY-MM-DD'),s.one_time_start,s.one_time_end,to_char(s.daily_start,'HH24:MI'),to_char(s.daily_end,'HH24:MI'),s.days_of_week,s.created_at,s.updated_at FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id`
+// Preserve the existing HH:MM response for whole-minute times.
+const recordSelect = `SELECT s.id,s.name,s.description,COALESCE(s.playlist_id,'00000000-0000-0000-0000-000000000000'::uuid),COALESCE(p.name,l.name,''),s.layout_id,l.name,` + presentationTypeExpr + `,s.display_action,s.type,s.timezone,s.priority,s.enabled,to_char(s.start_date,'YYYY-MM-DD'),to_char(s.end_date,'YYYY-MM-DD'),s.one_time_start,s.one_time_end,regexp_replace(to_char(s.daily_start,'HH24:MI:SS'),':00$',''),regexp_replace(to_char(s.daily_end,'HH24:MI:SS'),':00$',''),s.days_of_week,s.created_at,s.updated_at FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id`
 
 func scanRecord(row pgx.Row) (Record, error) {
 	var r Record

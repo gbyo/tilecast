@@ -323,6 +323,57 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	if err != nil || len(scheduledManifest.Schedules) != 1 || len(scheduledManifest.Playlists) != 1 || scheduledManifest.SyncGroup == nil || scheduledManifest.SyncGroup.ID != group.ID {
 		t.Fatalf("scheduled manifest=%#v %v", scheduledManifest, err)
 	}
+	t.Run("weekly seconds round trip and legacy manifest", func(t *testing.T) {
+		start, end := "09:00:10", "09:00:25"
+		record, err := scheduler.Create(ctx, owner.User.ID, scheduling.Input{
+			Name: "Daily chime", PlaylistID: playlist.ID, Type: scheduling.Weekly, Timezone: "Asia/Vladivostok", Enabled: true,
+			DailyStart: &start, DailyEnd: &end, DaysOfWeek: []int{0, 1, 2, 3, 4, 5, 6},
+			Targets: []scheduling.Target{{Type: "screen", ID: screenID}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := scheduler.Delete(ctx, record.ID, owner.User.ID); err != nil {
+				t.Error(err)
+			}
+		})
+		if record.DailyStart == nil || *record.DailyStart != start || record.DailyEnd == nil || *record.DailyEnd != end {
+			t.Fatalf("saved schedule lost precision: %+v", record.Schedule)
+		}
+		var preciseETag string
+		for _, weeklySeconds := range []bool{true, false} {
+			manifest, etag, err := service.BuildPlayerManifest(ctx, screenID, weeklySeconds)
+			if err != nil || len(manifest.Schedules) != 2 || etag == "" {
+				t.Fatalf("manifest schedules=%+v err=%v", manifest.Schedules, err)
+			}
+			if weeklySeconds {
+				preciseETag = etag
+			} else if etag == preciseETag {
+				t.Fatal("legacy manifest reused the second-precision ETag")
+			}
+			found := false
+			for _, entry := range manifest.Schedules {
+				if entry.ID != record.ID {
+					continue
+				}
+				found = true
+				if weeklySeconds {
+					if entry.Type != "weekly" || entry.DailyStart == nil || *entry.DailyStart != start || entry.DailyEnd == nil || *entry.DailyEnd != end {
+						t.Fatalf("weekly schedule lost precision: %+v", entry)
+					}
+				} else {
+					window, ok := scheduling.NextInterval(record.Schedule, manifest.ServerTime)
+					if !ok || entry.Type != "one_time" || entry.DailyStart != nil || entry.DailyEnd != nil || entry.OneTimeStart == nil || !entry.OneTimeStart.Equal(window.Start) || entry.OneTimeEnd == nil || !entry.OneTimeEnd.Equal(window.End) {
+						t.Fatalf("legacy window=%+v, expected %v to %v", entry, window.Start, window.End)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("manifest omitted the second-precision schedule")
+			}
+		}
+	})
 	updatedInput := ItemInput{AssetID: videoID, DeliveryPolicy: "stream"}
 	playlist, err = service.UpdateItem(ctx, playlist.ID, playlist.Items[0].ID, owner.User.ID, updatedInput)
 	if err != nil {

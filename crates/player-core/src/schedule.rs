@@ -118,36 +118,39 @@ fn date(value: &str) -> Result<Date, ScheduleError> {
     value.parse().map_err(|_| ScheduleError::Invalid)
 }
 
-fn clock(value: Option<&str>) -> Result<(i8, i8), ScheduleError> {
-    let bytes = value.ok_or(ScheduleError::Invalid)?.as_bytes();
-    if bytes.len() != 5 || bytes[2] != b':' || !bytes.iter().enumerate().all(|(i, b)| i == 2 || b.is_ascii_digit()) {
-        return Err(ScheduleError::Invalid);
-    }
-    let hour = ((bytes[0] - b'0') * 10 + bytes[1] - b'0') as i8;
-    let minute = ((bytes[3] - b'0') * 10 + bytes[4] - b'0') as i8;
-    if hour > 23 || minute > 59 {
-        return Err(ScheduleError::Invalid);
-    }
-    Ok((hour, minute))
-}
-
-fn local_instant(day: Date, clock: (i8, i8), zone: &TimeZone, end: bool) -> Result<i64, ScheduleError> {
-    let wanted = day.at(clock.0, clock.1, 0, 0);
-    let mut ambiguous = zone.to_ambiguous_zoned(wanted);
-    if matches!(ambiguous.offset(), AmbiguousOffset::Gap { .. }) {
-        // The existing player advances a nonexistent wall minute to the
-        // first real minute after the spring-forward gap, rather than
-        // preserving the minute offset inside the gap.
-        for minute in 1..=180 {
-            let shifted = wanted.checked_add(Span::new().minutes(minute)).map_err(|_| ScheduleError::Invalid)?;
-            ambiguous = zone.to_ambiguous_zoned(shifted);
-            if !matches!(ambiguous.offset(), AmbiguousOffset::Gap { .. }) {
-                break;
-            }
-        }
-        if matches!(ambiguous.offset(), AmbiguousOffset::Gap { .. }) {
+fn clock(value: Option<&str>) -> Result<(i8, i8, i8), ScheduleError> {
+    let mut parts = value.ok_or(ScheduleError::Invalid)?.split(':');
+    let parse = |part: &str| {
+        if part.len() != 2 || !part.bytes().all(|byte| byte.is_ascii_digit()) {
             return Err(ScheduleError::Invalid);
         }
+        part.parse::<i8>().map_err(|_| ScheduleError::Invalid)
+    };
+    let hour = parse(parts.next().ok_or(ScheduleError::Invalid)?)?;
+    let minute = parse(parts.next().ok_or(ScheduleError::Invalid)?)?;
+    let second = parts.next().map(parse).transpose()?.unwrap_or(0);
+    if parts.next().is_some() || hour > 23 || minute > 59 || second > 59 {
+        return Err(ScheduleError::Invalid);
+    }
+    Ok((hour, minute, second))
+}
+
+fn local_instant(
+    day: Date,
+    (hour, minute, second): (i8, i8, i8),
+    zone: &TimeZone,
+    end: bool,
+) -> Result<i64, ScheduleError> {
+    let wanted = day.at(hour, minute, second, 0);
+    let ambiguous = zone.to_ambiguous_zoned(wanted);
+    if matches!(ambiguous.offset(), AmbiguousOffset::Gap { .. }) {
+        // The first valid wall time is the offset transition itself.
+        let before = ambiguous.earlier().map_err(|_| ScheduleError::Invalid)?.timestamp();
+        return zone
+            .following(before)
+            .next()
+            .map(|transition| transition.timestamp().as_millisecond())
+            .ok_or(ScheduleError::Invalid);
     }
     let resolved = if end { ambiguous.later() } else { ambiguous.compatible() };
     resolved.map(|at| at.timestamp().as_millisecond()).map_err(|_| ScheduleError::Invalid)
@@ -386,18 +389,21 @@ mod tests {
         assert_eq!(resolve(&manifest, at("2026-07-18T11:00:00Z")).unwrap().source, Source::Direct);
 
         let mut fall = weekly();
-        fall["dailyStart"] = json!("01:30");
-        fall["dailyEnd"] = json!("01:45");
+        fall["dailyStart"] = json!("01:30:10");
+        fall["dailyEnd"] = json!("01:45:25");
         fall["daysOfWeek"] = json!([0]);
         manifest["schedules"] = json!([fall]);
-        assert_eq!(resolve(&manifest, at("2026-11-01T06:35:00Z")).unwrap().source, Source::Schedule);
+        let selected = resolve(&manifest, at("2026-11-01T06:35:00Z")).unwrap();
+        assert_eq!(selected.playback_anchor_ms, Some(at("2026-11-01T05:30:10Z")));
+        assert_eq!(selected.next_transition_ms, Some(at("2026-11-01T06:45:25Z")));
 
         let mut spring = weekly();
-        spring["dailyStart"] = json!("02:30");
+        spring["dailyStart"] = json!("02:30:15");
         spring["dailyEnd"] = json!("04:00");
         spring["daysOfWeek"] = json!([0]);
         manifest["schedules"] = json!([spring]);
-        assert_eq!(resolve(&manifest, at("2026-03-08T07:15:00Z")).unwrap().source, Source::Schedule);
+        let selected = resolve(&manifest, at("2026-03-08T07:00:00Z")).unwrap();
+        assert_eq!(selected.playback_anchor_ms, Some(at("2026-03-08T07:00:00Z")));
     }
 
     #[test]

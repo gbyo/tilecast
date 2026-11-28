@@ -149,6 +149,25 @@ describe("DateTimeInput", () => {
     expect(onChange).toHaveBeenLastCalledWith("2026-09-23T11:45");
   });
 
+  it("keeps the seconds when the calendar day changes", async () => {
+    const onChange = vi.fn();
+    render(
+      <DateTimeInput
+        id="starts"
+        includeSeconds
+        value="2026-09-23T10:30:15.000Z"
+        onChange={onChange}
+        aria-label="Starts"
+      />,
+    );
+    expect(screen.getByLabelText("Starts time")).toHaveValue("10:30:15");
+    await userEvent.click(screen.getByRole("button", { name: "Starts" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /September 24/ }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith("2026-09-24T10:30:15");
+  });
+
   it("clearing the date clears the whole value", async () => {
     const onChange = vi.fn();
     render(

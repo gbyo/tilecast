@@ -130,12 +130,13 @@ function optionLabel<T extends { value: string; label: string }>(
   return options.find((option) => option.value === value)?.label ?? value;
 }
 
-function dateTimeInput(value?: string) {
+function dateTimeInput(value?: string, includeSeconds = false) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const seconds = includeSeconds ? `:${pad(date.getSeconds())}` : "";
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}${seconds}`;
 }
 
 function dateTimeValue(value: string) {
@@ -965,9 +966,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           </FieldLabel>
                           <DateTimeInput
                             id={`block-start-${block.id}`}
+                            includeSeconds
                             aria-label={t("campaigns.editor.startsLabel")}
                             timeLabel={t("campaigns.editor.startTimeLabel")}
-                            value={dateTimeInput(block.oneTimeStart)}
+                            value={dateTimeInput(block.oneTimeStart, true)}
                             onChange={(value) =>
                               updateBlock(block.id, {
                                 oneTimeStart: dateTimeValue(value),
@@ -981,9 +983,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           </FieldLabel>
                           <DateTimeInput
                             id={`block-end-${block.id}`}
+                            includeSeconds
                             aria-label={t("campaigns.editor.endsLabel")}
                             timeLabel={t("campaigns.editor.endTimeLabel")}
-                            value={dateTimeInput(block.oneTimeEnd)}
+                            value={dateTimeInput(block.oneTimeEnd, true)}
                             onChange={(value) =>
                               updateBlock(block.id, {
                                 oneTimeEnd: dateTimeValue(value),
@@ -1029,6 +1032,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <Input
                             id={`block-daily-start-${block.id}`}
                             type="time"
+                            step={1}
                             value={block.dailyStart ?? ""}
                             onChange={(event) =>
                               updateBlock(block.id, {
@@ -1044,6 +1048,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           <Input
                             id={`block-daily-end-${block.id}`}
                             type="time"
+                            step={1}
                             value={block.dailyEnd ?? ""}
                             onChange={(event) =>
                               updateBlock(block.id, {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Playlist, Schedule } from "../api/types";
@@ -252,6 +252,50 @@ describe("Presentation", () => {
 });
 
 describe("Timing", () => {
+  it("saves a weekly window wholly within one minute", async () => {
+    const { api, user } = await open();
+    const start = screen.getByLabelText("Starts");
+    const end = screen.getByLabelText("Ends");
+    expect(start).toHaveAttribute("step", "1");
+    expect(end).toHaveAttribute("step", "1");
+    fireEvent.change(start, { target: { value: "07:15:10" } });
+    fireEvent.change(end, { target: { value: "07:15:25" } });
+    expect(screen.queryByText("Ends the next day.")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/7:15:10.*7:15:25/).length).toBeGreaterThan(0);
+    await save(api, user, { dailyStart: "07:15:10", dailyEnd: "07:15:25" });
+    expect(saveInput(api)).toMatchObject({
+      dailyStart: "07:15:10",
+      dailyEnd: "07:15:25",
+    });
+    expect(start).toHaveValue("07:15:10");
+    expect(end).toHaveValue("07:15:25");
+  });
+
+  it("saves seconds for a one-time window in the schedule's timezone", async () => {
+    const { api, user } = await open({
+      type: "one_time",
+      timezone: "Asia/Tokyo",
+      oneTimeStart: "2026-10-31T23:00:10Z",
+      oneTimeEnd: "2026-10-31T23:00:25Z",
+    });
+    const end = screen.getByLabelText("End time");
+    expect(screen.getByLabelText("Start time")).toHaveValue("08:00:10");
+    expect(end).toHaveAttribute("step", "1");
+    expect(end).toHaveAttribute("min", "08:00:10");
+    fireEvent.change(end, { target: { value: "08:00:35" } });
+    expect(screen.getByText("25 sec")).toBeInTheDocument();
+    await save(api, user, {
+      type: "one_time",
+      timezone: "Asia/Tokyo",
+      oneTimeStart: "2026-10-31T23:00:10Z",
+      oneTimeEnd: "2026-10-31T23:00:35Z",
+    });
+    expect(saveInput(api)).toMatchObject({
+      oneTimeStart: "2026-10-31T23:00:10Z",
+      oneTimeEnd: "2026-10-31T23:00:35.000Z",
+    });
+  });
+
   it("shows weekly and one-time as one choice", async () => {
     await open();
     expect(

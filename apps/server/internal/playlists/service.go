@@ -1632,6 +1632,12 @@ func (s *Service) projectSpanVideo(ctx context.Context, screenID, assetID, sourc
 }
 
 func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manifest, string, error) {
+	return s.BuildPlayerManifest(ctx, screenID, true)
+}
+
+// BuildPlayerManifest projects second-precision weekly schedules onto the
+// next absolute window for players whose weekly clock parser requires HH:MM.
+func (s *Service) BuildPlayerManifest(ctx context.Context, screenID uuid.UUID, weeklySeconds bool) (Manifest, string, error) {
 	if err := s.reconcilePresentationCatalog(ctx); err != nil {
 		return Manifest{}, "", err
 	}
@@ -1800,6 +1806,17 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		for _, record := range records {
 			if !scheduling.CanActivate(record.Schedule) {
 				continue
+			}
+			if !weeklySeconds && record.Type == scheduling.Weekly &&
+				(len(*record.DailyStart) > len("15:04") || len(*record.DailyEnd) > len("15:04")) {
+				window, ok := scheduling.NextInterval(record.Schedule, now)
+				if !ok {
+					continue
+				}
+				record.Type = scheduling.OneTime
+				record.OneTimeStart, record.OneTimeEnd = &window.Start, &window.End
+				record.DailyStart, record.DailyEnd, record.DaysOfWeek = nil, nil, nil
+				record.StartDate, record.EndDate = nil, nil
 			}
 			if record.Type == scheduling.OneTime {
 				if record.OneTimeEnd != nil && !record.OneTimeEnd.After(now) {

@@ -158,7 +158,8 @@ func NextInterval(s Schedule, from time.Time) (Active, bool) {
 		}
 		return Active{s, *s.OneTimeStart, *s.OneTimeEnd}, true
 	}
-	if s.DailyStart == nil || s.DailyEnd == nil {
+	startClock, endClock, ok := weeklyClocks(s)
+	if !ok {
 		return Active{}, false
 	}
 	loc, err := time.LoadLocation(s.Timezone)
@@ -184,14 +185,9 @@ func NextInterval(s Schedule, from time.Time) (Active, bool) {
 		if !containsDay(s.DaysOfWeek, int(day.Weekday())) || !dateAllowed(s, day) {
 			continue
 		}
-		start := resolveLocal(day, *s.DailyStart, loc, false)
-		endDate := day
-		if *s.DailyEnd <= *s.DailyStart {
-			endDate = day.AddDate(0, 0, 1)
-		}
-		end := resolveLocal(endDate, *s.DailyEnd, loc, true)
-		if end.After(from) {
-			return Active{s, start, end}, true
+		window := weeklyInterval(s, day, startClock, endClock)
+		if window.End.After(window.Start) && window.End.After(from) {
+			return window, true
 		}
 	}
 	return Active{}, false
@@ -206,7 +202,11 @@ func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {
 		}
 		return a, []time.Time{start, end}
 	}
-	loc, _ := time.LoadLocation(s.Timezone)
+	startClock, endClock, ok := weeklyClocks(s)
+	loc, err := time.LoadLocation(s.Timezone)
+	if !ok || err != nil {
+		return nil, nil
+	}
 	local := at.In(loc)
 	// Use noon for calendar arithmetic: adding a day to a wall time inside a
 	// DST gap can normalize back onto the previous date and skip an occurrence.
@@ -219,19 +219,33 @@ func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {
 		if !containsDay(s.DaysOfWeek, int(date.Weekday())) || !dateAllowed(s, date) {
 			continue
 		}
-		start := resolveLocal(date, *s.DailyStart, loc, false)
-		endDate := date
-		if *s.DailyEnd <= *s.DailyStart {
-			endDate = date.AddDate(0, 0, 1)
+		window := weeklyInterval(s, date, startClock, endClock)
+		if !window.End.After(window.Start) {
+			continue
 		}
-		end := resolveLocal(endDate, *s.DailyEnd, loc, true)
-		transitions = append(transitions, start, end)
-		if !at.Before(start) && at.Before(end) {
-			x := Active{s, start, end}
-			active = &x
+		transitions = append(transitions, window.Start, window.End)
+		if !at.Before(window.Start) && at.Before(window.End) {
+			active = &window
 		}
 	}
 	return active, transitions
+}
+
+func weeklyClocks(s Schedule) (start, end time.Time, ok bool) {
+	if s.DailyStart == nil || s.DailyEnd == nil {
+		return start, end, false
+	}
+	start, startErr := parseClock(*s.DailyStart)
+	end, endErr := parseClock(*s.DailyEnd)
+	return start, end, startErr == nil && endErr == nil
+}
+
+func weeklyInterval(s Schedule, date, startClock, endClock time.Time) Active {
+	endDate := date
+	if !endClock.After(startClock) {
+		endDate = date.AddDate(0, 0, 1)
+	}
+	return Active{s, resolveLocal(date, startClock, false), resolveLocal(endDate, endClock, true)}
 }
 
 // CanActivate reports whether a schedule's definition allows any occurrence at
@@ -274,43 +288,51 @@ func containsDay(days []int, d int) bool {
 	return false
 }
 func parseClock(v string) (time.Time, error) {
-	t, e := time.Parse("15:04", v)
-	if e != nil {
-		return t, errors.New("daily time must use HH:MM")
+	layout := "15:04"
+	if len(v) == len("15:04:05") {
+		layout = "15:04:05"
 	}
-	return t, nil
+	clock, err := time.Parse(layout, v)
+	if err != nil || clock.Nanosecond() != 0 {
+		return time.Time{}, errors.New("daily time must use HH:MM or HH:MM:SS")
+	}
+	return clock, nil
 }
 
-// resolveLocal scans timezone offsets so repeated times select earlier starts/later ends;
-// nonexistent wall times advance minute-by-minute to the first valid local time.
-func resolveLocal(date time.Time, clock string, loc *time.Location, end bool) time.Time {
-	c, _ := parseClock(clock)
+// Walk the timezone's offset intervals around the requested local time.
+// Repeated times select earlier starts and later ends. Gaps snap to the
+// transition instant, the first valid local time after the gap.
+func resolveLocal(date, clock time.Time, end bool) time.Time {
 	y, m, d := date.Date()
-	wanted := time.Date(y, m, d, c.Hour(), c.Minute(), 0, 0, time.UTC)
-	matches := []time.Time{}
-	for delta := -14 * time.Hour; delta <= 14*time.Hour; delta += time.Minute {
-		x := wanted.Add(delta)
-		l := x.In(loc)
-		if l.Year() == y && l.Month() == m && l.Day() == d && l.Hour() == c.Hour() && l.Minute() == c.Minute() {
-			matches = append(matches, x)
-		}
-	}
-	if len(matches) > 0 {
-		if end {
-			return matches[len(matches)-1]
-		}
-		return matches[0]
-	}
-	for minute := 1; minute <= 180; minute++ {
-		w := wanted.Add(time.Duration(minute) * time.Minute)
-		wy, wm, wd := w.Date()
-		for delta := -14 * time.Hour; delta <= 14*time.Hour; delta += time.Minute {
-			x := w.Add(delta)
-			l := x.In(loc)
-			if l.Year() == wy && l.Month() == wm && l.Day() == wd && l.Hour() == w.Hour() && l.Minute() == w.Minute() {
-				return x
+	loc := date.Location()
+	wanted := time.Date(y, m, d, clock.Hour(), clock.Minute(), clock.Second(), 0, time.UTC)
+	// All IANA UTC offsets fit inside this search window.
+	limit := wanted.Add(24 * time.Hour)
+	var latest, gapEnd time.Time
+	for cursor := wanted.Add(-24 * time.Hour).In(loc); !cursor.After(limit); {
+		_, offset := cursor.Zone()
+		_, next := cursor.ZoneBounds()
+		candidate := wanted.Add(-time.Duration(offset) * time.Second)
+		if candidate.Before(cursor) {
+			if gapEnd.IsZero() {
+				gapEnd = cursor.UTC()
 			}
+		} else if !candidate.After(limit) && (next.IsZero() || candidate.Before(next)) {
+			if !end {
+				return candidate
+			}
+			latest = candidate
 		}
+		if next.IsZero() || !next.After(cursor) {
+			break
+		}
+		cursor = next
 	}
-	return time.Date(y, m, d, c.Hour(), c.Minute(), 0, 0, loc)
+	if !latest.IsZero() {
+		return latest
+	}
+	if !gapEnd.IsZero() {
+		return gapEnd
+	}
+	return time.Date(y, m, d, clock.Hour(), clock.Minute(), clock.Second(), 0, loc)
 }

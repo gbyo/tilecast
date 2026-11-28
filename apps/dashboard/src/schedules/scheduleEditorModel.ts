@@ -148,8 +148,8 @@ export function draftToInput(draft: ScheduleDraft): ScheduleInput {
     draft.type === "weekly"
       ? {
           daysOfWeek: [...draft.daysOfWeek].sort((a, b) => a - b),
-          dailyStart: draft.dailyStart,
-          dailyEnd: draft.dailyEnd,
+          dailyStart: draft.dailyStart.replace(/^(\d{2}:\d{2}):00$/, "$1"),
+          dailyEnd: draft.dailyEnd.replace(/^(\d{2}:\d{2}):00$/, "$1"),
           startDate: draft.startDate || undefined,
           endDate: draft.endDate || undefined,
         }
@@ -235,21 +235,23 @@ function zoneOffset(ms: number, timezone: string) {
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
-/** An instant as the "YYYY-MM-DDTHH:mm" wall time it shows in the zone. */
+/** An instant as the wall time it shows in the zone, with optional seconds. */
 export function instantToWall(instant: string, timezone: string) {
   const ms = Date.parse(instant);
   if (Number.isNaN(ms)) return "";
   const f = zoneFields(ms, usableZone(timezone));
-  return `${f.year}-${pad(f.month)}-${pad(f.day)}T${pad(f.hour)}:${pad(f.minute)}`;
+  const seconds = f.second === 0 ? "" : `:${pad(f.second)}`;
+  return `${f.year}-${pad(f.month)}-${pad(f.day)}T${pad(f.hour)}:${pad(f.minute)}${seconds}`;
 }
 
 /**
- * The instant a zone's wall time names. A time that happens twice when the
- * clocks go back takes the earlier one; a time that never happens when they
- * go forward lands an hour later, like the engine's own advance.
+ * The instant a zone's wall time names. A time within a daylight-saving gap
+ * advances by the size of the gap.
  */
 export function wallToInstant(wall: string, timezone: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(wall);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+    wall,
+  );
   if (!match) return "";
   const zone = usableZone(timezone);
   const [year, month, day, hour, minute] = match.slice(1).map(Number) as [
@@ -259,7 +261,14 @@ export function wallToInstant(wall: string, timezone: string) {
     number,
     number,
   ];
-  const local = Date.UTC(year, month - 1, day, hour, minute);
+  const local = Date.UTC(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    Number(match[6] ?? 0),
+  );
   const first = zoneOffset(local, zone);
   let guess = local - first;
   const second = zoneOffset(guess, zone);

@@ -36,5 +36,13 @@ fn native_selection_preserves_the_shared_schedule_corpus() {
             "{}",
             case["name"]
         );
+        if let Some(expected) = case["expectedNextTransitionAt"].as_str() {
+            assert_eq!(
+                selected.next_transition_ms,
+                Some(Timestamp::parse(expected).unwrap().unix_millis()),
+                "{}",
+                case["name"]
+            );
+        }
     }
 }

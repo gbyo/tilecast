@@ -7,6 +7,7 @@ import type {
 import {
   statusSurface,
   type DeviceMetadata,
+  type PresentationPlan,
   type StatusKind,
 } from "@tilecast/player-runtime/projection";
 import { stopForState } from "@tilecast/player-activity";
@@ -536,17 +537,27 @@ export class BrowserPlayer {
         this.activity?.proof.sync();
       }
       sample = now;
+      let delay: number;
       try {
-        await this.cycle();
+        const plan = await this.cycle();
         backoff = POLL_MS;
+        delay =
+          plan && foregroundEligible(this.state)
+            ? nextPollDelay(
+                POLL_MS,
+                Date.now() + plan.input.clockOffsetMs,
+                plan.validUntil?.getTime() ?? null,
+              )
+            : POLL_MS;
       } catch (error) {
         if (this.abort.signal.aborted) break;
         const outcome = await this.onCycleError(error, backoff);
         if (outcome === "end") break;
         backoff = outcome;
+        delay = backoff;
       }
       try {
-        await waitForPoll(this.wake, backoff, this.abort.signal);
+        await waitForPoll(this.wake, delay, this.abort.signal);
       } catch {
         break;
       }
@@ -565,7 +576,7 @@ export class BrowserPlayer {
   }
 
   /** One pass: confirm the server, reconcile, report, run commands, upload. */
-  private async cycle(): Promise<void> {
+  private async cycle(): Promise<PresentationPlan | null> {
     const server = await fetchServerIdentity(this.api);
     assertSameServer(this.identity, server);
     const authenticated = await authenticate(
@@ -598,9 +609,9 @@ export class BrowserPlayer {
     }
     this.state.serverBindingConfirmed = true;
     this.link = { server, bound };
-    if (foregroundEligible(this.state)) {
-      await this.reconcile(server, bound);
-    }
+    const plan = foregroundEligible(this.state)
+      ? await this.reconcile(server, bound)
+      : null;
     await this.refreshStorage();
     await this.refreshShellVersion();
     await this.heartbeat();
@@ -615,12 +626,13 @@ export class BrowserPlayer {
     );
     await this.display.maintain();
     await this.finishUpdate();
+    return plan;
   }
 
   private async reconcile(
     server: { installationId: string },
     bound: BrowserSession,
-  ): Promise<void> {
+  ): Promise<PresentationPlan> {
     await this.verifyActivation();
     this.preparing = true;
     try {
@@ -651,6 +663,7 @@ export class BrowserPlayer {
       this.lastSyncAtMs = this.correctedNow();
       // A fresh policy may move the rest boundary: evaluate it now.
       this.applyRest();
+      return result.plan;
     } finally {
       this.preparing = false;
     }
@@ -947,6 +960,18 @@ export function compatibilityProblem(message: string): void {
   copy.textContent = message;
   main.append(title, copy);
   document.body.replaceChildren(main);
+}
+
+/** Reconcile at the Server's boundary when it comes before the next poll. */
+export function nextPollDelay(
+  intervalMs: number,
+  nowMs: number,
+  deadlineMs: number | null,
+): number {
+  if (deadlineMs === null) return intervalMs;
+  const remaining = deadlineMs - nowMs;
+  // Leave a small delay if the Server and browser disagree on the boundary.
+  return Math.min(intervalMs, remaining > 0 ? remaining : 50);
 }
 
 /**

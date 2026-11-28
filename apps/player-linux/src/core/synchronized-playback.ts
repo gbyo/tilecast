@@ -3,21 +3,10 @@ import {
   type SynchronizedPlaybackMetadata,
   type SynchronizedPlaybackPosition,
 } from "@tilecast/player-runtime/synchronized";
-import {
-  presentationOverrideActive,
-  takeoverActive,
-  findPlaylist,
-  manifestTakeover,
-  resolveSelection,
-} from "./schedule";
+import { findPlaylist, resolveSelection } from "./schedule";
 import type { StoredManifest } from "./manifest";
 import type { Presentation, PresentationItem } from "./player";
-import type {
-  Manifest,
-  ManifestAsset,
-  ManifestItem,
-  ManifestSchedule,
-} from "./types";
+import type { Manifest, ManifestAsset, ManifestItem } from "./types";
 
 // The timeline math is shared with every host through the Player Runtime.
 export {
@@ -114,132 +103,6 @@ export function projectSynchronizedPresentation(
   };
 }
 
-function localDateParts(timezone: string, atMs: number) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(atMs));
-  const value = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value ?? NaN);
-  return {
-    year: value("year"),
-    month: value("month"),
-    day: value("day"),
-    hour: value("hour"),
-    minute: value("minute"),
-    second: value("second"),
-  };
-}
-
-function zonedLocalToEpochMs(
-  timezone: string,
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-): number | null {
-  const targetAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
-  let guess = targetAsUtc;
-  try {
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      const actual = localDateParts(timezone, guess);
-      if (Object.values(actual).some((value) => !Number.isFinite(value))) {
-        return null;
-      }
-      const actualAsUtc = Date.UTC(
-        actual.year,
-        actual.month - 1,
-        actual.day,
-        actual.hour,
-        actual.minute,
-        actual.second,
-      );
-      const correction = targetAsUtc - actualAsUtc;
-      guess += correction;
-      if (Math.abs(correction) < 1_000) {
-        break;
-      }
-    }
-    return guess;
-  } catch {
-    return null;
-  }
-}
-
-function parseTime(value: string | null | undefined): {
-  hour: number;
-  minute: number;
-} | null {
-  const match = /^(\d{2}):(\d{2})$/.exec(value ?? "");
-  if (!match) {
-    return null;
-  }
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  return hour <= 23 && minute <= 59 ? { hour, minute } : null;
-}
-
-function previousDate(year: number, month: number, day: number) {
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return {
-    year: date.getUTCFullYear(),
-    month: date.getUTCMonth() + 1,
-    day: date.getUTCDate(),
-  };
-}
-
-/** Derive the same active-window start Android uses as a schedule anchor. */
-export function schedulePlaybackAnchorMs(
-  schedule: ManifestSchedule,
-  nowMs: number,
-): number | null {
-  if (schedule.type === "one_time") {
-    const start = Date.parse(schedule.oneTimeStart ?? "");
-    return Number.isFinite(start) ? start : null;
-  }
-
-  const start = parseTime(schedule.dailyStart);
-  const end = parseTime(schedule.dailyEnd);
-  if (!start || !end) {
-    return null;
-  }
-
-  let local;
-  try {
-    local = localDateParts(schedule.timezone, nowMs);
-  } catch {
-    return null;
-  }
-  if (Object.values(local).some((value) => !Number.isFinite(value))) {
-    return null;
-  }
-
-  const startMinutes = start.hour * 60 + start.minute;
-  const endMinutes = end.hour * 60 + end.minute;
-  const nowMinutes = local.hour * 60 + local.minute;
-  let date = { year: local.year, month: local.month, day: local.day };
-  if (endMinutes <= startMinutes && nowMinutes < endMinutes) {
-    date = previousDate(date.year, date.month, date.day);
-  }
-
-  return zonedLocalToEpochMs(
-    schedule.timezone,
-    date.year,
-    date.month,
-    date.day,
-    start.hour,
-    start.minute,
-  );
-}
-
 function playlistItemMaps(manifest: Manifest) {
   const items = new Map<string, ManifestItem>();
   for (const playlist of [
@@ -287,38 +150,8 @@ export function enrichSynchronizedPresentation(
     return presentation;
   }
 
-  let anchorMs = epoch;
-  if (
-    selection.source === "takeover" &&
-    takeoverActive(manifest, new Date(nowMs))
-  ) {
-    const takeoverAnchor = Date.parse(
-      manifestTakeover(manifest)?.activatedAt ?? "",
-    );
-    if (Number.isFinite(takeoverAnchor)) {
-      anchorMs = takeoverAnchor;
-    }
-  } else if (
-    selection.source === "quick_present" &&
-    presentationOverrideActive(manifest, new Date(nowMs))
-  ) {
-    const overrideAnchor = Date.parse(
-      manifest.presentationOverride?.startedAt ?? "",
-    );
-    if (Number.isFinite(overrideAnchor)) {
-      anchorMs = overrideAnchor;
-    }
-  } else if (selection.source === "schedule" && selection.scheduleId) {
-    const schedule = manifest.schedules.find(
-      (candidate) => candidate.id === selection.scheduleId,
-    );
-    const scheduleAnchor = schedule
-      ? schedulePlaybackAnchorMs(schedule, nowMs)
-      : null;
-    if (scheduleAnchor !== null) {
-      anchorMs = scheduleAnchor;
-    }
-  }
+  const selectedAnchor = Date.parse(selection.playbackAnchor ?? "");
+  const anchorMs = Number.isFinite(selectedAnchor) ? selectedAnchor : epoch;
 
   const manifestItems = playlistItemMaps(manifest);
   const assets = new Map(

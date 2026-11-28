@@ -39,7 +39,7 @@ The editor is one page that reads from top to bottom: what the schedule is, what
 7. Select **Use this presentation**.
 8. Under **Timing**, choose **Weekly**.
 9. Select the days the schedule should run.
-10. Enter the **Starts** and **Ends** times.
+10. Enter the **Starts** and **Ends** times. Include seconds to set a window such as 10:30:15 to 10:30:45.
 11. Check the **Timezone**. It starts as your organization's default. Search by city or region to choose another.
 12. Under **Targets**, select **Add targets**.
 13. Search for screens and Display Groups, then choose one or more. Each target appears as a row you can remove.
@@ -49,7 +49,7 @@ The editor is one page that reads from top to bottom: what the schedule is, what
 
 Select **Limit to a date range** under **Timing** if the rule should start or stop on specific dates. Without one, the rule repeats every selected weekday.
 
-Choose **One-time** instead of **Weekly** for a single event. Enter the start and end in the schedule's timezone, not your browser's.
+Choose **One-time** instead of **Weekly** for a single event. The start and end also support seconds and use the schedule's timezone.
 
 ## Read the outcome
 
@@ -76,7 +76,7 @@ including a run later in the week or on the day the clocks move forward.
 
 Tilecast resolves unusual daylight-saving wall times consistently:
 
-- If the clock jumps forward across a scheduled start, a time that does not exist, such as 02:30 on that day, starts at the first real local minute after the gap.
+- If the clock jumps forward across a scheduled start, a time that does not exist, such as 02:30 on that day, starts at the first valid local time after the gap.
 - If the clock moves backward and a start time occurs twice, Tilecast uses the first occurrence. When an end time occurs twice, it uses the later occurrence. This keeps a window from ending early only because the clock repeated an hour.
 
 A schedule aimed at a Display Group follows the group's current membership; it is not a frozen list captured when you published the schedule. Adding or removing a screen causes that screen's manifest to be reconciled. An online screen adopts the new group result after the change reaches it. An offline screen cannot learn the membership change until it reconnects.
@@ -84,6 +84,8 @@ A schedule aimed at a Display Group follows the group's current membership; it i
 Players evaluate timing with a server-corrected clock from the last schedule manifest they received. The measured server offset is kept for cached scheduling after a restart. During a server or network outage, recurring rules already in the manifest can continue switching at their known boundaries, but the Player cannot receive a new one-time schedule or later edits until it reconnects. If the device's clock changes significantly while it remains offline after the last server sample, its effective schedule time can be wrong until it reconnects and measures the server again.
 
 Playback during an outage still depends on the needed content being available on the Player; content set to stream or not yet downloaded needs a network connection.
+
+For weekly schedules with nonzero seconds, update the Player to keep evaluating every occurrence offline. Older Players receive the current or next occurrence and need a connection to pick up later ones.
 
 To remove a schedule, open **More actions** in the header and choose **Delete schedule**. Its screens then use another applicable schedule, or their assigned fallback content.
 

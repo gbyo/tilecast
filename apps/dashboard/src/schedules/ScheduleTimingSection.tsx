@@ -19,6 +19,7 @@ import { RadioGroup } from "../components/ui/radio-group";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import {
   describeScheduleTiming,
+  dailyTimeSeconds,
   oneTimeDuration,
   scheduleWeekdayLabels,
   scheduleWeekdays,
@@ -200,7 +201,8 @@ function DailyTimes({
 }) {
   const { t } = useTranslation("schedules");
   const { draft, update, readOnly } = session;
-  const overnight = draft.dailyEnd <= draft.dailyStart;
+  const start = dailyTimeSeconds(draft.dailyStart);
+  const end = dailyTimeSeconds(draft.dailyEnd);
   return (
     <>
       <div className="grid max-w-md gap-4 sm:grid-cols-2">
@@ -211,6 +213,7 @@ function DailyTimes({
           <Input
             id="schedule-daily-start"
             type="time"
+            step={1}
             value={draft.dailyStart}
             required
             readOnly={readOnly}
@@ -226,6 +229,7 @@ function DailyTimes({
           <Input
             id="schedule-daily-end"
             type="time"
+            step={1}
             value={draft.dailyEnd}
             required
             readOnly={readOnly}
@@ -236,11 +240,9 @@ function DailyTimes({
         </Field>
       </div>
       {message && <FieldError id="schedule-time-error">{message}</FieldError>}
-      {overnight && draft.dailyStart && draft.dailyEnd && (
+      {end <= start && (
         <FieldDescription>
-          {draft.dailyEnd === draft.dailyStart
-            ? t("timing.fullDayNote")
-            : t("timing.overnightNote")}
+          {end === start ? t("timing.fullDayNote") : t("timing.overnightNote")}
         </FieldDescription>
       )}
     </>
@@ -353,6 +355,7 @@ function OneTimeFields({
           </FieldLabel>
           <DateTimeInput
             id="schedule-onetime-start"
+            includeSeconds
             timeLabel={t("timing.startsTimeLabel")}
             value={startWall}
             disabled={readOnly}
@@ -369,6 +372,7 @@ function OneTimeFields({
           </FieldLabel>
           <DateTimeInput
             id="schedule-onetime-end"
+            includeSeconds
             timeLabel={t("timing.endsTimeLabel")}
             value={endWall}
             min={startWall}

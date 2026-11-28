@@ -60,18 +60,32 @@ export function priorityLabel(priority: number, t: SchedulesT) {
   return t("priority.customValue", { priority });
 }
 
-/** Wall-clock time of day ("HH:mm") in the reader's language. */
+export function dailyTimeSeconds(value = "") {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(value);
+  if (!match) return Number.NaN;
+  return (
+    Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3] ?? 0)
+  );
+}
+
+function clockInstant(value: string | undefined) {
+  return new Date(Date.UTC(2020, 0, 1, 0, 0, dailyTimeSeconds(value)));
+}
+
+/** Wall-clock time of day in the reader's language. */
 export function formatClock(
   value: string | undefined,
   t: SchedulesT,
   locale: string,
 ) {
-  if (!value) return t("timing.clockNotSet");
-  const [hour, minute] = value.split(":").map(Number);
+  const clock = clockInstant(value);
+  if (!Number.isFinite(clock.getTime())) return t("timing.clockNotSet");
   return new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(2020, 0, 1, hour, minute));
+    second: clock.getUTCSeconds() ? "2-digit" : undefined,
+    timeZone: "UTC",
+  }).format(clock);
 }
 
 /** "7:15 – 8:15 AM": one range so the meridiem is not repeated. */
@@ -81,19 +95,19 @@ export function formatClockRange(
   t: SchedulesT,
   locale: string,
 ) {
-  if (!start || !end) return t("timing.clockNotSet");
-  const [startHour, startMinute] = start.split(":").map(Number);
-  const [endHour, endMinute] = end.split(":").map(Number);
+  const from = clockInstant(start);
+  const to = clockInstant(end);
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()))
+    return t("timing.clockNotSet");
   const format = new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
+    second: from.getUTCSeconds() || to.getUTCSeconds() ? "2-digit" : undefined,
+    timeZone: "UTC",
   });
-  const first = new Date(2020, 0, 1, startHour, startMinute);
-  // An overnight window ends the next day; the range still reads start-end.
-  const second = new Date(2020, 0, 1, endHour, endMinute);
-  return typeof format.formatRange === "function"
-    ? format.formatRange(first, second)
-    : `${format.format(first)} – ${format.format(second)}`;
+  return to > from && typeof format.formatRange === "function"
+    ? format.formatRange(from, to)
+    : `${format.format(from)} – ${format.format(to)}`;
 }
 
 /**
@@ -171,7 +185,7 @@ export function formatRangeInTimezone(
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
   const options: Intl.DateTimeFormatOptions = {
     dateStyle: "medium",
-    timeStyle: "short",
+    timeStyle: from.getUTCSeconds() || to.getUTCSeconds() ? "medium" : "short",
   };
   try {
     const format = new Intl.DateTimeFormat(locale, {
@@ -231,7 +245,8 @@ export function describeScheduleWhen(
       timezone: input.timezone,
     };
   }
-  const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
+  const overnight =
+    dailyTimeSeconds(input.dailyEnd) <= dailyTimeSeconds(input.dailyStart);
   const lines = [
     describeDaysCompact(input.daysOfWeek, t),
     formatClockRange(input.dailyStart, input.dailyEnd, t, locale) +
@@ -279,7 +294,8 @@ export function oneTimeDuration(
     new Date(input.oneTimeEnd).getTime() -
     new Date(input.oneTimeStart).getTime();
   if (milliseconds <= 0) return t("duration.invalidOrder");
-  const minutes = Math.round(milliseconds / 60_000);
+  const seconds = Math.max(1, Math.round(milliseconds / 1_000));
+  const minutes = Math.floor(seconds / 60);
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const remaining = minutes % 60;
@@ -287,6 +303,7 @@ export function oneTimeDuration(
     days ? t("duration.days", { count: days }) : "",
     hours ? t("duration.hours", { count: hours }) : "",
     remaining ? t("duration.minutes", { count: remaining }) : "",
+    seconds % 60 ? t("duration.seconds", { count: seconds % 60 }) : "",
   ]
     .filter(Boolean)
     .join(" ");
