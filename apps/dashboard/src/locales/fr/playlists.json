@@ -60,7 +60,13 @@
       "minutesAgo_many": "Mis à jour {{count}} il y a quelques minutes",
       "hoursAgo_many": "Mis à jour {{count}} il y a heures",
       "daysAgo_many": "Mis à jour {{count}} il y a jours"
-    }
+    },
+    "actions": {
+      "edit": "Modifier la liste de lecture",
+      "open": "Ouvrir la liste de lecture",
+      "duplicate": "Dupliquer"
+    },
+    "actionsFor": "Actions pour {{name}}"
   },
   "preview": {
     "preparingWidget": "Préparation du Widget…",
@@ -373,7 +379,8 @@
     "emptyPlaylistTitle": "Cette playlist est vide",
     "actions": {
       "inspect": "Inspecter",
-      "remove": "Supprimer de la playlist"
+      "remove": "Supprimer de la playlist",
+      "move": "Déplacer"
     }
   },
   "history": {

@@ -137,7 +137,9 @@ function server(
 ) {
   const downloads: string[] = [];
   let current = selectedPlaylist;
+  let nextEvaluationAt: string | undefined;
   let failing: string | undefined;
+  let configDelayMs = 0;
   const transport = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), "https://signage.example.org");
     const path = url.pathname;
@@ -145,7 +147,8 @@ function server(
       new Response(JSON.stringify({ data }), { status: 200 });
     if (path === "/api/v1/player/manifest")
       return ok(manifestOverride ?? manifest(1, windows));
-    if (path === "/api/v1/player/config")
+    if (path === "/api/v1/player/config") {
+      clock.ms += configDelayMs;
       return ok({
         configRevision: 1,
         branding: {},
@@ -153,18 +156,20 @@ function server(
         website: {},
         cache: {},
       });
+    }
     if (path === "/api/v1/player/browser/selection")
       return ok({
         at: new Date(clock.ms).toISOString(),
-        current: current
-          ? {
-              selected: {
+        current: {
+          nextEvaluationAt,
+          selected: current
+            ? {
                 source: "assignment",
                 contentType: "playlist",
                 contentId: current,
-              },
-            }
-          : {},
+              }
+            : undefined,
+        },
       });
     downloads.push(path);
     if (failing && path.includes(failing))
@@ -178,7 +183,9 @@ function server(
   return {
     api: new PlayerAPI(transport),
     downloads,
+    delayConfig: (ms: number) => (configDelayMs = ms),
     select: (value: string | null) => (current = value),
+    setNextEvaluation: (value: string) => (nextEvaluationAt = value),
     fail: (value: string | undefined) => (failing = value),
   };
 }
@@ -228,6 +235,14 @@ beforeEach(() => {
 });
 
 describe("exact-closure reconciliation", () => {
+  it("excludes later API latency from the manifest clock offset", async () => {
+    const h = await setup(PLAYLIST_A);
+    h.remote.delayConfig(2000);
+    const result = await h.reconcile();
+    expect(result.plan.input.clockOffsetMs).toBe(0);
+    expect(h.memoryState.clockOffsetMs).toBe(0);
+  });
+
   it("downloads only the resources the selected content needs", async () => {
     const h = await setup(PLAYLIST_A);
     const result = await h.reconcile();
@@ -317,6 +332,17 @@ describe("exact-closure reconciliation", () => {
 });
 
 describe("activation stability", () => {
+  it("reports a fresh evaluation boundary without replacing the activation", async () => {
+    const h = await setup(PLAYLIST_A);
+    expect((await h.reconcile()).plan.validUntil).toBeNull();
+    const boundary = new Date(clock.ms + 1_000);
+    h.remote.setNextEvaluation(boundary.toISOString());
+    const result = await h.reconcile();
+    expect(result.changed).toBe(false);
+    expect(result.plan.validUntil).toEqual(boundary);
+    expect(h.memoryState.generation).toBe(1);
+  });
+
   it("keeps the same activation when unrelated content becomes available", async () => {
     const opens = new Date(Date.now() + 60_000).toISOString();
     // Playlist A shows image 1 and 2. Playlist B, which is not selected, uses

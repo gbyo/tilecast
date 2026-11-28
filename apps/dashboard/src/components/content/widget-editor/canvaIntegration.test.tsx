@@ -69,7 +69,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   expect(
     screen.getByText(/URL validated; preview could not be verified/),
   ).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: /Save Widget/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Save(?: Widget)?$/ }));
   await waitFor(() => expect(create).toHaveBeenCalled());
   expect(create.mock.calls[0]![0].configuration).toEqual(config);
 });

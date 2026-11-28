@@ -60,7 +60,13 @@
       "minutesAgo_many": "{{count}} atualizado minutos atrás",
       "hoursAgo_many": "{{count}} atualizado horas atrás",
       "daysAgo_many": "{{count}} atualizado dias atrás"
-    }
+    },
+    "actions": {
+      "edit": "Editar lista de reprodução",
+      "open": "Abrir lista de reprodução",
+      "duplicate": "Duplicar"
+    },
+    "actionsFor": "Ações para {{name}}"
   },
   "preview": {
     "preparingWidget": "Preparando Widget…",
@@ -373,7 +379,8 @@
     "emptyPlaylistTitle": "Esta playlist está vazia",
     "actions": {
       "inspect": "Inspecionar",
-      "remove": "Remover da lista de reprodução"
+      "remove": "Remover da lista de reprodução",
+      "move": "Mover"
     }
   },
   "history": {

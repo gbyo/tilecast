@@ -15,7 +15,14 @@ afterEach(async () => {
 describe("DateInput", () => {
   it("shows calendar labels in the selected language", async () => {
     await i18n.changeLanguage("zh");
-    render(<DateInput id="date" value="2026-09-10" onChange={vi.fn()} aria-label="Date" />);
+    render(
+      <DateInput
+        id="date"
+        value="2026-09-10"
+        onChange={vi.fn()}
+        aria-label="Date"
+      />,
+    );
     await userEvent.click(screen.getByRole("button", { name: "Date" }));
     expect(screen.getByRole("option", { name: "9月" })).toBeInTheDocument();
   });
@@ -147,6 +154,25 @@ describe("DateTimeInput", () => {
     expect(time).toHaveValue("10:30");
     fireEvent.change(time, { target: { value: "11:45" } });
     expect(onChange).toHaveBeenLastCalledWith("2026-09-23T11:45");
+  });
+
+  it("keeps the seconds when the calendar day changes", async () => {
+    const onChange = vi.fn();
+    render(
+      <DateTimeInput
+        id="starts"
+        includeSeconds
+        value="2026-09-23T10:30:15.000Z"
+        onChange={onChange}
+        aria-label="Starts"
+      />,
+    );
+    expect(screen.getByLabelText("Starts time")).toHaveValue("10:30:15");
+    await userEvent.click(screen.getByRole("button", { name: "Starts" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /September 24/ }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith("2026-09-24T10:30:15");
   });
 
   it("clearing the date clears the whole value", async () => {

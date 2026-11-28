@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import scheduleFixtures from "../../../../packages/manifest-schema/schedule-fixtures.json";
 import {
   presentationOverrideActive,
   resolveDisplayPolicy,
@@ -40,6 +41,34 @@ function weekly(overrides: Partial<ManifestSchedule> = {}): ManifestSchedule {
     ...overrides,
   };
 }
+
+it.each(scheduleFixtures)(
+  "matches the shared schedule case $name",
+  (fixture) => {
+    const manifest = baseManifest({
+      playlist: {
+        id: fixture.fallbackPlaylistId,
+        revision: 1,
+        name: "Fallback",
+        items: [],
+      },
+      schedules: fixture.schedules as ManifestSchedule[],
+    });
+    const selection = resolveSelection(manifest, new Date(fixture.now));
+    expect(selection.playlistId).toBe(fixture.expectedPlaylistId);
+    expect(selection.scheduleId).toBe(fixture.expectedScheduleId ?? null);
+    expect(selection.source).toBe(
+      fixture.expectedSource === "direct_fallback"
+        ? "direct"
+        : fixture.expectedSource,
+    );
+    if (fixture.expectedNextTransitionAt) {
+      expect(selection.nextTransitionAt).toBe(
+        new Date(fixture.expectedNextTransitionAt).toISOString(),
+      );
+    }
+  },
+);
 
 describe("scheduleApplies", () => {
   // 2026-07-17 is a Friday. 15:00 UTC = 11:00 in New York (EDT).
@@ -116,16 +145,16 @@ describe("scheduleApplies", () => {
 
   it("uses the shared DST gap and repeated-time policies", () => {
     const spring = weekly({
-      dailyStart: "02:30",
+      dailyStart: "02:30:15",
       dailyEnd: "04:00",
       daysOfWeek: [0],
     });
-    expect(scheduleApplies(spring, new Date("2026-03-08T07:15:00Z"))).toBe(
+    expect(scheduleApplies(spring, new Date("2026-03-08T07:00:00Z"))).toBe(
       true,
     );
     const fall = weekly({
-      dailyStart: "01:30",
-      dailyEnd: "01:45",
+      dailyStart: "01:30:10",
+      dailyEnd: "01:45:25",
       daysOfWeek: [0],
     });
     // The repeated window spans earlier start through later end.

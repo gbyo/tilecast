@@ -6430,7 +6430,11 @@ paths:
         Get player manifest. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       parameters:
-        [{ in: header, name: If-None-Match, schema: { type: string } }]
+        - { in: header, name: If-None-Match, schema: { type: string } }
+        - in: header
+          name: X-Tilecast-Schedule-Precision
+          schema: { type: string, enum: [seconds] }
+          description: Accept recurring wall-clock times in HH:MM:SS as well as HH:MM.
       responses:
         "200":
           description: Stable screen-specific manifest or no-assignment manifest
@@ -14174,8 +14178,16 @@ components:
         endDate: { type: string, format: date }
         oneTimeStart: { type: string, format: date-time }
         oneTimeEnd: { type: string, format: date-time }
-        dailyStart: { type: string, pattern: "^\\d{2}:\\d{2}$" }
-        dailyEnd: { type: string, pattern: "^\\d{2}:\\d{2}$" }
+        dailyStart:
+          {
+            type: string,
+            pattern: "^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$",
+          }
+        dailyEnd:
+          {
+            type: string,
+            pattern: "^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$",
+          }
         daysOfWeek:
           { type: array, items: { type: integer, minimum: 0, maximum: 6 } }
         enabled: { type: boolean }
@@ -16336,8 +16348,16 @@ components:
         endDate: { type: [string, "null"], format: date }
         oneTimeStart: { type: [string, "null"], format: date-time }
         oneTimeEnd: { type: [string, "null"], format: date-time }
-        dailyStart: { type: [string, "null"] }
-        dailyEnd: { type: [string, "null"] }
+        dailyStart:
+          {
+            type: [string, "null"],
+            description: "Weekly start in HH:MM or HH:MM:SS.",
+          }
+        dailyEnd:
+          {
+            type: [string, "null"],
+            description: "Weekly end in HH:MM or HH:MM:SS.",
+          }
         daysOfWeek:
           { type: array, items: { type: integer, minimum: 0, maximum: 6 } }
         targets:
@@ -16583,8 +16603,16 @@ components:
         endDate: { type: [string, "null"], format: date }
         oneTimeStart: { type: [string, "null"], format: date-time }
         oneTimeEnd: { type: [string, "null"], format: date-time }
-        dailyStart: { type: [string, "null"] }
-        dailyEnd: { type: [string, "null"] }
+        dailyStart:
+          {
+            type: [string, "null"],
+            description: "Weekly start in HH:MM or HH:MM:SS.",
+          }
+        dailyEnd:
+          {
+            type: [string, "null"],
+            description: "Weekly end in HH:MM or HH:MM:SS.",
+          }
         daysOfWeek:
           type: array
           items: { type: integer, minimum: 0, maximum: 6 }

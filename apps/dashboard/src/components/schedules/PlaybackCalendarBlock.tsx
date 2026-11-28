@@ -34,27 +34,34 @@ export function PlaybackCalendarBlock({
 }) {
   const { t } = useTranslation(["schedules", "screens"]);
   const selection = block.selection;
-  const time = new Intl.DateTimeFormat(locale, {
+  const timeOptions: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     minute: "2-digit",
     timeZoneName:
       day.getTimezoneOffset() === dayEnd.getTimezoneOffset()
         ? undefined
         : "short",
+  };
+  const time = new Intl.DateTimeFormat(locale, timeOptions);
+  const preciseTime = new Intl.DateTimeFormat(locale, {
+    ...timeOptions,
+    second: "2-digit",
   });
   const dateLabel = new Intl.DateTimeFormat(locale, {
     weekday: "long",
     month: "short",
     day: "numeric",
   }).format(day);
-  const range = (start: Date, end: Date) =>
-    t("agenda.timeRange", {
-      from: time.format(start),
+  const range = (start: Date, end: Date) => {
+    const format = start.getSeconds() || end.getSeconds() ? preciseTime : time;
+    return t("agenda.timeRange", {
+      from: format.format(start),
       to:
         end.getTime() === dayEnd.getTime()
           ? t("agenda.midnight")
-          : time.format(end),
+          : format.format(end),
     });
+  };
   const timeLabel = allDay ? t("agenda.allDay") : range(block.start, block.end);
   const name = selection
     ? selection.name || t("agenda.unnamedContent")

@@ -6,7 +6,6 @@ import {
   effectiveDurationMs,
   enrichSynchronizedPresentation,
   projectSynchronizedPresentation,
-  schedulePlaybackAnchorMs,
   synchronizedNowMs,
   synchronizedPlaybackPosition,
   type SynchronizedPlayingPresentation,
@@ -223,10 +222,9 @@ describe("enrichSynchronizedPresentation", () => {
       }),
     ).toBe(presentation);
   });
-});
-
-describe("schedulePlaybackAnchorMs", () => {
-  it("anchors a weekly schedule at the active local window start", () => {
+  it("anchors synchronized playback at the selected schedule's exact start", () => {
+    const epoch = "2026-07-20T12:00:00Z";
+    const scheduled = manifest(epoch);
     const schedule: ManifestSchedule = {
       id: "schedule-1",
       playlistId: "playlist-1",
@@ -235,13 +233,25 @@ describe("schedulePlaybackAnchorMs", () => {
       timezone: "America/New_York",
       priority: 1,
       specificity: 1,
-      dailyStart: "07:00",
-      dailyEnd: "19:00",
+      dailyStart: "07:00:10",
+      dailyEnd: "07:00:25",
       daysOfWeek: [1],
     };
-    expect(
-      schedulePlaybackAnchorMs(schedule, Date.parse("2026-07-20T16:00:00Z")),
-    ).toBe(Date.parse("2026-07-20T11:00:00Z"));
+    scheduled.schedules = [schedule];
+    const presentation: Presentation = {
+      state: "playing",
+      items: [image("image-1", 10_000)],
+      takeover: false,
+      generation: 1,
+    };
+    const enriched = enrichSynchronizedPresentation(
+      presentation,
+      { manifest: scheduled, etag: null, storedAt: epoch },
+      Date.parse("2026-07-20T11:00:15Z"),
+    );
+    expect(enriched).toMatchObject({
+      synchronizedPlayback: { anchorMs: Date.parse("2026-07-20T11:00:10Z") },
+    });
   });
 });
 

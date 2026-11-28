@@ -46,7 +46,12 @@
       "edit": "Modifier le calendrier",
       "open": "Horaire ouvert",
       "delete": "Supprimer le planning",
-      "actionsFor": "Actions pour {{name}}"
+      "actionsFor": "Actions pour {{name}}",
+      "enable": "Activer la programmation",
+      "disable": "Désactiver la programmation",
+      "enabled": "Programmation activée.",
+      "disabled": "Programmation désactivée.",
+      "toggleFailed": "Le statut de la programmation n’a pas pu être modifié."
     },
     "count_many": "Horaires {{count}}"
   },

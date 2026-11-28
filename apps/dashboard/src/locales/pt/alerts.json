@@ -268,6 +268,10 @@
     "liveBadge": "Ao vivo",
     "targetLine": "Visando <strong>{{target}}</strong>. A atualização real depende do player e da rede.",
     "privacyNote": "Este fluxo é retransmitido apenas enquanto esta janela está aberta. Os frames nunca são salvos em instantâneos, visualização ao vivo, atividades ou backups.",
-    "stopWatching": "Pare de assistir"
+    "stopWatching": "Pare de assistir",
+    "negotiating": "Selecionando o melhor formato de transmissão para este Player e navegador.",
+    "targetNegotiating": "o melhor formato compatível com ambos",
+    "targetValueH264": "{{fps}} FPS · {{width}}×{{height}} · H.264 (cerca de {{megabits}} Mbit/s)",
+    "targetValueMjpeg": "{{fps}} FPS · {{width}}×{{height}} · MJPEG"
   }
 }

@@ -285,7 +285,12 @@
     "snapOff": "स्नैप: बंद",
     "safeAreaOn": "सुरक्षित क्षेत्र: चालू",
     "safeAreaOff": "सुरक्षित क्षेत्र: बंद",
-    "zoomPresets": "ज़ूम प्रीसेट"
+    "zoomPresets": "ज़ूम प्रीसेट",
+    "toastPublishFailed": "लेआउट प्रकाशित नहीं हो सका।",
+    "toastSubmitFailed": "लेआउट समीक्षा के लिए नहीं भेजा जा सका।",
+    "toastRenameFailed": "लेआउट का नाम नहीं बदला जा सका।",
+    "toastRestoreFailed": "लेआउट का संशोधन बहाल नहीं हो सका।",
+    "menuDistribute": "वितरित करें"
   },
   "spanWall": {
     "canvasWidth": "कैनवास की चौड़ाई",

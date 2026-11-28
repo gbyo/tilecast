@@ -912,7 +912,10 @@
       "playing_many": "{{count}} jogando",
       "preparing_many": "{{count}} se preparando",
       "failed_many": "{{count}} falhou",
-      "targeted_many": "{{count}} direcionado"
+      "targeted_many": "{{count}} direcionado",
+      "suspended_one": "{{count}} aguardando",
+      "suspended_other": "{{count}} aguardando",
+      "suspended_many": "{{count}} aguardando"
     },
     "end": "Fim da aquisição",
     "endTitle": "Encerrar aquisição de {{name}}?",
@@ -966,7 +969,27 @@
     "groupMemberCount_many": "Telas {{count}}",
     "summarySelected_many": "Telas {{count}} selecionadas",
     "summaryGroups_many": "e {{count}} Grupos de exibição selecionados",
-    "summaryOffline_many": "· As telas selecionadas do {{count}} não estão online"
+    "summaryOffline_many": "· As telas selecionadas do {{count}} não estão online",
+    "class": {
+      "life_safety": "Proteção à vida",
+      "emergency": "Emergência",
+      "operator": "Rotina",
+      "automation": "Automática"
+    },
+    "classLabel": "Prioridade",
+    "classOperatorHint": "Para avisos e eventos. Aguarda o fim de uma aquisição de emergência ativa.",
+    "classEmergencyHint": "Para alertas urgentes de segurança. Tem prioridade sobre as aquisições de rotina. É necessário informar um motivo para encerrá-la antes do prazo.",
+    "strongerActiveTitle_one": "{{count}} aquisição de prioridade superior está ativa",
+    "strongerActiveTitle_other": "{{count}} aquisições de prioridade superior estão ativas",
+    "strongerActiveBody": "Nas telas abrangidas, esta aquisição aguarda e começa quando a de prioridade superior termina.",
+    "startedSuspended_one": "Aquisição iniciada. Em {{count}} tela, ela aguarda o fim de uma aquisição de prioridade superior.",
+    "startedSuspended_other": "Aquisição iniciada. Em {{count}} telas, ela aguarda o fim de uma aquisição de prioridade superior.",
+    "confirmBodyEmergency": "Esta aquisição de emergência tem prioridade sobre as aquisições de rotina nas telas e grupos selecionados. Para encerrá-la antes que expire, solicite o encerramento e informe um motivo.",
+    "endBodyEmergency": "Esta é uma aquisição de emergência. A reprodução programada ou de reserva será retomada. Informe um motivo para o registro do cancelamento.",
+    "reasonLabelRequired": "Motivo do cancelamento (obrigatório)",
+    "endError": "Não foi possível encerrar a aquisição",
+    "strongerActiveTitle_many": "{{count}} aquisições de prioridade superior estão ativas",
+    "startedSuspended_many": "Aquisição iniciada. Em {{count}} telas, ela aguarda o fim de uma aquisição de prioridade superior."
   },
   "detail": {
     "loading": "Carregando tela…",
@@ -1284,7 +1307,16 @@
     "mapPositionPlaceCenter": "Coloque no centro do mapa",
     "mapPositionAriaLabel": "Escolha a posição da tela no mapa",
     "mapPositionHint": "Clique no mapa ou arraste o marcador para definir uma posição exata na tela.",
-    "sectionPlayback": "Reprodução"
+    "sectionPlayback": "Reprodução",
+    "airplayBetaTitle": "AirPlay",
+    "betaBadge": "Beta",
+    "airplayBetaBody": "Receba AirPlay do iPhone, iPad e Mac nesta tela Tilecast Edge.",
+    "airplayBetaHint": "O suporte beta pode ser menos confiável em alguns aparelhos. AirPlay está disponível em uma tela por vez. Grupos de telas ainda não estão disponíveis.",
+    "airplayBetaToggle": "Ativar AirPlay beta",
+    "airplayBetaEnabled": "AirPlay beta ativado.",
+    "airplayBetaDisabled": "AirPlay beta desativado.",
+    "airplayBetaSaveError": "Não foi possível salvar a configuração do AirPlay beta.",
+    "airplayBetaUnsavedPolicy": "Salve ou descarte as outras alterações no Player antes de alterar o AirPlay."
   },
   "preview": {
     "snapshotsTitle": "Histórico de instantâneos",

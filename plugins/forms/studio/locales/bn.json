@@ -62,7 +62,8 @@
       "moveDown": "নিচে সরান",
       "moveTop": "সবার উপরে সরান",
       "moveBottom": "সবার নিচে সরান",
-      "deleteField": "ফিল্ড মুছুন"
+      "deleteField": "ফিল্ড মুছুন",
+      "move": "সরান"
     },
     "row": {
       "editField": "{{name}} সম্পাদনা করুন",

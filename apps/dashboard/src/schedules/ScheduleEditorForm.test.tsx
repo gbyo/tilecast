@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Playlist, Schedule } from "../api/types";
@@ -37,6 +37,9 @@ async function open(schedule: Partial<Schedule> = {}) {
   return { api, user: userEvent.setup(), ...view };
 }
 
+const submitButton = () =>
+  screen.getByRole("button", { name: /^(Save changes|Create schedule|Save)$/ });
+
 const saveInput = (api: ReturnType<typeof mockEditorApi>) =>
   api.updateSchedule.mock.calls.at(-1)![1];
 
@@ -46,7 +49,7 @@ async function save(
   saved: Partial<Schedule> = {},
 ) {
   api.updateSchedule.mockResolvedValue({ ...morning, ...saved });
-  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await user.click(submitButton());
   await waitFor(() => expect(api.updateSchedule).toHaveBeenCalled());
 }
 
@@ -218,7 +221,7 @@ describe("Presentation", () => {
     renderEditor("/schedules/new?group=g1");
     const user = userEvent.setup();
     await user.type(await screen.findByLabelText("Name"), "Power on");
-    await user.click(screen.getByRole("button", { name: "Create schedule" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText("Choose content or a Display Control action."),
     ).toBeInTheDocument();
@@ -238,7 +241,7 @@ describe("Presentation", () => {
     });
     // A saved schedule with an empty input is clean until someone edits it.
     await user.type(screen.getByLabelText("Name"), "!");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText(
         "Enter an input identifier for the Display Control action.",
@@ -252,6 +255,50 @@ describe("Presentation", () => {
 });
 
 describe("Timing", () => {
+  it("saves a weekly window wholly within one minute", async () => {
+    const { api, user } = await open();
+    const start = screen.getByLabelText("Starts");
+    const end = screen.getByLabelText("Ends");
+    expect(start).toHaveAttribute("step", "1");
+    expect(end).toHaveAttribute("step", "1");
+    fireEvent.change(start, { target: { value: "07:15:10" } });
+    fireEvent.change(end, { target: { value: "07:15:25" } });
+    expect(screen.queryByText("Ends the next day.")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/7:15:10.*7:15:25/).length).toBeGreaterThan(0);
+    await save(api, user, { dailyStart: "07:15:10", dailyEnd: "07:15:25" });
+    expect(saveInput(api)).toMatchObject({
+      dailyStart: "07:15:10",
+      dailyEnd: "07:15:25",
+    });
+    expect(start).toHaveValue("07:15:10");
+    expect(end).toHaveValue("07:15:25");
+  });
+
+  it("saves seconds for a one-time window in the schedule's timezone", async () => {
+    const { api, user } = await open({
+      type: "one_time",
+      timezone: "Asia/Tokyo",
+      oneTimeStart: "2026-10-31T23:00:10Z",
+      oneTimeEnd: "2026-10-31T23:00:25Z",
+    });
+    const end = screen.getByLabelText("End time");
+    expect(screen.getByLabelText("Start time")).toHaveValue("08:00:10");
+    expect(end).toHaveAttribute("step", "1");
+    expect(end).toHaveAttribute("min", "08:00:10");
+    fireEvent.change(end, { target: { value: "08:00:35" } });
+    expect(screen.getByText("25 sec")).toBeInTheDocument();
+    await save(api, user, {
+      type: "one_time",
+      timezone: "Asia/Tokyo",
+      oneTimeStart: "2026-10-31T23:00:10Z",
+      oneTimeEnd: "2026-10-31T23:00:35Z",
+    });
+    expect(saveInput(api)).toMatchObject({
+      oneTimeStart: "2026-10-31T23:00:10Z",
+      oneTimeEnd: "2026-10-31T23:00:35.000Z",
+    });
+  });
+
   it("shows weekly and one-time as one choice", async () => {
     await open();
     expect(
@@ -278,7 +325,7 @@ describe("Timing", () => {
   it("reports no weekday as a problem on the group", async () => {
     const { api, user } = await open({ daysOfWeek: [1] });
     await user.click(screen.getByRole("button", { name: "Monday" }));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText("Select at least one weekday."),
     ).toBeInTheDocument();
@@ -430,7 +477,7 @@ describe("Targets", () => {
         screen.getByRole("combobox", { name: "Add targets" }),
       ).toHaveFocus(),
     );
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText("Select at least one screen or group."),
     ).toBeInTheDocument();
@@ -542,7 +589,7 @@ describe("Priority", () => {
     const field = screen.getByLabelText("Priority value");
     await user.clear(field);
     await user.type(field, "1000");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(submitButton());
     expect(
       await screen.findByText(
         "Priority must be a whole number between -999 and 999.",

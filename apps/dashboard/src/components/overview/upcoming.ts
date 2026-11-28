@@ -1,4 +1,5 @@
 import type { Schedule } from "../../api/types";
+import { dailyTimeSeconds } from "../../schedules/scheduleBuilderModel";
 
 export type UpcomingChange = {
   schedule: Schedule;
@@ -66,13 +67,8 @@ function zoneOffsetMs(utc: Date, timeZone: string) {
  * The offset is measured twice so a time just after a daylight-saving change
  * uses the offset in force at that time rather than at the first guess.
  */
-function wallToUtc(
-  wall: Wall,
-  hour: number,
-  minute: number,
-  timeZone: string,
-): Date {
-  const guess = Date.UTC(wall.year, wall.month - 1, wall.day, hour, minute);
+function wallToUtc(wall: Wall, seconds: number, timeZone: string): Date {
+  const guess = Date.UTC(wall.year, wall.month - 1, wall.day, 0, 0, seconds);
   const first = guess - zoneOffsetMs(new Date(guess), timeZone);
   return new Date(guess - zoneOffsetMs(new Date(first), timeZone));
 }
@@ -95,18 +91,6 @@ function weekday(wall: Wall) {
 function isoDate(wall: Wall) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${wall.year}-${pad(wall.month)}-${pad(wall.day)}`;
-}
-
-function clock(value: string): [number, number] | undefined {
-  const [hour, minute = 0] = value.split(":").map(Number);
-  if (
-    hour === undefined ||
-    !Number.isFinite(hour) ||
-    !Number.isFinite(minute)
-  ) {
-    return undefined;
-  }
-  return [hour, minute];
 }
 
 /**
@@ -143,9 +127,10 @@ export function upcomingChanges(
         changes.push({ schedule, at: ends, kind: "ends" });
       continue;
     }
-    const start = schedule.dailyStart ? clock(schedule.dailyStart) : undefined;
-    if (!start || schedule.daysOfWeek.length === 0) continue;
-    const end = schedule.dailyEnd ? clock(schedule.dailyEnd) : undefined;
+    const start = dailyTimeSeconds(schedule.dailyStart);
+    if (!Number.isFinite(start) || schedule.daysOfWeek.length === 0) continue;
+    const end = dailyTimeSeconds(schedule.dailyEnd);
+    const hasEnd = Number.isFinite(end);
     const timeZone = safeZone(schedule.timezone, defaultTimezone);
     const today = wallParts(now, timeZone);
     let nextStart: Date | undefined;
@@ -158,20 +143,17 @@ export function upcomingChanges(
       const date = isoDate(day);
       if (schedule.startDate && date < schedule.startDate) continue;
       if (schedule.endDate && date > schedule.endDate) continue;
-      const startsAt = wallToUtc(day, start[0], start[1], timeZone);
+      const startsAt = wallToUtc(day, start, timeZone);
       if (!nextStart && startsAt > now) nextStart = startsAt;
-      if (end) {
-        const overnight =
-          end[0] < start[0] || (end[0] === start[0] && end[1] <= start[1]);
+      if (hasEnd) {
         const endsAt = wallToUtc(
-          overnight ? addDays(day, 1) : day,
-          end[0],
-          end[1],
+          end <= start ? addDays(day, 1) : day,
+          end,
           timeZone,
         );
         if (!nextEnd && endsAt > now) nextEnd = endsAt;
       }
-      if (nextStart && (nextEnd || !end)) break;
+      if (nextStart && (nextEnd || !hasEnd)) break;
     }
     if (nextStart) changes.push({ schedule, at: nextStart, kind: "starts" });
     // An end that falls after the same schedule's next start belongs to a

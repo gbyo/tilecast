@@ -217,6 +217,14 @@
       "customUserAgent": {
         "label": "Agent utilisateur personnalisé",
         "description": "Laissez vide pour l’agent utilisateur standard du Player. Les remplacements peuvent interrompre des sites."
+      },
+      "dataSourceId": {
+        "label": "Source de données",
+        "description": "Facultatif. Utilisez {data.room} pour le champ room du premier enregistrement, {data.room:1} pour celui du deuxième ou {data.json} pour tous les enregistrements en JSON. Variables disponibles : {screen.id}, {date}, {time}, {datetime}."
+      },
+      "urlTemplatesEnabled": {
+        "label": "Activer les variables d’URL",
+        "description": "Remplace les variables d’écran, de date, d’heure et de source de données. Nécessite un lecteur compatible."
       }
     }
   },

@@ -56,7 +56,13 @@
       "daysAgo_one": "{{count}} दिन पहले अपडेट किया गया",
       "daysAgo_other": "{{count}} दिन पहले अपडेट किया गया",
       "onDate": "अद्यतन {{date}}"
-    }
+    },
+    "actions": {
+      "edit": "प्लेलिस्ट संपादित करें",
+      "open": "प्लेलिस्ट खोलें",
+      "duplicate": "प्रतिलिपि बनाएँ"
+    },
+    "actionsFor": "{{name}} की कार्रवाइयाँ"
   },
   "preview": {
     "preparingWidget": "Widget तैयार किया जा रहा है...",
@@ -368,7 +374,8 @@
     "emptyPlaylistTitle": "यह प्लेलिस्ट खाली है",
     "actions": {
       "inspect": "निरीक्षण करें",
-      "remove": "प्लेलिस्ट से हटाएँ"
+      "remove": "प्लेलिस्ट से हटाएँ",
+      "move": "स्थान बदलें"
     }
   },
   "history": {

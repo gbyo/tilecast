@@ -616,7 +616,9 @@ impl AuthenticatedServer {
 
     /// Reads the existing server compiler's manifest without introducing an Edge compiler.
     pub async fn player_manifest(&self, etag: Option<&str>) -> Result<ManifestFetch, ServerError> {
-        let mut request = self.request(reqwest::Method::GET, "/api/v1/player/manifest");
+        let mut request = self
+            .request(reqwest::Method::GET, "/api/v1/player/manifest")
+            .header("X-Tilecast-Schedule-Precision", "seconds");
         if let Some(etag) = etag {
             if etag.len() > 200 {
                 return Err(ServerError::Decode);

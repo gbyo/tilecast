@@ -926,13 +926,13 @@ describe("Schedules library", () => {
     });
 
     it("shortens Create but keeps its full accessible name", async () => {
+      stubViewport(true, true);
       mockSchedules();
       renderPage();
       await screen.findByText("Morning Broadcast");
 
       const create = screen.getByRole("link", { name: "Create schedule" });
-      expect(create).toHaveTextContent("Create");
-      expect(create).not.toHaveTextContent("Create schedule");
+      expect(create).toHaveTextContent(/^Create$/);
     });
 
     it("puts Sort beside Filters", async () => {

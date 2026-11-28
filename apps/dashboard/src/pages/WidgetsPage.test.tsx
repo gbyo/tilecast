@@ -40,10 +40,12 @@ vi.mock("../content/WidgetSnapshotBackfill", () => ({
 }));
 
 const COMPACT_QUERY = "(max-width: 1023px)";
+const PHONE_QUERY = "(max-width: 639px)";
 
-function stubViewport(compact: boolean) {
+function stubViewport(compact: boolean, phone = compact) {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: compact && query === COMPACT_QUERY,
+    matches:
+      (compact && query === COMPACT_QUERY) || (phone && query === PHONE_QUERY),
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -1038,6 +1040,16 @@ describe("Widgets library", () => {
 
       const create = await screen.findByRole("link", { name: "Create Widget" });
       expect(create).toHaveTextContent(/^Create$/);
+    });
+
+    it("keeps the full Create label on a compact tablet", async () => {
+      stubViewport(true, false);
+      mockAssets();
+      mockDefinitions();
+      renderPage();
+
+      const create = await screen.findByRole("link", { name: "Create Widget" });
+      expect(create).toHaveTextContent(/^Create Widget$/);
     });
   });
 

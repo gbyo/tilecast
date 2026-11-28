@@ -163,7 +163,7 @@ export function DateInput({
 }
 
 /**
- * Date-and-time picker for `datetime-local` strings (`YYYY-MM-DDTHH:mm`).
+ * Date-and-time picker for `datetime-local` strings with optional seconds.
  *
  * The date half uses the Popover + Calendar composition; time of day keeps
  * the native time input. The string contract matches a native
@@ -177,6 +177,7 @@ export function DateTimeInput({
   min,
   max,
   disabled,
+  includeSeconds = false,
   "aria-label": ariaLabel,
   timeLabel,
   "aria-describedby": describedBy,
@@ -190,6 +191,7 @@ export function DateTimeInput({
   min?: string;
   max?: string;
   disabled?: boolean;
+  includeSeconds?: boolean;
   "aria-label"?: string;
   timeLabel?: string;
   "aria-describedby"?: string;
@@ -201,11 +203,13 @@ export function DateTimeInput({
   const [datePart, rawTimePart] = value.split("T");
   const [minDate, minTime] = (min ?? "").split("T");
   const [maxDate, maxTime] = (max ?? "").split("T");
-  // Accept full ISO instants as well as datetime-local strings: only the
-  // leading HH:mm is editable, and it names the same instant.
-  const timePart = /^\d{2}:\d{2}/.test(rawTimePart ?? "")
-    ? rawTimePart!.slice(0, 5)
-    : "";
+  // Accept full ISO instants as well as wall times. Keep the editable time
+  // components and discard any fractional seconds or timezone suffix.
+  const clockPattern = includeSeconds
+    ? /^\d{2}:\d{2}(?::\d{2})?/
+    : /^\d{2}:\d{2}/;
+  const clockPart = (part?: string) => clockPattern.exec(part ?? "")?.[0] ?? "";
+  const timePart = clockPart(rawTimePart);
   // A half-filled value has no valid instant: the missing half falls back to
   // midnight, and clearing the date clears the whole value, mirroring how a
   // native datetime-local never yields a partial string.
@@ -234,6 +238,7 @@ export function DateTimeInput({
       <Input
         id={`${id}-time`}
         type="time"
+        step={includeSeconds ? 1 : undefined}
         aria-label={
           timeLabel ??
           (ariaLabel
@@ -246,12 +251,8 @@ export function DateTimeInput({
         onBlur={onBlur}
         value={timePart ?? ""}
         disabled={disabled || !datePart}
-        min={
-          datePart === minDate ? minTime?.slice(0, 5) || undefined : undefined
-        }
-        max={
-          datePart === maxDate ? maxTime?.slice(0, 5) || undefined : undefined
-        }
+        min={datePart === minDate ? clockPart(minTime) || undefined : undefined}
+        max={datePart === maxDate ? clockPart(maxTime) || undefined : undefined}
         onChange={(event) =>
           onChange(
             datePart ? `${datePart}T${event.target.value || "00:00"}` : "",

@@ -9,13 +9,16 @@ import (
 
 func (s *server) playerManifest(w http.ResponseWriter, r *http.Request) {
 	principal := r.Context().Value(deviceContextKey).(devices.DevicePrincipal)
-	manifest, etag, err := s.playlists.BuildManifest(r.Context(), principal.ScreenID)
+	const schedulePrecisionHeader = "X-Tilecast-Schedule-Precision"
+	weeklySeconds := r.Header.Get(schedulePrecisionHeader) == "seconds"
+	manifest, etag, err := s.playlists.BuildPlayerManifest(r.Context(), principal.ScreenID, weeklySeconds)
 	if err != nil {
 		s.writePlaylistError(w, r, err)
 		return
 	}
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "private, no-cache")
+	w.Header().Add("Vary", schedulePrecisionHeader)
 	if strings.TrimSpace(r.Header.Get("If-None-Match")) == etag {
 		w.WriteHeader(http.StatusNotModified)
 		return

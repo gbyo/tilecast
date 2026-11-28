@@ -260,6 +260,9 @@ function PreflightResult({
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
+        second: new Date(result.checkedAt).getUTCSeconds()
+          ? "2-digit"
+          : undefined,
         timeZoneName: "short",
       })
     : "";

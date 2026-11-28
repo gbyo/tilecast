@@ -149,6 +149,7 @@ When the Server answers, the Host acts on the answer:
 - An installation identity that changed, a revoked binding, or a replaced binding removes the local activation, its grants, and its pins.
 - A disabled Screen stops local playback. The Host keeps the stored content.
 - A current binding leads to reconciliation with the Server selection.
+  When the Server gives an earlier evaluation time, the Host polls at that time.
 
 A restored activation must match the saved server installation, slot, and binding.
 One missing, resized, or corrupt resource discards the whole activation.

@@ -66,7 +66,8 @@
       "moveDown": "Mover para baixo",
       "moveTop": "Mover para o topo",
       "moveBottom": "Mover para baixo",
-      "deleteField": "Excluir campo"
+      "deleteField": "Excluir campo",
+      "move": "Mover"
     },
     "row": {
       "editField": "Editar {{name}}",

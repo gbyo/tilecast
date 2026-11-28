@@ -217,6 +217,14 @@
       "customUserAgent": {
         "label": "Agente de usuário personalizado",
         "description": "Deixe em branco para o agente de usuário padrão do Player. As substituições podem quebrar sites."
+      },
+      "dataSourceId": {
+        "label": "Fonte de dados",
+        "description": "Opcional. Use {data.room} para o campo room do primeiro registro, {data.room:1} para o segundo ou {data.json} para todos os registros em JSON. Também estão disponíveis {screen.id}, {date}, {time} e {datetime}."
+      },
+      "urlTemplatesEnabled": {
+        "label": "Ativar variáveis de URL",
+        "description": "Substitui as variáveis de tela, data, hora e fonte de dados. Requer Players compatíveis."
       }
     }
   },

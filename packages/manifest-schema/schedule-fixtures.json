@@ -54,6 +54,76 @@
     "expectedSource": "schedule"
   },
   {
+    "name": "weekly activation on the exact second",
+    "now": "2026-07-17T13:00:10Z",
+    "fallbackPlaylistId": "fallback",
+    "schedules": [
+      {
+        "id": "00000000-0000-0000-0000-000000000005",
+        "playlistId": "00000000-0000-0000-0000-000000000015",
+        "type": "weekly",
+        "timezone": "America/New_York",
+        "priority": 0,
+        "specificity": 0,
+        "enabled": true,
+        "dailyStart": "09:00:10",
+        "dailyEnd": "09:00:25",
+        "daysOfWeek": [5]
+      }
+    ],
+    "expectedScheduleId": "00000000-0000-0000-0000-000000000005",
+    "expectedPlaylistId": "00000000-0000-0000-0000-000000000015",
+    "expectedSource": "schedule",
+    "expectedNextTransitionAt": "2026-07-17T13:00:25Z"
+  },
+  {
+    "name": "weekly end within the starting minute restores fallback",
+    "now": "2026-07-17T13:00:25Z",
+    "fallbackPlaylistId": "fallback",
+    "schedules": [
+      {
+        "id": "00000000-0000-0000-0000-000000000005",
+        "playlistId": "00000000-0000-0000-0000-000000000015",
+        "type": "weekly",
+        "timezone": "America/New_York",
+        "priority": 0,
+        "specificity": 0,
+        "enabled": true,
+        "dailyStart": "09:00:10",
+        "dailyEnd": "09:00:25",
+        "daysOfWeek": [5]
+      }
+    ],
+    "expectedPlaylistId": "fallback",
+    "expectedSource": "direct_fallback",
+    "expectedNextTransitionAt": "2026-07-24T13:00:10Z"
+  },
+  {
+    "name": "weekly seconds cross midnight after the last allowed start day",
+    "now": "2026-07-17T14:00:00Z",
+    "fallbackPlaylistId": "fallback",
+    "schedules": [
+      {
+        "id": "00000000-0000-0000-0000-000000000006",
+        "playlistId": "00000000-0000-0000-0000-000000000016",
+        "type": "weekly",
+        "timezone": "Asia/Vladivostok",
+        "priority": 0,
+        "specificity": 0,
+        "enabled": true,
+        "startDate": "2026-07-17",
+        "endDate": "2026-07-17",
+        "dailyStart": "23:59:59",
+        "dailyEnd": "00:00:01",
+        "daysOfWeek": [5]
+      }
+    ],
+    "expectedScheduleId": "00000000-0000-0000-0000-000000000006",
+    "expectedPlaylistId": "00000000-0000-0000-0000-000000000016",
+    "expectedSource": "schedule",
+    "expectedNextTransitionAt": "2026-07-17T14:00:01Z"
+  },
+  {
     "name": "exact end restores fallback",
     "now": "2026-07-12T17:00:00Z",
     "fallbackPlaylistId": "fallback",

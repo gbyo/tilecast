@@ -287,7 +287,9 @@ export class ApiClient {
   // ---- Device-authenticated ------------------------------------------------
 
   async manifest(etag: string | null): Promise<ConditionalResult<Manifest>> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      "X-Tilecast-Schedule-Precision": "seconds",
+    };
     if (etag) {
       headers["If-None-Match"] = etag;
     }

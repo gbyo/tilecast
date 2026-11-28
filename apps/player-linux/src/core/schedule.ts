@@ -30,7 +30,10 @@ interface ZonedParts {
   day: number;
   hour: number;
   minute: number;
+  second: number;
 }
+
+type Clock = [hour: number, minute: number, second: number];
 
 interface Window {
   schedule: ManifestSchedule;
@@ -54,6 +57,7 @@ function formatter(timezone: string): Intl.DateTimeFormat {
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
       hourCycle: "h23",
     });
     formatters.set(timezone, value);
@@ -72,6 +76,7 @@ function zonedParts(timezone: string, at: Date): ZonedParts | null {
       day: get("day"),
       hour: get("hour"),
       minute: get("minute"),
+      second: get("second"),
     };
     return Object.values(value).every(Number.isFinite) ? value : null;
   } catch {
@@ -92,6 +97,7 @@ function dateParts(value: string): ZonedParts | null {
     day: Number(match[3]),
     hour: 0,
     minute: 0,
+    second: 0,
   };
 }
 
@@ -109,98 +115,71 @@ function weekday(value: string): number {
   return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
 }
 
-function parseClock(value: string | null | undefined): [number, number] | null {
-  const match = /^(\d{2}):(\d{2})$/.exec(value ?? "");
+function parseClock(value: string | null | undefined): Clock | null {
+  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value ?? "");
   if (!match) return null;
   const hour = Number(match[1]);
   const minute = Number(match[2]);
-  return hour <= 23 && minute <= 59 ? [hour, minute] : null;
+  const second = Number(match[3] ?? 0);
+  return hour <= 23 && minute <= 59 && second <= 59
+    ? [hour, minute, second]
+    : null;
 }
 
-function sameParts(a: ZonedParts | null, b: ZonedParts): boolean {
-  return (
-    a !== null &&
-    a.year === b.year &&
-    a.month === b.month &&
-    a.day === b.day &&
-    a.hour === b.hour &&
-    a.minute === b.minute
-  );
+function wallEpoch({ year, month, day, hour, minute, second }: ZonedParts) {
+  return Date.UTC(year, month - 1, day, hour, minute, second);
 }
 
 /**
- * Resolve a wall-clock minute in an IANA zone. Repeated times use the earlier
- * instant for starts and the later instant for ends. Gap times advance to the
- * first valid minute, matching Go and java.time.
+ * Resolve a wall-clock time in an IANA zone. Repeated times use the earlier
+ * instant for starts and the later instant for ends. Gap times use the first
+ * valid instant after the gap.
  */
 function resolveLocal(
   date: string,
-  clock: [number, number],
+  [hour, minute, second]: Clock,
   timezone: string,
   end: boolean,
 ): number | null {
   const day = dateParts(date);
   if (!day) return null;
-  const wanted = { ...day, hour: clock[0], minute: clock[1] };
-  const naive = Date.UTC(
-    wanted.year,
-    wanted.month - 1,
-    wanted.day,
-    wanted.hour,
-    wanted.minute,
-  );
-  const matches = localCandidates(wanted, naive, timezone);
-  if (matches.length > 0) return end ? matches.at(-1)! : matches[0]!;
-
-  // A DST spring gap is at most a few hours. Walk wall-clock minutes, not
-  // elapsed instants, to land on the zone's first valid local minute.
-  for (let minute = 1; minute <= 180; minute += 1) {
-    const shifted = new Date(naive + minute * 60_000);
-    const shiftedWanted: ZonedParts = {
-      year: shifted.getUTCFullYear(),
-      month: shifted.getUTCMonth() + 1,
-      day: shifted.getUTCDate(),
-      hour: shifted.getUTCHours(),
-      minute: shifted.getUTCMinutes(),
-    };
-    const shiftedMatches = localCandidates(
-      shiftedWanted,
-      shifted.getTime(),
-      timezone,
-    );
-    if (shiftedMatches.length > 0) {
-      return end ? shiftedMatches.at(-1)! : shiftedMatches[0]!;
-    }
-  }
-  return null;
-}
-
-function localCandidates(
-  wanted: ZonedParts,
-  naive: number,
-  timezone: string,
-): number[] {
+  const naive = wallEpoch({ ...day, hour, minute, second });
   const offsets = new Set<number>();
   for (let hours = -36; hours <= 36; hours += 6) {
     const sample = naive + hours * 60 * 60 * 1000;
     const local = zonedParts(timezone, new Date(sample));
-    if (local) {
-      const localAsUtc = Date.UTC(
-        local.year,
-        local.month - 1,
-        local.day,
-        local.hour,
-        local.minute,
-      );
-      offsets.add(localAsUtc - sample);
+    if (local) offsets.add(wallEpoch(local) - sample);
+  }
+  const candidates = [...offsets]
+    .map((offset) => naive - offset)
+    .sort((a, b) => a - b);
+  const matches = [];
+  let before: number | undefined;
+  let after: number | undefined;
+  for (const candidate of candidates) {
+    const local = zonedParts(timezone, new Date(candidate));
+    if (!local) continue;
+    const wall = wallEpoch(local);
+    if (wall === naive) matches.push(candidate);
+    if (wall < naive) before = candidate;
+    if (wall > naive && before !== undefined) {
+      after = candidate;
+      break;
     }
   }
-  return [...offsets]
-    .map((offset) => naive - offset)
-    .filter((candidate) =>
-      sameParts(zonedParts(timezone, new Date(candidate)), wanted),
-    )
-    .sort((a, b) => a - b);
+  if (matches.length > 0) return end ? matches.at(-1)! : matches[0]!;
+  if (before === undefined || after === undefined) return null;
+
+  // The two guesses straddle a forward offset transition. Bisect at whole
+  // seconds to find its boundary without carrying seconds into the gap end.
+  while (after - before > 1000) {
+    const middle: number = before + Math.floor((after - before) / 2000) * 1000;
+    const local = zonedParts(timezone, new Date(middle));
+    if (!local) return null;
+    if (wallEpoch(local) < naive) before = middle;
+    else after = middle;
+  }
+  return after;
 }
 
 function windows(schedule: ManifestSchedule, at: Date): Window[] {
@@ -230,8 +209,9 @@ function windows(schedule: ManifestSchedule, at: Date): Window[] {
   ].join("|");
   const cached = weeklyWindowCache.get(cacheKey);
   if (cached) return cached.map((window) => ({ schedule, ...window }));
-  const overnight =
-    endClock[0] * 60 + endClock[1] <= startClock[0] * 60 + startClock[1];
+  const seconds = ([hour, minute, second]: Clock) =>
+    hour * 3600 + minute * 60 + second;
+  const overnight = seconds(endClock) <= seconds(startClock);
   const result: Window[] = [];
   for (let offset = -1; offset <= 8; offset += 1) {
     const origin = addDays(today, offset);

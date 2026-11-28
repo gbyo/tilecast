@@ -75,11 +75,13 @@ export async function reconcileSelection(
   // The manifest request establishes the Screen's manifest state, which the
   // selection read depends on, so it cannot run in parallel with it.
   const manifest = await api.request<Manifest>("/api/v1/player/manifest");
+  const afterManifest = now();
   const [config, selection] = await Promise.all([
     api.request<PlayerConfig>("/api/v1/player/config"),
     api.request<ServerSelection>("/api/v1/player/browser/selection"),
   ]);
-  const clockOffsetMs = Date.parse(manifest.serverTime) - (before + now()) / 2;
+  const clockOffsetMs =
+    Date.parse(manifest.serverTime) - (before + afterManifest) / 2;
   const selected = selection.current?.selected ?? null;
   const next = selection.current?.nextEvaluationAt;
   const plan = planPresentation({
