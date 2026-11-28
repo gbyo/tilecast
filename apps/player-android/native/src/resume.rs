@@ -40,17 +40,8 @@ pub struct ResumeState {
 }
 
 impl ResumeState {
-    fn loaded(
-        binding: Option<ResumeBinding>,
-        pending: Option<playback_checkpoint::PlaybackCheckpoint>,
-    ) -> Self {
-        Self {
-            binding,
-            pending,
-            applied: None,
-            last_written: None,
-            projected_manifest: None,
-        }
+    fn loaded(binding: Option<ResumeBinding>, pending: Option<playback_checkpoint::PlaybackCheckpoint>) -> Self {
+        Self { binding, pending, applied: None, last_written: None, projected_manifest: None }
     }
 
     fn set_binding(&mut self, binding: Option<ResumeBinding>) {
@@ -63,19 +54,12 @@ impl ResumeState {
     }
 
     fn observe_manifest(&mut self, document: &serde_json::Value, digest: &str, version: i64) {
-        if self
-            .projected_manifest
-            .as_ref()
-            .is_some_and(|(previous, _)| previous == digest)
-        {
+        if self.projected_manifest.as_ref().is_some_and(|(previous, _)| previous == digest) {
             return;
         }
         if let Some((previous, active)) = self.projected_manifest.as_ref()
             && player_core::is_plugin_only_revision(active, document)
-            && let Some(applied) = self
-                .applied
-                .as_mut()
-                .filter(|rotation| rotation.manifest_digest == *previous)
+            && let Some(applied) = self.applied.as_mut().filter(|rotation| rotation.manifest_digest == *previous)
         {
             applied.manifest_digest = digest.to_owned();
             applied.manifest_version = version;
@@ -84,19 +68,13 @@ impl ResumeState {
     }
 
     fn needs_write(&self, manifest_digest: &str, playlist_id: &str, item_id: &str) -> bool {
-        self.last_written
-            .as_ref()
-            .is_none_or(|(digest, playlist, item)| {
-                digest != manifest_digest || playlist != playlist_id || item != item_id
-            })
+        self.last_written.as_ref().is_none_or(|(digest, playlist, item)| {
+            digest != manifest_digest || playlist != playlist_id || item != item_id
+        })
     }
 
     fn mark_written(&mut self, manifest_digest: &str, playlist_id: &str, item_id: &str) {
-        self.last_written = Some((
-            manifest_digest.to_owned(),
-            playlist_id.to_owned(),
-            item_id.to_owned(),
-        ));
+        self.last_written = Some((manifest_digest.to_owned(), playlist_id.to_owned(), item_id.to_owned()));
     }
 }
 
@@ -110,40 +88,22 @@ fn binding_value(bound: binding::ServerBinding) -> Option<ResumeBinding> {
 
 /// Startup-only load. Android opens Player State before its async drivers.
 pub fn load_resume_state(state: &StateDb) -> ResumeState {
-    let binding = state
-        .run_blocking(|connection| binding::get(connection))
-        .ok()
-        .flatten()
-        .and_then(binding_value);
-    let pending = state
-        .run_blocking(|connection| playback_checkpoint::get(connection))
-        .ok()
-        .flatten();
+    let binding = state.run_blocking(|connection| binding::get(connection)).ok().flatten().and_then(binding_value);
+    let pending = state.run_blocking(|connection| playback_checkpoint::get(connection)).ok().flatten();
     ResumeState::loaded(binding, pending)
 }
 
 /// Pairing can establish a binding after process start. Refresh it before the
 /// manifest loop projects the newly enrolled screen.
 pub async fn refresh_binding(state: &StateDb, resume: &Arc<Mutex<ResumeState>>) {
-    let binding = state
-        .run(|connection| binding::get(connection))
-        .await
-        .ok()
-        .flatten()
-        .and_then(binding_value);
-    resume
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .set_binding(binding);
+    let binding = state.run(|connection| binding::get(connection)).await.ok().flatten().and_then(binding_value);
+    resume.lock().unwrap_or_else(|error| error.into_inner()).set_binding(binding);
 }
 
 /// An explicit server reset must not let the old relationship keep writing
 /// checkpoints while setup owns the screen.
 pub fn clear_binding(resume: &Arc<Mutex<ResumeState>>) {
-    resume
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .set_binding(None);
+    resume.lock().unwrap_or_else(|error| error.into_inner()).set_binding(None);
 }
 
 /// Persist one accepted, meaningful item report. Layouts, takeovers,
@@ -187,15 +147,8 @@ pub async fn note_item_evidence(
         presented_at: now,
         updated_at: now,
     };
-    if state
-        .run(move |connection| playback_checkpoint::put(connection, &checkpoint))
-        .await
-        .is_ok()
-    {
-        resume
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .mark_written(&manifest_digest, &playlist_id, item_id);
+    if state.run(move |connection| playback_checkpoint::put(connection, &checkpoint)).await.is_ok() {
+        resume.lock().unwrap_or_else(|error| error.into_inner()).mark_written(&manifest_digest, &playlist_id, item_id);
     }
 }
 
@@ -211,11 +164,7 @@ pub fn maybe_rotate(
     let manifest_digest = manifest.digest.to_hex();
     state.observe_manifest(&manifest.document, &manifest_digest, manifest.version);
 
-    let Some(items) = resolved
-        .document
-        .get_mut("items")
-        .and_then(serde_json::Value::as_array_mut)
-    else {
+    let Some(items) = resolved.document.get_mut("items").and_then(serde_json::Value::as_array_mut) else {
         return;
     };
     if items.len() < 2 || resolved.timing.is_some() {
@@ -225,17 +174,11 @@ pub fn maybe_rotate(
     let ordinary = selection.playlist_id.is_some()
         && selection.layout_id.is_none()
         && selection.takeover_id.is_none()
-        && matches!(
-            selection.source,
-            player_core::Source::Direct | player_core::Source::Schedule
-        );
+        && matches!(selection.source, player_core::Source::Direct | player_core::Source::Schedule);
     if !ordinary {
         return;
     }
-    let playlist_id = selection
-        .playlist_id
-        .map(|id| id.to_string())
-        .unwrap_or_default();
+    let playlist_id = selection.playlist_id.map(|id| id.to_string()).unwrap_or_default();
 
     if let Some(applied) = state.applied.as_ref() {
         if applied.manifest_digest == manifest_digest
@@ -255,15 +198,7 @@ pub fn maybe_rotate(
     let Some(checkpoint) = state.pending.take() else {
         return;
     };
-    if validate(
-        &checkpoint,
-        state.binding.as_ref(),
-        &manifest_digest,
-        manifest.version,
-        &playlist_id,
-        now_ms,
-    )
-    .is_err()
+    if validate(&checkpoint, state.binding.as_ref(), &manifest_digest, manifest.version, &playlist_id, now_ms).is_err()
     {
         return;
     }
@@ -278,9 +213,8 @@ pub fn maybe_rotate(
 }
 
 fn rotate_to(items: &mut [serde_json::Value], item_id: &str) -> bool {
-    let Some(index) = items.iter().position(|item| {
-        item.get("id").and_then(serde_json::Value::as_str) == Some(item_id)
-    }) else {
+    let Some(index) = items.iter().position(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(item_id))
+    else {
         return false;
     };
     if index == 0 {

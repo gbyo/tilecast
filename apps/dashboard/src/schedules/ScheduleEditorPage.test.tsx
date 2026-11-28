@@ -341,7 +341,7 @@ describe("Creating a schedule", () => {
     expect(screen.getByText("Organization default")).toBeInTheDocument();
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Create schedule" }),
+      saveButton(),
     ).toBeEnabled();
     // Applying the default was not an edit: leaving asks nothing.
     await userEvent.click(screen.getByRole("link", { name: "away" }));
@@ -461,7 +461,7 @@ describe("Creating a schedule", () => {
         screen.getByRole("button", { name: "Change" }),
       ).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole("button", { name: "Create schedule" }));
+    await user.click(saveButton());
     await waitFor(() => expect(api.createSchedule).toHaveBeenCalled());
     expect(api.createSchedule.mock.calls[0]![0]).toMatchObject({
       name: "Weekdays",
@@ -508,7 +508,7 @@ describe("Creating a schedule", () => {
       screen.getByRole("button", { name: "Use this presentation" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "Create schedule" }),
+      await screen.findByRole("button", { name: /^(Create schedule|Save)$/ }),
     );
     await waitFor(() => expect(api.createSchedule).toHaveBeenCalled());
     await user.type(screen.getByLabelText("Name"), " Edited");
