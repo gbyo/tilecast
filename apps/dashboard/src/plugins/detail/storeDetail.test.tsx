@@ -71,8 +71,9 @@ let rollbackError: unknown;
 let calls: Call[] = [];
 /** Holds every review resolution until released, to settle it after a navigation. */
 let resolveGate: Promise<void> | undefined;
-let viewport: { compact: boolean; wide: boolean } = {
+let viewport = {
   compact: false,
+  phone: false,
   wide: false,
 };
 
@@ -93,6 +94,7 @@ function stubViewport(next: Partial<typeof viewport>) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches:
       (query === "(max-width: 1023px)" && viewport.compact) ||
+      (query === "(max-width: 639px)" && viewport.phone) ||
       (query === "(min-width: 1280px)" && viewport.wide),
     media: query,
     onchange: null,
@@ -116,7 +118,7 @@ beforeEach(async () => {
   rollbackError = undefined;
   calls = [];
   resolveGate = undefined;
-  viewport = { compact: false, wide: false };
+  viewport = { compact: false, phone: false, wide: false };
   stubViewport({});
   jobsStub.mockReset();
   jobsStub.mockResolvedValue([]);
@@ -1092,7 +1094,7 @@ describe("Install review", () => {
   });
 
   it("opens a Drawer on a phone", async () => {
-    stubViewport({ compact: true });
+    stubViewport({ compact: true, phone: true });
     const user = userEvent.setup();
     renderDetail("acme.weather");
     await user.click(
@@ -1419,7 +1421,7 @@ describe("Update review", () => {
   });
 
   it("uses a Drawer for the update review on a phone", async () => {
-    stubViewport({ compact: true });
+    stubViewport({ compact: true, phone: true });
     check = updateCheck({
       installed: installedPackage(),
       available: true,
