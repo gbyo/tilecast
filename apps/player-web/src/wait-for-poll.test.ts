@@ -1,6 +1,6 @@
 import { getEventListeners } from "node:events";
 import { describe, expect, it } from "vitest";
-import { nextPollDelay, waitForPoll } from "./player";
+import { BrowserPlayer, nextPollDelay, waitForPoll } from "./player";
 
 it("wakes at the server's next boundary before the regular poll", () => {
   expect(nextPollDelay(10_000, 1700, 2000)).toBe(300);
@@ -8,6 +8,34 @@ it("wakes at the server's next boundary before the regular poll", () => {
   expect(nextPollDelay(10_000, 1700, 20_000)).toBe(10_000);
   expect(nextPollDelay(10_000, 1700, null)).toBe(10_000);
   expect(nextPollDelay(10_000, 2100, 2000)).toBeGreaterThan(0);
+});
+
+it("uses the latest reconciliation boundary after a sync command", async () => {
+  type TestPlan = { validUntil: Date | null };
+  const previous: TestPlan = { validUntil: null };
+  const fresh: TestPlan = { validUntil: new Date(2000) };
+  // Exercise the real command-poll methods without constructing a DOM host.
+  const player = Object.create(BrowserPlayer.prototype) as {
+    syncNow(): Promise<void>;
+    pollCommands(plan: TestPlan | null): Promise<TestPlan | null>;
+  };
+  let sync = true;
+  Object.assign(player, {
+    link: { server: {}, bound: {} },
+    reconcile: async () => fresh,
+    commands: {
+      poll: async () => {
+        if (sync) await player.syncNow();
+      },
+    },
+  });
+  const selected = await player.pollCommands(previous);
+  expect(selected).toBe(fresh);
+  expect(nextPollDelay(10_000, 1700, selected?.validUntil?.getTime() ?? null)).toBe(
+    300,
+  );
+  sync = false;
+  expect(await player.pollCommands(previous)).toBe(previous);
 });
 
 describe("waitForPoll", () => {
