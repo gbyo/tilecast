@@ -313,8 +313,11 @@ mod tests {
             version: 3,
             digest: player_types::Sha256Digest::of(b"manifest"),
             document: serde_json::json!({"playlist": {"items": [1,2,3]}}),
+            screen_id: player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(1)),
             assets: Vec::new(),
-            frames: Vec::new(),
+            required_downloads: Vec::new(),
+            required_bundles: Vec::new(),
+            required_frames: Vec::new(),
         }
     }
 
