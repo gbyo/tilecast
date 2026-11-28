@@ -130,6 +130,7 @@ export class BrowserPlayer {
   private index!: IndexedObjects;
   private activity: ActivityEngine | undefined;
   private commands: CommandRunner | undefined;
+  private commandPlan: PresentationPlan | null = null;
   private readonly capabilityProviders = new CapabilityProviderRegistry();
   private companion: CompanionBridge | undefined;
   private reportedCapabilities: string | undefined;
@@ -441,7 +442,7 @@ export class BrowserPlayer {
 
   private async syncNow(): Promise<void> {
     if (!this.link) throw new Error("This Browser Player is not connected.");
-    await this.reconcile(this.link.server, this.link.bound);
+    this.commandPlan = await this.reconcile(this.link.server, this.link.bound);
   }
 
   private reloadPlayback(): boolean {
@@ -617,6 +618,7 @@ export class BrowserPlayer {
     await this.heartbeat();
     // Commands and Activity follow the heartbeat, so an operator sees the
     // Player's current state before its answer.
+    this.commandPlan = null;
     await this.commands?.poll();
     await this.activity?.flush(
       this.api,
@@ -626,7 +628,7 @@ export class BrowserPlayer {
     );
     await this.display.maintain();
     await this.finishUpdate();
-    return plan;
+    return this.commandPlan ?? plan;
   }
 
   private async reconcile(
