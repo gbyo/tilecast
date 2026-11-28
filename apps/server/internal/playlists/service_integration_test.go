@@ -363,7 +363,7 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 						t.Fatalf("weekly schedule lost precision: %+v", entry)
 					}
 				} else {
-					window, ok := scheduling.NextInterval(record.Schedule, manifest.ServerTime)
+					window, ok := scheduling.CurrentOrNextInterval(record.Schedule, manifest.ServerTime)
 					if !ok || entry.Type != "one_time" || entry.DailyStart != nil || entry.DailyEnd != nil || entry.OneTimeStart == nil || !entry.OneTimeStart.Equal(window.Start) || entry.OneTimeEnd == nil || !entry.OneTimeEnd.Equal(window.End) {
 						t.Fatalf("legacy window=%+v, expected %v to %v", entry, window.Start, window.End)
 					}
